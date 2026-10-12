@@ -817,3 +817,13 @@ img{max-width:100%}
 @media (hover:hover){.c-send:hover{box-shadow:var(--glow)}}
 .c-send:active{transform:scale(.92)}
 .c-meta .c-name{font:700 14px var(--sans);color:var(--title);letter-spacing:-.01em}.pc-box .c-bubble{background:hsl(var(--accent)/.45)}
+
+/* 37. Comentarios limpios: sin burbuja que encierre el texto */
+.c-bubble,.dark .c-bubble,.comment.reply .c-bubble,.pc-box .c-bubble{background:transparent;border:0;border-radius:0;box-shadow:none;padding:0}
+.c-meta{padding-right:32px}
+.c-more-wrap{top:-4px;right:0}
+.c-actions{margin:2px 0 0 -8px}
+.comment{padding:10px 0}
+.comment .avatar{margin-top:0}
+.c-replies{margin:2px 0 0 0;padding-left:14px}
+.c-rtoggle{margin:4px 0 0 0}
