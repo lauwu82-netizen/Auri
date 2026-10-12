@@ -950,6 +950,7 @@ function modView(sub) {
   const books = pendingBooks().reverse(), nr = openReports(), tabs = `<div class="tabs" role="tablist"><a class="tab ${sub === 'reports' ? '' : 'active'}" href="#/moderation">📚 Libros (${books.length})</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">🚩 Reportes${nr ? ` (${nr})` : ''}</a></div>`;
   if (sub === 'reports') return reportsView(tabs);
   return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">🛡 Moderación</span><h2 style="margin-top:8px">Libros por revisar (${books.length})</h2><p>Una ficha por libro. Los capítulos se aprueban en orden: 1, 2, 3…</p></div></div>
+  ${books.length ? '' : `<p class="notice" style="margin-bottom:14px">No hay libros en revisión en <b>este navegador</b>. Por ahora cada navegador o dispositivo guarda sus propios datos: un libro enviado desde otro teléfono, navegador o editor no llega hasta aquí. Para que lleguen entre dispositivos hace falta el servidor.</p>`}
   ${books.length ? books.map(s => {
     const first = !publicPrefix(s.chapters).length, np = s.chapters.filter(c => c.status === 'pending').length;
     return `<details class="panel book" data-book="${esc(s.id)}" ${OPEN.has(s.id) ? 'open' : ''} style="margin-bottom:14px"><summary class="book-sum">${s.cover ? `<img class="book-thumb" src="${esc(s.cover)}" alt="">` : '<span class="book-thumb">📖</span>'}
@@ -1277,23 +1278,26 @@ function libraryView() {
 let EDITC = null;   // id del comentario que se está editando
 function updateComments(sid, fn) { const all = G.get('comments', {}); all[sid] = fn(all[sid] || []); G.set('comments', all); }
 let REPLYTO = null, REPLYPRE = ''; const REPOPEN = new Set();        // hilo donde estás respondiendo · hilos con las respuestas abiertas
+const ICO_REPLY = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12c0 4.4-4 8-9 8-1.2 0-2.3-.2-3.3-.5L3 21l1.6-4.3C3.6 15.5 3 13.8 3 12c0-4.4 4-8 9-8s9 3.6 9 8z"/></svg>';
+const ICO_SEND = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>';
+let MENUC = null;                                      // comentario con el menú «⋯» abierto
 function cmRow(x, s, sub, extra = '') {
-  const mine = x.by === S.user, lk = x.lk || [], liked = lk.includes(S.user), top = sub ? x.parent : x.id;
-  const acts = `<button type="button" class="c-heart ${liked ? 'on' : ''}" data-act="c-like" data-id="${esc(s.id)}" data-cid="${x.id}" aria-pressed="${liked}" aria-label="${liked ? 'Quitar me gusta' : 'Me gusta'}">${HEART}<span class="c-n">${lk.length}</span></button>
-    <button type="button" class="c-act" data-act="c-reply" data-top="${top}" data-pre="${sub ? esc('@' + uName(x.by) + ' ') : ''}">Responder</button>${mine ? `<button type="button" class="c-act" data-act="c-edit" data-cid="${x.id}">Editar</button>` : `<button type="button" class="c-act" data-act="report-comment" data-id="${esc(s.id)}" data-cid="${x.id}">Reportar</button>`}${mine || isAdmin() ? `<button type="button" class="c-act danger-link" data-act="c-del" data-id="${esc(s.id)}" data-cid="${x.id}">Eliminar</button>` : ''}`;
+  const mine = x.by === S.user, lk = x.lk || [], liked = lk.includes(S.user), top = sub ? x.parent : x.id, role = ROLE_LABEL[roleOf(x.by)];
+  const menu = MENUC === x.id ? `<div class="c-menu" role="menu">${mine ? `<button type="button" role="menuitem" data-act="c-edit" data-cid="${x.id}">✎ Editar</button>` : `<button type="button" role="menuitem" data-act="report-comment" data-id="${esc(s.id)}" data-cid="${x.id}">🚩 Reportar</button>`}${mine || isAdmin() ? `<button type="button" role="menuitem" class="danger-link" data-act="c-del" data-id="${esc(s.id)}" data-cid="${x.id}">🗑 Eliminar</button>` : ''}</div>` : '';
   return `<div class="comment ${sub ? 'reply' : ''}" id="cm-${x.id}">${userAvatar(x.by)}<div class="c-main">
-    <div class="c-bubble"><div class="c-meta"><a href="#/user/${encodeURIComponent(x.by)}"><strong>${esc(uName(x.by))}</strong></a>${relSpan(x)}${x.edited ? '<span class="c-ed">· editado</span>' : ''}</div>
+    <div class="c-bubble"><div class="c-meta"><a href="#/user/${encodeURIComponent(x.by)}"><strong>${esc(uName(x.by))}</strong></a>${x.by === s.owner ? '<span class="c-badge own">Autoría</span>' : ''}${role ? `<span class="c-badge staff">${esc(role)}</span>` : ''}${relSpan(x)}${x.edited ? '<span class="c-ed">· editado</span>' : ''}
+      <span class="c-more-wrap"><button type="button" class="c-more" data-act="c-more" data-cid="${x.id}" aria-label="Más opciones" aria-expanded="${MENUC === x.id}">⋯</button>${menu}</span></div>
     ${EDITC === x.id ? `<textarea id="c-edit-text" class="textarea" style="min-height:70px;margin-top:6px" maxlength="300">${esc(x.text)}</textarea><div class="c-actions"><button class="button sm" data-act="c-save" data-id="${esc(s.id)}" data-cid="${x.id}">Guardar</button><button class="button ghost sm" data-act="c-cancel">Cancelar</button></div>` : `<div class="c-text">${esc(x.text)}</div>`}</div>
-    ${EDITC === x.id ? '' : `<div class="c-actions">${acts}</div>`}${extra}</div></div>`;
+    ${EDITC === x.id ? '' : `<div class="c-actions"><button type="button" class="c-heart ${liked ? 'on' : ''}" data-act="c-like" data-id="${esc(s.id)}" data-cid="${x.id}" aria-pressed="${liked}" aria-label="${liked ? 'Quitar me gusta' : 'Me gusta'}">${HEART}<span class="c-n">${lk.length || ''}</span></button><button type="button" class="c-act" data-act="c-reply" data-top="${top}" data-pre="${sub ? esc('@' + uName(x.by) + ' ') : ''}">${ICO_REPLY}Responder</button></div>`}${extra}</div></div>`;
 }
 function commentsHTML(s) {
   const all = comments(s.id).filter(c => !hidesFrom(c.by)), tops = all.filter(c => !c.parent);
   return `<section class="panel" style="margin-top:20px"><h2>Comentarios (${all.length})</h2>
-  <form data-form="comment" data-id="${esc(s.id)}" style="display:flex;gap:8px;margin-bottom:10px"><input id="c-text" class="field" maxlength="300" placeholder="Escribe un comentario…"><button class="button" type="submit">Enviar</button></form>
+  <form data-form="comment" data-id="${esc(s.id)}" class="c-compose">${userAvatar(S.user)}<div class="c-pill"><input id="c-text" maxlength="300" placeholder="Escribe un comentario…" aria-label="Escribe un comentario" autocomplete="off"><button class="c-send" type="submit" aria-label="Enviar comentario">${ICO_SEND}</button></div></form>
   ${tops.length ? tops.map(x => {
     const reps = all.filter(r => r.parent === x.id), open = REPOPEN.has(x.id);
-    const rf = REPLYTO === x.id ? `<form data-form="reply" data-id="${esc(s.id)}" data-cid="${x.id}" class="c-replyform"><input id="c-reply-text" class="field" maxlength="300" value="${esc(REPLYPRE)}" placeholder="Escribe una respuesta…" aria-label="Tu respuesta"><button class="button sm" type="submit">Enviar</button><button type="button" class="button ghost sm" data-act="c-reply-cancel">Cancelar</button></form>` : '';
-    const tg = reps.length ? `<button type="button" class="c-rtoggle" data-act="c-replies" data-cid="${x.id}" aria-expanded="${open}">${open ? '▴ Ocultar respuestas' : `▾ Ver las respuestas (${reps.length})`}</button>` : '';
+    const rf = REPLYTO === x.id ? `<form data-form="reply" data-id="${esc(s.id)}" data-cid="${x.id}" class="c-replyform">${userAvatar(S.user)}<div class="c-pill"><input id="c-reply-text" maxlength="300" value="${esc(REPLYPRE)}" placeholder="Escribe una respuesta…" aria-label="Tu respuesta" autocomplete="off"><button class="c-send" type="submit" aria-label="Enviar respuesta">${ICO_SEND}</button></div><button type="button" class="c-act" data-act="c-reply-cancel">Cancelar</button></form>` : '';
+    const tg = reps.length ? `<button type="button" class="c-rtoggle" data-act="c-replies" data-cid="${x.id}" aria-expanded="${open}"><i class="c-line"></i>${open ? 'Ocultar respuestas' : `Ver las respuestas (${reps.length})`}</button>` : '';
     return cmRow(x, s, false, `${tg}${open ? `<div class="c-replies">${reps.map(r => cmRow(r, s, true)).join('')}</div>` : ''}${rf}`);
   }).join('') : '<p class="helper">Sé la primera persona en comentar.</p>'}</section>`;
 }
@@ -1824,11 +1828,12 @@ document.addEventListener('click', e => {
     unmute: () => { setBM('muted', id, false); toast('Dejaste de silenciar a esta persona.'); KEEP = true; render(); },
     block: () => dialog('¿Bloquear a ' + uName(id) + '?', 'No verás sus comentarios ni sus obras, dejarán de seguirse y no habrá avisos entre ustedes. Puedes desbloquearla en Ajustes.', 'Bloquear', 'Cancelar', () => { blockUser(id); toast('Cuenta bloqueada'); KEEP = true; render(); }, true),
     unblock: () => { setBM('blocked', id, false); toast('Desbloqueada ✓'); KEEP = true; render(); },
+    'c-more': () => { const c = +el.dataset.cid; MENUC = MENUC === c ? null : c; KEEP = true; render(); },
     'c-like': () => { const cid = +el.dataset.cid; let added = false, target = ''; updateComments(id, l => l.map(c => { if (c.id !== cid) return c; const lk = c.lk || []; added = !lk.includes(S.user); target = c.by; return { ...c, lk: added ? [...lk, S.user] : lk.filter(x => x !== S.user) }; })); if (added && target) notify(target, 'clike', id, ''); KEEP = true; render(); const hb = document.querySelector(`.c-heart[data-cid="${cid}"]`); if (hb && added) { hb.classList.add('pulse'); setTimeout(() => hb.classList.remove('pulse'), 500); } },
     'c-reply': () => { REPLYTO = +el.dataset.top; REPLYPRE = el.dataset.pre || ''; REPOPEN.add(REPLYTO); KEEP = true; render(); const i = $('#c-reply-text'); if (i && i.focus) { i.focus(); if (i.setSelectionRange) i.setSelectionRange(i.value.length, i.value.length); } },
     'c-reply-cancel': () => { REPLYTO = null; REPLYPRE = ''; KEEP = true; render(); },
     'c-replies': () => { const c = +el.dataset.cid; REPOPEN.has(c) ? REPOPEN.delete(c) : REPOPEN.add(c); KEEP = true; render(); },
-    'c-edit': () => { EDITC = +el.dataset.cid; KEEP = true; render(); },
+    'c-edit': () => { MENUC = null; EDITC = +el.dataset.cid; KEEP = true; render(); },
     'c-cancel': () => { EDITC = null; KEEP = true; render(); },
     'c-save': () => { const t = ($('#c-edit-text').value || '').trim(), cid = +el.dataset.cid; if (!t) return toast('El comentario no puede estar vacío.');
       updateComments(id, l => l.map(c => c.id === cid && c.by === S.user ? { ...c, text: t, edited: true } : c)); EDITC = null; KEEP = true; render(); },
@@ -1956,6 +1961,7 @@ document.addEventListener('change', e => {
   if (id === 'av-file') squarePhoto(f, 256, d => { const u = getUsers(); u[S.user].avatar = d; G.set('users', u); render(); });
 });
 document.addEventListener('error', e => { if (e.target.classList && e.target.classList.contains('cover-img')) e.target.style.display = 'none'; if (e.target.classList && e.target.classList.contains('fr-img')) { e.target.style.display = 'none'; if (e.target.parentNode) e.target.parentNode.classList.add('fr-fallback'); } }, true);
+document.addEventListener('click', e => { if (MENUC !== null && !e.target.closest('.c-more-wrap')) { MENUC = null; KEEP = true; if (!e.target.closest('[data-act]')) render(); } }, true);
 document.addEventListener('submit', async e => {
   const form = e.target.closest('[data-form]'); if (!form) return;
   e.preventDefault();
