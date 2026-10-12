@@ -827,3 +827,11 @@ img{max-width:100%}
 .comment .avatar{margin-top:0}
 .c-replies{margin:2px 0 0 0;padding-left:14px}
 .c-rtoggle{margin:4px 0 0 0}
+
+/* 38. Comentarios de la autoría resaltados y "Le gustó a la autoría" (sin burbujas) */
+.comment.by-own{position:relative;margin-left:-10px;padding-left:10px;border-radius:14px;background:linear-gradient(90deg,hsl(var(--primary)/.09),transparent 85%)}
+.comment.by-own::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:2.5px;border-radius:3px;background:linear-gradient(180deg,hsl(var(--primary)),hsl(var(--primary)/.35))}
+.comment.by-own.reply{margin-left:0}
+.comment.by-own .c-name,.comment.by-own .c-meta strong{color:hsl(var(--primary))}
+.c-authlike{display:inline-flex;align-items:center;gap:5px;margin-left:6px;padding:3px 9px 3px 7px;border-radius:999px;font:600 11.5px var(--sans);color:hsl(var(--primary));background:hsl(var(--primary)/.1);white-space:nowrap}
+.c-authlike .heart{width:12px;height:12px;fill:hsl(var(--primary));stroke:none}
