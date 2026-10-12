@@ -10,6 +10,15 @@
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const today = () => new Date().toISOString().slice(0, 10);
+/** Etiquetas: se escriben con # (#romance lento #magia). Se guardan sin el # y se muestran con él */
+function parseTags(v) {
+  v = String(v || ''); const raw = v.includes('#') ? v.split('#') : v.split(',');
+  const out = []; raw.forEach(t => { t = t.replace(/\s+/g, ' ').trim().replace(/^#+/, '').trim().slice(0, 30); if (t && !out.some(o => o.toLowerCase() === t.toLowerCase())) out.push(t); });
+  return out.slice(0, 15);
+}
+const tagsText = tg => (tg || []).map(t => '#' + t).join(' ');
+const tagChips = (tg, cls = '') => (tg || []).map(t => `<button type="button" class="tag tag-link ${cls}" data-act="tag-search" data-id="${esc(t)}" aria-label="Buscar la etiqueta ${esc(t)}">#${esc(t)}</button>`).join('');
+const popTags = (n = 10) => { const c = {}; publishedStories().filter(matureOK).forEach(s => s.tags.forEach(t => { const k = t.toLowerCase(); c[k] = c[k] || { t, n: 0 }; c[k].n++; })); return Object.values(c).sort((a, b) => b.n - a.n).slice(0, n).map(x => x.t); };
 const GENRES = { Fantasy: 'Fantasía', Romance: 'Romance', 'Slice of life': 'Costumbrista', 'Sci-fi': 'Ciencia ficción', Mystery: 'Misterio', Other: 'Otro' };
 const genreName = g => GENRES[g] || g;
 let toastTimer;
@@ -83,12 +92,15 @@ function allStories() {                       // incluye historias de todas las 
 const pubChapter = c => c.status === 'approved' ? c : c.live ? { ...c, status: 'approved', title: c.live.title, text: c.live.text, music: c.live.music, cover: c.live.cover } : null;
 /** Solo es público el tramo de capítulos aprobados en orden consecutivo (1, 2, 3…) desde el primero */
 const publicPrefix = chs => { const out = []; for (let idx = 0; idx < chs.length; idx++) { const p = pubChapter(chs[idx]); if (!p) break; out.push({ ...p, idx }); } return out; };
-const publishedStories = () => allStories().map(s => ({ ...s, chapters: publicPrefix(s.chapters) })).filter(s => s.chapters.length);
+const takedown = () => G.get('takedown', []);                     // obras retiradas de Descubrir por moderación
+const pubAll = () => allStories().map(s => ({ ...s, chapters: publicPrefix(s.chapters) })).filter(s => s.chapters.length);
+const publishedStories = () => pubAll().filter(s => !takedown().includes(s.id));
 const pendingBooks = () => allStories().filter(s => s.chapters.some(c => c.status === 'pending'));
 /** Lo que se muestra al abrir una historia: SIEMPRE lo que ve el público (solo capítulos aprobados), también para su autoría.
  *  Solo si la obra aún no es pública (nada aprobado) la autoría abre su copia completa para poder leerla. */
 const findStory = id => {
   const pub = publishedStories().find(s => s.id === id); if (pub) return pub;
+  if (isStaff()) { const t = pubAll().find(s => s.id === id); if (t) return t; }     // el equipo puede abrir obras retiradas para analizarlas
   const m = S.stories.find(s => s.id === id);
   return m ? { ...m, owner: S.user, author: userName(), chapters: m.chapters.map((c, idx) => ({ ...c, idx })) } : undefined;
 };
@@ -144,7 +156,7 @@ const TEST_EMAIL = 'lauwu82@gmail.com', TEST_PASS = 'RiRi12345';
 async function seedTest() {
   try { if (localStorage.getItem('auri.testseeded')) return; const us = getUsers(); if (us[TEST_EMAIL]) { localStorage.setItem('auri.testseeded', '1'); return; }
     const salt = 'riri', hash = await sha(salt + TEST_PASS);
-    us[TEST_EMAIL] = { name: 'RiRi', salt, hash, birth: '2000-01-01', gender: 'Mujer', interests: [], onboarded: true, created: today(), role: 'USER', strikes: [], test: true };
+    us[TEST_EMAIL] = { name: 'RiRi', salt, hash, birth: '2000-01-01', gender: 'Mujer', interests: [], onboarded: true, termsAccepted: today(), created: today(), role: 'USER', strikes: [], test: true };
     G.set('users', us); localStorage.setItem('auri.testseeded', '1'); } catch (e) {}
 }
 function testRole(t, role) {                           // solo Owner y solo sobre la cuenta de prueba: cambia el rol al instante (sin invitación) y pone el marco
@@ -189,6 +201,16 @@ const frameImg = (src, extra = '') => `<img class="fr-img ${extra}" src="${esc(s
 const framedAvatar = (e, cls = '') => frWrap(e, cls, userAvatar(e, cls));
 const avatarHTML = (src, name, cls = '') => `<span class="avatar ${cls}">${src ? `<img src="${esc(src)}" alt="">` : esc([...(name || '?')][0].toUpperCase())}</span>`;
 const userAvatar = (e, cls = '') => avatarHTML((getUsers()[e] || {}).avatar, uName(e), cls);
+/* Bloquear y silenciar: cada cuenta guarda sus listas (auri.u.<correo>.blocked / .muted) */
+const bl = (e, k) => LS.get('auri.u.' + e + '.' + k, []);
+const iBlock = e => !!S.user && bl(S.user, 'blocked').includes(e), iMute = e => !!S.user && bl(S.user, 'muted').includes(e);
+const hidesFrom = e => !!S.user && !!e && e !== S.user && (iBlock(e) || iMute(e) || bl(e, 'blocked').includes(S.user));   // sus comentarios no se ven (los que bloqueaste, silenciaste o te bloquearon)
+const hidesStory = o => !!S.user && !!o && o !== S.user && (iBlock(o) || bl(o, 'blocked').includes(S.user));
+const noPing = (to, from) => !!from && (bl(to, 'blocked').includes(from) || bl(to, 'muted').includes(from) || bl(from, 'blocked').includes(to));
+function setBM(k, e, on) { const l = bl(S.user, k).filter(x => x !== e); LS.set('auri.u.' + S.user + '.' + k, on ? [...l, e] : l); }
+function blockUser(e) {
+  setBM('blocked', e, true); const f = follows(); f[S.user] = (f[S.user] || []).filter(x => x !== e); f[e] = (f[e] || []).filter(x => x !== S.user); G.set('follows', f);
+}
 const follows = () => G.get('follows', {});
 const following = e => follows()[e] || [];
 const followers = e => Object.keys(follows()).filter(f => following(f).includes(e));
@@ -201,6 +223,7 @@ const newsCover = n => { const b = n && newsBlocks(n).find(x => /^data:image\//.
 const unread = () => G.get('notifs.' + S.user, []).filter(n => !n.read).length;
 function notify(to, type, storyId, extra = '', chap = '', from = S.user) {
   if (!to || (to === S.user && type !== 'chapter')) return;
+  if (noPing(to, from)) return;                                  // bloqueada o silenciada: no llegan avisos
   if (['chapter', 'like', 'comment', 'follow'].includes(type) && ((LS.get('auri.u.' + to + '.cfg', {}).notif || {})[type] === false)) return;   // la persona apagó este tipo de aviso (los de moderación no se pueden apagar)
   const k = 'notifs.' + to, list = G.get(k, []);
   if ((type === 'like' || type === 'follow') && list.some(n => n.type === type && n.from === S.user && n.storyId === storyId)) return;
@@ -208,6 +231,7 @@ function notify(to, type, storyId, extra = '', chap = '', from = S.user) {
   G.set(k, list.slice(0, 100));
 }
 function toggleFollow(e) {
+  if (iBlock(e) || bl(e, 'blocked').includes(S.user)) return toast('No puedes seguir a esta persona.');
   const f = follows(), l = f[S.user] || [], was = l.includes(e);
   f[S.user] = was ? l.filter(x => x !== e) : [...l, e]; G.set('follows', f);
   if (!was) notify(e, 'follow', '');
@@ -284,7 +308,8 @@ const MIN_AGE = 13;                                    // edad mínima para crea
 const GENDERS = ['Hombre', 'Mujer', 'No binario', 'Otro'];
 const INTERESTS = [['Anime', '🌸'], ['AU', '🌀'], ['Enemies to lovers', '⚔️'], ['Dark romance', '🖤'], ['Cute', '🧸'], ['Fluff', '☁️'], ['Slow burn', '🕯️'], ['Friends to lovers', '🤝'], ['Angst', '💔'], ['Hurt/comfort', '🩹'],
   ['Comedia', '😂'], ['Drama', '🎭'], ['Romance', '💞'], ['Fantasía', '🧙'], ['Ciencia ficción', '🚀'], ['Misterio', '🔍'], ['Terror', '👻'], ['Slice of life', '🍵'], ['Escuela', '🏫'], ['Mafia', '🕶️'],
-  ['Vampiros', '🧛'], ['Isekai', '🌌'], ['Histórico', '🏰'], ['Found family', '🏡'], ['Reader insert (TN)', '🪞'], ['K-pop', '🎤'], ['Videojuegos', '🎮'], ['Original', '✨']];
+  ['Vampiros', '🧛'], ['Isekai', '🌌'], ['Histórico', '🏰'], ['Found family', '🏡'], ['Reader insert (TN)', '🪞'], ['K-pop', '🎤'], ['Videojuegos', '🎮'], ['Original', '✨'],
+  ['LGBTQ+', '🏳️‍🌈'], ['Yaoi', '💙'], ['Yuri', '💗'], ['Poliamor', '🫶']];
 const INTEREST_NAMES = INTERESTS.map(i => i[0]);
 const ageOf = birth => { const b = new Date(birth + 'T00:00:00'); if (isNaN(b)) return null; const t = new Date(); let a = t.getFullYear() - b.getFullYear(); if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) a--; return a; };
 const validBirth = v => { if (!/^\d{4}-\d{2}-\d{2}$/.test(v || '')) return false; const [y, m, d] = v.split('-').map(Number), dt = new Date(y, m - 1, d); return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d && dt <= new Date() && y >= 1900; };
@@ -300,13 +325,13 @@ async function register({ name, email, pass, pass2 }) {      // paso 0: correo y
   if (pass !== pass2) return 'Las contraseñas no coinciden.';
   if (users[email]) return 'Ese correo ya tiene una cuenta.';
   const salt = Math.random().toString(36).slice(2);
-  PENDING = { name, email, salt, hash: await sha(salt + pass) }; QZ = { step: 1, birth: '', gender: '', interests: [], mature: false, blocked: false };
+  PENDING = { name, email, salt, hash: await sha(salt + pass) }; QZ = { step: 1, birth: '', gender: '', interests: [], mature: false, blocked: false, terms: false };
   go('/signup'); return '';
 }
 function createAccount() {                             // último paso: se crea la cuenta con las respuestas
   const { name, email, salt, hash } = PENDING, users = LS.get('auri.users', {});
   if (users[email]) { PENDING = null; QZ = null; go('/register'); return toast('Ese correo ya tiene una cuenta.'); }
-  users[email] = { name, salt, hash, birth: QZ.birth, gender: QZ.gender, interests: QZ.interests, onboarded: true, created: today(), role: email === OWNER_EMAIL ? 'OWNER' : 'USER', strikes: [] };
+  users[email] = { name, salt, hash, birth: QZ.birth, gender: QZ.gender, interests: QZ.interests, onboarded: true, termsAccepted: today(), created: today(), role: email === OWNER_EMAIL ? 'OWNER' : 'USER', strikes: [] };
   LS.set('auri.users', users);
   LS.set('auri.u.' + email + '.cfg', { showMature: ageOf(QZ.birth) >= 18 && QZ.mature });   // la opción +18 del cuestionario enciende "Mostrar contenido +18"
   PENDING = null; QZ = null; startSession(email); toast('¡Listo! Tu cuenta está creada ✨');
@@ -336,7 +361,8 @@ function signupView() {
   else body = `<span class="eyebrow">Paso 3 de 3</span><h1>¿Qué te gusta leer?</h1><p class="helper">Elige todos los temas que quieras. Necesitamos al menos uno.</p>
     ${interestChips(q.interests, 'qz-int')}
     ${adult ? `<p class="helper" style="margin-top:6px">Solo para mayores de edad</p><div class="qz-chips"><button type="button" class="qz-chip mature ${q.mature ? 'on' : ''}" data-act="qz-18" aria-pressed="${q.mature}">🔞 Contenido +18</button></div>` : ''}
-    <div class="qz-foot"><p class="qz-count">${q.interests.length ? `${q.interests.length} elegido${q.interests.length === 1 ? '' : 's'}` : 'Elige al menos uno'}</p><button class="button" style="width:100%" data-act="qz-finish" ${q.interests.length ? '' : 'disabled'}>Crear mi cuenta ✨</button></div>`;
+    <label class="check qz-terms"><input type="checkbox" data-act="qz-terms" ${q.terms ? 'checked' : ''}><span>Acepto los <button type="button" class="link-btn" data-act="terms">términos y condiciones</button> y la <button type="button" class="link-btn" data-act="privacy">política de privacidad</button> de Auri.</span></label>
+    <div class="qz-foot"><p class="qz-count">${q.interests.length ? `${q.interests.length} elegido${q.interests.length === 1 ? '' : 's'}` : 'Elige al menos uno'}${q.terms ? '' : ' · falta aceptar los términos'}</p><button class="button" style="width:100%" data-act="qz-finish" ${q.interests.length && q.terms ? '' : 'disabled'}>Crear mi cuenta ✨</button></div>`;
   return `<main class="qz-wrap">${top}<div class="qz-card">${body}</div></main>`;
 }
 
@@ -413,8 +439,9 @@ function storyCard(s, i) {                       // portada limpia; título + fa
   <div class="mini-meta">${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : `<span>${esc(userName())}</span>`}${s.mature ? '<span class="dot18" title="Contenido +18">+18</span>' : ''}</div>${b ? `<div class="mini-pill">${esc(b)}</div>` : ''}</article>`;
 }
 function discoverList() {
-  const live = publishedStories().filter(matureOK);
-  const f = live.filter(s => (GEN === 'All' || s.genre === GEN) && `${s.title} ${s.synopsis} ${s.fandom} ${s.tags.join(' ')}`.toLowerCase().includes(Q.toLowerCase()));
+  const live = publishedStories().filter(matureOK).filter(s => !hidesStory(s.owner));
+  const qs = Q.trim().toLowerCase(), tq = qs.includes('#') ? parseTags(qs).map(x => x.toLowerCase()) : null;      // «#romance #au» busca por etiquetas
+  const f = live.filter(s => (GEN === 'All' || s.genre === GEN) && (tq ? tq.every(t => s.tags.some(x => x.toLowerCase() === t || x.toLowerCase().includes(t))) : `${s.title} ${s.synopsis} ${s.fandom} ${s.tags.join(' ')}`.toLowerCase().includes(qs)));
   if (f.length) return `<div class="story-grid">${f.map(storyCard).join('')}</div>`;
   if (!live.length) return empty('El estante de Auri está vacío', 'Aquí aparecerán las historias creadas por las personas usuarias. Puedes escribir la primera.', '<a class="button secondary" href="#/write">Crear la primera historia</a>');
   return empty('No encontramos historias', 'Prueba con otra búsqueda o género.', '<button class="button secondary" data-act="clear">Borrar filtros</button>');
@@ -458,6 +485,7 @@ function discoverView() {
   <h1>Encuentra tu próxima emoción favorita.</h1><p>Historias para leer a gusto, personajes que te acompañan y un rincón para crear algo propio.</p>
   <a class="button secondary" href="#/library">Ir a mi biblioteca</a>${mascot('mascot')}</section>`}
   <div class="section-head"><div><h2>Historias que te roban el sueño</h2><p>Libros creados por personas usuarias.</p></div></div>
+  ${popTags().length ? `<div class="tag-row" aria-label="Etiquetas populares"><span class="helper">Etiquetas:</span>${popTags().map(t => `<button type="button" class="tag tag-link ${Q.trim().toLowerCase() === '#' + t.toLowerCase() ? 'on' : ''}" data-act="tag-search" data-id="${esc(t)}">#${esc(t)}</button>`).join('')}</div>` : ''}
   <div class="filter-row">${gens.map(g => `<button class="chip ${GEN === g ? 'active' : ''}" data-act="genre" data-id="${esc(g)}">${g === 'All' ? 'Todos' : esc(genreName(g))}</button>`).join('')}</div>
   <div id="list">${discoverList()}</div>
   <p class="notice" style="margin-top:24px">En esta versión las historias se guardan en este navegador y solo las ven las cuentas de este dispositivo.</p></main>`;
@@ -480,6 +508,7 @@ const TERMS = `<ol>
 <li><b>Revisión.</b> Toda historia pasa por moderación antes de aparecer en Descubrir. Puede aprobarse, rechazarse con un motivo o retirarse después si incumple estas reglas.</li>
 <li><b>Responsabilidad.</b> Eres responsable de tu contenido y de etiquetarlo bien. Una etiqueta incorrecta puede ser motivo de rechazo.</li>
 <li><b>Lectores.</b> Las historias +18 solo se muestran a cuentas que declaren ser mayores de 18 años. Por ahora es una declaración, no una verificación de identidad.</li>
+<li><b>Convivencia.</b> Trata bien a las demás personas: el acoso, el odio y el spam no están permitidos en comentarios ni perfiles. Puedes reportar contenido y bloquear o silenciar cuentas.</li>
 <li><b>Autoría y fanfics.</b> Tus historias siguen siendo tuyas. En los fanfics respeta a quienes crearon el material original y no copies textos ajenos.</li></ol>`;
 function showTerms() {
   const m = document.createElement('div'); m.className = 'modal';
@@ -492,7 +521,7 @@ const wc = t => `${t.trim() ? t.trim().split(/\s+/).length : 0} palabras · ${t.
 function collect() {                                   // lee solo los campos de la pantalla que está abierta
   if ($('#w-title')) {                                 // pantalla de datos de la historia
     W.title = $('#w-title').value; W.synopsis = $('#w-syn').value; W.genre = $('#w-genre').value; W.fandom = $('#w-fandom').value;
-    W.tags = $('#w-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+    W.tags = parseTags($('#w-tags').value);
   }
   if ($('#w-phase')) W.phase = $('#w-phase').value;   // estado del libro
   if ($('#w-prev')) W.prev = $('#w-prev').value;      // saga: libro anterior
@@ -550,7 +579,9 @@ function writeRoute(editId, sub, cid) {
   if (!editId) return infoView(false);
   return sub === 'chapters' ? chaptersView() : sub === 'ch' ? chapterView(+cid) : infoView(true);
 }
-const submitBlock = () => `<div class="panel" style="margin-top:16px"><label class="check"><input type="checkbox" id="w-terms" ${W.terms ? 'checked' : ''}><span>Confirmo que marqué bien si mi historia es +18 y acepto los <button type="button" class="link-btn" data-act="terms">términos y condiciones</button>.</span></label>
+const needTerms = () => !(getUsers()[S.user] || {}).termsAccepted;     // cuentas anteriores al nuevo registro: aceptan una sola vez aquí
+const submitBlock = () => `<div class="panel" style="margin-top:16px">${needTerms() ? `<label class="check"><input type="checkbox" id="w-terms" ${W.terms ? 'checked' : ''}><span>Acepto los <button type="button" class="link-btn" data-act="terms">términos y condiciones</button> de Auri.</span></label>` : ''}
+  <p class="notice" style="margin:0 0 4px">🔞 Si tu historia tiene contenido +18, acuérdate de marcarla como +18 antes de enviarla. Los términos ya los aceptaste al crear tu cuenta.</p>
   <button class="button" style="margin-top:12px;width:100%" data-act="publish">Enviar a revisión</button>
   <p class="helper" style="margin-top:8px">Se envían todos los capítulos terminados que aún no están en revisión. Moderación los revisa en orden: la historia aparece en Descubrir cuando se aprueba el primero.</p></div>`;
 
@@ -570,7 +601,7 @@ function infoView(existing) {
     <div class="form-group full"><label for="w-syn">Sinopsis</label><textarea id="w-syn" class="textarea" placeholder="Unas líneas para invitar a leer…">${esc(W.synopsis)}</textarea></div>
     <div class="form-group"><label for="w-genre">Género</label><select id="w-genre" class="select">${Object.keys(GENRES).map(g => `<option value="${g}" ${W.genre === g ? 'selected' : ''}>${GENRES[g]}</option>`).join('')}</select></div>
     <div class="form-group"><label for="w-fandom">Fandom / universo</label><input id="w-fandom" class="field" value="${esc(W.fandom)}"></div>
-    <div class="form-group full"><label for="w-tags">Etiquetas</label><input id="w-tags" class="field" value="${esc(W.tags.join(', '))}" placeholder="romance lento, magia"><span class="helper">Sepáralas con comas.</span></div>
+    <div class="form-group full"><label for="w-tags">Etiquetas</label><input id="w-tags" class="field" value="${esc(tagsText(W.tags))}" placeholder="#romance lento #magia #enemies to lovers" autocapitalize="none"><div id="w-tags-prev" class="tag-prev">${W.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div><div class="tag-sug"><span class="helper">Sugeridas:</span>${[...new Set([...popTags(6), 'lgbtq+', 'yaoi', 'yuri', 'poliamor', 'romance lento', 'au'])].slice(0, 10).map(t => `<button type="button" class="tag tag-link" data-act="tag-add" data-id="${esc(t)}">#${esc(t)}</button>`).join('')}</div><span class="helper">Escribe cada etiqueta con # al inicio. Ej: #romance lento #magia. Así la gente te encuentra al buscar por etiquetas. </span></div>
     <div class="form-group"><label for="w-phase">Estado del libro</label><select id="w-phase" class="select">${Object.keys(PHASE).map(k => `<option value="${k}" ${(W.phase || 'ongoing') === k ? 'selected' : ''}>${PHASE[k]}</option>`).join('')}</select></div>
     ${sagaBox()}
   </div><div class="toggle-line"><div><strong>Tarjeta de personaje lector</strong><div class="helper">Reemplaza TN / T/N por el nombre de tu personaje.</div></div>
@@ -671,7 +702,7 @@ function saveStory(submit) {
   const toSend = chs.filter(c => c.status === 'draft' && c.text.trim());
   if (submit) {
     if (!toSend.length) return toast('No hay capítulos nuevos o editados para enviar.');
-    if (!W.terms) return toast('Debes aceptar los términos y condiciones para enviar.');
+    if (needTerms()) { if (!W.terms) return toast('Debes aceptar los términos y condiciones para enviar.'); const us = getUsers(); if (us[S.user]) { us[S.user].termsAccepted = today(); G.set('users', us); } }
     chs = chs.map(c => toSend.includes(c) ? { ...c, status: 'pending' } : c);
   }
   W.chapters = chs; W.updatedAt = today();
@@ -785,6 +816,10 @@ function storyView(id, num) {
   <div class="empty" style="margin-top:16px">${mascot()}<h3>Contenido +18 oculto</h3><p>Tienes desactivado «Mostrar contenido +18». Puedes volver a activarlo en Ajustes.</p><button class="button" data-act="settings">Ir a Ajustes</button></div></main>`;
   return num === 'fin' ? bookEnd(s) : num ? chapterRead(s, +num - 1) : storyDetail(s, mine);
 }
+const staffBar = (s, mine) => {
+  const td = takedown().includes(s.id); if (!(isStaff() && !mine) && !(td && mine)) return '';
+  return `<div class="panel staff-bar"><b>${td ? '🚩 Retirada de Descubrir por moderación' : '🛡 Herramientas de moderación'}</b>${isStaff() && !mine ? `<div class="row-btns">${td ? `<button class="button secondary sm" data-act="td-off" data-id="${esc(s.id)}">Restaurar en Descubrir</button>` : `<button class="button danger sm" data-act="td-on" data-id="${esc(s.id)}">Retirar de Descubrir</button>`}${canAct(s.owner) ? `<button class="button ghost sm" data-act="adm-strike" data-id="${esc(s.owner)}">⚠️ Dar strike</button>` : ''}<a class="button ghost sm" href="#/user/${encodeURIComponent(s.owner)}">👤 Perfil</a><a class="button ghost sm" href="#/moderation/reports">🚩 Reportes</a></div>` : ''}</div>`;
+};
 /* Pantalla 1: portada, título, autoría, likes y sinopsis (sin el texto) */
 function storyDetail(s, mine) {
   const read = readList(s.id), fav = S.favs.includes(s.id), n = likes(s.id).length, first = s.chapters[0];
@@ -796,10 +831,11 @@ function storyDetail(s, mine) {
   <div class="detail-by">por ${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : esc(userName())}</div>
   <div class="detail-likes">👍 ${n} ${n === 1 ? 'like' : 'likes'}</div>${bookState(s)}
   <p class="detail-syn">${esc(s.synopsis)}</p>
-  <div class="tags" style="justify-content:center">${s.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+  <div class="tags" style="justify-content:center">${tagChips(s.tags)}</div>
+  ${staffBar(s, mine)}
   ${mine && statusNote(ownOf(s)) ? `<p class="notice">${esc(statusNote(ownOf(s)))}</p>` : ''}
   <a class="button" data-replace data-dir="next" ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} style="width:100%;max-width:420px" href="#/story/${esc(s.id)}/${next.idx + 1}">${!read.length && !at ? 'Empezar a leer' : all ? 'Leer otra vez' : `Continuar: cap. ${next.idx + 1}`}</a>
-  <div class="row-btns"><button class="button secondary" data-act="like" data-id="${esc(s.id)}">👍 ${likes(s.id).includes(S.user) ? 'Te gusta' : 'Me gusta'}</button><button class="button secondary" data-act="fav" data-id="${esc(s.id)}">${fav ? '♥ En favoritos' : '♡ Favorito'}</button><button class="button secondary" data-act="lib-toggle" data-id="${esc(s.id)}">${S.lib.includes(s.id) ? '✓ En tu biblioteca' : '📚 Guardar en biblioteca'}</button>${mine ? `<a class="button ghost" href="#/write/${esc(s.id)}">Editar</a>` : ''}</div>
+  <div class="row-btns"><button class="button secondary" data-act="like" data-id="${esc(s.id)}">👍 ${likes(s.id).includes(S.user) ? 'Te gusta' : 'Me gusta'}</button><button class="button secondary" data-act="fav" data-id="${esc(s.id)}">${fav ? '♥ En favoritos' : '♡ Favorito'}</button><button class="button secondary" data-act="lib-toggle" data-id="${esc(s.id)}">${S.lib.includes(s.id) ? '✓ En tu biblioteca' : '📚 Guardar en biblioteca'}</button>${mine ? `<a class="button ghost" href="#/write/${esc(s.id)}">Editar</a>` : `<button class="button ghost" data-act="report-story" data-id="${esc(s.id)}">🚩 Reportar</button>`}</div>
   <details class="ch-index"><summary>Capítulos (${s.chapters.length})</summary>${s.chapters.map(c => `<a data-replace ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} href="#/story/${esc(s.id)}/${c.idx + 1}"><b>${read.includes(c.idx) ? '✓' : c.idx + 1}</b><span>${esc(c.title || 'Capítulo ' + (c.idx + 1))}${mine && c.status !== 'approved' ? ` (${CH_STATUS[c.status].toLowerCase()})` : ''}</span></a>`).join('')}</details>
   ${commentsBox(s)}</section></main>`;
 }
@@ -897,15 +933,16 @@ function setChapterStatus(id, owner, cid, status, reason = '') {
   if (status === 'approved') announceChapters(id, before);
 }
 const OPEN = new Set();   // libros desplegados (se conservan al re-dibujar)
-function modView() {
+function modView(sub) {
   if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">Volver</a>')}</main>`;
-  const books = pendingBooks().reverse();
-  return `<main class="page story-layout"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">🛡 Moderación</span><h2 style="margin-top:8px">Libros por revisar (${books.length})</h2><p>Una ficha por libro. Los capítulos se aprueban en orden: 1, 2, 3…</p></div></div>
+  const books = pendingBooks().reverse(), nr = openReports(), tabs = `<div class="tabs" role="tablist"><a class="tab ${sub === 'reports' ? '' : 'active'}" href="#/moderation">📚 Libros (${books.length})</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">🚩 Reportes${nr ? ` (${nr})` : ''}</a></div>`;
+  if (sub === 'reports') return reportsView(tabs);
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">🛡 Moderación</span><h2 style="margin-top:8px">Libros por revisar (${books.length})</h2><p>Una ficha por libro. Los capítulos se aprueban en orden: 1, 2, 3…</p></div></div>
   ${books.length ? books.map(s => {
     const first = !publicPrefix(s.chapters).length, np = s.chapters.filter(c => c.status === 'pending').length;
     return `<details class="panel book" data-book="${esc(s.id)}" ${OPEN.has(s.id) ? 'open' : ''} style="margin-bottom:14px"><summary class="book-sum">${s.cover ? `<img class="book-thumb" src="${esc(s.cover)}" alt="">` : '<span class="book-thumb">📖</span>'}
     <div class="book-info"><strong class="serif">${esc(s.title)}</strong><div class="story-meta">por ${esc(s.author)} · ${np} en revisión · ${s.chapters.length} cap.${s.mature ? ' · +18' : ''}${first ? ' · Historia nueva' : ''}</div></div></summary>
-    <div class="book-body"><p class="story-meta">${esc(genreName(s.genre))} · ${esc(s.fandom)} · <a href="#/user/${encodeURIComponent(s.owner)}" style="text-decoration:underline">ver perfil</a></p>${first ? `<p style="color:var(--soft);line-height:1.6;margin:8px 0">${esc(s.synopsis)}</p><div class="tags" style="margin-bottom:10px">${s.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
+    <div class="book-body"><p class="story-meta">${esc(genreName(s.genre))} · ${esc(s.fandom)} · <a href="#/user/${encodeURIComponent(s.owner)}" style="text-decoration:underline">ver perfil</a></p>${first ? `<p style="color:var(--soft);line-height:1.6;margin:8px 0">${esc(s.synopsis)}</p><div class="tags" style="margin-bottom:10px">${s.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ''}
     <ol class="mod-list">${s.chapters.map((c, i) => {
       const ok = s.chapters.slice(0, i).every(x => pubChapter(x)), pend = c.status === 'pending';      // N solo si N-1 ya está aprobado
       return `<li class="mod-ch"><div class="mod-ch-head"><b>Cap. ${i + 1}</b><span>${esc(c.title)}</span><span class="pill st-${c.status}">${CH_STATUS[c.status]}</span></div>${pend ? `
@@ -953,6 +990,53 @@ function openReport() {
     G.set('reports', [{ id: Date.now(), by: S.user, text, date: today() }, ...G.get('reports', [])]); m.remove(); toast('Gracias, recibimos tu reporte ✓');
   };
   document.body.appendChild(m);
+}
+const REASONS = ['Contenido sexual con menores', 'Contenido sexual explícito', 'Acoso, odio o amenazas', 'Violencia extrema', 'Plagio o copia', 'Spam o publicidad', 'Datos personales de alguien', 'Mal etiquetado (+18 o spoilers)', 'Otro motivo'];
+const reportsAll = () => G.get('reports', []);
+const openReports = () => reportsAll().filter(r => (r.status || 'open') === 'open').length;
+function openReportFor(type, o) {
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true" aria-label="Reportar"><button class="icon-btn close-x" data-x aria-label="Cerrar">✕</button><h2>Reportar ${esc(o.label)}</h2><p class="helper">Marca lo que incumple las normas y, si quieres, cuéntanos más. Lo revisará el equipo de moderación.</p>
+  <div class="rp-reasons">${REASONS.map((r, i) => `<label class="check"><input type="checkbox" value="${i}"><span>${esc(r)}</span></label>`).join('')}</div>
+  <textarea class="textarea" data-text maxlength="600" placeholder="Explica qué pasó (opcional si marcaste un motivo)…" style="margin-top:8px"></textarea><p class="error" data-err></p><button class="button" data-send style="width:100%;margin-top:6px">Enviar reporte</button></div>`;
+  m.querySelector('[data-x]').onclick = () => m.remove(); m.onclick = ev => { if (ev.target === m) m.remove(); };
+  m.querySelector('[data-send]').onclick = () => {
+    const reasons = [...m.querySelectorAll('input:checked')].map(i => REASONS[+i.value]), text = m.querySelector('[data-text]').value.trim();
+    if (!reasons.length && !text) { m.querySelector('[data-err]').textContent = 'Marca un motivo o escribe qué pasó.'; return; }
+    if (reportsAll().some(r => r.by === S.user && r.type === type && r.sid === o.sid && String(r.cid || '') === String(o.cid || '') && r.target === o.target && (r.status || 'open') === 'open')) { m.remove(); return toast('Ya reportaste esto: el equipo lo está revisando.'); }
+    G.set('reports', [{ id: Date.now(), by: S.user, type, sid: o.sid || '', cid: o.cid || '', ci: o.ci, target: o.target || '', owner: o.owner || '', title: o.title || '', excerpt: String(o.excerpt || '').slice(0, 200), reasons, text, date: today(), status: 'open' }, ...reportsAll()]);
+    Object.keys(getUsers()).filter(e => roleOf(e) !== 'USER' && e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Nuevo reporte por revisar: ' + o.label, href: '#/moderation/reports' }));
+    m.remove(); toast('Gracias, recibimos tu reporte ✓');
+  };
+  document.body.appendChild(m);
+}
+let RFILT = 'open';
+const RTYPE = { story: '📖 Obra', comment: '💬 Comentario', pcomment: '💬 Comentario de párrafo', user: '👤 Perfil', problem: '🛠 Problema' };
+function rpSet(id, st) {
+  if (!isStaff()) return; const l = reportsAll(), i = l.findIndex(r => String(r.id) === String(id)); if (i < 0) return;
+  l[i] = st === 'open' ? { ...l[i], status: 'open', handledBy: '', handledDate: '' } : { ...l[i], status: st, handledBy: S.user, handledDate: today() };
+  G.set('reports', l); logAction('report-' + st, l[i].owner || l[i].target || '', String(id)); KEEP = true; render();
+}
+function reportCard(r) {
+  const ty = r.type || 'problem', open = (r.status || 'open') === 'open', owner = r.owner || '', s = r.sid ? findStory(r.sid) : null, td = r.sid && takedown().includes(r.sid);
+  const ctx = ty === 'story' ? `<div class="rp-ctx"><b>${esc(r.title || (s && s.title) || 'Obra')}</b>${s ? ` · por ${esc(s.author || '')}${s.mature ? ' · +18' : ''}<div class="tags">${s.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ' · ya no está disponible'}${td ? '<div class="helper">🚩 Retirada de Descubrir</div>' : ''}</div>`
+    : ty === 'comment' || ty === 'pcomment' ? `<div class="rp-ctx"><b>${esc(uName(owner))}</b> escribió: “${esc(r.excerpt || '')}”${ty === 'comment' && r.sid && !comments(r.sid).some(c => String(c.id) === String(r.cid)) ? '<div class="helper">Ese comentario ya no existe.</div>' : ''}</div>`
+    : ty === 'user' ? `<div class="rp-ctx"><b>${esc(uName(r.target))}</b></div>` : '';
+  const link = ty === 'story' && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}" data-dir="next">📖 Ir a la obra</a>` : ty === 'comment' && s ? `<button class="button secondary sm" data-act="rp-comments" data-id="${esc(r.sid)}">📖 Ir al comentario</button>` : ty === 'pcomment' && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}/${(+r.ci || 0) + 1}" data-dir="next">📖 Ir al párrafo</a>` : '';
+  const who = ty === 'user' ? r.target : owner;
+  return `<article class="panel rp ${open ? '' : 'done'}"><div class="rp-head"><span class="pill">${RTYPE[ty]}</span><span class="helper">${esc(r.date)} · reporta ${esc(uName(r.by))}</span></div>${ctx}
+  ${(r.reasons || []).length ? `<div class="tags rp-why">${r.reasons.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}${r.text ? `<p class="rp-text">${esc(r.text)}</p>` : ''}
+  <div class="rp-acts">${link}${who && getUsers()[who] ? `<a class="button ghost sm" href="#/user/${encodeURIComponent(who)}" data-dir="next">👤 Perfil</a>` : ''}
+  ${open ? `${ty === 'story' && s ? (td ? `<button class="button secondary sm" data-act="td-off" data-id="${esc(r.sid)}">Restaurar</button>` : `<button class="button danger sm" data-act="td-on" data-id="${esc(r.sid)}">Retirar de Descubrir</button>`) : ''}${ty === 'comment' && r.sid && comments(r.sid).some(c => String(c.id) === String(r.cid)) ? `<button class="button danger sm" data-act="rp-delcomment" data-id="${esc(r.sid)}" data-cid="${esc(r.cid)}">Eliminar comentario</button>` : ''}${who && canAct(who) ? `<button class="button ghost sm" data-act="adm-strike" data-id="${esc(who)}">⚠️ Strike</button><button class="button ghost sm" data-act="adm-ban" data-id="${esc(who)}">🚫 Suspender</button>` : ''}
+  <button class="button sm" data-act="rp-done" data-id="${r.id}">✓ Resuelto</button><button class="button ghost sm" data-act="rp-dismiss" data-id="${r.id}">Descartar</button>`
+    : `<span class="helper">${r.status === 'dismissed' ? 'Descartado' : 'Resuelto'} por ${esc(uName(r.handledBy))} · ${esc(r.handledDate || '')}</span><button class="button ghost sm" data-act="rp-reopen" data-id="${r.id}">Reabrir</button>`}
+  ${ty === 'problem' && open ? `<button class="icon-btn" data-act="report-del" data-id="${r.id}" aria-label="Eliminar reporte">${TRASH}</button>` : ''}</div></article>`;
+}
+function reportsView(tabs) {
+  const all = reportsAll(), l = all.filter(r => ((r.status || 'open') === 'open') === (RFILT === 'open'));
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">🚩 Reportes</span><h2 style="margin-top:8px">${RFILT === 'open' ? 'Por revisar' : 'Ya atendidos'} (${l.length})</h2><p>Abre la obra, analiza el caso y toma medidas. Todo queda en el registro.</p></div></div>
+  <div class="filter-row"><button class="chip ${RFILT === 'open' ? 'active' : ''}" data-act="rp-filter" data-id="open">Abiertos (${openReports()})</button><button class="chip ${RFILT === 'done' ? 'active' : ''}" data-act="rp-filter" data-id="done">Atendidos</button></div>
+  ${l.length ? l.map(reportCard).join('') : empty(RFILT === 'open' ? 'Sin reportes pendientes' : 'Nada atendido todavía', RFILT === 'open' ? 'Cuando alguien reporte una obra, un comentario o un perfil, aparecerá aquí.' : 'Los reportes resueltos o descartados se guardan aquí.')}</main>`;
 }
 const reportsPanel = () => { const l = G.get('reports', []); return l.length ? `<section class="panel" style="margin-top:20px"><h2>📨 Reportes (${l.length})</h2>${l.map(r => `<div class="comment"><div style="flex:1;min-width:0"><strong>${esc(uName(r.by))}</strong> <span class="helper">${esc(r.date)}</span><div style="overflow-wrap:anywhere">${esc(r.text)}</div></div><button class="icon-btn" data-act="report-del" data-id="${r.id}" aria-label="Eliminar reporte">${TRASH}</button></div>`).join('')}</section>` : ''; };
 
@@ -1070,6 +1154,10 @@ function settingsView(secId) {
       ${sw('skipReadAs', cfg('skipReadAs'), 'Saltar «Leer como…»', `Usa siempre tu personaje activo${act ? ` (${esc(act.name)})` : ''}. Si no tienes uno activo, se te preguntará.`)}</section>` },
     contenido: { ico: '🔞', c: '#e0457b', t: 'Contenido +18', sub: isMinor(u) ? 'No disponible' : cfg('showMature') ? 'Visible' : 'Oculto', body: () => `<section class="panel set-sec">${sw('showMature', cfg('showMature'), 'Mostrar contenido +18', isMinor(u) ? 'No está disponible para cuentas menores de 18 años.' : 'Si lo apagas, las historias para adultos se ocultan en Inicio, búsquedas y bibliotecas. Tus propias obras siempre se ven.', isMinor(u))}</section>` },
     intereses: { ico: '🏷️', c: '#e09a2b', t: 'Tus intereses', sub: `${(u.interests || []).length} tema${(u.interests || []).length === 1 ? '' : 's'}`, body: () => `<section class="panel set-sec"><p class="helper" style="margin:0 0 4px">Los temas que te gustan (mínimo uno).</p>${interestChips(u.interests || [], 'int-set')}</section>` },
+    bloqueos: { ico: '🚫', c: '#6b7280', t: 'Bloqueadas y silenciadas', sub: `${bl(S.user, 'blocked').length} bloqueadas · ${bl(S.user, 'muted').length} silenciadas`, body: () => {
+      const row = (e, act, lab) => `<div class="cr-row"><span class="cr-rt">${userAvatar(e)} <b>${esc(uName(e))}</b></span><span class="cr-rb"><button class="button secondary sm" data-act="${act}" data-id="${esc(e)}">${lab}</button></span></div>`, b = bl(S.user, 'blocked'), m = bl(S.user, 'muted');
+      return `<section class="panel set-sec"><h3>Bloqueadas</h3><p class="helper">No ves sus comentarios ni sus obras y no hay avisos entre ustedes.</p>${b.length ? b.map(e => row(e, 'unblock', 'Desbloquear')).join('') : '<p class="helper">No has bloqueado a nadie.</p>'}</section>
+      <section class="panel set-sec"><h3>Silenciadas</h3><p class="helper">No ves sus comentarios ni recibes sus avisos, pero siguen pudiendo ver tu perfil.</p>${m.length ? m.map(e => row(e, 'unmute', 'Dejar de silenciar')).join('') : '<p class="helper">No has silenciado a nadie.</p>'}</section>`; } },
     notificaciones: { ico: '🔔', c: '#d9534f', t: 'Notificaciones', sub: `${nOn} de 4 activadas`, body: () => `<section class="panel set-sec">${sw('notif.chapter', n.chapter, 'Capítulos nuevos de mi biblioteca')}${sw('notif.like', n.like, 'Likes en mis obras')}${sw('notif.comment', n.comment, 'Comentarios en mis obras')}${sw('notif.follow', n.follow, 'Nuevos seguidores')}${sw('notif.mod', true, 'Avisos de moderación', 'Aprobado o rechazado, strikes e invitaciones: siempre activos.', true)}</section>` },
     datos: { ico: '💾', c: '#2f9e7a', t: 'Tus datos', sub: 'Exportar, importar, borrar', body: () => `<section class="panel set-sec"><p class="helper" style="margin:0 0 10px">Hoy tus datos viven en este navegador. Haz una copia para llevarlos a otro dispositivo o editor.</p>
       <div class="set-btns"><button class="button secondary" data-act="export-file">⬇ Exportar mis datos (archivo)</button><button class="button secondary" data-act="export-copy">📋 Copiar mis datos</button>
@@ -1091,7 +1179,7 @@ function settingsView(secId) {
   const role = ROLE_LABEL[roleOf(S.user)];
   return `<main class="page story-layout settings"><div class="set-head"><button class="icon-btn" data-act="settings-back" aria-label="Volver">‹</button><h2>Ajustes</h2></div>
   <a class="set-me" href="#/profile" data-dir="next">${userAvatar(S.user, 'big')}<span class="set-txt"><b>${esc(u.name || 'Mi cuenta')}</b><small>${esc(S.user)}</small>${role ? `<em class="role-tag ${roleOf(S.user).toLowerCase()}">🛡 ${role}</em>` : ''}</span>${CHEV}</a>
-  ${group('Cuenta', ['cuenta', 'intereses'])}${group('Preferencias', ['apariencia', 'lectura', 'contenido', 'notificaciones'])}${group('Datos y ayuda', ['datos', 'acerca'])}
+  ${group('Cuenta', ['cuenta', 'intereses', 'bloqueos'])}${group('Preferencias', ['apariencia', 'lectura', 'contenido', 'notificaciones'])}${group('Datos y ayuda', ['datos', 'acerca'])}
   <button class="button danger set-logout" data-act="logout">Cerrar sesión</button></main>`;
 }
 
@@ -1176,15 +1264,24 @@ function libraryView() {
 /* --- Comentarios --- */
 let EDITC = null;   // id del comentario que se está editando
 function updateComments(sid, fn) { const all = G.get('comments', {}); all[sid] = fn(all[sid] || []); G.set('comments', all); }
-function commentsHTML(s) {
-  const c = comments(s.id);
-  return `<section class="panel" style="margin-top:20px"><h2>Comentarios (${c.length})</h2>
-  <form data-form="comment" data-id="${esc(s.id)}" style="display:flex;gap:8px;margin-bottom:10px"><input id="c-text" class="field" maxlength="300" placeholder="Escribe un comentario…"><button class="button" type="submit">Enviar</button></form>
-  ${c.length ? c.map(x => {
-    const mine = x.by === S.user;
-    return `<div class="comment">${userAvatar(x.by)}<div style="flex:1;min-width:0"><a href="#/user/${encodeURIComponent(x.by)}"><strong>${esc(uName(x.by))}</strong></a> <span class="helper">${esc(x.date)}${x.edited ? ' · editado' : ''}</span>
+let REPLYTO = null, REPLYPRE = ''; const REPOPEN = new Set();        // hilo donde estás respondiendo · hilos con las respuestas abiertas
+function cmRow(x, s, sub, extra = '') {
+  const mine = x.by === S.user, lk = x.lk || [], liked = lk.includes(S.user), top = sub ? x.parent : x.id;
+  const acts = `<button type="button" class="link-btn c-like ${liked ? 'on' : ''}" data-act="c-like" data-id="${esc(s.id)}" data-cid="${x.id}" aria-pressed="${liked}" aria-label="Me gusta este comentario">👍${lk.length ? ' ' + lk.length : ''}</button><button type="button" class="link-btn" data-act="c-reply" data-top="${top}" data-pre="${sub ? esc('@' + uName(x.by) + ' ') : ''}">Responder</button>${mine ? `<button type="button" class="link-btn" data-act="c-edit" data-cid="${x.id}">Editar</button>` : `<button type="button" class="link-btn" data-act="report-comment" data-id="${esc(s.id)}" data-cid="${x.id}">Reportar</button>`}${mine || isAdmin() ? `<button type="button" class="link-btn danger-link" data-act="c-del" data-id="${esc(s.id)}" data-cid="${x.id}">Eliminar</button>` : ''}`;
+  return `<div class="comment ${sub ? 'reply' : ''}" id="cm-${x.id}">${userAvatar(x.by)}<div style="flex:1;min-width:0"><a href="#/user/${encodeURIComponent(x.by)}"><strong>${esc(uName(x.by))}</strong></a> <span class="helper">${esc(x.date)}${x.edited ? ' · editado' : ''}</span>
     ${EDITC === x.id ? `<textarea id="c-edit-text" class="textarea" style="min-height:70px;margin-top:6px" maxlength="300">${esc(x.text)}</textarea><div class="c-actions"><button class="button sm" data-act="c-save" data-id="${esc(s.id)}" data-cid="${x.id}">Guardar</button><button class="button ghost sm" data-act="c-cancel">Cancelar</button></div>`
-      : `<div style="overflow-wrap:anywhere">${esc(x.text)}</div>${mine || isAdmin() ? `<div class="c-actions">${mine ? `<button class="link-btn" data-act="c-edit" data-cid="${x.id}">Editar</button>` : ''}<button class="link-btn danger-link" data-act="c-del" data-id="${esc(s.id)}" data-cid="${x.id}">Eliminar</button></div>` : ''}`}</div></div>`; }).join('') : '<p class="helper">Sé la primera persona en comentar.</p>'}</section>`;
+      : `<div style="overflow-wrap:anywhere">${esc(x.text)}</div><div class="c-actions">${acts}</div>`}${extra}</div></div>`;
+}
+function commentsHTML(s) {
+  const all = comments(s.id).filter(c => !hidesFrom(c.by)), tops = all.filter(c => !c.parent);
+  return `<section class="panel" style="margin-top:20px"><h2>Comentarios (${all.length})</h2>
+  <form data-form="comment" data-id="${esc(s.id)}" style="display:flex;gap:8px;margin-bottom:10px"><input id="c-text" class="field" maxlength="300" placeholder="Escribe un comentario…"><button class="button" type="submit">Enviar</button></form>
+  ${tops.length ? tops.map(x => {
+    const reps = all.filter(r => r.parent === x.id), open = REPOPEN.has(x.id);
+    const rf = REPLYTO === x.id ? `<form data-form="reply" data-id="${esc(s.id)}" data-cid="${x.id}" class="c-replyform"><input id="c-reply-text" class="field" maxlength="300" value="${esc(REPLYPRE)}" placeholder="Escribe una respuesta…" aria-label="Tu respuesta"><button class="button sm" type="submit">Enviar</button><button type="button" class="button ghost sm" data-act="c-reply-cancel">Cancelar</button></form>` : '';
+    const tg = reps.length ? `<button type="button" class="link-btn c-rtoggle" data-act="c-replies" data-cid="${x.id}" aria-expanded="${open}">${open ? '▴ Ocultar respuestas' : `▾ Ver las respuestas (${reps.length})`}</button>` : '';
+    return cmRow(x, s, false, `${tg}${open ? `<div class="c-replies">${reps.map(r => cmRow(r, s, true)).join('')}</div>` : ''}${rf}`);
+  }).join('') : '<p class="helper">Sé la primera persona en comentar.</p>'}</section>`;
 }
 
 /* --- Mi perfil / perfil de otra persona --- */
@@ -1199,7 +1296,31 @@ function profileHero(e, own) {
     <div class="pf-stats4">${stat(followers(e).length, 'Seguidores')}${stat(likesReceived(e), 'Likes')}${stat(pubs.length, 'Libros')}${stat(following(e).length, 'Siguiendo')}</div></div></section>`;
 }
 const worksGrid = list => list.length ? `<div class="story-grid">${list.map(storyCard).join('')}</div>` : empty('Aún no hay obras publicadas', 'Cuando se publique una historia aparecerá aquí.', '<a class="button secondary" href="#/write">Escribir una historia</a>');
-const profileExtras = () => isStaff() ? `<section class="panel" style="margin-top:22px"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>🛡 Moderación</strong><div class="helper">Capítulos por revisar${pendingBooks().length ? ` (${pendingBooks().length} libro(s))` : ''}.</div></div><a class="button secondary" href="#/moderation">Abrir</a></div></section>` : '';
+const profileExtras = () => isStaff() ? `<section class="panel" style="margin-top:22px"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>🛡 Moderación</strong><div class="helper">Capítulos por revisar${pendingBooks().length ? ` (${pendingBooks().length} libro(s))` : ''}. Reportes abiertos: ${openReports()}.</div></div><a class="button secondary" href="#/moderation${openReports() && !pendingBooks().length ? '/reports' : ''}">Abrir</a></div></section>` : '';
+function readersOf(sid, owner) {
+  const us = LS.get('auri.users', {}), out = [];
+  for (const e in us) { if (e === owner) continue; const p = LS.get('auri.u.' + e + '.progress', {})[sid], r = Array.isArray(p) ? p : p ? [0] : [];
+    out.push({ e, r, lib: LS.get('auri.u.' + e + '.lib', []).includes(sid), fav: LS.get('auri.u.' + e + '.favs', []).includes(sid) }); }
+  return out;
+}
+function statsView() {
+  const back = '<a class="button ghost sm" href="#/profile" data-dir="prev">‹ Mi perfil</a>';
+  const books = S.stories.map(s => ({ s, ps: publicPrefix(s.chapters) })).filter(x => x.ps.length).map(({ s, ps }) => {
+    const R = readersOf(s.id, S.user), rd = R.filter(x => x.r.length), n = ps.length, per = ps.map((_, i) => rd.filter(x => x.r.includes(i)).length);
+    let worst = -1, drop = 0; for (let i = 1; i < n; i++) if (per[i - 1] - per[i] > drop) { drop = per[i - 1] - per[i]; worst = i; }
+    return { s, n, rd, per, fin: rd.filter(x => x.r.includes(n - 1)).length, libs: R.filter(x => x.lib).length, favs: R.filter(x => x.fav).length, lk: likes(s.id).length, cm: comments(s.id).length, worst, drop, ps };
+  });
+  if (!books.length) return `<main class="page story-layout">${back}${empty('Aún no hay estadísticas', 'Cuando tengas una obra aprobada, aquí verás quién la lee, hasta dónde llegan y qué les gusta.', '<a class="button" href="#/write">Escribir una historia</a>')}</main>`;
+  const uniq = new Set(); books.forEach(b => b.rd.forEach(x => uniq.add(x.e)));
+  const sum = k => books.reduce((a, b) => a + b[k], 0), card = (n, l) => `<div class="st-card"><b>${n}</b><span>${l}</span></div>`;
+  return `<main class="page story-layout">${back}<div class="section-head"><div><span class="eyebrow">📊 Estadísticas</span><h2 style="margin-top:8px">Tus lectores</h2><p>Qué pasa con tus obras publicadas.</p></div></div>
+  <div class="st-cards">${card(uniq.size, 'lectores')}${card(sum('lk'), 'likes')}${card(sum('cm'), 'comentarios')}${card(sum('libs'), 'en bibliotecas')}</div>
+  ${books.map(b => { const mx = Math.max(1, ...b.per); return `<section class="panel st-book"><h3 class="serif">${esc(b.s.title)}</h3>
+    <div class="st-mini"><span>👀 ${b.rd.length} lector${b.rd.length === 1 ? '' : 'es'}</span><span>🏁 ${b.fin} terminaron</span><span>📚 ${b.libs} en biblioteca</span><span>♥ ${b.favs} favoritos</span><span>👍 ${b.lk}</span><span>💬 ${b.cm}</span></div>
+    <h4>Lectores por capítulo</h4>${b.ps.map((c, i) => `<div class="st-row"><span class="st-l">Cap. ${i + 1}</span><span class="st-bar"><i style="width:${Math.round(b.per[i] / mx * 100)}%"></i></span><span class="st-n">${b.per[i]}</span></div>`).join('')}
+    ${b.worst > 0 && b.drop > 0 ? `<p class="helper">La mayor caída es entre el capítulo ${b.worst} y el ${b.worst + 1}: ${b.drop} lector${b.drop === 1 ? '' : 'es'} menos. Quizá valga la pena revisar ese tramo.</p>` : ''}</section>`; }).join('')}
+  <p class="notice">Por ahora se cuentan solo las cuentas de este dispositivo. Con el servidor se sumarán todas las lecturas.</p></main>`;
+}
 function profileView() {
   const u = getUsers()[S.user] || {}, works = S.stories.filter(s => storyState(s) !== 'draft').map(s => ({ ...s, owner: S.user, author: u.name }));
   const sk = strikesOf(S.user), role = ROLE_LABEL[roleOf(S.user)];
@@ -1209,7 +1330,7 @@ function profileView() {
   <form data-form="myprofile" class="pf-form"><div class="form-group"><label for="pf-name">Usuario</label><input id="pf-name" class="field" maxlength="30" value="${esc(u.name)}"></div>
   <div class="form-group"><label for="pf-bio">Biografía</label><textarea id="pf-bio" class="textarea" maxlength="300" placeholder="Cuéntales algo sobre ti…">${esc(u.bio || '')}</textarea></div>
   <button class="button" type="submit">Guardar perfil</button></form></div>
-  <div class="section-head"><h2>Mis obras</h2><a class="button sm" href="#/write">＋ Nueva</a></div>${worksGrid(works)}
+  <div class="section-head"><h2>Mis obras</h2><span style="display:flex;gap:8px"><a class="button ghost sm" href="#/stats" data-dir="next">📊 Estadísticas</a><a class="button sm" href="#/write">＋ Nueva</a></span></div>${worksGrid(works)}
   ${charsSection()}${profileExtras()}</main>`;
 }
 function userView(e) {
@@ -1218,7 +1339,8 @@ function userView(e) {
   const works = publishedStories().filter(s => s.owner === e && matureOK(s)), fl = following(S.user).includes(e);
   return `<main class="page">${profileHero(e, false)}<div class="profile-head panel"><div class="pf-avatar">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}</div>
   <div class="pf-form"><h2 class="serif" style="font-size:27px;margin:0">${esc(u.name)}</h2>${ROLE_LABEL[roleOf(e)] ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${ROLE_LABEL[roleOf(e)]}</span>` : ''}<p style="color:var(--soft);line-height:1.6;margin:0">${esc(u.bio || 'Esta persona aún no escribió su biografía.')}</p>
-  <button class="button ${fl ? 'secondary' : ''}" data-act="follow" data-id="${esc(e)}">${fl ? 'Siguiendo ✓' : '＋ Seguir'}</button></div></div>
+  <button class="button ${fl ? 'secondary' : ''}" data-act="follow" data-id="${esc(e)}">${fl ? 'Siguiendo ✓' : '＋ Seguir'}</button>
+  <div class="pf-more"><button class="button ghost sm" data-act="${iMute(e) ? 'unmute' : 'mute'}" data-id="${esc(e)}">${iMute(e) ? '🔔 Dejar de silenciar' : '🔇 Silenciar'}</button><button class="button ghost sm" data-act="${iBlock(e) ? 'unblock' : 'block'}" data-id="${esc(e)}">${iBlock(e) ? '✅ Desbloquear' : '🚫 Bloquear'}</button><button class="button ghost sm" data-act="report-user" data-id="${esc(e)}">🚩 Reportar</button></div></div></div>
   ${admMenu(e)}<div class="section-head"><h2>Obras de ${esc(u.name)}</h2></div>${worksGrid(works)}</main>`;
 }
 
@@ -1361,6 +1483,7 @@ const notifHref = n => n.type === 'chapter' ? '#/story/' + n.storyId + '/' + n.e
 const notifWhat = n => { const t = esc((findStory(n.storyId) || {}).title || 'una obra eliminada');
   return { follow: 'empezó a seguirte', like: `le dio like a tu obra «${t}»`, comment: `comentó en «${t}»: “${esc(n.extra)}”`, review: `envió ${n.chap ? `«${esc(n.chap)}» de ` : ''}«${esc(n.extra)}» a revisión`,
     chapter: `publicó ${/^\d+ cap/.test(n.chap) ? esc(n.chap) : `el capítulo «${esc(n.chap)}»`} en «${t}»`,
+    reply: `respondió tu comentario en «${t}»: “${esc(n.extra)}”`, clike: `le dio like a tu comentario en «${t}»`,
     approved: `aprobó ${n.chap ? `el capítulo «${esc(n.chap)}» de ` : 'tu obra '}«${t}»: ya se ve en la app 🎉`, rejected: `rechazó ${n.chap ? `el capítulo «${esc(n.chap)}» de ` : 'tu obra '}«${t}». Motivo: ${esc(n.extra)}` }[n.type] || ''; };
 const SYS_T = ['strike', 'modinvite', 'sys'];
 function sysNotif(n) {
@@ -1368,7 +1491,7 @@ function sysNotif(n) {
   if (n.type === 'strike') return `<a class="${cls}" href="#/strike/${esc(n.extra)}"><span class="sys-ic">⚠️</span><div><strong>¡Has recibido un strike!</strong> Toca para ver más información${d}</div></a>`;
   if (n.type === 'modinvite') return `<div class="${cls}"><span class="sys-ic">🛡</span><div>${n.role === 'ADMIN' ? '<strong>¡Felicidades!</strong> La Owner te ha invitado a formar parte de la administración de Auri Studios' : '<strong>¡Inspirador!</strong> La Owner te ha invitado a formar parte del equipo de moderación de Auri Studios'}${d}
     ${n.done ? `<div class="helper"><b>${n.done === 'accepted' ? '✓ Aceptaste la invitación' : 'Rechazaste la invitación'}</b></div>` : `<div class="inv-btns"><button class="button sm" data-act="inv-accept" data-nid="${esc(n.id)}">Aceptar</button><button class="button ghost sm" data-act="inv-decline" data-nid="${esc(n.id)}">Rechazar</button></div>`}</div></div>`;
-  return `<div class="${cls}"><span class="sys-ic">🛡</span><div>${esc(n.extra)}${d}</div></div>`;
+  return n.href ? `<a class="${cls}" href="${esc(n.href)}"><span class="sys-ic">🛡</span><div>${esc(n.extra)}${d}</div></a>` : `<div class="${cls}"><span class="sys-ic">🛡</span><div>${esc(n.extra)}${d}</div></div>`;
 }
 const notifItem = n => SYS_T.includes(n.type) ? sysNotif(n) : `<a class="notif ${n.read ? '' : 'new'}" href="${esc(notifHref(n))}">${userAvatar(n.from)}<div><strong>${esc(['approved', 'rejected'].includes(n.type) ? 'Moderación' : uName(n.from))}</strong> ${notifWhat(n)}<div class="helper">${esc(n.date.slice(0, 10))}</div></div></a>`;
 /** Ventanita superpuesta (no cambia de pantalla) con botón X; al abrirla se marcan como leídas */
@@ -1537,7 +1660,8 @@ function render() {
   else if (a === 'profile') app.innerHTML = shell('/profile', profileView());
   else if (a === 'user') app.innerHTML = shell('', userView(decodeURIComponent(b || '')));
   else if (a === 'strike') app.innerHTML = shell('', strikeView(b));
-  else if (a === 'moderation') app.innerHTML = shell('/moderation', modView());
+  else if (a === 'moderation') app.innerHTML = shell('/moderation', modView(b));
+  else if (a === 'stats') app.innerHTML = shell('', statsView());
   else if (a === 'news') app.innerHTML = shell('/news', newsView(b));
   else if (a === 'settings') app.innerHTML = shell('', settingsView(b));
   else if (a === 'notifications') app.innerHTML = shell('', notifView());
@@ -1569,13 +1693,13 @@ function pcTap(p) {                                      // tocar un párrafo: s
 }
 function pcHintOnce() { if (cfg('pcom') !== 'off' && !cfg('pcHint')) { setCfg('pcHint', true); toast('Tip: toca un párrafo para comentarlo 💬'); } }
 function pcItem(c, s) {
-  const hide = c.spoiler && cfg('spoilers') === 'hide' && c.by !== S.user, can = c.by === S.user || s.owner === S.user || isOwner();
-  return `<div class="pc-item">${userAvatar(c.by)}<div class="pc-body"><div class="pc-meta"><b>${esc(uName(c.by))}</b>${c.spoiler ? '<span class="pc-tag">⚠ Spoiler</span>' : ''}<span class="helper">${esc(c.date)}</span>${can ? `<button class="link-btn danger-link" data-act="pc-del" data-cid="${esc(c.id)}">Eliminar</button>` : ''}</div>
+  const hide = c.spoiler && cfg('spoilers') === 'hide' && c.by !== S.user, can = c.by === S.user || s.owner === S.user || isStaff();
+  return `<div class="pc-item">${userAvatar(c.by)}<div class="pc-body"><div class="pc-meta"><b>${esc(uName(c.by))}</b>${c.spoiler ? '<span class="pc-tag">⚠ Spoiler</span>' : ''}<span class="helper">${esc(c.date)}</span>${c.by !== S.user ? `<button class="link-btn" data-act="report-pc" data-cid="${esc(c.id)}">Reportar</button>` : ''}${can ? `<button class="link-btn danger-link" data-act="pc-del" data-cid="${esc(c.id)}">Eliminar</button>` : ''}</div>
     <div class="pc-text ${hide ? 'spoil' : ''}" ${hide ? 'data-act="pc-reveal" role="button" aria-label="Spoiler oculto: toca para ver"' : ''}>${esc(c.text)}</div>${hide ? '<button type="button" class="link-btn pc-hint" data-act="pc-reveal-btn">👁 Revelar spoiler</button>' : ''}</div></div>`;
 }
 function paintPcList() {
   const box = $('#pc-list'); if (!box || !PCS) return; const s = findStory(PCS.sid); if (!s) return;
-  const l = pcList(PCS.sid, PCS.ci, PCS.pi); box.innerHTML = l.length ? l.map(c => pcItem(c, s)).join('') : '<p class="helper" style="text-align:center;margin:10px 0">Aún no hay comentarios en este párrafo. ¡Sé la primera persona!</p>';
+  const l = pcList(PCS.sid, PCS.ci, PCS.pi).filter(c => !hidesFrom(c.by)); box.innerHTML = l.length ? l.map(c => pcItem(c, s)).join('') : '<p class="helper" style="text-align:center;margin:10px 0">Aún no hay comentarios en este párrafo. ¡Sé la primera persona!</p>';
   const t = $('#pc-count'); if (t) t.textContent = l.length ? `(${l.length})` : '';
 }
 function openParaSheet(pi) {
@@ -1651,11 +1775,29 @@ document.addEventListener('click', e => {
     'char-edit': () => openCharForm(+el.dataset.cid),
     'char-del': () => { const cid = +el.dataset.cid, x = S.chars.find(k => k.id === cid); if (!x) return;
       confirmBox(`¿Seguro que quieres eliminar a «${x.name}»?`, () => { S.chars = S.chars.filter(k => k.id !== cid); setActive(S.activeId === cid ? undefined : S.activeId); KEEP = true; render(); }); },
+    'report-story': () => { const s0 = findStory(id); if (s0) openReportFor('story', { sid: id, target: id, owner: s0.owner, title: s0.title, label: '«' + s0.title + '»' }); },
+    'report-comment': () => { const c = comments(id).find(x => String(x.id) === el.dataset.cid); if (c) openReportFor('comment', { sid: id, cid: c.id, target: c.by, owner: c.by, excerpt: c.text, label: 'un comentario de ' + uName(c.by) }); },
+    'report-pc': () => { const c = PCS && pcList(PCS.sid, PCS.ci, PCS.pi).find(x => String(x.id) === el.dataset.cid); if (c) openReportFor('pcomment', { sid: PCS.sid, ci: PCS.ci, target: c.by, owner: c.by, excerpt: c.text, label: 'un comentario de párrafo de ' + uName(c.by) }); },
+    'report-user': () => openReportFor('user', { target: id, owner: id, label: 'a ' + uName(id) }),
+    'rp-filter': () => { RFILT = id; KEEP = true; render(); },
+    'rp-done': () => rpSet(id, 'resolved'), 'rp-dismiss': () => rpSet(id, 'dismissed'), 'rp-reopen': () => rpSet(id, 'open'),
+    'rp-comments': () => { go('/story/' + id); setTimeout(() => { SHOWC = true; KEEP = true; render(); }, 60); },
+    'rp-delcomment': () => { if (!isStaff()) return; confirmBox('¿Eliminar este comentario por incumplir las normas?', () => { updateComments(id, l => l.filter(c => String(c.id) !== el.dataset.cid && String(c.parent) !== el.dataset.cid)); logAction('del-comment', id, el.dataset.cid); KEEP = true; render(); }); },
+    'td-on': () => { if (!isStaff()) return; dialog('¿Retirar esta obra de Descubrir?', 'Nadie más podrá encontrarla ni leerla hasta que se restaure. Se avisará a su autoría.', 'Retirar', 'Cancelar', () => { const s0 = findStory(id); G.set('takedown', [...takedown().filter(x => x !== id), id]); logAction('takedown', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «' + s0.title + '» fue retirada de Descubrir por moderación. Si crees que fue un error, escribe a la administración.' }); toast('Obra retirada de Descubrir'); KEEP = true; render(); }, true); },
+    'td-off': () => { if (!isStaff()) return; G.set('takedown', takedown().filter(x => x !== id)); const s0 = findStory(id); logAction('restore', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «' + s0.title + '» volvió a estar visible en Descubrir.' }); toast('Obra restaurada ✓'); KEEP = true; render(); },
+    mute: () => { setBM('muted', id, true); toast('Silenciada: no verás sus comentarios ni recibirás avisos suyos.'); KEEP = true; render(); },
+    unmute: () => { setBM('muted', id, false); toast('Dejaste de silenciar a esta persona.'); KEEP = true; render(); },
+    block: () => dialog('¿Bloquear a ' + uName(id) + '?', 'No verás sus comentarios ni sus obras, dejarán de seguirse y no habrá avisos entre ustedes. Puedes desbloquearla en Ajustes.', 'Bloquear', 'Cancelar', () => { blockUser(id); toast('Cuenta bloqueada'); KEEP = true; render(); }, true),
+    unblock: () => { setBM('blocked', id, false); toast('Desbloqueada ✓'); KEEP = true; render(); },
+    'c-like': () => { const cid = +el.dataset.cid; let added = false, target = ''; updateComments(id, l => l.map(c => { if (c.id !== cid) return c; const lk = c.lk || []; added = !lk.includes(S.user); target = c.by; return { ...c, lk: added ? [...lk, S.user] : lk.filter(x => x !== S.user) }; })); if (added && target) notify(target, 'clike', id, ''); KEEP = true; render(); },
+    'c-reply': () => { REPLYTO = +el.dataset.top; REPLYPRE = el.dataset.pre || ''; REPOPEN.add(REPLYTO); KEEP = true; render(); const i = $('#c-reply-text'); if (i && i.focus) { i.focus(); if (i.setSelectionRange) i.setSelectionRange(i.value.length, i.value.length); } },
+    'c-reply-cancel': () => { REPLYTO = null; REPLYPRE = ''; KEEP = true; render(); },
+    'c-replies': () => { const c = +el.dataset.cid; REPOPEN.has(c) ? REPOPEN.delete(c) : REPOPEN.add(c); KEEP = true; render(); },
     'c-edit': () => { EDITC = +el.dataset.cid; KEEP = true; render(); },
     'c-cancel': () => { EDITC = null; KEEP = true; render(); },
     'c-save': () => { const t = ($('#c-edit-text').value || '').trim(), cid = +el.dataset.cid; if (!t) return toast('El comentario no puede estar vacío.');
       updateComments(id, l => l.map(c => c.id === cid && c.by === S.user ? { ...c, text: t, edited: true } : c)); EDITC = null; KEEP = true; render(); },
-    'c-del': () => { const cid = +el.dataset.cid; confirmBox('¿Seguro que quieres eliminar este comentario?', () => { updateComments(id, l => l.filter(c => !(c.id === cid && (c.by === S.user || isAdmin())))); KEEP = true; render(); }); },
+    'c-del': () => { const cid = +el.dataset.cid; confirmBox('¿Seguro que quieres eliminar este comentario?', () => { updateComments(id, l => { const t = l.find(c => c.id === cid); return t && (t.by === S.user || isAdmin()) ? l.filter(c => c.id !== cid && c.parent !== cid) : l; }); KEEP = true; render(); }); },
     music: () => { setCfg('musicLast', 'play'); playMusic(el.dataset.url, location.hash.split('/')[2]); }, 'music-close': () => { setCfg('musicLast', 'close'); closeMusic(); },
     'lib-toggle': () => { if (S.lib.includes(id)) { libRemove(id); toast('Quitado de tu biblioteca. Ya no recibirás avisos de esta obra.'); } else { libAdd(id); toast('Guardado en tu biblioteca. Te avisaremos cuando haya capítulos nuevos.'); } KEEP = true; render(); },
     'lib-del': () => { libRemove(id); toast('Quitado de tu biblioteca. Ya no recibirás avisos de esta obra.'); KEEP = true; render(); },
@@ -1723,7 +1865,8 @@ document.addEventListener('click', e => {
     'qz-gender': () => { QZ.gender = el.dataset.v; KEEP = true; render(); },
     'qz-int': () => { const v = el.dataset.v; QZ.interests = QZ.interests.includes(v) ? QZ.interests.filter(x => x !== v) : [...QZ.interests, v]; KEEP = true; render(); },
     'qz-18': () => { QZ.mature = !QZ.mature; KEEP = true; render(); },
-    'qz-finish': () => { if (!QZ.interests.length) return toast('Elige al menos un tema.'); createAccount(); },
+    'qz-terms': () => { QZ.terms = !!el.checked; KEEP = true; render(); },
+    'qz-finish': () => { if (!QZ.interests.length) return toast('Elige al menos un tema.'); if (!QZ.terms) return toast('Debes aceptar los términos y condiciones.'); createAccount(); },
     'qz-exit': () => { PENDING = null; QZ = null; go('/login'); },
     'int-set': () => { const u = getUsers(), me = u[S.user], v = el.dataset.v, cur = me.interests || [], next = cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v];
       if (!next.length) return toast('Deja al menos un tema.'); me.interests = next; G.set('users', u); KEEP = true; render(); },
@@ -1734,7 +1877,9 @@ document.addEventListener('click', e => {
     fav: () => { S.favs = S.favs.includes(id) ? S.favs.filter(x => x !== id) : [...S.favs, id]; persist('favs', S.favs); render(); },
     read: () => { const sv = findStory(id); if (sv) BARS['b-' + id] = bookProgress(sv).pct; const n = +el.dataset.n, cur = readList(id).slice(); if (!cur.includes(n)) cur.push(n); S.progress[id] = cur; persist('progress', S.progress);
       const s = findStory(id), nx = s && s.chapters[s.chapters.findIndex(c => c.idx === n) + 1]; if (nx) { savePos(id, nx.idx, 0); NAVDIR = 'next'; goReplace(`/story/${id}/${nx.idx + 1}`); } else { NAVDIR = 'next'; goReplace(`/story/${id}/fin`); } },
-    genre: () => { GEN = id; render(); }, clear: () => { Q = ''; GEN = 'All'; render(); }, tab: () => { TAB = id; render(); tabFx(); },
+    genre: () => { GEN = id; render(); }, clear: () => { Q = ''; GEN = 'All'; render(); },
+    'tag-search': () => { Q = Q.trim().toLowerCase() === '#' + id.toLowerCase() ? '' : '#' + id; GEN = 'All'; const i = $('#sq'); if (i) i.value = Q; if ((location.hash.slice(1) || '/') === '/') { render(); } else go('/'); },
+    'tag-add': () => { const i = $('#w-tags'); if (!i) return; const cur = parseTags(i.value); if (!cur.some(t => t.toLowerCase() === id.toLowerCase())) cur.push(id); i.value = tagsText(cur); i.dispatchEvent(new Event('input', { bubbles: true })); }, tab: () => { TAB = id; render(); tabFx(); },
     delete: () => { if (confirm('¿Eliminar este borrador? No se puede deshacer.')) { S.stories = S.stories.filter(s => s.id !== id); persist('stories', S.stories); render(); } },
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
     preview: () => { collect(); WPREVIEW = true; render(); }, 'back-edit': () => { WPREVIEW = false; render(); },
@@ -1750,6 +1895,7 @@ document.addEventListener('input', e => {
     const sv = $('#w-saved'); if (sv) sv.textContent = '';
     clearTimeout(ASV); ASV = setTimeout(() => { autosave(); const v = $('#w-saved'); if (v && W) v.textContent = 'Guardado ✓'; }, 1200);
   }
+  if (e.target.id === 'w-tags') { const pv = $('#w-tags-prev'); if (pv) pv.innerHTML = parseTags(e.target.value).map(t => `<span class="tag">#${esc(t)}</span>`).join(''); }
   if (e.target.id === 'sq') {                           // la búsqueda de la cabecera filtra Descubrir (si estás en otra pantalla, te lleva allí)
     Q = e.target.value;
     if ((location.hash.slice(1) || '/') === '/') { const l = $('#list'); if (l) l.innerHTML = discoverList(); }
@@ -1782,6 +1928,12 @@ document.addEventListener('submit', async e => {
   if (kind === 'myprofile') {
     const name = $('#pf-name').value.trim(); if (!name) return toast('El usuario no puede estar vacío.');
     const u = getUsers(); u[S.user].name = name; u[S.user].bio = $('#pf-bio').value.trim(); G.set('users', u); toast('Perfil guardado'); return render();
+  }
+  if (kind === 'reply') {
+    const t = (($('#c-reply-text') || {}).value || '').trim(), sid = form.dataset.id, top = +form.dataset.cid, s0 = findStory(sid), parent = comments(sid).find(c => c.id === top); if (!t || !s0 || !parent) return;
+    updateComments(sid, l => [...l, { id: Date.now(), by: S.user, text: t.slice(0, 300), date: today(), parent: top }]);
+    notify(parent.by, 'reply', sid, t.slice(0, 80)); if (s0.owner && s0.owner !== parent.by) notify(s0.owner, 'comment', sid, t.slice(0, 80));
+    REPLYTO = null; REPLYPRE = ''; REPOPEN.add(top); KEEP = true; return render();
   }
   if (kind === 'comment') { const t = $('#c-text').value.trim(); if (!t) return; addComment(findStory(form.dataset.id), t); KEEP = true; return render(); }
   if (kind === 'cr-book' || kind === 'cr-event') {
