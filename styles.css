@@ -816,3 +816,4 @@ img{max-width:100%}
 .c-send{width:36px;height:36px;flex:none;display:grid;place-items:center;border:0;border-radius:50%;background:var(--btn);color:#fff;cursor:pointer;transition:transform .15s ease-in-out,box-shadow .2s ease-in-out}
 @media (hover:hover){.c-send:hover{box-shadow:var(--glow)}}
 .c-send:active{transform:scale(.92)}
+.c-meta .c-name{font:700 14px var(--sans);color:var(--title);letter-spacing:-.01em}.pc-box .c-bubble{background:hsl(var(--accent)/.45)}

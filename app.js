@@ -1730,14 +1730,26 @@ function pcTap(p) {                                      // tocar un párrafo: s
   b.textContent = n ? `💬 ${n} comentario${n === 1 ? '' : 's'}` : '💬 Comentar'; p.appendChild(b);
 }
 function pcHintOnce() { if (cfg('pcom') !== 'off' && !cfg('pcHint')) { setCfg('pcHint', true); toast('Tip: toca un párrafo para comentarlo 💬'); } }
-function pcItem(c, s) {
-  const hide = c.spoiler && cfg('spoilers') === 'hide' && c.by !== S.user, can = c.by === S.user || s.owner === S.user || isStaff();
-  return `<div class="pc-item">${userAvatar(c.by)}<div class="pc-body"><div class="pc-meta"><b>${esc(uName(c.by))}</b>${c.spoiler ? '<span class="pc-tag">⚠ Spoiler</span>' : ''}${relSpan(c)}${c.by !== S.user ? `<button class="link-btn" data-act="report-pc" data-cid="${esc(c.id)}">Reportar</button>` : ''}${can ? `<button class="link-btn danger-link" data-act="pc-del" data-cid="${esc(c.id)}">Eliminar</button>` : ''}</div>
-    <div class="pc-text ${hide ? 'spoil' : ''}" ${hide ? 'data-act="pc-reveal" role="button" aria-label="Spoiler oculto: toca para ver"' : ''}>${esc(c.text)}</div>${hide ? '<button type="button" class="link-btn pc-hint" data-act="pc-reveal-btn">👁 Revelar spoiler</button>' : ''}</div></div>`;
+let PCREPLY = null, PCREPPRE = ''; const PCREPOPEN = new Set();       // comentarios de párrafo: hilo en el que respondes · hilos abiertos
+function pcItem(c, s, sub = false, extra = '') {
+  const hide = c.spoiler && cfg('spoilers') === 'hide' && c.by !== S.user, mine = c.by === S.user, can = mine || s.owner === S.user || isStaff();
+  const lk = c.lk || [], liked = lk.includes(S.user), top = sub ? c.parent : c.id, role = ROLE_LABEL[roleOf(c.by)], cid = esc(String(c.id));
+  const items = `${!mine ? `<button type="button" role="menuitem" data-act="report-pc" data-cid="${cid}">🚩 Reportar</button>` : ''}${can ? `<button type="button" role="menuitem" class="danger-link" data-act="pc-del" data-cid="${cid}">🗑 Eliminar</button>` : ''}`;
+  const menu = MENUC === c.id && items ? `<div class="c-menu" role="menu">${items}</div>` : '';
+  return `<div class="comment ${sub ? 'reply' : ''}">${userAvatar(c.by)}<div class="c-main"><div class="c-bubble"><div class="c-meta"><b class="c-name">${esc(uName(c.by))}</b>${c.by === s.owner ? '<span class="c-badge own">Autoría</span>' : ''}${role ? `<span class="c-badge staff">${esc(role)}</span>` : ''}${c.spoiler ? '<span class="pc-tag">⚠ Spoiler</span>' : ''}${relSpan(c)}
+    ${items ? `<span class="c-more-wrap"><button type="button" class="c-more" data-act="pc-more" data-cid="${cid}" aria-label="Más opciones" aria-expanded="${MENUC === c.id}">⋯</button>${menu}</span>` : ''}</div>
+    <div class="c-text pc-text ${hide ? 'spoil' : ''}" ${hide ? 'data-act="pc-reveal" role="button" aria-label="Spoiler oculto: toca para ver"' : ''}>${esc(c.text)}</div>${hide ? '<button type="button" class="link-btn pc-hint" data-act="pc-reveal-btn">👁 Revelar spoiler</button>' : ''}</div>
+    <div class="c-actions"><button type="button" class="c-heart ${liked ? 'on' : ''}" data-act="pc-like" data-cid="${cid}" aria-pressed="${liked}" aria-label="${liked ? 'Quitar me gusta' : 'Me gusta'}">${HEART}<span class="c-n">${lk.length || ''}</span></button><button type="button" class="c-act" data-act="pc-reply" data-top="${esc(String(top))}" data-pre="${sub ? esc('@' + uName(c.by) + ' ') : ''}">${ICO_REPLY}Responder</button></div>${extra}</div></div>`;
 }
 function paintPcList() {
   const box = $('#pc-list'); if (!box || !PCS) return; const s = findStory(PCS.sid); if (!s) return;
-  const l = pcList(PCS.sid, PCS.ci, PCS.pi).filter(c => !hidesFrom(c.by)); box.innerHTML = l.length ? l.map(c => pcItem(c, s)).join('') : '<p class="helper" style="text-align:center;margin:10px 0">Aún no hay comentarios en este párrafo. ¡Sé la primera persona!</p>';
+  const l = pcList(PCS.sid, PCS.ci, PCS.pi).filter(c => !hidesFrom(c.by)), tops = l.filter(c => !c.parent);
+  box.innerHTML = tops.length ? tops.map(x => {
+    const reps = l.filter(r => r.parent === x.id), open = PCREPOPEN.has(x.id);
+    const tg = reps.length ? `<button type="button" class="c-rtoggle" data-act="pc-replies" data-cid="${esc(String(x.id))}" aria-expanded="${open}"><i class="c-line"></i>${open ? 'Ocultar respuestas' : `Ver las respuestas (${reps.length})`}</button>` : '';
+    const rf = PCREPLY === x.id ? `<form data-form="pcreply" data-top="${esc(String(x.id))}" class="c-replyform">${userAvatar(S.user)}<div class="c-pill"><input id="pc-reply-text" maxlength="${PC_MAX}" value="${esc(PCREPPRE)}" placeholder="Escribe una respuesta…" aria-label="Tu respuesta" autocomplete="off"><button class="c-send" type="submit" aria-label="Enviar respuesta">${ICO_SEND}</button></div><button type="button" class="c-act" data-act="pc-reply-cancel">Cancelar</button></form>` : '';
+    return pcItem(x, s, false, `${tg}${open ? `<div class="c-replies">${reps.map(r => pcItem(r, s, true)).join('')}</div>` : ''}${rf}`);
+  }).join('') : '<p class="helper" style="text-align:center;margin:10px 0">Aún no hay comentarios en este párrafo. ¡Sé la primera persona!</p>';
   const t = $('#pc-count'); if (t) t.textContent = l.length ? `(${l.length})` : '';
 }
 function openParaSheet(pi) {
@@ -1872,9 +1884,16 @@ document.addEventListener('click', e => {
     'pc-open': () => openParaSheet(+el.dataset.pi),
     'pc-close': () => { const m = $('#pc-sheet'); if (m) m.remove(); PCS = null; pcClear(); },
     'pc-send': sendParaComment,
+    'pc-more': () => { MENUC = MENUC === el.dataset.cid ? null : el.dataset.cid; paintPcList(); },
+    'pc-like': () => { if (!PCS) return; const all = pcAll(), k = pcKey(PCS.sid, PCS.ci, PCS.pi), cid = el.dataset.cid; let added = false, target = '';
+      all[k] = (all[k] || []).map(c => { if (String(c.id) !== cid) return c; const lk = c.lk || []; added = !lk.includes(S.user); target = c.by; return { ...c, lk: added ? [...lk, S.user] : lk.filter(x => x !== S.user) }; });
+      G.set('pcom', all); if (added && target) notify(target, 'clike', PCS.sid, ''); paintPcList(); const hb = document.querySelector(`#pc-list .c-heart[data-cid="${cid}"]`); if (hb && added) { hb.classList.add('pulse'); setTimeout(() => hb.classList.remove('pulse'), 500); } },
+    'pc-reply': () => { PCREPLY = el.dataset.top; PCREPPRE = el.dataset.pre || ''; PCREPOPEN.add(PCREPLY); paintPcList(); const i = $('#pc-reply-text'); if (i && i.focus) { i.focus(); if (i.setSelectionRange) i.setSelectionRange(i.value.length, i.value.length); } },
+    'pc-reply-cancel': () => { PCREPLY = null; PCREPPRE = ''; paintPcList(); },
+    'pc-replies': () => { const c = el.dataset.cid; PCREPOPEN.has(c) ? PCREPOPEN.delete(c) : PCREPOPEN.add(c); paintPcList(); },
     'pc-reveal-btn': () => { const t = el.previousElementSibling; if (t) { t.classList.remove('spoil'); t.removeAttribute('data-act'); } el.remove(); },
     'pc-reveal': () => { el.classList.remove('spoil'); const h = el.nextElementSibling; if (h && h.classList.contains('pc-hint')) h.remove(); },
-    'pc-del': () => { if (!PCS) return; const s = findStory(PCS.sid), cid = el.dataset.cid; confirmBox('¿Seguro que quieres eliminar este comentario?', () => { const all = pcAll(), k = pcKey(PCS.sid, PCS.ci, PCS.pi); all[k] = (all[k] || []).filter(c => !(c.id === cid && (c.by === S.user || (s && s.owner === S.user) || isOwner()))); G.set('pcom', all); paintPcList(); if (cfg('pcom') === 'dots') { KEEP = true; render(); } }); },
+    'pc-del': () => { if (!PCS) return; const s = findStory(PCS.sid), cid = el.dataset.cid; confirmBox('¿Seguro que quieres eliminar este comentario?', () => { const all = pcAll(), k = pcKey(PCS.sid, PCS.ci, PCS.pi); const t0 = (all[k] || []).find(c => c.id === cid); if (t0 && (t0.by === S.user || (s && s.owner === S.user) || isStaff())) all[k] = all[k].filter(c => c.id !== cid && c.parent !== cid); G.set('pcom', all); paintPcList(); if (cfg('pcom') === 'dots') { KEEP = true; render(); } }); },
     'set-back': () => { NAVDIR = 'prev'; const h = window.history; if (SETDEEP && h && h.length > 1) h.back(); else goReplace('/settings'); },   // si vienes del menú: retrocede en el historial (no apila otra copia)
     'settings-back': () => { const h = window.history; if (h && h.length > 1) h.back(); else go('/'); },
     cfg: () => { const k = el.dataset.k, v = el.dataset.v; if (k === 'theme') { S.theme = v; applyTheme(); } else setCfg(k, v); KEEP = true; render(); },
@@ -1961,7 +1980,7 @@ document.addEventListener('change', e => {
   if (id === 'av-file') squarePhoto(f, 256, d => { const u = getUsers(); u[S.user].avatar = d; G.set('users', u); render(); });
 });
 document.addEventListener('error', e => { if (e.target.classList && e.target.classList.contains('cover-img')) e.target.style.display = 'none'; if (e.target.classList && e.target.classList.contains('fr-img')) { e.target.style.display = 'none'; if (e.target.parentNode) e.target.parentNode.classList.add('fr-fallback'); } }, true);
-document.addEventListener('click', e => { if (MENUC !== null && !e.target.closest('.c-more-wrap')) { MENUC = null; KEEP = true; if (!e.target.closest('[data-act]')) render(); } }, true);
+document.addEventListener('click', e => { if (MENUC !== null && !e.target.closest('.c-more-wrap')) { MENUC = null; KEEP = true; if (PCS) paintPcList(); if (!e.target.closest('[data-act]')) render(); } }, true);
 document.addEventListener('submit', async e => {
   const form = e.target.closest('[data-form]'); if (!form) return;
   e.preventDefault();
@@ -1969,6 +1988,12 @@ document.addEventListener('submit', async e => {
   if (kind === 'myprofile') {
     const name = $('#pf-name').value.trim(); if (!name) return toast('El usuario no puede estar vacío.');
     const u = getUsers(); u[S.user].name = name; u[S.user].bio = $('#pf-bio').value.trim(); G.set('users', u); toast('Perfil guardado'); return render();
+  }
+  if (kind === 'pcreply') {
+    if (!PCS) return; const t = (($('#pc-reply-text') || {}).value || '').trim().slice(0, PC_MAX), top = form.dataset.top, s0 = findStory(PCS.sid), all = pcAll(), k = pcKey(PCS.sid, PCS.ci, PCS.pi), parent = (all[k] || []).find(c => String(c.id) === top);
+    if (!t || !s0 || !parent) return;
+    all[k].push({ id: Date.now() + Math.random().toString(36).slice(2, 5), by: S.user, text: t, date: today(), spoiler: false, q: PCS.q, parent: parent.id }); G.set('pcom', all);
+    notify(parent.by, 'reply', s0.id, t.slice(0, 80)); PCREPLY = null; PCREPPRE = ''; PCREPOPEN.add(parent.id); paintPcList(); return;
   }
   if (kind === 'reply') {
     const t = (($('#c-reply-text') || {}).value || '').trim(), sid = form.dataset.id, top = +form.dataset.cid, s0 = findStory(sid), parent = comments(sid).find(c => c.id === top); if (!t || !s0 || !parent) return;
