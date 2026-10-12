@@ -214,6 +214,17 @@ function blockUser(e) {
 const follows = () => G.get('follows', {});
 const following = e => follows()[e] || [];
 const followers = e => Object.keys(follows()).filter(f => following(f).includes(e));
+/** Fecha relativa («Hace 2 h»): el id de cada comentario es su marca de tiempo; se refresca sola cada 30 s */
+function relTime(ts) {
+  const n = parseInt(String(ts), 10); if (!n || n < 1e12) return ''; const sec = Math.max(0, Math.floor((Date.now() - n) / 1000));
+  if (sec < 60) return 'Hace un momento'; const m = Math.floor(sec / 60); if (m < 60) return `Hace ${m} min`;
+  const h = Math.floor(m / 60); if (h < 24) return `Hace ${h} h`; const d = Math.floor(h / 24); if (d < 30) return `Hace ${d} ${d === 1 ? 'día' : 'días'}`;
+  const mo = Math.floor(d / 30); if (mo < 12) return `Hace ${mo} ${mo === 1 ? 'mes' : 'meses'}`; const y = Math.floor(d / 365); return `Hace ${y} ${y === 1 ? 'año' : 'años'}`;
+}
+const relSpan = c => `<time class="rel-t" data-ts="${esc(String(c.id))}" title="${esc(c.date || '')}">${esc(relTime(c.id) || c.date || '')}</time>`;
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const fmtDate = iso => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${+m[3]} ${MESES[+m[2] - 1]} ${m[1]}` : ''; };
+const HEART = '<svg class="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
 const likes = id => G.get('likes', {})[id] || [];
 const comments = id => G.get('comments', {})[id] || [];
 const news = () => G.get('news', []);
@@ -828,7 +839,7 @@ function storyDetail(s, mine) {
   return `<main class="page story-layout"><a class="button ghost" href="#/">‹ Todas las historias</a>
   <section class="detail">${sagaNav(s)}${sagaCovers(s)}
   <span class="eyebrow">${esc(genreName(s.genre))} · ${esc(s.fandom)}${s.mature ? ' · +18' : ''}</span><h1>${esc(s.title)}</h1>
-  <div class="detail-by">por ${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : esc(userName())}</div>
+  <div class="detail-by">por ${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : esc(userName())}</div>${s.publishedAt ? `<div class="detail-date">📅 Publicado el ${fmtDate(s.publishedAt)}</div>` : ''}
   <div class="detail-likes">👍 ${n} ${n === 1 ? 'like' : 'likes'}</div>${bookState(s)}
   <p class="detail-syn">${esc(s.synopsis)}</p>
   <div class="tags" style="justify-content:center">${tagChips(s.tags)}</div>
@@ -926,6 +937,7 @@ function setChapterStatus(id, owner, cid, status, reason = '') {
       if (status === 'approved') { const { live, reason: _r, ...rest } = c; return { ...rest, status }; }   // la versión nueva reemplaza a la anterior
       return { ...c, status, reason };
     });
+    if (status === 'approved' && !n.publishedAt && n.chapters.filter(pubChapter).length === 1) n.publishedAt = today();     // fecha en que moderación aceptó el libro
     n.updatedAt = today(); return n;
   });
   LS.set(k, list); if (owner === S.user) S.stories = list.map(norm);
@@ -1267,10 +1279,12 @@ function updateComments(sid, fn) { const all = G.get('comments', {}); all[sid] =
 let REPLYTO = null, REPLYPRE = ''; const REPOPEN = new Set();        // hilo donde estás respondiendo · hilos con las respuestas abiertas
 function cmRow(x, s, sub, extra = '') {
   const mine = x.by === S.user, lk = x.lk || [], liked = lk.includes(S.user), top = sub ? x.parent : x.id;
-  const acts = `<button type="button" class="link-btn c-like ${liked ? 'on' : ''}" data-act="c-like" data-id="${esc(s.id)}" data-cid="${x.id}" aria-pressed="${liked}" aria-label="Me gusta este comentario">👍${lk.length ? ' ' + lk.length : ''}</button><button type="button" class="link-btn" data-act="c-reply" data-top="${top}" data-pre="${sub ? esc('@' + uName(x.by) + ' ') : ''}">Responder</button>${mine ? `<button type="button" class="link-btn" data-act="c-edit" data-cid="${x.id}">Editar</button>` : `<button type="button" class="link-btn" data-act="report-comment" data-id="${esc(s.id)}" data-cid="${x.id}">Reportar</button>`}${mine || isAdmin() ? `<button type="button" class="link-btn danger-link" data-act="c-del" data-id="${esc(s.id)}" data-cid="${x.id}">Eliminar</button>` : ''}`;
-  return `<div class="comment ${sub ? 'reply' : ''}" id="cm-${x.id}">${userAvatar(x.by)}<div style="flex:1;min-width:0"><a href="#/user/${encodeURIComponent(x.by)}"><strong>${esc(uName(x.by))}</strong></a> <span class="helper">${esc(x.date)}${x.edited ? ' · editado' : ''}</span>
-    ${EDITC === x.id ? `<textarea id="c-edit-text" class="textarea" style="min-height:70px;margin-top:6px" maxlength="300">${esc(x.text)}</textarea><div class="c-actions"><button class="button sm" data-act="c-save" data-id="${esc(s.id)}" data-cid="${x.id}">Guardar</button><button class="button ghost sm" data-act="c-cancel">Cancelar</button></div>`
-      : `<div style="overflow-wrap:anywhere">${esc(x.text)}</div><div class="c-actions">${acts}</div>`}${extra}</div></div>`;
+  const acts = `<button type="button" class="c-heart ${liked ? 'on' : ''}" data-act="c-like" data-id="${esc(s.id)}" data-cid="${x.id}" aria-pressed="${liked}" aria-label="${liked ? 'Quitar me gusta' : 'Me gusta'}">${HEART}<span class="c-n">${lk.length}</span></button>
+    <button type="button" class="c-act" data-act="c-reply" data-top="${top}" data-pre="${sub ? esc('@' + uName(x.by) + ' ') : ''}">Responder</button>${mine ? `<button type="button" class="c-act" data-act="c-edit" data-cid="${x.id}">Editar</button>` : `<button type="button" class="c-act" data-act="report-comment" data-id="${esc(s.id)}" data-cid="${x.id}">Reportar</button>`}${mine || isAdmin() ? `<button type="button" class="c-act danger-link" data-act="c-del" data-id="${esc(s.id)}" data-cid="${x.id}">Eliminar</button>` : ''}`;
+  return `<div class="comment ${sub ? 'reply' : ''}" id="cm-${x.id}">${userAvatar(x.by)}<div class="c-main">
+    <div class="c-bubble"><div class="c-meta"><a href="#/user/${encodeURIComponent(x.by)}"><strong>${esc(uName(x.by))}</strong></a>${relSpan(x)}${x.edited ? '<span class="c-ed">· editado</span>' : ''}</div>
+    ${EDITC === x.id ? `<textarea id="c-edit-text" class="textarea" style="min-height:70px;margin-top:6px" maxlength="300">${esc(x.text)}</textarea><div class="c-actions"><button class="button sm" data-act="c-save" data-id="${esc(s.id)}" data-cid="${x.id}">Guardar</button><button class="button ghost sm" data-act="c-cancel">Cancelar</button></div>` : `<div class="c-text">${esc(x.text)}</div>`}</div>
+    ${EDITC === x.id ? '' : `<div class="c-actions">${acts}</div>`}${extra}</div></div>`;
 }
 function commentsHTML(s) {
   const all = comments(s.id).filter(c => !hidesFrom(c.by)), tops = all.filter(c => !c.parent);
@@ -1279,7 +1293,7 @@ function commentsHTML(s) {
   ${tops.length ? tops.map(x => {
     const reps = all.filter(r => r.parent === x.id), open = REPOPEN.has(x.id);
     const rf = REPLYTO === x.id ? `<form data-form="reply" data-id="${esc(s.id)}" data-cid="${x.id}" class="c-replyform"><input id="c-reply-text" class="field" maxlength="300" value="${esc(REPLYPRE)}" placeholder="Escribe una respuesta…" aria-label="Tu respuesta"><button class="button sm" type="submit">Enviar</button><button type="button" class="button ghost sm" data-act="c-reply-cancel">Cancelar</button></form>` : '';
-    const tg = reps.length ? `<button type="button" class="link-btn c-rtoggle" data-act="c-replies" data-cid="${x.id}" aria-expanded="${open}">${open ? '▴ Ocultar respuestas' : `▾ Ver las respuestas (${reps.length})`}</button>` : '';
+    const tg = reps.length ? `<button type="button" class="c-rtoggle" data-act="c-replies" data-cid="${x.id}" aria-expanded="${open}">${open ? '▴ Ocultar respuestas' : `▾ Ver las respuestas (${reps.length})`}</button>` : '';
     return cmRow(x, s, false, `${tg}${open ? `<div class="c-replies">${reps.map(r => cmRow(r, s, true)).join('')}</div>` : ''}${rf}`);
   }).join('') : '<p class="helper">Sé la primera persona en comentar.</p>'}</section>`;
 }
@@ -1419,11 +1433,31 @@ function admMenu(t) {
 }
 
 /* --- Noticias (solo la cuenta dueña publica) --- */
+function openBookPicker() {
+  const m = document.createElement('div'); m.className = 'modal sheet'; let tab = 'home', q = '';
+  m.innerHTML = `<div class="modal-box bp-box" role="dialog" aria-modal="true" aria-label="Recomendar un libro"><button class="icon-btn close-x" data-x aria-label="Cerrar">✕</button><h2>Recomendar un libro</h2><p class="helper">Toca un libro y aparece en el banner de Inicio.</p>
+  <div class="bp-tabs"><button type="button" class="chip active" data-t="home">🏠 Inicio</button><button type="button" class="chip" data-t="favs">♥ Mis favoritos</button><button type="button" class="chip" data-t="lib">📚 Mi biblioteca</button></div>
+  <input class="field bp-q" type="search" placeholder="Buscar por título o autoría…" aria-label="Buscar libro"><div class="bp-list"></div></div>`;
+  const list = m.querySelector('.bp-list');
+  const src = () => { const all = publishedStories().filter(matureOK); return (tab === 'favs' ? all.filter(x => S.favs.includes(x.id)) : tab === 'lib' ? all.filter(x => S.lib.includes(x.id)) : all).filter(x => !q || `${x.title} ${x.author}`.toLowerCase().includes(q)); };
+  const paint = () => { const on = new Set(crAll().filter(b => b.kind === 'book').map(b => b.storyId)), l = src();
+    list.innerHTML = l.length ? l.map((x, i) => `<button type="button" class="bp-item" data-id="${esc(x.id)}"><span class="bp-cv">${coverHTML(x, i)}</span><span class="bp-t"><b>${esc(x.title)}</b><small>por ${esc(x.author || '')}</small></span>${on.has(x.id) ? '<span class="pill">En el banner ✓</span>' : '<span class="bp-add">＋</span>'}</button>`).join('')
+      : `<p class="helper" style="text-align:center;margin:18px 0">${tab === 'favs' ? 'Aún no tienes libros favoritos.' : tab === 'lib' ? 'Tu biblioteca está vacía.' : 'No hay libros publicados.'}</p>`; };
+  m.querySelector('[data-x]').onclick = () => m.remove(); m.onclick = ev => { if (ev.target === m) m.remove(); };
+  m.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; m.querySelectorAll('[data-t]').forEach(x => x.classList.toggle('active', x === b)); paint(); });
+  m.querySelector('.bp-q').oninput = ev => { q = ev.target.value.trim().toLowerCase(); paint(); };
+  list.onclick = ev => { const it = ev.target.closest('.bp-item'); if (!it || !canNews()) return; const sid = it.dataset.id, L = crAll();
+    if (L.some(b => b.kind === 'book' && b.storyId === sid)) return toast('Ese libro ya está en el banner.');
+    if (L.length >= 6) return toast('Máximo 6 tarjetas manuales: elimina alguna.');
+    G.set('banners', [...L, { id: Date.now(), kind: 'book', by: S.user, date: today(), storyId: sid, title: '', text: '', btn: 'Leer ahora' }]); m.remove(); toast('Añadido al banner ✓'); KEEP = true; render(); };
+  paint(); document.body.appendChild(m);
+}
 function crPanel() {
   const L = crAll(), pubs = publishedStories(), nw = news();
   return `<section class="panel" style="margin-bottom:20px"><h2>🎠 Banner de Inicio</h2><p class="helper" style="margin:4px 0 12px">Las noticias salen solas en el carrusel. Aquí añades tarjetas manuales (aparecen primero).${isOwner() ? '' : ' Solo puedes editar y eliminar las tuyas.'}</p>
   ${L.length ? L.map((b, i) => { const mine = ownsPost(b); return `<div class="cr-row"><span class="cr-rt">${b.kind === 'book' ? '📚' : '🎉'} <b>${esc(b.title || (findStory(b.storyId) || {}).title || 'Libro eliminado')}</b>${isOwner() ? ` <small class="helper">· ${esc(uName(b.by || OWNER_EMAIL) === 'Usuario' ? 'Owner' : uName(b.by || OWNER_EMAIL))}</small>` : ''}</span><span class="cr-rb">${mine ? `<button class="icon-btn sm" data-act="cr-up" data-id="${b.id}" ${i ? '' : 'disabled'} aria-label="Subir">↑</button><button class="icon-btn sm" data-act="cr-down" data-id="${b.id}" ${i < L.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button><button class="link-btn" data-act="cr-edit" data-id="${b.id}">Editar</button><button class="link-btn danger-link" data-act="cr-del" data-id="${b.id}">Eliminar</button>` : '<small class="helper">de otra persona</small>'}</span></div>`; }).join('') : '<p class="helper">Aún no hay tarjetas manuales.</p>'}
-  <details class="cr-add"><summary>＋ Recomendar un libro</summary><form data-form="cr-book" class="form-grid" style="grid-template-columns:1fr;margin-top:10px">
+ <button type="button" class="button secondary" data-act="cr-pick-open" style="margin:8px 0">＋ Recomendar un libro</button>
+  <details class="cr-add" hidden><summary>＋ Recomendar un libro</summary><form data-form="cr-book" class="form-grid" style="grid-template-columns:1fr;margin-top:10px">
     <div class="form-group"><label for="cb-story">Libro</label><select id="cb-story" class="select">${pubs.length ? pubs.map(x => `<option value="${esc(x.id)}">${esc(x.title)}</option>`).join('') : '<option value="">No hay libros publicados</option>'}</select></div>
     <div class="form-group"><label for="cb-title">Título (opcional)</label><input id="cb-title" class="field" maxlength="70" placeholder="Si lo dejas vacío usa el del libro (el título del libro siempre se muestra)"></div>
     <div class="form-group"><label for="cb-text">Texto (opcional)</label><textarea id="cb-text" class="textarea" maxlength="160" placeholder="Por qué lo recomiendas… (si lo dejas vacío usa la sinopsis)"></textarea></div>
@@ -1694,7 +1728,7 @@ function pcTap(p) {                                      // tocar un párrafo: s
 function pcHintOnce() { if (cfg('pcom') !== 'off' && !cfg('pcHint')) { setCfg('pcHint', true); toast('Tip: toca un párrafo para comentarlo 💬'); } }
 function pcItem(c, s) {
   const hide = c.spoiler && cfg('spoilers') === 'hide' && c.by !== S.user, can = c.by === S.user || s.owner === S.user || isStaff();
-  return `<div class="pc-item">${userAvatar(c.by)}<div class="pc-body"><div class="pc-meta"><b>${esc(uName(c.by))}</b>${c.spoiler ? '<span class="pc-tag">⚠ Spoiler</span>' : ''}<span class="helper">${esc(c.date)}</span>${c.by !== S.user ? `<button class="link-btn" data-act="report-pc" data-cid="${esc(c.id)}">Reportar</button>` : ''}${can ? `<button class="link-btn danger-link" data-act="pc-del" data-cid="${esc(c.id)}">Eliminar</button>` : ''}</div>
+  return `<div class="pc-item">${userAvatar(c.by)}<div class="pc-body"><div class="pc-meta"><b>${esc(uName(c.by))}</b>${c.spoiler ? '<span class="pc-tag">⚠ Spoiler</span>' : ''}${relSpan(c)}${c.by !== S.user ? `<button class="link-btn" data-act="report-pc" data-cid="${esc(c.id)}">Reportar</button>` : ''}${can ? `<button class="link-btn danger-link" data-act="pc-del" data-cid="${esc(c.id)}">Eliminar</button>` : ''}</div>
     <div class="pc-text ${hide ? 'spoil' : ''}" ${hide ? 'data-act="pc-reveal" role="button" aria-label="Spoiler oculto: toca para ver"' : ''}>${esc(c.text)}</div>${hide ? '<button type="button" class="link-btn pc-hint" data-act="pc-reveal-btn">👁 Revelar spoiler</button>' : ''}</div></div>`;
 }
 function paintPcList() {
@@ -1775,6 +1809,7 @@ document.addEventListener('click', e => {
     'char-edit': () => openCharForm(+el.dataset.cid),
     'char-del': () => { const cid = +el.dataset.cid, x = S.chars.find(k => k.id === cid); if (!x) return;
       confirmBox(`¿Seguro que quieres eliminar a «${x.name}»?`, () => { S.chars = S.chars.filter(k => k.id !== cid); setActive(S.activeId === cid ? undefined : S.activeId); KEEP = true; render(); }); },
+    'cr-pick-open': () => { if (canNews()) openBookPicker(); },
     'report-story': () => { const s0 = findStory(id); if (s0) openReportFor('story', { sid: id, target: id, owner: s0.owner, title: s0.title, label: '«' + s0.title + '»' }); },
     'report-comment': () => { const c = comments(id).find(x => String(x.id) === el.dataset.cid); if (c) openReportFor('comment', { sid: id, cid: c.id, target: c.by, owner: c.by, excerpt: c.text, label: 'un comentario de ' + uName(c.by) }); },
     'report-pc': () => { const c = PCS && pcList(PCS.sid, PCS.ci, PCS.pi).find(x => String(x.id) === el.dataset.cid); if (c) openReportFor('pcomment', { sid: PCS.sid, ci: PCS.ci, target: c.by, owner: c.by, excerpt: c.text, label: 'un comentario de párrafo de ' + uName(c.by) }); },
@@ -1789,7 +1824,7 @@ document.addEventListener('click', e => {
     unmute: () => { setBM('muted', id, false); toast('Dejaste de silenciar a esta persona.'); KEEP = true; render(); },
     block: () => dialog('¿Bloquear a ' + uName(id) + '?', 'No verás sus comentarios ni sus obras, dejarán de seguirse y no habrá avisos entre ustedes. Puedes desbloquearla en Ajustes.', 'Bloquear', 'Cancelar', () => { blockUser(id); toast('Cuenta bloqueada'); KEEP = true; render(); }, true),
     unblock: () => { setBM('blocked', id, false); toast('Desbloqueada ✓'); KEEP = true; render(); },
-    'c-like': () => { const cid = +el.dataset.cid; let added = false, target = ''; updateComments(id, l => l.map(c => { if (c.id !== cid) return c; const lk = c.lk || []; added = !lk.includes(S.user); target = c.by; return { ...c, lk: added ? [...lk, S.user] : lk.filter(x => x !== S.user) }; })); if (added && target) notify(target, 'clike', id, ''); KEEP = true; render(); },
+    'c-like': () => { const cid = +el.dataset.cid; let added = false, target = ''; updateComments(id, l => l.map(c => { if (c.id !== cid) return c; const lk = c.lk || []; added = !lk.includes(S.user); target = c.by; return { ...c, lk: added ? [...lk, S.user] : lk.filter(x => x !== S.user) }; })); if (added && target) notify(target, 'clike', id, ''); KEEP = true; render(); const hb = document.querySelector(`.c-heart[data-cid="${cid}"]`); if (hb && added) { hb.classList.add('pulse'); setTimeout(() => hb.classList.remove('pulse'), 500); } },
     'c-reply': () => { REPLYTO = +el.dataset.top; REPLYPRE = el.dataset.pre || ''; REPOPEN.add(REPLYTO); KEEP = true; render(); const i = $('#c-reply-text'); if (i && i.focus) { i.focus(); if (i.setSelectionRange) i.setSelectionRange(i.value.length, i.value.length); } },
     'c-reply-cancel': () => { REPLYTO = null; REPLYPRE = ''; KEEP = true; render(); },
     'c-replies': () => { const c = +el.dataset.cid; REPOPEN.has(c) ? REPOPEN.delete(c) : REPOPEN.add(c); KEEP = true; render(); },
@@ -2003,6 +2038,7 @@ if (window.matchMedia) { const mq = window.matchMedia('(prefers-color-scheme: da
 if (S.user) loadUser();
 render();
 seedTest();
+setInterval(() => document.querySelectorAll('.rel-t[data-ts]').forEach(t => { const r = relTime(t.dataset.ts); if (r && t.textContent !== r) t.textContent = r; }), 30000);
 (function splash() {                                   // pantalla de bienvenida corta con las orejitas de Auri
   if (reduceMotion() || !document.body || !document.createElement) return;
   const d = document.createElement('div'); d.className = 'splash'; d.innerHTML = LOADER() + '<b>Auri Studios</b>'; document.body.appendChild(d);
