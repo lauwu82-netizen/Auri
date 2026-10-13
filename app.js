@@ -145,12 +145,28 @@ function giveStrike(t, reason) {
   const us = getUsers(), id = 's' + Date.now().toString(36), arr = [...(us[t].strikes || []), { id, reason: reason.slice(0, 500), by: S.user, date: new Date().toISOString() }];
   us[t].strikes = arr; G.set('users', us); pushNotif(t, { type: 'strike', extra: id }); logAction('strike', t, reason.slice(0, 120)); return '';
 }
+const canBan = () => isOwner() || isAdm();             // suspender o bloquear: solo Administración y Owner
+const appealsAll = () => G.get('appeals', []);
+const openAppeals = () => appealsAll().filter(a => a.status === 'open').length;
+const myAppeal = b => b && appealsAll().find(a => a.user === S.user && a.banDate === b.date);
+function submitAppeal(text, imgs) {
+  const b = activeBan(S.user); if (!b) return 'La cuenta ya no está suspendida.';
+  text = String(text || '').trim(); if (text.length < 10) return 'Cuenta qué ocurrió con al menos 10 caracteres.';
+  if (myAppeal(b)) return 'Ya se envió una apelación para esta decisión.';
+  const l = appealsAll(); l.unshift({ id: Date.now(), user: S.user, banDate: b.date, ban: { reason: b.reason, by: b.by, until: b.until || null }, text: text.slice(0, 1000), imgs: (imgs || []).slice(0, 4), date: today(), status: 'open' });
+  if (!G.set('appeals', l)) return 'No se pudo guardar. Prueba con menos imágenes o más livianas.';
+  [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) === 'ADMIN')])].forEach(e => pushNotif(e, { type: 'sys', extra: 'Nueva apelación de ' + uName(S.user), href: '#/moderation/appeals' }));
+  return '';
+}
 function applyBan(t, days, reason) {
-  reason = String(reason || '').trim(); if (!canAct(t)) return 'No tienes permiso para esta acción.'; if (reason.length < 3) return 'Escribe el motivo de la suspensión.';
+  reason = String(reason || '').trim(); if (!canAct(t) || !canBan()) return 'Solo Administración y Owner pueden suspender o bloquear cuentas.'; if (reason.length < 3) return 'Escribe el motivo de la suspensión.';
   const us = getUsers(), d = +days; us[t].ban = { reason: reason.slice(0, 500), by: S.user, date: new Date().toISOString(), until: d > 0 ? new Date(Date.now() + d * 864e5).toISOString() : null };
   G.set('users', us); logAction('ban', t, (d > 0 ? d + ' día(s): ' : 'permanente: ') + reason.slice(0, 100)); return '';
 }
-function liftBan(t) { if (!canAct(t)) return 'No tienes permiso para esta acción.'; const us = getUsers(); delete us[t].ban; G.set('users', us); logAction('unban', t); return ''; }
+function liftBan(t) {
+  if (!canAct(t) || !canBan()) return 'Solo Administración y Owner pueden levantar una suspensión.'; const us = getUsers(); delete us[t].ban; G.set('users', us); logAction('unban', t);
+  G.set('appeals', appealsAll().map(a => a.user === t && a.status === 'open' ? { ...a, status: 'released', handledBy: S.user, handledDate: today(), note: 'Cuenta liberada' } : a)); return '';
+}
 /* --- Cuenta de prueba «RiRi» (simula a otra persona). Para quitarla: Ajustes › Cuenta › Eliminar cuenta, o borra este bloque --- */
 const TEST_EMAIL = 'lauwu82@gmail.com', TEST_PASS = 'RiRi12345';
 async function seedTest() {
@@ -1138,8 +1154,9 @@ function setChapterStatus(id, owner, cid, status, reason = '') {
 const OPEN = new Set();   // libros desplegados (se conservan al re-dibujar)
 function modView(sub) {
   if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">Volver</a>')}</main>`;
-  const books = pendingBooks().reverse(), nr = openReports(), tabs = `<div class="tabs" role="tablist"><a class="tab ${sub === 'reports' ? '' : 'active'}" href="#/moderation">📚 Libros (${books.length})</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">🚩 Reportes${nr ? ` (${nr})` : ''}</a></div>`;
+  const books = pendingBooks().reverse(), nr = openReports(), na = openAppeals(), tabs = `<div class="tabs" role="tablist"><a class="tab ${sub === 'reports' || sub === 'appeals' ? '' : 'active'}" href="#/moderation">📚 Libros (${books.length})</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">🚩 Reportes${nr ? ` (${nr})` : ''}</a>${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">📨 Apelaciones${na ? ` (${na})` : ''}</a>` : ''}</div>`;
   if (sub === 'reports') return reportsView(tabs);
+  if (sub === 'appeals' && canBan()) return appealsView(tabs);
   return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">🛡 Moderación</span><h2 style="margin-top:8px">Libros por revisar (${books.length})</h2><p>Una ficha por libro. Los capítulos se aprueban en orden: 1, 2, 3…</p></div></div>
   ${books.length ? '' : `<p class="notice" style="margin-bottom:14px">No hay libros en revisión en <b>este navegador</b>. Por ahora cada navegador o dispositivo guarda sus propios datos: un libro enviado desde otro teléfono, navegador o editor no llega hasta aquí. Para que lleguen entre dispositivos hace falta el servidor.</p>`}
   ${books.length ? books.map(s => {
@@ -1569,11 +1586,38 @@ function strikeView(id) {
   ${all.length > 1 ? `<h3>Historial</h3>${all.map((x, k) => `<p class="helper"><b>${k + 1}.</b> ${esc(x.date.slice(0, 10))} — ${esc(x.reason)}</p>`).join('')}` : ''}
   <p class="helper">Si crees que es un error, puedes escribirle a la administración de Auri Studios.</p><a class="button" href="#/">Entendido</a></div></main>`;
 }
+function openAppealForm() {
+  const imgs = [];
+  const m = formModal('Apelar la decisión', `<p class="helper">Explica qué ocurrió y por qué fue un malentendido. Se pueden adjuntar hasta 4 imágenes como prueba. Administración revisará el caso.</p><textarea class="textarea" data-text maxlength="1000" placeholder="Escribe tu explicación…"></textarea><div class="ap-imgs" data-imgs></div>
+    <label class="button secondary sm" style="cursor:pointer;margin-top:8px">Adjuntar imágenes<input type="file" accept="image/*" multiple data-file hidden></label>`, 'Enviar apelación',
+    mm => { const e = submitAppeal(mm.querySelector('[data-text]').value, imgs); if (!e) { toast('Apelación enviada'); KEEP = true; render(); } return e; });
+  const paint = () => { m.querySelector('[data-imgs]').innerHTML = imgs.map((d, k) => `<span class="ap-th"><img src="${esc(d)}" alt="Prueba ${k + 1}"><button type="button" data-rm="${k}" aria-label="Quitar imagen">✕</button></span>`).join(''); };
+  m.querySelector('[data-file]').onchange = ev => { [...ev.target.files].slice(0, 4 - imgs.length).forEach(f => fitPhoto(f, 1000, 1000, d => { if (imgs.length < 4) { imgs.push(d); paint(); } }, .7)); ev.target.value = ''; };
+  m.addEventListener('click', ev => { const r = ev.target.closest('[data-rm]'); if (r) { imgs.splice(+r.dataset.rm, 1); paint(); } });
+}
 function bannedView() {
-  const b = activeBan(S.user);
-  return `<main class="qz-wrap"><div class="qz-card" style="justify-content:center;text-align:center"><div class="end-emoji">🚫</div><h1>Cuenta suspendida</h1>
-  <p class="helper">${b.until ? `Tu cuenta está suspendida hasta el ${esc(b.until.slice(0, 10))}.` : 'Tu cuenta está suspendida de forma permanente.'}</p><blockquote class="strike-reason">${esc(b.reason)}</blockquote>
-  <button class="button ghost" data-act="logout" style="margin-top:16px">Cerrar sesión</button></div></main>`;
+  const b = activeBan(S.user), ap = myAppeal(b), perm = !b.until;
+  const box = ap ? (ap.status === 'open' ? `<p class="notice" style="margin-top:14px">Apelación enviada el ${esc(ap.date)}. Administración la está revisando.</p>` : `<p class="notice" style="margin-top:14px">Apelación rechazada${ap.note ? ': ' + esc(ap.note) : '.'}</p>`)
+    : `<button class="button" data-act="ap-open" style="margin-top:14px;width:100%">Apelar esta decisión</button>`;
+  return `<main class="qz-wrap"><div class="qz-card" style="justify-content:center;text-align:center"><div class="end-emoji">🚫</div><h1>${perm ? 'Cuenta bloqueada' : 'Cuenta suspendida'}</h1>
+  <p class="helper">${perm ? 'Tu cuenta está bloqueada de forma permanente.' : `Tu cuenta está suspendida hasta el ${esc(b.until.slice(0, 10))}.`}</p><blockquote class="strike-reason">${esc(b.reason)}</blockquote>${box}
+  <button class="button ghost" data-act="logout" style="margin-top:12px">Cerrar sesión</button></div></main>`;
+}
+let AFILT = 'open';
+function appealCard(a) {
+  const open = a.status === 'open', ex = getUsers()[a.user];
+  return `<article class="panel rp ${open ? '' : 'done'}"><div class="rp-head"><span class="pill">Apelación</span><span class="helper">${esc(a.date)} · ${esc(uName(a.user))}</span></div>
+  <div class="rp-ctx"><b>${esc(uName(a.user))}</b><div class="helper">Decisión: ${esc(a.ban.reason)}<br>Aplicada por ${esc(uName(a.ban.by))} · ${a.ban.until ? 'hasta el ' + esc(a.ban.until.slice(0, 10)) : 'permanente'}</div></div>
+  <p class="rp-text">${esc(a.text)}</p>${(a.imgs || []).length ? `<div class="ap-imgs">${a.imgs.map((d, k) => `<button type="button" class="ap-th" data-act="ap-img" data-id="${a.id}" data-i="${k}" aria-label="Ver prueba ${k + 1}"><img src="${esc(d)}" alt="Prueba ${k + 1}"></button>`).join('')}</div>` : ''}
+  <div class="rp-acts">${ex ? `<a class="button ghost sm" href="#/user/${encodeURIComponent(a.user)}" data-dir="next">Perfil</a>` : ''}
+  ${open ? `<button class="button sm" data-act="ap-release" data-id="${a.id}">Liberar cuenta</button><button class="button danger sm" data-act="ap-reject" data-id="${a.id}">Rechazar apelación</button>`
+    : `<span class="helper">${a.status === 'released' ? 'Cuenta liberada' : 'Apelación rechazada'} por ${esc(uName(a.handledBy))} · ${esc(a.handledDate || '')}${a.note && a.status === 'rejected' ? ' · ' + esc(a.note) : ''}</span>`}</div></article>`;
+}
+function appealsView(tabs) {
+  const all = appealsAll(), l = all.filter(a => (a.status === 'open') === (AFILT === 'open'));
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">Apelaciones</span><h2 style="margin-top:8px">${AFILT === 'open' ? 'Por revisar' : 'Ya atendidas'} (${l.length})</h2><p>Lee la explicación y las pruebas. Puedes liberar la cuenta o rechazar la apelación con un motivo.</p></div></div>
+  <div class="filter-row"><button class="chip ${AFILT === 'open' ? 'active' : ''}" data-act="ap-filter" data-id="open">Abiertas (${openAppeals()})</button><button class="chip ${AFILT === 'done' ? 'active' : ''}" data-act="ap-filter" data-id="done">Atendidas</button></div>
+  ${l.length ? l.map(appealCard).join('') : empty(AFILT === 'open' ? 'Sin apelaciones pendientes' : 'Nada atendido todavía', 'Cuando una cuenta suspendida apele, aparecerá aquí.')}</main>`;
 }
 /** Ventana con formulario: onYes(modal) devuelve un texto de error (se muestra dentro) o '' para cerrar */
 function formModal(title, body, yes, onYes, danger) {
@@ -1589,9 +1633,14 @@ function openStrikeForm(t) {
     m => { const e = giveStrike(t, m.querySelector('[data-reason]').value); if (!e) { toast('Strike enviado'); KEEP = true; render(); } return e; }, true);
 }
 function openBanForm(t) {
-  if (!canAct(t)) return;
-  formModal('Suspender a ' + uName(t), `<div class="form-group"><label>Duración</label><select class="select" data-days><option value="1">1 día</option><option value="7" selected>7 días</option><option value="30">30 días</option><option value="0">Permanente</option></select></div><textarea class="textarea" data-reason maxlength="500" placeholder="Motivo de la suspensión…"></textarea>`, 'Suspender',
-    m => { const e = applyBan(t, m.querySelector('[data-days]').value, m.querySelector('[data-reason]').value); if (!e) { toast('Cuenta suspendida'); KEEP = true; render(); } return e; }, true);
+  if (!canAct(t) || !canBan()) return;
+  const opts = [[1, '1 día'], [3, '3 días'], [7, '7 días'], [15, '15 días'], [30, '30 días'], [90, '90 días'], ['custom', 'Otro tiempo…'], [0, 'Permanente (bloqueo)']];
+  const m = formModal('Suspender o bloquear a ' + uName(t), `<div class="form-group"><label>Duración</label><select class="select" data-days>${opts.map(([v, l]) => `<option value="${v}" ${v === 7 ? 'selected' : ''}>${l}</option>`).join('')}</select><input class="field" data-custom type="number" min="1" max="3650" placeholder="Número de días" style="display:none;margin-top:8px"></div>
+    <div class="form-group" style="margin-top:10px"><label>Motivo (la persona lo verá)</label><textarea class="textarea" data-reason maxlength="500" placeholder="Escribe el motivo de la suspensión o el bloqueo…"></textarea></div><p class="helper">La persona podrá apelar: escribir su versión y enviar imágenes como prueba. Las apelaciones llegan a Administración.</p>`, 'Aplicar',
+    mm => { const sel = mm.querySelector('[data-days]'), d = sel.value === 'custom' ? Math.floor(+mm.querySelector('[data-custom]').value) : +sel.value;
+      if (sel.value === 'custom' && !(d >= 1 && d <= 3650)) return 'Escribe un número de días entre 1 y 3650.';
+      const e = applyBan(t, d, mm.querySelector('[data-reason]').value); if (!e) { toast(d > 0 ? 'Cuenta suspendida' : 'Cuenta bloqueada'); KEEP = true; render(); } return e; }, true);
+  m.querySelector('[data-days]').onchange = ev => { m.querySelector('[data-custom]').style.display = ev.target.value === 'custom' ? '' : 'none'; };
 }
 const TERMS_MOD = ['Usaré las herramientas de moderación solo para proteger a la comunidad, nunca por motivos personales.', 'Trataré con respeto y de forma imparcial a todas las personas, sin favoritismos.', 'Mantendré la confidencialidad de la información a la que acceda por mi rol.',
   'Los strikes y suspensiones que aplique quedan registrados y pueden ser revisados por la Owner.', 'Entiendo que la Owner puede retirar mi rol en cualquier momento.'];
@@ -1627,7 +1676,7 @@ function admMenu(t) {
   const tst = isOwner() && (getUsers()[t] || {}).test ? `<div class="adm-test"><b>🧪 Cuenta de prueba</b>${r !== 'MODERATOR' ? '<button class="adm-item" data-act="test-role" data-id="' + esc(t) + '" data-role="MODERATOR">🛡 Poner como moderadora (directo)</button>' : ''}${r !== 'ADMIN' ? '<button class="adm-item" data-act="test-role" data-id="' + esc(t) + '" data-role="ADMIN">⭐ Poner como administración (directo)</button>' : ''}${r !== 'USER' ? '<button class="adm-item" data-act="test-role" data-id="' + esc(t) + '" data-role="USER">👤 Volver a usuaria normal</button>' : ''}<small class="helper">Para verla como esa persona: cierra sesión y entra con ${esc(TEST_EMAIL)} / ${esc(TEST_PASS)}.</small></div>` : '';
   return `<section class="panel adm" aria-label="Administración"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>🛡 Administración</strong><div class="helper">${st} strike${st === 1 ? '' : 's'} · ${ban ? 'suspendida' : 'cuenta activa'}${r === 'MODERATOR' ? ' · moderación' : r === 'ADMIN' ? ' · administración' : ''}</div></div><button class="button secondary sm" data-act="adm-toggle" aria-expanded="false">Opciones ▾</button></div>
   <div class="adm-list" hidden><button class="adm-item" data-act="adm-strike" data-id="${esc(t)}">⚠️ Dar strike</button>
-  ${ban ? `<button class="adm-item" data-act="adm-unban" data-id="${esc(t)}">✅ Levantar suspensión</button>` : `<button class="adm-item danger" data-act="adm-ban" data-id="${esc(t)}">🚫 Banear / suspender cuenta</button>`}
+  ${!canBan() ? '' : ban ? `<button class="adm-item" data-act="adm-unban" data-id="${esc(t)}">✅ Levantar suspensión</button>` : `<button class="adm-item danger" data-act="adm-ban" data-id="${esc(t)}">🚫 Suspender o bloquear cuenta</button>`}
   ${up && r === 'USER' ? `<button class="adm-item" data-act="adm-mod" data-id="${esc(t)}">🛡 Hacer moderador</button>` : ''}
   ${up && r === 'MODERATOR' ? `<button class="adm-item" data-act="adm-admin" data-id="${esc(t)}">⭐ Ascender a administración</button>` : ''}
   ${tst}${canDown ? `<button class="adm-item" data-act="adm-revoke" data-id="${esc(t)}">${r === 'ADMIN' ? '↩️ Quitar administración (vuelve a moderación)' : '↩️ Quitar moderación'}</button>` : ''}</div></section>`;
@@ -2023,6 +2072,15 @@ document.addEventListener('click', e => {
     'toggle-18': () => { if (isMinor(getUsers()[S.user])) return; collect(); const st = freshStories().find(x => x.id === W.id);
       if (W.mature && st && st.mature && publicPrefix(st.chapters).length && !isStaff()) { el.setAttribute('aria-checked', 'true'); return dialog('Quitar +18 de una obra publicada', 'Para proteger a las personas menores, quitar la marca +18 de una obra ya publicada necesita aprobación de moderación. Seguirá marcada +18 mientras tanto.', 'Enviar solicitud', 'Cancelar', () => toast(requestUnmature(W.id, W.title))); }
       W.mature = !W.mature; el.setAttribute('aria-checked', W.mature); },
+    'ap-open': () => openAppealForm(), 'ap-filter': () => { AFILT = id; KEEP = true; render(); },
+    'ap-img': () => { const a = appealsAll().find(x => String(x.id) === id), d = a && (a.imgs || [])[+el.dataset.i]; if (!d) return; const m = document.createElement('div'); m.className = 'modal sheet'; m.innerHTML = `<div class="modal-box ap-view"><img src="${esc(d)}" alt="Prueba"><button class="button ghost" data-no>Cerrar</button></div>`; m.onclick = ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); }; document.body.appendChild(m); },
+    'ap-release': () => { if (!canBan()) return; const a = appealsAll().find(x => String(x.id) === id); if (!a) return; const e = liftBan(a.user); if (e) return toast(e);
+      logAction('appeal-release', a.user, id); pushNotif(a.user, { type: 'sys', extra: 'Tu apelación fue aceptada y tu cuenta fue liberada.' }); toast('Cuenta liberada'); KEEP = true; render(); },
+    'ap-reject': () => { if (!canBan()) return; const a = appealsAll().find(x => String(x.id) === id); if (!a) return;
+      formModal('Rechazar la apelación de ' + uName(a.user), '<p class="helper">La persona verá este motivo.</p><textarea class="textarea" data-note maxlength="400" placeholder="Explica por qué se mantiene la decisión…"></textarea>', 'Rechazar apelación', m => {
+        const note = m.querySelector('[data-note]').value.trim(); if (note.length < 3) return 'Escribe el motivo del rechazo.';
+        G.set('appeals', appealsAll().map(x => String(x.id) === id ? { ...x, status: 'rejected', handledBy: S.user, handledDate: today(), note } : x)); logAction('appeal-reject', a.user, note.slice(0, 100));
+        pushNotif(a.user, { type: 'sys', extra: 'Tu apelación fue rechazada: ' + note }); toast('Apelación rechazada'); KEEP = true; render(); return ''; }, true); },
     'rc-ok': () => { if (!isStaff()) return; const r = reportsAll().find(x => String(x.id) === String(id)); if (!r) return; const st = staffSetMature(r.sid, false); logAction('unmature', r.owner, r.sid);
       if (st) pushNotif(r.owner, { type: 'sys', extra: 'Moderación aprobó quitar la marca +18 de «' + st.title + '».' }); rpSet(id, 'resolved'); },
     'rc-no': () => { if (!isStaff()) return; const r = reportsAll().find(x => String(x.id) === String(id)); if (!r) return;

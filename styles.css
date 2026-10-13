@@ -912,3 +912,11 @@ a.icon-btn.bell{position:relative}
 /* 42. Obra no disponible en la biblioteca */
 .row-card.locked{opacity:.85;border-style:dashed}
 .lock-cv{flex:none;width:64px;aspect-ratio:3/4;border-radius:10px;display:grid;place-items:center;font:700 15px var(--sans);color:hsl(var(--primary));background:hsl(var(--accent)/.6)}
+
+/* 43. Apelaciones */
+.ap-imgs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
+.ap-th{position:relative;width:72px;height:72px;padding:0;border:1px solid hsl(var(--border));border-radius:12px;overflow:hidden;background:hsl(var(--card));cursor:pointer}
+.ap-th img{width:100%;height:100%;object-fit:cover;display:block}
+.ap-th button{position:absolute;top:3px;right:3px;width:22px;height:22px;border:0;border-radius:50%;background:rgba(30,20,45,.7);color:#fff;font-size:11px;line-height:1}
+.ap-view{display:flex;flex-direction:column;gap:12px;align-items:center}.ap-view img{max-width:100%;max-height:68dvh;border-radius:12px}
+.tabs{overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tabs .tab{flex:none;white-space:nowrap}
