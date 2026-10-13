@@ -920,3 +920,11 @@ a.icon-btn.bell{position:relative}
 .ap-th button{position:absolute;top:3px;right:3px;width:22px;height:22px;border:0;border-radius:50%;background:rgba(30,20,45,.7);color:#fff;font-size:11px;line-height:1}
 .ap-view{display:flex;flex-direction:column;gap:12px;align-items:center}.ap-view img{max-width:100%;max-height:68dvh;border-radius:12px}
 .tabs{overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tabs .tab{flex:none;white-space:nowrap}
+
+/* 44. Reportes por cuenta, cuentas reportadas y registro */
+.rph{margin-top:16px}.rph-item{border-top:1px solid hsl(var(--border));padding:8px 0}.rph-item summary{display:flex;gap:10px;align-items:center;cursor:pointer;list-style:none}.rph-item summary::-webkit-details-marker{display:none}
+.rph-body{padding:8px 0 2px}.rph-body .rp-text{margin:6px 0}
+.adm-strikes{display:flex;flex-direction:column;gap:6px;padding:8px 4px;font-size:13px}.adm-strike{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;color:var(--soft)}
+.acc-head{display:flex;align-items:center;gap:12px}.acc-id{display:flex;flex-direction:column;flex:1;min-width:0}.acc-n{flex:none}
+.log-list{display:flex;flex-direction:column;margin-top:8px}.log-row{padding:11px 2px;border-bottom:1px solid hsl(var(--border));display:flex;flex-direction:column;gap:2px}
+.log-top{display:flex;justify-content:space-between;gap:10px}.log-extra{font-size:13px;color:var(--soft);line-height:1.45;word-break:break-word}

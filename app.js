@@ -135,7 +135,7 @@ function canAct(t) {
   const me = roleOf(S.user), tr = roleOf(t);
   return me === 'OWNER' ? tr !== 'OWNER' : me === 'ADMIN' ? (tr === 'USER' || tr === 'MODERATOR') : me === 'MODERATOR' ? tr === 'USER' : false;   // strikes y suspensiones
 }
-const strikesOf = e => (getUsers()[e] || {}).strikes || [];
+const strikesOf = e => ((getUsers()[e] || {}).strikes || []).filter(x => !x.void);          // los anulados no cuentan
 const activeBan = e => { const b = (getUsers()[e] || {}).ban; if (!b) return null; if (b.until && Date.parse(b.until) <= Date.now()) return null; return b; };
 function logAction(type, target, extra) { const l = G.get('modlog', []); l.unshift({ id: Date.now() + Math.random().toString(36).slice(2, 5), type, by: S.user, target, extra: extra || '', date: new Date().toISOString() }); G.set('modlog', l.slice(0, 300)); }
 function pushNotif(to, o) { const k = 'notifs.' + to, l = G.get(k, []); l.unshift({ id: Date.now() + Math.random().toString(36).slice(2, 6), from: '', storyId: '', extra: '', chap: '', date: new Date().toISOString(), read: false, ...o }); G.set(k, l.slice(0, 100)); }
@@ -157,6 +157,12 @@ function submitAppeal(text, imgs) {
   if (!G.set('appeals', l)) return 'No se pudo guardar. Prueba con menos imágenes o más livianas.';
   [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) === 'ADMIN')])].forEach(e => pushNotif(e, { type: 'sys', extra: 'Nueva apelación de ' + uName(S.user), href: '#/moderation/appeals' }));
   return '';
+}
+function annulStrike(t, sid, reason) {
+  reason = String(reason || '').trim(); if (!canAct(t) || !canBan()) return 'Solo Administración y Owner pueden anular strikes.'; if (reason.length < 3) return 'Escribe el motivo de la anulación.';
+  const us = getUsers(), l = us[t].strikes || [], i = l.findIndex(x => x.id === sid); if (i < 0) return 'Ese strike ya no existe.';
+  l[i] = { ...l[i], void: { by: S.user, date: new Date().toISOString(), reason: reason.slice(0, 300) } }; us[t].strikes = l; G.set('users', us);
+  pushNotif(t, { type: 'sys', extra: 'Un strike de tu cuenta fue anulado: ' + reason.slice(0, 120) }); logAction('strike-annul', t, reason.slice(0, 100)); return '';
 }
 function applyBan(t, days, reason) {
   reason = String(reason || '').trim(); if (!canAct(t) || !canBan()) return 'Solo Administración y Owner pueden suspender o bloquear cuentas.'; if (reason.length < 3) return 'Escribe el motivo de la suspensión.';
@@ -1147,16 +1153,19 @@ function setChapterStatus(id, owner, cid, status, reason = '') {
     if (status === 'approved' && !n.publishedAt && n.chapters.filter(pubChapter).length === 1) n.publishedAt = today();     // fecha en que moderación aceptó el libro
     n.updatedAt = today(); return n;
   });
-  LS.set(k, list); if (owner === S.user) S.stories = list.map(norm);
+  LS.set(k, list); if (status === 'approved' || status === 'rejected') logAction(status === 'approved' ? 'chapter-approve' : 'chapter-reject', owner, (title || '') + (reason ? ': ' + String(reason).slice(0, 80) : ''));
+  if (owner === S.user) S.stories = list.map(norm);
   notify(owner, status === 'approved' ? 'approved' : 'rejected', id, reason.slice(0, 200), title);
   if (status === 'approved') announceChapters(id, before);
 }
 const OPEN = new Set();   // libros desplegados (se conservan al re-dibujar)
 function modView(sub) {
   if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">Volver</a>')}</main>`;
-  const books = pendingBooks().reverse(), nr = openReports(), na = openAppeals(), tabs = `<div class="tabs" role="tablist"><a class="tab ${sub === 'reports' || sub === 'appeals' ? '' : 'active'}" href="#/moderation">📚 Libros (${books.length})</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">🚩 Reportes${nr ? ` (${nr})` : ''}</a>${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">📨 Apelaciones${na ? ` (${na})` : ''}</a>` : ''}</div>`;
+  const books = pendingBooks().reverse(), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, tabs = `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log'].includes(sub) ? '' : 'active'}" href="#/moderation">📚 Libros (${books.length})</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">🚩 Reportes${nr ? ` (${nr})` : ''}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">👥 Cuentas${nacc ? ` (${nacc})` : ''}</a>${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">📨 Apelaciones${na ? ` (${na})` : ''}</a>` : ''}<a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">📋 Registro</a></div>`;
   if (sub === 'reports') return reportsView(tabs);
   if (sub === 'appeals' && canBan()) return appealsView(tabs);
+  if (sub === 'accounts') return accountsView(tabs);
+  if (sub === 'log') return logView(tabs);
   return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">🛡 Moderación</span><h2 style="margin-top:8px">Libros por revisar (${books.length})</h2><p>Una ficha por libro. Los capítulos se aprueban en orden: 1, 2, 3…</p></div></div>
   ${books.length ? '' : `<p class="notice" style="margin-bottom:14px">No hay libros en revisión en <b>este navegador</b>. Por ahora cada navegador o dispositivo guarda sus propios datos: un libro enviado desde otro teléfono, navegador o editor no llega hasta aquí. Para que lleguen entre dispositivos hace falta el servidor.</p>`}
   ${books.length ? books.map(s => {
@@ -1212,24 +1221,72 @@ function openReport() {
   };
   document.body.appendChild(m);
 }
+const REASONS_USER = ['Acoso, odio o amenazas', 'Pide datos personales o fotos', 'Contenido sexual con menores', 'Sospecha de edad falsa', 'Suplantación de identidad', 'Spam o publicidad', 'Otro motivo'];
 const REASONS = ['Contenido sexual con menores', 'Contenido sexual explícito', 'Acoso, odio o amenazas', 'Violencia extrema', 'Plagio o copia', 'Spam o publicidad', 'Datos personales de alguien', 'Mal etiquetado (+18 o spoilers)', 'Otro motivo'];
 const reportsAll = () => G.get('reports', []);
 const openReports = () => reportsAll().filter(r => (r.status || 'open') === 'open').length;
 function openReportFor(type, o) {
+  const RS = type === 'user' ? REASONS_USER : REASONS, imgs = [];
   const m = document.createElement('div'); m.className = 'modal sheet';
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true" aria-label="Reportar"><button class="icon-btn close-x" data-x aria-label="Cerrar">✕</button><h2>Reportar ${esc(o.label)}</h2><p class="helper">Marca lo que incumple las normas y, si quieres, cuéntanos más. Lo revisará el equipo de moderación.</p>
-  <div class="rp-reasons">${REASONS.map((r, i) => `<label class="check"><input type="checkbox" value="${i}"><span>${esc(r)}</span></label>`).join('')}</div>
-  <textarea class="textarea" data-text maxlength="600" placeholder="Explica qué pasó (opcional si marcaste un motivo)…" style="margin-top:8px"></textarea><p class="error" data-err></p><button class="button" data-send style="width:100%;margin-top:6px">Enviar reporte</button></div>`;
+  <div class="rp-reasons">${RS.map((r, i) => `<label class="check"><input type="checkbox" value="${i}"><span>${esc(r)}</span></label>`).join('')}</div>
+  <textarea class="textarea" data-text maxlength="600" placeholder="Explica qué pasó (opcional si marcaste un motivo)…" style="margin-top:8px"></textarea><div class="ap-imgs" data-imgs></div><label class="button secondary sm" style="cursor:pointer;margin-top:8px">Adjuntar pruebas (fotos o capturas)<input type="file" accept="image/*" multiple data-file hidden></label><p class="helper" style="margin:6px 0 0">Hasta 4 imágenes. Solo las verá el equipo de moderación.</p><p class="error" data-err></p><button class="button" data-send style="width:100%;margin-top:6px">Enviar reporte</button></div>`;
   m.querySelector('[data-x]').onclick = () => m.remove(); m.onclick = ev => { if (ev.target === m) m.remove(); };
+  const paintI = () => { m.querySelector('[data-imgs]').innerHTML = imgs.map((d, k) => `<span class="ap-th"><img src="${esc(d)}" alt="Prueba ${k + 1}"><button type="button" data-rm="${k}" aria-label="Quitar imagen">✕</button></span>`).join(''); };
+  m.querySelector('[data-file]').onchange = ev => { [...ev.target.files].slice(0, 4 - imgs.length).forEach(f => fitPhoto(f, 1000, 1000, d => { if (imgs.length < 4) { imgs.push(d); paintI(); } }, .7)); ev.target.value = ''; };
+  m.addEventListener('click', ev => { const r = ev.target.closest('[data-rm]'); if (r) { imgs.splice(+r.dataset.rm, 1); paintI(); } });
   m.querySelector('[data-send]').onclick = () => {
-    const reasons = [...m.querySelectorAll('input:checked')].map(i => REASONS[+i.value]), text = m.querySelector('[data-text]').value.trim();
+    const reasons = [...m.querySelectorAll('input:checked')].map(i => RS[+i.value]), text = m.querySelector('[data-text]').value.trim();
     if (!reasons.length && !text) { m.querySelector('[data-err]').textContent = 'Marca un motivo o escribe qué pasó.'; return; }
     if (reportsAll().some(r => r.by === S.user && r.type === type && r.sid === o.sid && String(r.cid || '') === String(o.cid || '') && r.target === o.target && (r.status || 'open') === 'open')) { m.remove(); return toast('Ya reportaste esto: el equipo lo está revisando.'); }
-    G.set('reports', [{ id: Date.now(), by: S.user, type, sid: o.sid || '', cid: o.cid || '', ci: o.ci, target: o.target || '', owner: o.owner || '', title: o.title || '', excerpt: String(o.excerpt || '').slice(0, 200), reasons, text, date: today(), status: 'open' }, ...reportsAll()]);
+    if (!G.set('reports', [{ id: Date.now(), by: S.user, type, imgs, sid: o.sid || '', cid: o.cid || '', ci: o.ci, target: o.target || '', owner: o.owner || '', title: o.title || '', excerpt: String(o.excerpt || '').slice(0, 200), reasons, text, date: today(), status: 'open' }, ...reportsAll()])) { m.querySelector('[data-err]').textContent = 'No se pudo guardar el reporte (las imágenes pesan demasiado). Prueba con menos imágenes.'; return; }
     Object.keys(getUsers()).filter(e => roleOf(e) !== 'USER' && e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Nuevo reporte por revisar: ' + o.label, href: '#/moderation/reports' }));
     m.remove(); toast('Gracias, recibimos tu reporte ✓');
   };
   document.body.appendChild(m);
+}
+const accOf = r => r.type === 'user' ? r.target : r.owner;                       // la cuenta a la que se refiere el reporte
+const reportsAbout = e => reportsAll().filter(r => r.type !== 'problem' && r.type !== 'reclass' && accOf(r) === e);
+const repImgs = r => (r.imgs || []).length ? `<div class="ap-imgs">${r.imgs.map((d, k) => `<button type="button" class="ap-th" data-act="rp-img" data-id="${r.id}" data-i="${k}" aria-label="Ver prueba ${k + 1}"><img src="${esc(d)}" alt="Prueba ${k + 1}"></button>`).join('')}</div>` : '';
+const rStatus = r => ({ open: 'Abierto', resolved: 'Resuelto', dismissed: 'Descartado' })[r.status || 'open'];
+function showImg(d) { const m = document.createElement('div'); m.className = 'modal sheet'; m.innerHTML = `<div class="modal-box ap-view"><img src="${esc(d)}" alt="Prueba"><button class="button ghost" data-no>Cerrar</button></div>`; m.onclick = ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); }; document.body.appendChild(m); }
+function repHistory(e) {                                 // solo Moderación, Administración y Owner: cuántas veces fue reportada la cuenta y por qué
+  if (!isStaff() || e === S.user) return ''; const l = reportsAbout(e), open = l.filter(r => (r.status || 'open') === 'open').length, by = new Set(l.map(r => r.by)).size;
+  return `<section class="panel rph" aria-label="Reportes recibidos"><div><strong>Reportes recibidos</strong><div class="helper">${l.length} en total · ${open} abierto${open === 1 ? '' : 's'} · ${by} persona${by === 1 ? '' : 's'} distinta${by === 1 ? '' : 's'}</div></div>
+  ${l.length ? l.map(r => `<details class="rph-item"><summary><span class="pill">${RTYPE[r.type]}</span><span class="helper">${esc(r.date)} · ${rStatus(r)}</span></summary><div class="rph-body">
+    ${(r.reasons || []).length ? `<div class="tags rp-why">${r.reasons.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}
+    ${r.title || r.excerpt ? `<p class="helper">${esc(r.title || '')}${r.excerpt ? ' “' + esc(r.excerpt) + '”' : ''}</p>` : ''}${r.text ? `<p class="rp-text">${esc(r.text)}</p>` : ''}${repImgs(r)}
+    <p class="helper">Reportó ${esc(uName(r.by))}${r.handledBy ? ` · atendido por ${esc(uName(r.handledBy))} el ${esc(r.handledDate || '')}` : ''}</p></div></details>`).join('') : '<p class="helper" style="margin:8px 0 0">Esta cuenta no tiene reportes.</p>'}
+  ${l.length ? `<button type="button" class="link-btn" data-act="acc-reports" data-id="${esc(e)}">Abrir en Reportes</button>` : ''}</section>`;
+}
+let RACC = null;
+function accRows() {
+  const m = {}; reportsAll().filter(r => r.type !== 'problem' && r.type !== 'reclass').forEach(r => { const e = accOf(r); if (!e || !getUsers()[e]) return;
+    const a = m[e] = m[e] || { e, n: 0, open: 0, last: '', by: new Set(), why: {} }; a.n++; if ((r.status || 'open') === 'open') a.open++; if ((r.date || '') > a.last) a.last = r.date || ''; a.by.add(r.by); (r.reasons || []).forEach(x => { a.why[x] = (a.why[x] || 0) + 1; }); });
+  return Object.values(m).sort((x, y) => y.open - x.open || y.n - x.n || (y.last > x.last ? 1 : -1));
+}
+function accountsView(tabs) {
+  const l = accRows();
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">Cuentas reportadas</span><h2 style="margin-top:8px">${l.length} cuenta${l.length === 1 ? '' : 's'}</h2><p>Ordenadas por reportes abiertos. Abre una para ver las razones y decidir.</p></div></div>
+  ${l.length ? l.map(a => { const top = Object.entries(a.why).sort((x, y) => y[1] - x[1]).slice(0, 4), ban = activeBan(a.e), sk = strikesOf(a.e).length, rl = ROLE_LABEL[roleOf(a.e)];
+    return `<article class="panel rp acc"><div class="acc-head">${userAvatar(a.e)}<div class="acc-id"><b>${esc(uName(a.e))}</b><span class="helper">${rl ? esc(rl) + ' · ' : ''}${sk} strike${sk === 1 ? '' : 's'}${ban ? ' · suspendida' : ''}</span></div><span class="pill acc-n">${a.n} reporte${a.n === 1 ? '' : 's'}</span></div>
+    <p class="helper" style="margin:8px 0 0">${a.open} abierto${a.open === 1 ? '' : 's'} · ${a.by.size} persona${a.by.size === 1 ? '' : 's'} distinta${a.by.size === 1 ? '' : 's'} · último: ${esc(a.last)}</p>
+    ${top.length ? `<div class="tags rp-why">${top.map(([x, c]) => `<span class="tag">${esc(x)}${c > 1 ? ' ×' + c : ''}</span>`).join('')}</div>` : ''}
+    <div class="rp-acts"><a class="button ghost sm" href="#/user/${encodeURIComponent(a.e)}" data-dir="next">Ver perfil</a><button type="button" class="button secondary sm" data-act="acc-reports" data-id="${esc(a.e)}">Ver reportes</button></div></article>`; }).join('')
+    : empty('Ninguna cuenta reportada', 'Cuando alguien reporte un perfil, una obra o un comentario, la cuenta aparecerá aquí con sus razones.')}</main>`;
+}
+let LOGF = 'all';
+const LOGT = { strike: ['Strike', 'strikes'], 'strike-annul': ['Strike anulado', 'strikes'], ban: ['Suspensión o bloqueo', 'susp'], unban: ['Suspensión levantada', 'susp'], 'appeal-release': ['Apelación aceptada', 'susp'], 'appeal-reject': ['Apelación rechazada', 'susp'],
+  'report-resolved': ['Reporte resuelto', 'rep'], 'report-dismissed': ['Reporte descartado', 'rep'], 'report-open': ['Reporte reabierto', 'rep'], takedown: ['Obra retirada de Descubrir', 'cont'], restore: ['Obra restaurada', 'cont'], unmature: ['Quitó la marca +18', 'cont'], mark18: ['Marcó como +18', 'cont'],
+  'del-comment': ['Comentario eliminado', 'cont'], 'chapter-approve': ['Capítulo aprobado', 'cont'], 'chapter-reject': ['Capítulo rechazado', 'cont'] };
+const logInfo = t => LOGT[t] || (/^(invite|accept|test-role)/.test(t) ? ['Cambio de rol', 'roles'] : [t, 'otro']);
+function logView(tabs) {
+  const F = [['all', 'Todo'], ['strikes', 'Strikes'], ['susp', 'Suspensiones'], ['rep', 'Reportes'], ['cont', 'Contenido'], ['roles', 'Roles']], all = G.get('modlog', []), l = all.filter(x => LOGF === 'all' || logInfo(x.type)[1] === LOGF);
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">Registro</span><h2 style="margin-top:8px">Acciones del equipo (${l.length})</h2><p>Quién hizo qué y cuándo. Se conservan las últimas 300 acciones.</p></div></div>
+  <div class="filter-row">${F.map(([k, n]) => `<button class="chip ${LOGF === k ? 'active' : ''}" data-act="log-filter" data-id="${k}">${n}</button>`).join('')}</div>
+  ${l.length ? `<div class="log-list">${l.map(x => { const t = getUsers()[x.target], d = new Date(x.date);
+    return `<div class="log-row"><div class="log-top"><b>${esc(logInfo(x.type)[0])}</b><time class="helper">${esc(d.toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</time></div><div class="helper">Por ${esc(uName(x.by))}${t ? ` · sobre <a href="#/user/${encodeURIComponent(x.target)}" data-dir="next">${esc(t.name)}</a>` : ''}</div>${x.extra ? `<div class="log-extra">${esc(String(x.extra))}</div>` : ''}</div>`; }).join('')}</div>`
+    : empty('Sin acciones registradas', 'Aquí aparecerán los strikes, suspensiones, reportes atendidos y revisiones de capítulos.')}</main>`;
 }
 let RFILT = 'open';
 const RTYPE = { story: '📖 Obra', comment: '💬 Comentario', pcomment: '💬 Comentario de párrafo', user: '👤 Perfil', problem: '🛠 Problema', reclass: '🏷 Clasificación' };
@@ -1247,7 +1304,7 @@ function reportCard(r) {
   const link = (ty === 'story' || ty === 'reclass') && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}" data-dir="next">📖 Ir a la obra</a>` : ty === 'comment' && s ? `<button class="button secondary sm" data-act="rp-comments" data-id="${esc(r.sid)}">📖 Ir al comentario</button>` : ty === 'pcomment' && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}/${(+r.ci || 0) + 1}" data-dir="next">📖 Ir al párrafo</a>` : '';
   const who = ty === 'user' ? r.target : owner;
   return `<article class="panel rp ${open ? '' : 'done'}"><div class="rp-head"><span class="pill">${RTYPE[ty]}</span><span class="helper">${esc(r.date)} · reporta ${esc(uName(r.by))}</span></div>${ctx}
-  ${(r.reasons || []).length ? `<div class="tags rp-why">${r.reasons.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}${r.text ? `<p class="rp-text">${esc(r.text)}</p>` : ''}
+  ${(r.reasons || []).length ? `<div class="tags rp-why">${r.reasons.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}${r.text ? `<p class="rp-text">${esc(r.text)}</p>` : ''}${repImgs(r)}
   <div class="rp-acts">${link}${who && getUsers()[who] ? `<a class="button ghost sm" href="#/user/${encodeURIComponent(who)}" data-dir="next">👤 Perfil</a>` : ''}
   ${open ? `${ty === 'reclass' ? `<button class="button sm" data-act="rc-ok" data-id="${r.id}">Aprobar: quitar +18</button><button class="button secondary sm" data-act="rc-no" data-id="${r.id}">Mantener +18</button>` : ''}${ty === 'story' && s ? `<button class="button secondary sm" data-act="rc-set" data-id="${esc(r.sid)}" data-v="${s.mature ? 0 : 1}">${s.mature ? 'Quitar +18' : 'Marcar como +18'}</button>` : ''}${ty === 'story' && s ? (td ? `<button class="button secondary sm" data-act="td-off" data-id="${esc(r.sid)}">Restaurar</button>` : `<button class="button danger sm" data-act="td-on" data-id="${esc(r.sid)}">Retirar de Descubrir</button>`) : ''}${ty === 'comment' && r.sid && comments(r.sid).some(c => String(c.id) === String(r.cid)) ? `<button class="button danger sm" data-act="rp-delcomment" data-id="${esc(r.sid)}" data-cid="${esc(r.cid)}">Eliminar comentario</button>` : ''}${who && canAct(who) ? `<button class="button ghost sm" data-act="adm-strike" data-id="${esc(who)}">⚠️ Strike</button><button class="button ghost sm" data-act="adm-ban" data-id="${esc(who)}">🚫 Suspender</button>` : ''}
   <button class="button sm" data-act="rp-done" data-id="${r.id}">✓ Resuelto</button><button class="button ghost sm" data-act="rp-dismiss" data-id="${r.id}">Descartar</button>`
@@ -1255,9 +1312,9 @@ function reportCard(r) {
   ${ty === 'problem' && open ? `<button class="icon-btn" data-act="report-del" data-id="${r.id}" aria-label="Eliminar reporte">${TRASH}</button>` : ''}</div></article>`;
 }
 function reportsView(tabs) {
-  const all = reportsAll(), l = all.filter(r => ((r.status || 'open') === 'open') === (RFILT === 'open'));
+  const all = reportsAll().filter(r => !RACC || accOf(r) === RACC), l = all.filter(r => ((r.status || 'open') === 'open') === (RFILT === 'open'));
   return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">🚩 Reportes</span><h2 style="margin-top:8px">${RFILT === 'open' ? 'Por revisar' : 'Ya atendidos'} (${l.length})</h2><p>Abre la obra, analiza el caso y toma medidas. Todo queda en el registro.</p></div></div>
-  <div class="filter-row"><button class="chip ${RFILT === 'open' ? 'active' : ''}" data-act="rp-filter" data-id="open">Abiertos (${openReports()})</button><button class="chip ${RFILT === 'done' ? 'active' : ''}" data-act="rp-filter" data-id="done">Atendidos</button></div>
+  <div class="filter-row">${RACC ? `<button class="chip active" data-act="acc-clear">Cuenta: ${esc(uName(RACC))} ✕</button>` : ''}<button class="chip ${RFILT === 'open' ? 'active' : ''}" data-act="rp-filter" data-id="open">Abiertos (${openReports()})</button><button class="chip ${RFILT === 'done' ? 'active' : ''}" data-act="rp-filter" data-id="done">Atendidos</button></div>
   ${l.length ? l.map(reportCard).join('') : empty(RFILT === 'open' ? 'Sin reportes pendientes' : 'Nada atendido todavía', RFILT === 'open' ? 'Cuando alguien reporte una obra, un comentario o un perfil, aparecerá aquí.' : 'Los reportes resueltos o descartados se guardan aquí.')}</main>`;
 }
 const reportsPanel = () => { const l = G.get('reports', []); return l.length ? `<section class="panel" style="margin-top:20px"><h2>📨 Reportes (${l.length})</h2>${l.map(r => `<div class="comment"><div style="flex:1;min-width:0"><strong>${esc(uName(r.by))}</strong> <span class="helper">${esc(r.date)}</span><div style="overflow-wrap:anywhere">${esc(r.text)}</div></div><button class="icon-btn" data-act="report-del" data-id="${r.id}" aria-label="Eliminar reporte">${TRASH}</button></div>`).join('')}</section>` : ''; };
@@ -1573,7 +1630,7 @@ function userView(e) {
   <button class="button ${fl ? 'secondary' : ''}" data-act="follow" data-id="${esc(e)}">${fl ? 'Siguiendo ✓' : '＋ Seguir'}</button>
   ${dmWhy(S.user, e) === '' ? `<a class="button secondary" href="#/messages/${encodeURIComponent(e)}" data-dir="next">Mensaje</a>` : `<button type="button" class="button ghost" data-act="dm-why" data-id="${esc(e)}">Mensaje</button>`}
   <div class="pf-more"><button class="button ghost sm" data-act="${iMute(e) ? 'unmute' : 'mute'}" data-id="${esc(e)}">${iMute(e) ? '🔔 Dejar de silenciar' : '🔇 Silenciar'}</button><button class="button ghost sm" data-act="${iBlock(e) ? 'unblock' : 'block'}" data-id="${esc(e)}">${iBlock(e) ? '✅ Desbloquear' : '🚫 Bloquear'}</button><button class="button ghost sm" data-act="report-user" data-id="${esc(e)}">Reportar</button></div></div></div>
-  ${admMenu(e)}<div class="section-head"><h2>Obras de ${esc(u.name)}</h2></div>${worksGrid(works)}</main>`;
+  ${repHistory(e)}${admMenu(e)}<div class="section-head"><h2>Obras de ${esc(u.name)}</h2></div>${worksGrid(works)}</main>`;
 }
 
 /* --- Strikes, suspensión y menú de administración --- */
@@ -1677,6 +1734,7 @@ function admMenu(t) {
   return `<section class="panel adm" aria-label="Administración"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>🛡 Administración</strong><div class="helper">${st} strike${st === 1 ? '' : 's'} · ${ban ? 'suspendida' : 'cuenta activa'}${r === 'MODERATOR' ? ' · moderación' : r === 'ADMIN' ? ' · administración' : ''}</div></div><button class="button secondary sm" data-act="adm-toggle" aria-expanded="false">Opciones ▾</button></div>
   <div class="adm-list" hidden><button class="adm-item" data-act="adm-strike" data-id="${esc(t)}">⚠️ Dar strike</button>
   ${!canBan() ? '' : ban ? `<button class="adm-item" data-act="adm-unban" data-id="${esc(t)}">✅ Levantar suspensión</button>` : `<button class="adm-item danger" data-act="adm-ban" data-id="${esc(t)}">🚫 Suspender o bloquear cuenta</button>`}
+  ${canBan() && strikesOf(t).length ? `<div class="adm-strikes"><b>Strikes activos</b>${strikesOf(t).map(x => `<div class="adm-strike"><span>${esc(x.date.slice(0, 10))} · ${esc(x.reason)}</span><button type="button" class="link-btn" data-act="adm-unstrike" data-id="${esc(t)}" data-sid="${esc(x.id)}">Anular</button></div>`).join('')}</div>` : ''}
   ${up && r === 'USER' ? `<button class="adm-item" data-act="adm-mod" data-id="${esc(t)}">🛡 Hacer moderador</button>` : ''}
   ${up && r === 'MODERATOR' ? `<button class="adm-item" data-act="adm-admin" data-id="${esc(t)}">⭐ Ascender a administración</button>` : ''}
   ${tst}${canDown ? `<button class="adm-item" data-act="adm-revoke" data-id="${esc(t)}">${r === 'ADMIN' ? '↩️ Quitar administración (vuelve a moderación)' : '↩️ Quitar moderación'}</button>` : ''}</div></section>`;
@@ -2072,6 +2130,10 @@ document.addEventListener('click', e => {
     'toggle-18': () => { if (isMinor(getUsers()[S.user])) return; collect(); const st = freshStories().find(x => x.id === W.id);
       if (W.mature && st && st.mature && publicPrefix(st.chapters).length && !isStaff()) { el.setAttribute('aria-checked', 'true'); return dialog('Quitar +18 de una obra publicada', 'Para proteger a las personas menores, quitar la marca +18 de una obra ya publicada necesita aprobación de moderación. Seguirá marcada +18 mientras tanto.', 'Enviar solicitud', 'Cancelar', () => toast(requestUnmature(W.id, W.title))); }
       W.mature = !W.mature; el.setAttribute('aria-checked', W.mature); },
+    'rp-img': () => { const r = reportsAll().find(x => String(x.id) === id), d = r && (r.imgs || [])[+el.dataset.i]; if (d) showImg(d); },
+    'acc-reports': () => { if (!isStaff()) return; RACC = id; RFILT = 'open'; go('/moderation/reports'); }, 'acc-clear': () => { RACC = null; KEEP = true; render(); }, 'log-filter': () => { LOGF = id; KEEP = true; render(); },
+    'adm-unstrike': () => { if (!canBan()) return; const sid = el.dataset.sid; formModal('Anular strike', '<p class="helper">El strike deja de contar y la persona recibe un aviso con este motivo. Queda en el registro.</p><textarea class="textarea" data-reason maxlength="300" placeholder="Motivo de la anulación…"></textarea>', 'Anular strike',
+      m => { const e = annulStrike(id, sid, m.querySelector('[data-reason]').value); if (!e) { toast('Strike anulado'); KEEP = true; render(); } return e; }); },
     'ap-open': () => openAppealForm(), 'ap-filter': () => { AFILT = id; KEEP = true; render(); },
     'ap-img': () => { const a = appealsAll().find(x => String(x.id) === id), d = a && (a.imgs || [])[+el.dataset.i]; if (!d) return; const m = document.createElement('div'); m.className = 'modal sheet'; m.innerHTML = `<div class="modal-box ap-view"><img src="${esc(d)}" alt="Prueba"><button class="button ghost" data-no>Cerrar</button></div>`; m.onclick = ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); }; document.body.appendChild(m); },
     'ap-release': () => { if (!canBan()) return; const a = appealsAll().find(x => String(x.id) === id); if (!a) return; const e = liftBan(a.user); if (e) return toast(e);
