@@ -873,3 +873,7 @@ img{max-width:100%}
 .wl-compose{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:16px;background:hsl(var(--accent)/.55);font-size:13.5px;color:var(--soft);margin:6px 0 12px}
 .wl-slide h1{text-wrap:balance}.wl-slide p{text-wrap:pretty}
 .wl-gate{text-align:center}.wl-gate h2{margin:4px 0 6px}.wl-gate .helper{margin:0 0 14px}.wl-gate-m{width:84px;height:80px;margin:0 auto}
+/* 40. Responder sin burbuja: línea fina en vez de cápsula */
+.c-replyform .c-pill{background:transparent;border:0;border-bottom:1.5px solid hsl(var(--border));border-radius:0;padding:3px 0 3px 2px;box-shadow:none}
+.c-replyform .c-pill:focus-within{background:transparent;border-bottom-color:hsl(var(--primary));box-shadow:0 1.5px 0 0 hsl(var(--primary)/.35)}
+.c-replyform .c-send{background:transparent;box-shadow:none;color:hsl(var(--primary))}
