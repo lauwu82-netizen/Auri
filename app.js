@@ -121,7 +121,7 @@ const isOwner = () => !!S.user && roleOf(S.user) === 'OWNER';
 const isMod = () => !!S.user && roleOf(S.user) === 'MODERATOR';
 const isAdm = () => !!S.user && roleOf(S.user) === 'ADMIN';                // Administración (se llega solo desde Moderación, por invitación de la Owner)
 const isStaff = () => !!S.user && roleOf(S.user) !== 'USER';              // Owner, Administración o Moderación: revisan capítulos
-const canNews = () => isOwner() || isAdm();                                // publicar anuncios
+const canNews = () => isStaff();                                           // publicar anuncios: Owner, Administración y Moderación (Moderación pasa por aprobación)
 const isAdmin = isOwner;                                   // panel general (revisar capítulos, noticias, borrar comentarios): solo la Owner
 function fixRoles() {                                      // normaliza: cada cuenta guarda su rol; nadie más puede quedar como OWNER
   const us = getUsers(); let ch = false;
@@ -137,7 +137,7 @@ function canAct(t) {
 }
 const strikesOf = e => ((getUsers()[e] || {}).strikes || []).filter(x => !x.void);          // los anulados no cuentan
 const activeBan = e => { const b = (getUsers()[e] || {}).ban; if (!b) return null; if (b.until && Date.parse(b.until) <= Date.now()) return null; return b; };
-function logAction(type, target, extra) { const l = G.get('modlog', []); l.unshift({ id: Date.now() + Math.random().toString(36).slice(2, 5), type, by: S.user, target, extra: extra || '', date: new Date().toISOString() }); G.set('modlog', l.slice(0, 300)); }
+function logAction(type, target, extra) { const l = G.get('modlog', []); l.unshift({ id: Date.now() + Math.random().toString(36).slice(2, 5), type, by: S.user, target, extra: extra || '', date: new Date().toISOString() }); G.set('modlog', l.slice(0, 1000)); }
 function pushNotif(to, o) { const k = 'notifs.' + to, l = G.get(k, []); l.unshift({ id: Date.now() + Math.random().toString(36).slice(2, 6), from: '', storyId: '', extra: '', chap: '', date: new Date().toISOString(), read: false, ...o }); G.set(k, l.slice(0, 100)); }
 /* Acciones con verificación de permisos (devuelven un texto de error o '' si todo salió bien) */
 function giveStrike(t, reason) {
@@ -250,6 +250,15 @@ const HEART = '<svg class="heart" viewBox="0 0 24 24" aria-hidden="true"><path d
 const likes = id => G.get('likes', {})[id] || [];
 const comments = id => G.get('comments', {})[id] || [];
 const news = () => G.get('news', []);
+const pubOK = o => !o.status || o.status === 'published';               // sin estado = publicado (lo anterior)
+const newsPub = () => news().filter(pubOK);
+const POST_ROLE = { OWNER: 'Owner', ADMIN: 'Administración', MODERATOR: 'Moderación' };
+function byline(o) {                                    // quién publicó: siempre el rol; el nombre solo si no lo ocultó (la Owner siempre lo ve)
+  const by = o.by || OWNER_EMAIL, role = POST_ROLE[o.byRole || roleOf(by)] || 'Auri Studios', real = uName(by) === 'Usuario' ? 'Auri Studios' : uName(by);
+  return o.anon ? (isOwner() ? `${role} · ${real} (nombre oculto al público)` : role) : `${real} · ${role}`;
+}
+const postMeta = anon => ({ byRole: roleOf(S.user), anon: !!anon, ...(isMod() ? { status: 'pending' } : {}) });
+const notifyApprovers = what => [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) === 'ADMIN')])].filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: what, href: '#/moderation/posts' }));
 /** Una noticia son bloques: cada párrafo puede llevar su propia imagen (cualquier proporción). Las noticias antiguas (solo texto) se convierten al vuelo */
 const newsBlocks = n => Array.isArray(n.blocks) && n.blocks.length ? n.blocks : String(n.text || '').split(/\n\s*\n/).filter(Boolean).map(t => ({ t, img: '' }));
 const newsCover = n => { const b = n && newsBlocks(n).find(x => /^data:image\//.test(x.img || '')); return b ? b.img : ''; };
@@ -658,22 +667,23 @@ function discoverList() {
 }
 /* --- Banner de Inicio: carrusel (noticias automáticas + tarjetas manuales de la Owner) --- */
 const crAll = () => G.get('banners', []);
+const crPub = () => crAll().filter(pubOK);
 const clip = (t, n) => { t = String(t || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t; };
 let CARI = 0, CARTIMER = null, CARHOLD = 0;            // tarjeta actual, temporizador y pausa tras tocar/deslizar
 function carSlides() {                                 // primero las tarjetas manuales (recomendaciones y eventos), luego las últimas noticias
   const pub = publishedStories().filter(matureOK), out = [], dOf = (b, n) => b.date || (n && n.date) || (+b.id > 1e12 ? new Date(+b.id).toISOString().slice(0, 10) : '');
-  crAll().forEach(b => {
+  crPub().forEach(b => {
     if (b.kind === 'book') { const st = pub.find(x => x.id === b.storyId); if (!st) return;
-      out.push({ k: 'book', badge: '📚 Recomendado', title: b.title || st.title, text: b.text || st.synopsis, cover: st.cover, date: dOf(b), sub: `📖 ${st.title}${st.author ? ' · ' + st.author : ''}`, href: `#/story/${esc(st.id)}/${st.chapters[0].idx + 1}`, tn: st.useReaderCharacter ? st.id : '', btn: b.btn || 'Leer ahora' }); }
+      out.push({ k: 'book', by: byline(b), badge: '📚 Recomendado', title: b.title || st.title, text: b.text || st.synopsis, cover: st.cover, date: dOf(b), sub: `📖 ${st.title}${st.author ? ' · ' + st.author : ''}`, href: `#/story/${esc(st.id)}/${st.chapters[0].idx + 1}`, tn: st.useReaderCharacter ? st.id : '', btn: b.btn || 'Leer ahora' }); }
     else { const n = b.newsId ? news().find(x => String(x.id) === String(b.newsId)) : null;
-      out.push({ k: 'event', badge: '🎉 Evento', date: dOf(b, n), title: b.title, text: b.text, cover: newsCover(n), wide: true, href: n ? '#/news/' + n.id : '', btn: b.btn || 'Ver más' }); }
+      out.push({ k: 'event', by: byline(b), badge: '🎉 Evento', date: dOf(b, n), title: b.title, text: b.text, cover: newsCover(n), wide: true, href: n ? '#/news/' + n.id : '', btn: b.btn || 'Ver más' }); }
   });
-  news().slice(0, 4).forEach(n => out.push({ k: 'news', badge: '📣 ' + (n.type || 'Noticia'), date: n.date, title: n.title, text: n.text, cover: newsCover(n), wide: true, href: '#/news/' + n.id, btn: 'Leer noticia' }));
+  newsPub().slice(0, 4).forEach(n => out.push({ k: 'news', by: byline(n), badge: '📣 ' + (n.type || 'Noticia'), date: n.date, title: n.title, text: n.text, cover: newsCover(n), wide: true, href: '#/news/' + n.id, btn: 'Leer noticia' }));
   return out.slice(0, 8);
 }
 function carouselHTML() {
   const sl = carSlides(); if (!sl.length) return '';
-  const card = (x, i) => `<article class="cr-slide cr-${x.k}" role="group" aria-roledescription="diapositiva" aria-label="${i + 1} de ${sl.length}"><div class="cr-txt"><span class="eyebrow">${esc(x.badge)}</span>${x.date ? `<span class="cr-date">Publicado el ${esc(x.date)}</span>` : ''}<h2>${esc(clip(x.title, 70))}</h2>${x.sub && x.sub.indexOf(x.title) < 0 ? `<div class="cr-book">${esc(clip(x.sub, 60))}</div>` : ''}<p>${esc(clip(x.text, 130))}</p>
+  const card = (x, i) => `<article class="cr-slide cr-${x.k}" role="group" aria-roledescription="diapositiva" aria-label="${i + 1} de ${sl.length}"><div class="cr-txt"><span class="eyebrow">${esc(x.badge)}</span>${x.date ? `<span class="cr-date">Publicado el ${esc(x.date)}</span>` : ''}${x.by ? `<span class="cr-by">Por ${esc(x.by)}</span>` : ''}<h2>${esc(clip(x.title, 70))}</h2>${x.sub && x.sub.indexOf(x.title) < 0 ? `<div class="cr-book">${esc(clip(x.sub, 60))}</div>` : ''}<p>${esc(clip(x.text, 130))}</p>
     ${x.href ? `<a class="button secondary sm" href="${x.href}" data-dir="next" ${x.tn ? `data-readas="${esc(x.tn)}"` : ''}>${esc(x.btn)}</a>` : ''}</div>${safeImg(x.cover) ? `<img class="cr-cover ${x.wide ? 'wide' : ''}" src="${esc(x.cover)}" alt="">` : ''}</article>`;
   return `<section class="carousel" aria-roledescription="carrusel" aria-label="Novedades de Auri"><div class="cr-track" id="cr-track">${sl.map(card).join('')}</div>
   ${sl.length > 1 ? `<div class="cr-dots">${sl.map((_, i) => `<button type="button" class="cr-dot ${i === CARI ? 'on' : ''}" data-act="car-go" data-i="${i}" aria-label="Ir a la tarjeta ${i + 1}"></button>`).join('')}</div>` : ''}</section>`;
@@ -1161,11 +1171,12 @@ function setChapterStatus(id, owner, cid, status, reason = '') {
 const OPEN = new Set();   // libros desplegados (se conservan al re-dibujar)
 function modView(sub) {
   if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">Volver</a>')}</main>`;
-  const books = pendingBooks().reverse(), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, tabs = `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log'].includes(sub) ? '' : 'active'}" href="#/moderation">📚 Libros (${books.length})</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">🚩 Reportes${nr ? ` (${nr})` : ''}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">👥 Cuentas${nacc ? ` (${nacc})` : ''}</a>${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">📨 Apelaciones${na ? ` (${na})` : ''}</a>` : ''}<a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">📋 Registro</a></div>`;
+  const books = pendingBooks().reverse(), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, npo = pendingPosts().length, tabs = `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log', 'posts'].includes(sub) ? '' : 'active'}" href="#/moderation">📚 Libros (${books.length})</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">🚩 Reportes${nr ? ` (${nr})` : ''}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">👥 Cuentas${nacc ? ` (${nacc})` : ''}</a>${canBan() ? `<a class="tab ${sub === 'posts' ? 'active' : ''}" href="#/moderation/posts">📣 Publicaciones${npo ? ` (${npo})` : ''}</a>` : ''}${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">📨 Apelaciones${na ? ` (${na})` : ''}</a>` : ''}${isOwner() ? `<a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">📋 Registro</a>` : ''}</div>`;
   if (sub === 'reports') return reportsView(tabs);
   if (sub === 'appeals' && canBan()) return appealsView(tabs);
   if (sub === 'accounts') return accountsView(tabs);
-  if (sub === 'log') return logView(tabs);
+  if (sub === 'posts' && canBan()) return postsView(tabs);
+  if (sub === 'log' && isOwner()) return logView(tabs);
   return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">🛡 Moderación</span><h2 style="margin-top:8px">Libros por revisar (${books.length})</h2><p>Una ficha por libro. Los capítulos se aprueban en orden: 1, 2, 3…</p></div></div>
   ${books.length ? '' : `<p class="notice" style="margin-bottom:14px">No hay libros en revisión en <b>este navegador</b>. Por ahora cada navegador o dispositivo guarda sus propios datos: un libro enviado desde otro teléfono, navegador o editor no llega hasta aquí. Para que lleguen entre dispositivos hace falta el servidor.</p>`}
   ${books.length ? books.map(s => {
@@ -1275,17 +1286,19 @@ function accountsView(tabs) {
     <div class="rp-acts"><a class="button ghost sm" href="#/user/${encodeURIComponent(a.e)}" data-dir="next">Ver perfil</a><button type="button" class="button secondary sm" data-act="acc-reports" data-id="${esc(a.e)}">Ver reportes</button></div></article>`; }).join('')
     : empty('Ninguna cuenta reportada', 'Cuando alguien reporte un perfil, una obra o un comentario, la cuenta aparecerá aquí con sus razones.')}</main>`;
 }
-let LOGF = 'all';
+let LOGF = 'all', LOGW = 'all';
 const LOGT = { strike: ['Strike', 'strikes'], 'strike-annul': ['Strike anulado', 'strikes'], ban: ['Suspensión o bloqueo', 'susp'], unban: ['Suspensión levantada', 'susp'], 'appeal-release': ['Apelación aceptada', 'susp'], 'appeal-reject': ['Apelación rechazada', 'susp'],
   'report-resolved': ['Reporte resuelto', 'rep'], 'report-dismissed': ['Reporte descartado', 'rep'], 'report-open': ['Reporte reabierto', 'rep'], takedown: ['Obra retirada de Descubrir', 'cont'], restore: ['Obra restaurada', 'cont'], unmature: ['Quitó la marca +18', 'cont'], mark18: ['Marcó como +18', 'cont'],
+  'news-post': ['Publicó un anuncio', 'pub'], 'news-edit': ['Editó un anuncio', 'pub'], 'news-del': ['Eliminó un anuncio', 'pub'], 'banner-add': ['Añadió una tarjeta al banner', 'pub'], 'banner-edit': ['Editó una tarjeta del banner', 'pub'], 'banner-del': ['Quitó una tarjeta del banner', 'pub'], 'post-approve': ['Aprobó una publicación', 'pub'], 'post-reject': ['Rechazó una publicación', 'pub'],
   'del-comment': ['Comentario eliminado', 'cont'], 'chapter-approve': ['Capítulo aprobado', 'cont'], 'chapter-reject': ['Capítulo rechazado', 'cont'] };
 const logInfo = t => LOGT[t] || (/^(invite|accept|test-role)/.test(t) ? ['Cambio de rol', 'roles'] : [t, 'otro']);
 function logView(tabs) {
-  const F = [['all', 'Todo'], ['strikes', 'Strikes'], ['susp', 'Suspensiones'], ['rep', 'Reportes'], ['cont', 'Contenido'], ['roles', 'Roles']], all = G.get('modlog', []), l = all.filter(x => LOGF === 'all' || logInfo(x.type)[1] === LOGF);
-  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">Registro</span><h2 style="margin-top:8px">Acciones del equipo (${l.length})</h2><p>Quién hizo qué y cuándo. Se conservan las últimas 300 acciones.</p></div></div>
+  const F = [['all', 'Todo'], ['strikes', 'Strikes'], ['susp', 'Suspensiones'], ['rep', 'Reportes'], ['cont', 'Contenido'], ['pub', 'Publicaciones'], ['roles', 'Roles']], all = G.get('modlog', []), who = [...new Set(all.map(x => x.by).filter(Boolean))], l = all.filter(x => (LOGF === 'all' || logInfo(x.type)[1] === LOGF) && (LOGW === 'all' || x.by === LOGW));
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">Registro</span><h2 style="margin-top:8px">Acciones del equipo (${l.length})</h2><p>Solo la Owner ve esta pantalla. Cada acción muestra quién la hizo, aunque haya ocultado su nombre al publicar. Se conservan las últimas 1000.</p></div></div>
   <div class="filter-row">${F.map(([k, n]) => `<button class="chip ${LOGF === k ? 'active' : ''}" data-act="log-filter" data-id="${k}">${n}</button>`).join('')}</div>
+  <div class="filter-row" style="overflow-x:auto;flex-wrap:nowrap"><button class="chip ${LOGW === 'all' ? 'active' : ''}" data-act="log-who" data-id="all">Todas las personas</button>${who.map(e => `<button class="chip ${LOGW === e ? 'active' : ''}" data-act="log-who" data-id="${esc(e)}" style="flex:none">${esc(uName(e))}${ROLE_LABEL[roleOf(e)] ? ' · ' + esc(ROLE_LABEL[roleOf(e)]) : ''}</button>`).join('')}</div>
   ${l.length ? `<div class="log-list">${l.map(x => { const t = getUsers()[x.target], d = new Date(x.date);
-    return `<div class="log-row"><div class="log-top"><b>${esc(logInfo(x.type)[0])}</b><time class="helper">${esc(d.toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</time></div><div class="helper">Por ${esc(uName(x.by))}${t ? ` · sobre <a href="#/user/${encodeURIComponent(x.target)}" data-dir="next">${esc(t.name)}</a>` : ''}</div>${x.extra ? `<div class="log-extra">${esc(String(x.extra))}</div>` : ''}</div>`; }).join('')}</div>`
+    return `<div class="log-row"><div class="log-top"><b>${esc(logInfo(x.type)[0])}</b><time class="helper">${esc(d.toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</time></div><div class="helper">Por <b>${esc(uName(x.by))}</b>${ROLE_LABEL[roleOf(x.by)] ? ' (' + esc(ROLE_LABEL[roleOf(x.by)]) + ')' : ''}${t ? ` · sobre <a href="#/user/${encodeURIComponent(x.target)}" data-dir="next">${esc(t.name)}</a>` : ''}</div>${x.extra ? `<div class="log-extra">${esc(String(x.extra))}</div>` : ''}</div>`; }).join('')}</div>`
     : empty('Sin acciones registradas', 'Aquí aparecerán los strikes, suspensiones, reportes atendidos y revisiones de capítulos.')}</main>`;
 }
 let RFILT = 'open';
@@ -1743,7 +1756,7 @@ function admMenu(t) {
 /* --- Noticias (solo la cuenta dueña publica) --- */
 function openBookPicker() {
   const m = document.createElement('div'); m.className = 'modal sheet'; let tab = 'home', q = '';
-  m.innerHTML = `<div class="modal-box bp-box" role="dialog" aria-modal="true" aria-label="Recomendar un libro"><button class="icon-btn close-x" data-x aria-label="Cerrar">✕</button><h2>Recomendar un libro</h2><p class="helper">Toca un libro y aparece en el banner de Inicio.</p>
+  m.innerHTML = `<div class="modal-box bp-box" role="dialog" aria-modal="true" aria-label="Recomendar un libro"><button class="icon-btn close-x" data-x aria-label="Cerrar">✕</button><h2>Recomendar un libro</h2><p class="helper">Toca un libro y aparece en el banner de Inicio.${isMod() ? ' Pasará primero por la aprobación de Administración y Owner.' : ''}</p><label class="check" style="margin:4px 0 8px"><input type="checkbox" data-anon> <span>Ocultar mi nombre (se muestra solo mi rol)</span></label>
   <div class="bp-tabs"><button type="button" class="chip active" data-t="home">🏠 Inicio</button><button type="button" class="chip" data-t="favs">♥ Mis favoritos</button><button type="button" class="chip" data-t="lib">📚 Mi biblioteca</button></div>
   <input class="field bp-q" type="search" placeholder="Buscar por título o autoría…" aria-label="Buscar libro"><div class="bp-list"></div></div>`;
   const list = m.querySelector('.bp-list');
@@ -1757,29 +1770,58 @@ function openBookPicker() {
   list.onclick = ev => { const it = ev.target.closest('.bp-item'); if (!it || !canNews()) return; const sid = it.dataset.id, L = crAll();
     if (L.some(b => b.kind === 'book' && b.storyId === sid)) return toast('Ese libro ya está en el banner.');
     if (L.length >= 6) return toast('Máximo 6 tarjetas manuales: elimina alguna.');
-    G.set('banners', [...L, { id: Date.now(), kind: 'book', by: S.user, date: today(), storyId: sid, title: '', text: '', btn: 'Leer ahora' }]); m.remove(); toast('Añadido al banner ✓'); KEEP = true; render(); };
+    G.set('banners', [...L, { id: Date.now(), kind: 'book', by: S.user, date: today(), storyId: sid, title: '', text: '', btn: 'Leer ahora', ...postMeta((m.querySelector('[data-anon]') || {}).checked) }]); logAction('banner-add', S.user, ((findStory(sid) || {}).title || '') + (isMod() ? ' (en revisión)' : '')); if (isMod()) notifyApprovers('Nueva recomendación de libro por aprobar'); m.remove(); toast(isMod() ? 'Enviado a revisión: lo verá Administración u Owner' : 'Añadido al banner ✓'); KEEP = true; render(); };
   paint(); document.body.appendChild(m);
 }
 function crPanel() {
   const L = crAll(), pubs = publishedStories(), nw = news();
-  return `<section class="panel" style="margin-bottom:20px"><h2>🎠 Banner de Inicio</h2><p class="helper" style="margin:4px 0 12px">Las noticias salen solas en el carrusel. Aquí añades tarjetas manuales (aparecen primero).${isOwner() ? '' : ' Solo puedes editar y eliminar las tuyas.'}</p>
-  ${L.length ? L.map((b, i) => { const mine = ownsPost(b); return `<div class="cr-row"><span class="cr-rt">${b.kind === 'book' ? '📚' : '🎉'} <b>${esc(b.title || (findStory(b.storyId) || {}).title || 'Libro eliminado')}</b>${isOwner() ? ` <small class="helper">· ${esc(uName(b.by || OWNER_EMAIL) === 'Usuario' ? 'Owner' : uName(b.by || OWNER_EMAIL))}</small>` : ''}</span><span class="cr-rb">${mine ? `<button class="icon-btn sm" data-act="cr-up" data-id="${b.id}" ${i ? '' : 'disabled'} aria-label="Subir">↑</button><button class="icon-btn sm" data-act="cr-down" data-id="${b.id}" ${i < L.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button><button class="link-btn" data-act="cr-edit" data-id="${b.id}">Editar</button><button class="link-btn danger-link" data-act="cr-del" data-id="${b.id}">Eliminar</button>` : '<small class="helper">de otra persona</small>'}</span></div>`; }).join('') : '<p class="helper">Aún no hay tarjetas manuales.</p>'}
+  return `<section class="panel" style="margin-bottom:20px"><h2>🎠 Banner de Inicio</h2><p class="helper" style="margin:4px 0 12px">Las noticias salen solas en el carrusel. Aquí añades tarjetas manuales (aparecen primero).${isOwner() ? '' : ' Solo puedes editar y eliminar las tuyas.'}${isMod() ? ' Lo que envíes pasa primero por la aprobación de Administración y Owner.' : ''}</p>
+  ${L.length ? L.map((b, i) => { const mine = ownsPost(b); return `<div class="cr-row"><span class="cr-rt">${b.kind === 'book' ? '📚' : '🎉'} <b>${esc(b.title || (findStory(b.storyId) || {}).title || 'Libro eliminado')}</b><small class="helper">· ${esc(byline(b))}</small>${b.status === 'pending' ? ' <span class="pill">En revisión</span>' : b.status === 'rejected' ? ` <span class="pill">Rechazada${b.reason ? ': ' + esc(b.reason) : ''}</span>` : ''}</span><span class="cr-rb">${mine ? `${isMod() ? '' : `<button class="icon-btn sm" data-act="cr-up" data-id="${b.id}" ${i ? '' : 'disabled'} aria-label="Subir">↑</button><button class="icon-btn sm" data-act="cr-down" data-id="${b.id}" ${i < L.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button>`}${canEditPost(b) ? `<button class="link-btn" data-act="cr-edit" data-id="${b.id}">Editar</button>` : ''}<button class="link-btn danger-link" data-act="cr-del" data-id="${b.id}">Eliminar</button>` : '<small class="helper">de otra persona</small>'}</span></div>`; }).join('') : '<p class="helper">Aún no hay tarjetas manuales.</p>'}
  <button type="button" class="button secondary" data-act="cr-pick-open" style="margin:8px 0">＋ Recomendar un libro</button>
   <details class="cr-add" hidden><summary>＋ Recomendar un libro</summary><form data-form="cr-book" class="form-grid" style="grid-template-columns:1fr;margin-top:10px">
     <div class="form-group"><label for="cb-story">Libro</label><select id="cb-story" class="select">${pubs.length ? pubs.map(x => `<option value="${esc(x.id)}">${esc(x.title)}</option>`).join('') : '<option value="">No hay libros publicados</option>'}</select></div>
     <div class="form-group"><label for="cb-title">Título (opcional)</label><input id="cb-title" class="field" maxlength="70" placeholder="Si lo dejas vacío usa el del libro (el título del libro siempre se muestra)"></div>
     <div class="form-group"><label for="cb-text">Texto (opcional)</label><textarea id="cb-text" class="textarea" maxlength="160" placeholder="Por qué lo recomiendas… (si lo dejas vacío usa la sinopsis)"></textarea></div>
-    <div class="form-group"><label for="cb-btn">Texto del botón</label><input id="cb-btn" class="field" maxlength="24" value="Leer ahora"></div><button class="button" type="submit">Añadir al banner</button></form></details>
+    <div class="form-group"><label for="cb-btn">Texto del botón</label><input id="cb-btn" class="field" maxlength="24" value="Leer ahora"></div><label class="check"><input type="checkbox" id="cb-anon"> <span>Ocultar mi nombre (se muestra solo mi rol)</span></label><button class="button" type="submit">Añadir al banner</button></form></details>
   <details class="cr-add"><summary>＋ Anunciar un evento</summary><form data-form="cr-event" class="form-grid" style="grid-template-columns:1fr;margin-top:10px">
     <div class="form-group"><label for="ce-title">Título</label><input id="ce-title" class="field" maxlength="70" placeholder="Ej: Evento Fundador"></div>
     <div class="form-group"><label for="ce-text">Descripción corta (la tarjeta del banner)</label><textarea id="ce-text" class="textarea" maxlength="160"></textarea></div>
     <div class="form-group"><label>Imagen (opcional, cualquier tamaño)</label><div id="ce-prev" class="ce-prev"></div><label class="button secondary sm" style="cursor:pointer;width:fit-content">🖼 Elegir imagen<input id="ce-file" type="file" accept="image/*" hidden></label></div>
     <div class="form-group"><label for="ce-post">Publicación completa (se abre al tocar el botón)</label><textarea id="ce-post" class="textarea" maxlength="4000" placeholder="Escribe el post completo. Si lo dejas vacío usa la descripción corta. Puedes editarlo después en Noticias."></textarea></div>
     <div class="form-group"><label for="ce-btn">Texto del botón</label><input id="ce-btn" class="field" maxlength="24" value="Ver más"></div>
-    <div class="form-group"><label for="ce-news">El botón lleva a…</label><select id="ce-news" class="select"><option value="">Una publicación nueva (la creo con estos datos)</option>${nw.map(n => `<option value="${n.id}">Noticia existente: ${esc(clip(n.title, 40))}</option>`).join('')}</select></div><button class="button" type="submit">Añadir al banner</button></form></details></section>`;
+    <label class="check"><input type="checkbox" id="ce-anon"> <span>Ocultar mi nombre (se muestra solo mi rol)</span></label><div class="form-group"><label for="ce-news">El botón lleva a…</label><select id="ce-news" class="select"><option value="">Una publicación nueva (la creo con estos datos)</option>${nw.map(n => `<option value="${n.id}">Noticia existente: ${esc(clip(n.title, 40))}</option>`).join('')}</select></div><button class="button" type="submit">Añadir al banner</button></form></details></section>`;
 }
 /* Compositor de noticias (Owner): cada párrafo puede llevar una imagen de cualquier tamaño */
+function subsPanel() {                                 // Moderación: sus envíos que aún no están publicados
+  const l = news().filter(n => !pubOK(n) && ownsPost(n)); if (!l.length) return '';
+  return `<section class="panel" style="margin-bottom:20px"><h2>Mis envíos en revisión</h2>${l.map(n => `<div class="cr-row"><span class="cr-rt"><b>${esc(n.title)}</b> ${n.status === 'pending' ? '<span class="pill">En revisión</span>' : `<span class="pill">Rechazada${n.reason ? ': ' + esc(n.reason) : ''}</span>`}</span><span class="cr-rb"><button class="link-btn" data-act="news-edit" data-id="${n.id}">Editar y reenviar</button><button class="link-btn danger-link" data-act="news-del" data-id="${n.id}">Eliminar</button></span></div>`).join('')}</section>`;
+}
+function pendingPosts() {
+  const cards = crAll().filter(b => b.status === 'pending'), linked = new Set(cards.map(b => String(b.newsId || '')).filter(Boolean));
+  return [...cards.map(o => ({ kind: 'card', o })), ...news().filter(n => n.status === 'pending' && !linked.has(String(n.id))).map(o => ({ kind: 'news', o }))].sort((a, b) => b.o.id - a.o.id);
+}
+function resolvePost(kind, id, ok, reason) {
+  if (!canBan()) return 'Solo Administración y Owner pueden aprobar publicaciones.';
+  const key = kind === 'card' ? 'banners' : 'news', L = G.get(key, []), i = L.findIndex(x => String(x.id) === String(id)); if (i < 0) return 'Esa publicación ya no existe.';
+  reason = String(reason || '').trim(); if (!ok && reason.length < 3) return 'Escribe el motivo del rechazo.';
+  const o = L[i], patch = ok ? { status: 'published', date: today(), reason: '', handledBy: S.user, handledDate: today() } : { status: 'rejected', reason: reason.slice(0, 300), handledBy: S.user, handledDate: today() };
+  L[i] = { ...o, ...patch }; G.set(key, L);
+  if (kind === 'card' && o.newsId) { const N = news(), j = N.findIndex(x => String(x.id) === String(o.newsId) && x.status === 'pending'); if (j >= 0) { N[j] = { ...N[j], ...patch }; G.set('news', N); } }
+  const ttl = o.title || (findStory(o.storyId) || {}).title || 'tu publicación';
+  pushNotif(o.by, { type: 'sys', extra: ok ? 'Tu publicación «' + ttl + '» fue aprobada y ya se ve en Auri.' : 'Tu publicación «' + ttl + '» fue rechazada: ' + reason.slice(0, 120), href: '#/news' });
+  logAction(ok ? 'post-approve' : 'post-reject', o.by || OWNER_EMAIL, ttl.slice(0, 60) + (ok ? '' : ': ' + reason.slice(0, 80)) + (o.anon ? ' · nombre oculto' : '')); return '';
+}
+function postsView(tabs) {
+  const l = pendingPosts();
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">Publicaciones</span><h2 style="margin-top:8px">Por aprobar (${l.length})</h2><p>Anuncios, eventos y recomendaciones enviados por Moderación. Al aprobarlos se publican con la fecha de hoy.</p></div></div>
+  ${l.length ? l.map(({ kind, o }) => { const st = o.kind === 'book' ? findStory(o.storyId) : null, label = kind === 'news' ? (o.type || 'Anuncio') : o.kind === 'book' ? 'Recomendación de libro' : 'Evento en el banner', ttl = o.title || (st && st.title) || 'Sin título', txt = o.text || (st && st.synopsis) || '',
+      href = kind === 'news' ? '#/news/' + o.id : o.kind === 'book' && st ? '#/story/' + esc(st.id) : o.newsId ? '#/news/' + o.newsId : '';
+    return `<article class="panel rp"><div class="rp-head"><span class="pill">${esc(label)}</span><span class="helper">${esc(o.date || '')}</span></div><div class="rp-ctx"><b>${esc(ttl)}</b><div class="helper">Por ${esc(byline(o))}</div></div><p class="rp-text">${esc(clip(txt, 220))}</p>
+    <div class="rp-acts">${href ? `<a class="button ghost sm" href="${href}" data-dir="next">Ver</a>` : ''}<button class="button sm" data-act="post-approve" data-k="${kind}" data-id="${o.id}">Aprobar</button><button class="button danger sm" data-act="post-reject" data-k="${kind}" data-id="${o.id}">Rechazar</button></div></article>`; }).join('')
+    : empty('Nada por aprobar', 'Cuando alguien de Moderación envíe un anuncio, un evento o una recomendación, aparecerá aquí.')}</main>`;
+}
 const ownsPost = o => !!o && canNews() && (isOwner() || (o.by || OWNER_EMAIL) === S.user);   // Owner: todo; Administración: solo lo suyo (lo antiguo sin firma es de la Owner)
+const canEditPost = o => ownsPost(o) && (!isMod() || !pubOK(o));      // Moderación no cambia lo ya publicado (lo borra y lo envía de nuevo)
 let NBEDIT = '';                                       // id de la noticia ya publicada que se está editando
 let NB = [{ t: '', img: '' }], NBM = { type: 'Actualización', title: '' }, CEIMG = '', NBID = '';   // NBID = borrador de noticia que se está editando
 const ndAll = () => G.get('newsdrafts', []);
@@ -1804,20 +1846,21 @@ const nbRow = (b, i) => `<div class="nb-row"><div class="nb-head"><b>Párrafo ${
 const newsBody = n => newsBlocks(n).map(b => `${b.t ? `<p>${esc(b.t)}</p>` : ''}${safeImg(b.img) ? `<figure class="news-fig"><img src="${esc(b.img)}" alt="" loading="lazy"></figure>` : ''}`).join('');
 function newsView(nid) {
   if (nid) {                                           // publicación completa (al tocar «Leer noticia» en el banner)
-    const n = news().find(x => String(x.id) === String(decodeURIComponent(nid)));
-    return `<main class="page story-layout"><a class="button ghost sm" href="#/news" data-dir="prev">‹ Todas las noticias</a>${n ? `<article class="panel news-item news-full" style="margin-top:14px"><span class="tag">${esc(n.type)}</span> <span class="helper">${esc(n.date)}${n.edited ? ' · editado' : ''}</span><h2 class="serif" style="margin:10px 0 14px">${esc(n.title)}</h2>${newsBody(n)}<div class="news-by">${userAvatar(n.by || OWNER_EMAIL)}<span>Publicado por <b>${esc(uName(n.by || OWNER_EMAIL) === 'Usuario' ? 'Auri Studios' : uName(n.by || OWNER_EMAIL))}</b> · ${esc(ROLE_LABEL[roleOf(n.by || OWNER_EMAIL)] || 'Auri Studios')}</span></div></article>` : empty('Noticia no encontrada', 'Puede que se haya eliminado.', '<a class="button" href="#/news">Ver noticias</a>')}</main>`;
+    let n = news().find(x => String(x.id) === String(decodeURIComponent(nid))); if (n && !pubOK(n) && !(canBan() || ownsPost(n))) n = null;
+    return `<main class="page story-layout"><a class="button ghost sm" href="#/news" data-dir="prev">‹ Todas las noticias</a>${n ? `<article class="panel news-item news-full" style="margin-top:14px"><span class="tag">${esc(n.type)}</span> <span class="helper">${esc(n.date)}${n.edited ? ' · editado' : ''}</span><h2 class="serif" style="margin:10px 0 14px">${esc(n.title)}</h2>${newsBody(n)}<div class="news-by">${n.anon && !isOwner() ? '' : userAvatar(n.by || OWNER_EMAIL)}<span>Publicado por <b>${esc(byline(n))}</b>${!pubOK(n) ? ` · ${n.status === 'pending' ? 'en revisión' : 'rechazada'}` : ''}</span></div></article>` : empty('Noticia no encontrada', 'Puede que se haya eliminado.', '<a class="button" href="#/news">Ver noticias</a>')}</main>`;
   }
-  const list = news(), pub = canNews();
+  const list = newsPub(), pub = canNews();
   return `<main class="page story-layout"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">📣 Noticias de Auri</span><h2 style="margin-top:8px">Novedades y eventos</h2></div></div>
   ${pub ? crPanel() : ''}
   ${pub ? ndPanel() : ''}
+  ${isMod() ? subsPanel() : ''}
   ${pub ? `<form class="panel" data-form="news" style="margin-bottom:20px"><h2>${NBEDIT ? '✏️ Editar anuncio publicado' : 'Publicar anuncio'}</h2><div class="form-grid" style="grid-template-columns:1fr">
   <div class="form-group"><label for="n-type">Tipo</label><select id="n-type" class="select">${['Actualización', 'Evento', 'Aviso'].map(t => `<option ${NBM.type === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
   <div class="form-group"><label for="n-title">Título</label><input id="n-title" class="field" maxlength="80" value="${esc(NBM.title)}"></div>
   <div id="nb-list">${NB.map(nbRow).join('')}</div>
-  <button type="button" class="button ghost sm" data-act="nb-add" style="width:fit-content">＋ Añadir párrafo</button></div><div class="nb-btns">${NBEDIT ? '<button type="button" class="button ghost" data-act="news-edit-cancel">Cancelar</button><button class="button" type="submit">Guardar cambios</button>' : '<button type="button" class="button ghost" data-act="nd-save">💾 Guardar borrador</button><button class="button" type="submit">Publicar</button>'}</div></form>` : ''}
-  ${list.length ? list.map(n => { const cv = newsCover(n); return `<article id="news-${n.id}" class="panel news-item news-card ${cv ? 'has-img' : ''}"><div class="news-cardtxt"><span class="tag">${esc(n.type)}</span> <span class="helper">${esc(n.date)}${n.edited ? ' · editado' : ''}</span><h3>${esc(n.title)}</h3><p>${esc(clip(n.text, 150))}</p>
-    <div class="news-acts"><a class="button secondary sm" href="#/news/${n.id}" data-dir="next">Leer publicación</a>${ownsPost(n) ? `<button class="button secondary sm" data-act="news-edit" data-id="${n.id}">Editar</button><button class="button danger sm" data-act="news-del" data-id="${n.id}">Eliminar</button>` : ''}</div></div>${cv ? `<img class="news-thumb" src="${esc(cv)}" alt="" loading="lazy">` : ''}</article>`; }).join('') : empty('Aún no hay noticias', pub ? 'Publica tu primer anuncio arriba.' : 'Aquí aparecerán las actualizaciones y eventos de Auri.')}</main>`;
+  <button type="button" class="button ghost sm" data-act="nb-add" style="width:fit-content">＋ Añadir párrafo</button>${NBEDIT ? '' : `<label class="check"><input type="checkbox" id="n-anon"> <span>Ocultar mi nombre (se muestra solo mi rol)</span></label>`}${isMod() ? '<p class="helper">Lo que publiques pasa primero por la aprobación de Administración y Owner.</p>' : ''}</div><div class="nb-btns">${NBEDIT ? '<button type="button" class="button ghost" data-act="news-edit-cancel">Cancelar</button><button class="button" type="submit">Guardar cambios</button>' : '<button type="button" class="button ghost" data-act="nd-save">💾 Guardar borrador</button><button class="button" type="submit">Publicar</button>'}</div></form>` : ''}
+  ${list.length ? list.map(n => { const cv = newsCover(n); return `<article id="news-${n.id}" class="panel news-item news-card ${cv ? 'has-img' : ''}"><div class="news-cardtxt"><span class="tag">${esc(n.type)}</span> <span class="helper">${esc(n.date)}${n.edited ? ' · editado' : ''}</span><div class="helper">Por ${esc(byline(n))}</div><h3>${esc(n.title)}</h3><p>${esc(clip(n.text, 150))}</p>
+    <div class="news-acts"><a class="button secondary sm" href="#/news/${n.id}" data-dir="next">Leer publicación</a>${ownsPost(n) ? `${canEditPost(n) ? `<button class="button secondary sm" data-act="news-edit" data-id="${n.id}">Editar</button>` : ''}<button class="button danger sm" data-act="news-del" data-id="${n.id}">Eliminar</button>` : ''}</div></div>${cv ? `<img class="news-thumb" src="${esc(cv)}" alt="" loading="lazy">` : ''}</article>`; }).join('') : empty('Aún no hay noticias', pub ? 'Publica tu primer anuncio arriba.' : 'Aquí aparecerán las actualizaciones y eventos de Auri.')}</main>`;
 }
 
 const notifHref = n => n.type === 'chapter' ? '#/story/' + n.storyId + '/' + n.extra : n.type === 'follow' ? '#/user/' + encodeURIComponent(n.from) : n.type === 'review' ? '#/moderation' : n.type === 'rejected' ? '#/write/' + n.storyId + '/chapters' : '#/story/' + n.storyId;
@@ -2131,7 +2174,10 @@ document.addEventListener('click', e => {
       if (W.mature && st && st.mature && publicPrefix(st.chapters).length && !isStaff()) { el.setAttribute('aria-checked', 'true'); return dialog('Quitar +18 de una obra publicada', 'Para proteger a las personas menores, quitar la marca +18 de una obra ya publicada necesita aprobación de moderación. Seguirá marcada +18 mientras tanto.', 'Enviar solicitud', 'Cancelar', () => toast(requestUnmature(W.id, W.title))); }
       W.mature = !W.mature; el.setAttribute('aria-checked', W.mature); },
     'rp-img': () => { const r = reportsAll().find(x => String(x.id) === id), d = r && (r.imgs || [])[+el.dataset.i]; if (d) showImg(d); },
-    'acc-reports': () => { if (!isStaff()) return; RACC = id; RFILT = 'open'; go('/moderation/reports'); }, 'acc-clear': () => { RACC = null; KEEP = true; render(); }, 'log-filter': () => { LOGF = id; KEEP = true; render(); },
+    'acc-reports': () => { if (!isStaff()) return; RACC = id; RFILT = 'open'; go('/moderation/reports'); }, 'acc-clear': () => { RACC = null; KEEP = true; render(); }, 'log-filter': () => { LOGF = id; KEEP = true; render(); }, 'log-who': () => { LOGW = id; KEEP = true; render(); },
+    'post-approve': () => { const e = resolvePost(el.dataset.k, id, true); if (e) return toast(e); toast('Publicación aprobada'); KEEP = true; render(); },
+    'post-reject': () => { if (!canBan()) return; const k = el.dataset.k; formModal('Rechazar la publicación', '<p class="helper">Quien la envió verá este motivo y podrá corregirla y reenviarla.</p><textarea class="textarea" data-reason maxlength="300" placeholder="Motivo del rechazo…"></textarea>', 'Rechazar',
+      m => { const e = resolvePost(k, id, false, m.querySelector('[data-reason]').value); if (!e) { toast('Publicación rechazada'); KEEP = true; render(); } return e; }, true); },
     'adm-unstrike': () => { if (!canBan()) return; const sid = el.dataset.sid; formModal('Anular strike', '<p class="helper">El strike deja de contar y la persona recibe un aviso con este motivo. Queda en el registro.</p><textarea class="textarea" data-reason maxlength="300" placeholder="Motivo de la anulación…"></textarea>', 'Anular strike',
       m => { const e = annulStrike(id, sid, m.querySelector('[data-reason]').value); if (!e) { toast('Strike anulado'); KEEP = true; render(); } return e; }); },
     'ap-open': () => openAppealForm(), 'ap-filter': () => { AFILT = id; KEEP = true; render(); },
@@ -2201,18 +2247,18 @@ document.addEventListener('click', e => {
     'nb-add': () => { nbCollect(); if (NB.length >= 20) return toast('Máximo 20 párrafos por publicación.'); NB.push({ t: '', img: '' }); KEEP = true; render(); },
     'nb-del': () => { nbCollect(); NB.splice(+el.dataset.i, 1); if (!NB.length) NB.push({ t: '', img: '' }); KEEP = true; render(); },
     'nb-img-clear': () => { nbCollect(); const b = NB[+el.dataset.i]; if (b) b.img = ''; KEEP = true; render(); },
-    'cr-edit': () => { const b = crAll().find(x => String(x.id) === id); if (!ownsPost(b)) return;
+    'cr-edit': () => { const b = crAll().find(x => String(x.id) === id); if (!canEditPost(b)) return;
       formModal('Editar tarjeta', `<div class="form-group"><label for="ed-t">Título</label><input id="ed-t" class="field" maxlength="70" value="${esc(b.title || '')}"></div><div class="form-group"><label for="ed-x">Texto</label><textarea id="ed-x" class="textarea" maxlength="160">${esc(b.text || '')}</textarea></div><div class="form-group"><label for="ed-b">Texto del botón</label><input id="ed-b" class="field" maxlength="24" value="${esc(b.btn || '')}"></div>`, 'Guardar',
         m => { const t = m.querySelector('#ed-t').value.trim(), x = m.querySelector('#ed-x').value.trim(); if (b.kind === 'event' && (!t || !x)) return 'Escribe título y descripción.';
-          const L = crAll(), i = L.findIndex(y => String(y.id) === id); if (i < 0 || !ownsPost(L[i])) return 'Esa tarjeta ya no existe.';
-          L[i] = { ...L[i], title: t.slice(0, 70), text: x.slice(0, 160), btn: m.querySelector('#ed-b').value.trim().slice(0, 24), edited: today() }; G.set('banners', L); KEEP = true; render(); toast('Tarjeta actualizada ✓'); }); },
-    'news-edit': () => { const n = news().find(x => String(x.id) === id); if (!ownsPost(n)) return; if (!NBEDIT) nbDraftSave(true);
+          const L = crAll(), i = L.findIndex(y => String(y.id) === id); if (i < 0 || !canEditPost(L[i])) return 'Esa tarjeta ya no existe.';
+          L[i] = { ...L[i], title: t.slice(0, 70), text: x.slice(0, 160), btn: m.querySelector('#ed-b').value.trim().slice(0, 24), edited: today(), ...(isMod() ? { status: 'pending', reason: '' } : {}) }; logAction('banner-edit', S.user, t.slice(0, 60)); if (isMod()) notifyApprovers('Una tarjeta del banner se volvió a enviar para aprobación'); G.set('banners', L); KEEP = true; render(); toast('Tarjeta actualizada ✓'); }); },
+    'news-edit': () => { const n = news().find(x => String(x.id) === id); if (!canEditPost(n)) return; if (!NBEDIT) nbDraftSave(true);
       NB = newsBlocks(n).map(b => ({ t: b.t || '', img: b.img || '' })); NBM = { type: n.type, title: n.title }; NBID = ''; NBEDIT = String(n.id); KEEP = true; render(); const f = $('#n-title'); if (f && f.scrollIntoView) f.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
     'news-edit-cancel': () => { nbReset(); toast('Edición cancelada'); render(); },
-    'cr-del': () => { const b = crAll().find(x => String(x.id) === id); if (!ownsPost(b)) return; confirmBox('¿Quitar esta tarjeta del banner?', () => { G.set('banners', crAll().filter(b => String(b.id) !== id)); KEEP = true; render(); }); },
-    'cr-up': () => { const L = crAll(), i = L.findIndex(b => String(b.id) === id); if (i < 0 || !ownsPost(L[i])) return; if (i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; G.set('banners', L); KEEP = true; render(); } },
-    'cr-down': () => { const L = crAll(), i = L.findIndex(b => String(b.id) === id); if (i < 0 || !ownsPost(L[i])) return; if (i < L.length - 1) { [L[i + 1], L[i]] = [L[i], L[i + 1]]; G.set('banners', L); KEEP = true; render(); } },
-    'news-del': () => { const n0 = news().find(n => String(n.id) === id); if (ownsPost(n0)) confirmBox('¿Eliminar este anuncio?', () => { G.set('news', news().filter(n => String(n.id) !== id)); if (NBEDIT === id) nbReset(); KEEP = true; render(); }); },
+    'cr-del': () => { const b = crAll().find(x => String(x.id) === id); if (!ownsPost(b)) return; confirmBox('¿Quitar esta tarjeta del banner?', () => { G.set('banners', crAll().filter(b => String(b.id) !== id)); logAction('banner-del', b.by || OWNER_EMAIL, (b.title || '').slice(0, 60)); KEEP = true; render(); }); },
+    'cr-up': () => { const L = crAll(), i = L.findIndex(b => String(b.id) === id); if (i < 0 || !ownsPost(L[i]) || isMod()) return; if (i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; G.set('banners', L); KEEP = true; render(); } },
+    'cr-down': () => { const L = crAll(), i = L.findIndex(b => String(b.id) === id); if (i < 0 || !ownsPost(L[i]) || isMod()) return; if (i < L.length - 1) { [L[i + 1], L[i]] = [L[i], L[i + 1]]; G.set('banners', L); KEEP = true; render(); } },
+    'news-del': () => { const n0 = news().find(n => String(n.id) === id); if (ownsPost(n0)) confirmBox('¿Eliminar este anuncio?', () => { G.set('news', news().filter(n => String(n.id) !== id)); logAction('news-del', n0.by || OWNER_EMAIL, (n0.title || '').slice(0, 60)); if (NBEDIT === id) nbReset(); KEEP = true; render(); }); },
     'bn-clear': () => { const u = getUsers(); u[S.user].banner = ''; G.set('users', u); render(); },
     'chc-clear': () => { collect(); const cid = +$('#w-ch-text').dataset.cid; W.chapters = W.chapters.map(c => { if (c.id !== cid) return c; const { cover, ...rest } = c; return rest; }); persistDraft(); KEEP = true; render(); },
     'av-clear': () => { const u = getUsers(); u[S.user].avatar = ''; G.set('users', u); render(); },
@@ -2348,24 +2394,27 @@ document.addEventListener('submit', async e => {
   if (kind === 'cr-book' || kind === 'cr-event') {
     if (!canNews()) return; const L = crAll(); if (L.length >= 6) return toast('Máximo 6 tarjetas manuales: elimina alguna.');
     if (kind === 'cr-book') { const sid = v('#cb-story'); if (!sid || !publishedStories().some(x => x.id === sid)) return toast('Elige un libro publicado.');
-      G.set('banners', [...L, { id: Date.now(), kind: 'book', storyId: sid, by: S.user, date: today(), title: v('#cb-title').trim().slice(0, 70), text: v('#cb-text').trim().slice(0, 160), btn: v('#cb-btn').trim().slice(0, 24) }]); }
-    else { const t = v('#ce-title').trim(), m = v('#ce-text').trim(); if (!t || !m) return toast('Escribe título y descripción.');
+      G.set('banners', [...L, { id: Date.now(), kind: 'book', storyId: sid, by: S.user, date: today(), title: v('#cb-title').trim().slice(0, 70), text: v('#cb-text').trim().slice(0, 160), btn: v('#cb-btn').trim().slice(0, 24), ...postMeta($('#cb-anon') && $('#cb-anon').checked) }]); }
+    else { const anonE = !!($('#ce-anon') && $('#ce-anon').checked), t = v('#ce-title').trim(), m = v('#ce-text').trim(); if (!t || !m) return toast('Escribe título y descripción.');
       let nid = v('#ce-news');
       if (!nid) {                                      // el evento crea su publicación completa (firmada por la Owner) en Noticias
         const post = v('#ce-post').trim() || m; nid = String(Date.now() + 1);
-        if (!G.set('news', [{ id: +nid, type: 'Evento', title: t.slice(0, 80), text: post, blocks: [{ t: post, img: CEIMG }], by: S.user, date: today() }, ...news()])) return; }
-      G.set('banners', [...L, { id: Date.now(), kind: 'event', by: S.user, date: today(), title: t.slice(0, 70), text: m.slice(0, 160), btn: v('#ce-btn').trim().slice(0, 24), newsId: nid }]); CEIMG = ''; }
-    toast('Tarjeta añadida al banner'); return render();
+        if (!G.set('news', [{ id: +nid, type: 'Evento', title: t.slice(0, 80), text: post, blocks: [{ t: post, img: CEIMG }], by: S.user, date: today(), ...postMeta(anonE) }, ...news()])) return; }
+      G.set('banners', [...L, { id: Date.now(), kind: 'event', by: S.user, date: today(), title: t.slice(0, 70), text: m.slice(0, 160), btn: v('#ce-btn').trim().slice(0, 24), newsId: nid, ...postMeta(anonE) }]); CEIMG = ''; }
+    logAction('banner-add', S.user, (kind === 'cr-event' ? v('#ce-title') : '').slice(0, 60) + (isMod() ? ' (en revisión)' : '')); if (isMod()) notifyApprovers('Nueva tarjeta del banner por aprobar');
+    toast(isMod() ? 'Enviado a revisión: lo verá Administración u Owner' : 'Tarjeta añadida al banner'); return render();
   }
   if (kind === 'news') {
     if (!canNews()) return; nbCollect(); const t = NBM.title.trim(), blocks = NB.map(b => ({ t: b.t.trim(), img: b.img })).filter(b => b.t || b.img);
     if (!t || !blocks.length) return toast('Escribe un título y al menos un párrafo o una imagen.');
-    if (NBEDIT) { const L = news(), i = L.findIndex(x => String(x.id) === NBEDIT); if (i < 0 || !ownsPost(L[i])) { nbReset(); toast('Esa noticia ya no existe.'); return render(); }
-      L[i] = { ...L[i], type: NBM.type, title: t, text: blocks.map(b => b.t).filter(Boolean).join('\n\n'), blocks, edited: today() }; if (!G.set('news', L)) return;
-      nbReset(); toast('Cambios guardados ✓'); return render(); }
-    if (!G.set('news', [{ id: Date.now(), type: NBM.type, title: t, text: blocks.map(b => b.t).filter(Boolean).join('\n\n'), blocks, by: S.user, date: today() }, ...news()])) return;
+    if (NBEDIT) { const L = news(), i = L.findIndex(x => String(x.id) === NBEDIT); if (i < 0 || !canEditPost(L[i])) { nbReset(); toast('Esa noticia ya no existe.'); return render(); }
+      L[i] = { ...L[i], type: NBM.type, title: t, text: blocks.map(b => b.t).filter(Boolean).join('\n\n'), blocks, edited: today(), ...(isMod() ? { status: 'pending', reason: '' } : {}) }; if (!G.set('news', L)) return;
+      logAction('news-edit', S.user, t.slice(0, 60)); if (isMod()) notifyApprovers('Un anuncio se volvió a enviar para aprobación');
+      nbReset(); toast(isMod() ? 'Reenviado a revisión ✓' : 'Cambios guardados ✓'); return render(); }
+    if (!G.set('news', [{ id: Date.now(), type: NBM.type, title: t, text: blocks.map(b => b.t).filter(Boolean).join('\n\n'), blocks, by: S.user, date: today(), ...postMeta($('#n-anon') && $('#n-anon').checked) }, ...news()])) return;
+    logAction('news-post', S.user, t.slice(0, 80) + (isMod() ? ' (en revisión)' : '')); if (isMod()) notifyApprovers('Nuevo anuncio por aprobar: ' + t.slice(0, 50));
     if (NBID) G.set('newsdrafts', ndAll().filter(x => x.id !== NBID));
-    nbReset(); toast('Anuncio publicado'); return render();
+    nbReset(); toast(isMod() ? 'Enviado a revisión: lo verá Administración u Owner' : 'Anuncio publicado'); return render();
   }
   const data = { name: v('#a-name'), email: v('#a-email'), pass: v('#a-pass'), pass2: v('#a-pass2') };
   const sb = form.querySelector('button[type=submit]'); if (sb) { sb.classList.add('loading'); sb.dataset.t = sb.textContent; sb.innerHTML = LOADER('sm'); }
