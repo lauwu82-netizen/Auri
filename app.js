@@ -344,18 +344,38 @@ function createAccount() {                             // último paso: se crea 
   if (users[email]) { PENDING = null; QZ = null; go('/register'); return toast('Ese correo ya tiene una cuenta.'); }
   users[email] = { name, salt, hash, birth: QZ.birth, gender: QZ.gender, interests: QZ.interests, onboarded: true, termsAccepted: today(), created: today(), role: email === OWNER_EMAIL ? 'OWNER' : 'USER', strikes: [] };
   LS.set('auri.users', users);
-  LS.set('auri.u.' + email + '.cfg', { showMature: ageOf(QZ.birth) >= 18 && QZ.mature });   // la opción +18 del cuestionario enciende "Mostrar contenido +18"
-  PENDING = null; QZ = null; startSession(email); toast('¡Listo! Tu cuenta está creada ✨');
+  const kept = isGuest() ? adoptGuest(email) : false;
+  LS.set('auri.u.' + email + '.cfg', { ...(kept ? LS.get('auri.u.' + email + '.cfg', {}) : {}), showMature: ageOf(QZ.birth) >= 18 && QZ.mature });   // la opción +18 del cuestionario enciende "Mostrar contenido +18"
+  PENDING = null; QZ = null; startSession(email); toast(kept ? '¡Listo! Cuenta creada y progreso conservado ✨' : '¡Listo! Tu cuenta está creada ✨');
 }
 async function login({ email, pass }) {
   email = email.trim().toLowerCase();
   const u = LS.get('auri.users', {})[email];
   if (!u || u.hash !== await sha(u.salt + pass)) return 'Correo o contraseña incorrectos.';
+  if (isGuest()) wipeGuest();                          // lo guardado como invitado se pierde: queda lo de esa cuenta
   startSession(email); return '';
 }
 function startSession(email) { S.user = email; LS.set('auri.session', email); loadUser(); go('/'); }
-function logout() { S.user = null; localStorage.removeItem('auri.session'); go('/login'); }
+function logout() { S.user = null; localStorage.removeItem('auri.session'); go('/start'); }
 const userName = () => (LS.get('auri.users', {})[S.user] || {}).name || '';
+/* --- Modo invitado: cuenta temporal local; no da likes ni comenta; al crear cuenta su progreso se conserva --- */
+const GUEST = 'invitado@auri.local', isGuest = () => S.user === GUEST;
+const guestKeys = () => Object.keys(localStorage).filter(k => k.startsWith('auri.u.' + GUEST + '.'));
+function wipeGuest() {                                 // borra al invitado y todo lo guardado como tal
+  const users = LS.get('auri.users', {}); delete users[GUEST]; LS.set('auri.users', users);
+  guestKeys().forEach(k => localStorage.removeItem(k));
+}
+function adoptGuest(email) {                           // copia el progreso del invitado a la cuenta nueva y elimina al invitado
+  const pre = 'auri.u.' + GUEST + '.', ks = guestKeys(); ks.forEach(k => localStorage.setItem('auri.u.' + email + '.' + k.slice(pre.length), localStorage.getItem(k)));
+  wipeGuest(); return ks.length > 0;
+}
+function startGuest() {
+  const users = LS.get('auri.users', {});
+  if (!users[GUEST]) { users[GUEST] = { name: 'Invitado', guest: true, onboarded: true, termsAccepted: today(), created: today(), role: 'USER', strikes: [] }; LS.set('auri.users', users); }
+  startSession(GUEST);
+}
+const GUEST_ACTS = { like: 'dar me gusta', 'c-like': 'dar me gusta', 'pc-like': 'dar me gusta', follow: 'seguir a otras personas', 'c-reply': 'comentar', 'c-edit': 'comentar', 'c-save': 'comentar', 'c-del': 'comentar', 'c-more': 'comentar', 'pc-reply': 'comentar', 'pc-send': 'comentar', 'pc-more': 'comentar', 'pc-del': 'comentar', 'report-story': 'reportar contenido', 'report-comment': 'reportar contenido', 'report-pc': 'reportar contenido', 'report-user': 'reportar contenido', mute: 'silenciar o bloquear', block: 'silenciar o bloquear' };
+const guestGate = why => dialog('Se necesita una cuenta para ' + why, 'Crearla es gratis y el progreso de lectura actual se conserva.', 'Crear cuenta', 'Ahora no', () => go('/register'));
 
 const interestChips = (sel, act) => `<div class="qz-chips">${INTERESTS.map(([n, e]) => `<button type="button" class="qz-chip ${sel.includes(n) ? 'on' : ''}" data-act="${act}" data-v="${esc(n)}" aria-pressed="${sel.includes(n)}">${e} ${esc(n)}</button>`).join('')}</div>`;
 function signupView() {
@@ -427,7 +447,7 @@ const coverHTML = (s, i) => `<div class="cover c${(i % 5) + 1}">${s.cover ? `<im
 function authView(mode) {
   const reg = mode === 'register';
   return `<main class="auth-wrap"><div class="brand-big">${mascot()}</div>
-  <h1>${reg ? 'Crea tu cuenta' : 'Bienvenida a Auri'}</h1>
+  <h1>${reg ? 'Crea tu cuenta' : 'Inicia sesión'}</h1>
   <p class="helper" style="text-align:center;margin-bottom:18px">${reg ? 'Guarda tus historias y tu personaje lector.' : 'Inicia sesión para seguir leyendo y escribiendo.'}</p>
   <form class="panel" data-form="${mode}" novalidate><div class="form-grid" style="grid-template-columns:1fr">
     ${reg ? `<div class="form-group"><label for="a-name">Nombre de usuario</label><input id="a-name" class="field" autocomplete="nickname" maxlength="30" value="${PENDING ? esc(PENDING.name) : ''}"></div>` : ''}
@@ -438,8 +458,50 @@ function authView(mode) {
   </div><p class="error" id="auth-error" role="alert"></p>
   <button class="button" style="width:100%" type="submit">${reg ? 'Crear cuenta' : 'Entrar'}</button></form>
   <p class="helper" style="text-align:center;margin-top:16px">${reg ? '¿Ya tienes cuenta? <a class="link-btn" href="#/login">Inicia sesión</a>' : '¿Primera vez? <a class="link-btn" href="#/register">Crea tu cuenta</a>'}</p>
+  <p class="helper" style="text-align:center;margin-top:4px"><a class="link-btn" href="#/start">Volver</a></p>
   <p class="notice" style="margin-top:14px">Tu cuenta se guarda solo en este navegador. Auri todavía no envía datos a ningún servidor.</p></main>`;
 }
+
+/* --- Primer uso: bienvenida, acceso e invitado --- */
+let WLI = 0;
+const WI = {
+  book: IC('<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5"/>'),
+  chat: IC('<path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.4A8 8 0 1 1 21 12z"/>'),
+  note: IC('<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>'),
+  shield: IC('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/>'),
+  down: IC('<path d="M12 5v14M6 13l6 6 6-6"/>')
+};
+const WL_SLIDES = [
+  () => `<div class="wl-art">${mascot('wl-mascot')}</div><h1>Te damos la bienvenida a Auri</h1><p>Un rincón acogedor para leer fanfics, escribir historias y compartirlas con una comunidad que ama los libros tanto como Auri.</p>`,
+  () => `<div class="wl-art"><div class="wl-demo"><div class="wl-oc"><span class="wl-av">L</span><span class="wl-ocx"><b>Luna</b><small>OC · cabello plateado · ojos violetas</small></span></div>
+    <p class="wl-from">«TN sonrió bajo la luna…»</p><span class="wl-ic wl-down">${WI.down}</span><p class="wl-to">«<mark>Luna</mark> sonrió bajo la luna…»</p></div></div>
+    <span class="eyebrow">Función estrella</span><h1>Un OC como protagonista de cada historia</h1><p>El nombre, el apodo y la personalidad del OC reemplazan al TN en los fanfics compatibles, sin cambiar la historia original.</p>`,
+  () => `<h1>Pensada para disfrutar cada capítulo</h1><div class="wl-feats">${[
+    ['book', 'Biblioteca y progreso', 'Cada historia recuerda en qué capítulo quedó la lectura.'],
+    ['chat', 'Comentarios por párrafo', 'Reaccionar a un momento exacto, con spoilers difuminados.'],
+    ['note', 'Música en los capítulos', 'Las autorías pueden sumar una canción para acompañar.'],
+    ['shield', 'Sin anuncios entre capítulos', 'Lectura cómoda y moderación para una comunidad segura.']
+  ].map(([i, t, d], k) => `<div class="wl-feat" style="--i:${k}"><span class="wl-ic">${WI[i]}</span><span><b>${t}</b><small>${d}</small></span></div>`).join('')}</div>`
+];
+function welcomeView() {
+  const n = WL_SLIDES.length, last = WLI >= n - 1;
+  return `<main class="wl" aria-roledescription="presentación"><button type="button" class="link-btn wl-skip" data-act="wl-done" style="${last ? 'visibility:hidden' : ''}">Saltar</button>
+  <section class="wl-slide" aria-live="polite">${WL_SLIDES[WLI]()}</section>
+  <div class="wl-dots">${WL_SLIDES.map((_, i) => `<button type="button" class="wl-dot ${i === WLI ? 'on' : ''}" data-act="wl-go" data-i="${i}" aria-label="Pantalla ${i + 1} de ${n}"></button>`).join('')}</div>
+  <div class="wl-nav">${WLI > 0 ? '<button type="button" class="button ghost" data-act="wl-prev">Atrás</button>' : '<span></span>'}<button type="button" class="button" data-act="${last ? 'wl-done' : 'wl-next'}">${last ? 'Comenzar' : 'Siguiente'}</button></div></main>`;
+}
+function startView() {
+  return `<main class="auth-wrap wl-start"><div class="brand-big">${mascot()}</div><h1>Auri</h1><p class="helper" style="text-align:center;margin-bottom:22px">Leer, escribir y compartir fanfics.</p>
+  <div class="wl-actions"><a class="button" href="#/register">Crear cuenta</a><a class="button secondary" href="#/login">Iniciar sesión</a><button type="button" class="button ghost" data-act="guest-enter">Entrar como invitado</button></div>
+  <p class="notice" style="margin-top:18px">Como invitado se puede explorar y leer, pero no dar me gusta ni comentar. Al crear una cuenta después, el progreso de lectura se conserva.</p>
+  <p class="helper" style="text-align:center;margin-top:10px"><button type="button" class="link-btn" data-act="wl-replay">Ver de nuevo la presentación</button></p></main>`;
+}
+const guestCard = () => `<div class="panel wl-guest"><div class="wl-guest-top">${avatarHTML('', 'Invitado', 'xl')}<div><h2 class="serif">Invitado</h2><p>Explorando sin cuenta: se puede leer, guardar historias en la biblioteca y crear personajes.</p></div></div>
+  <div class="wl-actions"><a class="button" href="#/register">Crear cuenta</a><a class="button secondary" href="#/login">Iniciar sesión</a></div>
+  <p class="helper">Al crear una cuenta, el progreso, la biblioteca y los personajes se conservan. Al iniciar sesión en una cuenta existente, lo guardado como invitado se pierde.</p></div>`;
+const guestProfile = () => `<main class="page">${guestCard()}${charsSection()}</main>`;
+const guestWall = what => `<main class="page"><div class="empty wl-wall">${mascot()}<h3>Se necesita una cuenta para ${what}</h3><p>Crearla es gratis y el progreso de lectura actual se conserva.</p><div class="wl-actions"><a class="button" href="#/register">Crear cuenta</a><a class="button secondary" href="#/login">Iniciar sesión</a></div></div></main>`;
+const guestCompose = what => `<div class="wl-compose"><span>Se necesita una cuenta para ${what}</span><button type="button" class="button sm" data-act="guest-cta">Crear cuenta</button></div>`;
 
 /* --- Descubrir --- */
 let Q = '', GEN = 'All';
@@ -1141,7 +1203,7 @@ function deleteAccount() {
   const sb = subs(); for (const id in sb) sb[id] = sb[id].filter(e => e !== me); G.set('subs', sb);
   const nk = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('auri.notifs.')) nk.push(k); }
   nk.forEach(k => localStorage.setItem(k, JSON.stringify(LS.get(k, []).filter(n => n.from !== me))));
-  S.user = null; localStorage.removeItem('auri.session'); W = null; closeMusic(); toast('Tu cuenta fue eliminada'); go('/login');
+  S.user = null; localStorage.removeItem('auri.session'); W = null; closeMusic(); toast('Tu cuenta fue eliminada'); go('/start');
 }
 
 /* --- Pantalla de Ajustes --- */
@@ -1191,9 +1253,9 @@ function settingsView(secId) {
   const group = (t, ids) => `<h3 class="set-group">${t}</h3><div class="set-list">${ids.map(item).join('')}</div>`;
   const role = ROLE_LABEL[roleOf(S.user)];
   return `<main class="page story-layout settings"><div class="set-head"><button class="icon-btn" data-act="settings-back" aria-label="Volver">‹</button><h2>Ajustes</h2></div>
-  <a class="set-me" href="#/profile" data-dir="next">${userAvatar(S.user, 'big')}<span class="set-txt"><b>${esc(u.name || 'Mi cuenta')}</b><small>${esc(S.user)}</small>${role ? `<em class="role-tag ${roleOf(S.user).toLowerCase()}">🛡 ${role}</em>` : ''}</span>${CHEV}</a>
-  ${group('Cuenta', ['cuenta', 'intereses', 'bloqueos'])}${group('Preferencias', ['apariencia', 'lectura', 'contenido', 'notificaciones'])}${group('Datos y ayuda', ['datos', 'acerca'])}
-  <button class="button danger set-logout" data-act="logout">Cerrar sesión</button></main>`;
+  ${isGuest() ? guestCard() : ''}<a class="set-me" style="${isGuest() ? 'display:none' : ''}" href="#/profile" data-dir="next">${userAvatar(S.user, 'big')}<span class="set-txt"><b>${esc(u.name || 'Mi cuenta')}</b><small>${esc(S.user)}</small>${role ? `<em class="role-tag ${roleOf(S.user).toLowerCase()}">🛡 ${role}</em>` : ''}</span>${CHEV}</a>
+  ${isGuest() ? group('Preferencias', ['apariencia', 'lectura']) + group('Ayuda', ['acerca']) : group('Cuenta', ['cuenta', 'intereses', 'bloqueos']) + group('Preferencias', ['apariencia', 'lectura', 'contenido', 'notificaciones']) + group('Datos y ayuda', ['datos', 'acerca'])}
+  <button class="button danger set-logout" data-act="logout">${isGuest() ? 'Salir del modo invitado' : 'Cerrar sesión'}</button></main>`;
 }
 
 /* --- Biblioteca --- */
@@ -1294,7 +1356,7 @@ function cmRow(x, s, sub, extra = '') {
 function commentsHTML(s) {
   const all = comments(s.id).filter(c => !hidesFrom(c.by)), tops = all.filter(c => !c.parent);
   return `<section class="panel" style="margin-top:20px"><h2>Comentarios (${all.length})</h2>
-  <form data-form="comment" data-id="${esc(s.id)}" class="c-compose">${userAvatar(S.user)}<div class="c-pill"><input id="c-text" maxlength="300" placeholder="Escribe un comentario…" aria-label="Escribe un comentario" autocomplete="off"><button class="c-send" type="submit" aria-label="Enviar comentario">${ICO_SEND}</button></div></form>
+  ${isGuest() ? guestCompose('comentar') : ''}<form data-form="comment" data-id="${esc(s.id)}" class="c-compose" ${isGuest() ? 'style="display:none"' : ''}>${userAvatar(S.user)}<div class="c-pill"><input id="c-text" maxlength="300" placeholder="Escribe un comentario…" aria-label="Escribe un comentario" autocomplete="off"><button class="c-send" type="submit" aria-label="Enviar comentario">${ICO_SEND}</button></div></form>
   ${tops.length ? tops.map(x => {
     const reps = all.filter(r => r.parent === x.id), open = REPOPEN.has(x.id);
     const rf = REPLYTO === x.id ? `<form data-form="reply" data-id="${esc(s.id)}" data-cid="${x.id}" class="c-replyform">${userAvatar(S.user)}<div class="c-pill"><input id="c-reply-text" maxlength="300" value="${esc(REPLYPRE)}" placeholder="Escribe una respuesta…" aria-label="Tu respuesta" autocomplete="off"><button class="c-send" type="submit" aria-label="Enviar respuesta">${ICO_SEND}</button></div><button type="button" class="c-act" data-act="c-reply-cancel">Cancelar</button></form>` : '';
@@ -1684,19 +1746,22 @@ function render() {
   const path = location.hash.slice(1) || '/', [, a, b, c, d] = path.split('/'), app = $('#app');
   const nav = path !== LASTP, dir = nav ? NAVDIR : '', from = LASTP;
   if (nav) { SHOWC = false; LASTP = path; NAVDIR = ''; NOTIF_OPEN = false; SETDEEP = a === 'settings' && !!b && from === '/settings'; }
-  if (!S.user && a !== 'login' && a !== 'register' && a !== 'signup') return go('/login');
-  if (S.user && (a === 'login' || a === 'register' || a === 'signup')) return go('/');
+  if (!S.user && !['login', 'register', 'signup', 'welcome', 'start'].includes(a)) return go(LS.get('auri.intro', false) ? '/start' : '/welcome');
+  if (S.user && (a === 'welcome' || a === 'start' || (!isGuest() && (a === 'login' || a === 'register' || a === 'signup')))) return go('/');
   if (a === 'signup' && !QZ) return go('/register');
   if (S.user && activeBan(S.user)) { app.innerHTML = bannedView(); return; }                   // cuenta suspendida: solo ve el aviso
   if (a === 'user' && decodeURIComponent(b || '') === S.user) return go('/profile');
   if (a === 'character') return go('/profile');                    // los personajes ahora viven en Mi Perfil
   if (nav && dir !== 'swipe') ghostOut(app);
-  if (a === 'login' || a === 'register') app.innerHTML = authView(a);
+  if (a === 'welcome') app.innerHTML = welcomeView();
+  else if (a === 'start') app.innerHTML = startView();
+  else if (a === 'login' || a === 'register') app.innerHTML = authView(a);
+  else if (isGuest() && ['write', 'stats', 'moderation', 'strike'].includes(a)) app.innerHTML = shell(a === 'write' ? '/write' : '', guestWall(a === 'write' ? 'escribir historias' : a === 'stats' ? 'ver estadísticas' : 'entrar aquí'));
   else if (a === 'signup') app.innerHTML = signupView();
   else if (a === 'write') { const v = writeRoute(b, c, d); app.innerHTML = c === 'ch' && W ? v : shell('/write', v); }   // escribir un capítulo = pantalla completa
   else if (a === 'story') { const v = storyView(b, c); app.innerHTML = c ? v : shell('', v); }   // leer un capítulo = pantalla completa
   else if (a === 'library') app.innerHTML = shell('/library', libraryView());
-  else if (a === 'profile') app.innerHTML = shell('/profile', profileView());
+  else if (a === 'profile') app.innerHTML = shell('/profile', isGuest() ? guestProfile() : profileView());
   else if (a === 'user') app.innerHTML = shell('', userView(decodeURIComponent(b || '')));
   else if (a === 'strike') app.innerHTML = shell('', strikeView(b));
   else if (a === 'moderation') app.innerHTML = shell('/moderation', modView(b));
@@ -1760,7 +1825,7 @@ function openParaSheet(pi) {
   const ex = raw.replace(/\s+/g, ' ').trim(), m = document.createElement('div'); m.className = 'modal sheet'; m.id = 'pc-sheet';
   m.innerHTML = `<div class="modal-box pc-box" role="dialog" aria-modal="true" aria-label="Comentarios del párrafo"><div class="pc-head"><strong>💬 Comentarios del párrafo <span id="pc-count"></span></strong><button class="icon-btn" data-act="pc-close" aria-label="Cerrar">✕</button></div>
   <blockquote class="pc-quote">“${esc(ex.length > 150 ? ex.slice(0, 150) + '…' : ex)}”</blockquote><div id="pc-list" class="pc-list"></div>
-  <div class="pc-compose"><textarea id="pc-text" class="textarea" maxlength="${PC_MAX}" placeholder="Escribe un comentario…" aria-label="Tu comentario"></textarea>
+  ${isGuest() ? guestCompose('comentar') : ''}<div class="pc-compose" ${isGuest() ? 'style="display:none"' : ''}><textarea id="pc-text" class="textarea" maxlength="${PC_MAX}" placeholder="Escribe un comentario…" aria-label="Tu comentario"></textarea>
   <div class="pc-row"><label class="pc-spoil"><input type="checkbox" id="pc-spoil"> ⚠ Contiene spoiler</label><button class="button sm" data-act="pc-send">Publicar</button></div></div></div>`;
   m.addEventListener('click', e => { if (e.target === m) { m.remove(); PCS = null; pcClear(); } });
   document.body.appendChild(m); paintPcList();
@@ -1789,8 +1854,13 @@ document.addEventListener('click', e => {
   if (!e.target.closest('[data-act]')) pcClear();
   const el = e.target.closest('[data-act]'); if (!el) return;
   const { act, id } = el.dataset;
+  if (isGuest() && GUEST_ACTS[act]) { e.preventDefault(); return guestGate(GUEST_ACTS[act]); }
   const persist = (k, v) => LS.set(uk(k), v);
   const actions = {
+    'wl-next': () => { WLI = Math.min(WLI + 1, WL_SLIDES.length - 1); KEEP = true; render(); }, 'wl-prev': () => { WLI = Math.max(WLI - 1, 0); KEEP = true; render(); },
+    'wl-go': () => { WLI = +el.dataset.i || 0; KEEP = true; render(); }, 'wl-done': () => { LS.set('auri.intro', true); WLI = 0; go('/start'); },
+    'wl-replay': () => { WLI = 0; go('/welcome'); }, 'guest-enter': () => startGuest(),
+    'guest-cta': () => { const m = $('#pc-sheet'); if (m) { m.remove(); PCS = null; } go('/register'); },
     'exit-book': () => {                               // salir del libro: guarda el progreso y, si no está en tu biblioteca, pregunta
       saveReadPos(id, +el.dataset.n);
       const leave = () => { toast('Progreso guardado'); goReplace('/story/' + id); };
@@ -1982,10 +2052,15 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('error', e => { if (e.target.classList && e.target.classList.contains('cover-img')) e.target.style.display = 'none'; if (e.target.classList && e.target.classList.contains('fr-img')) { e.target.style.display = 'none'; if (e.target.parentNode) e.target.parentNode.classList.add('fr-fallback'); } }, true);
 document.addEventListener('click', e => { if (MENUC !== null && !e.target.closest('.c-more-wrap')) { MENUC = null; KEEP = true; if (PCS) paintPcList(); if (!e.target.closest('[data-act]')) render(); } }, true);
+let WLX = null;                                        // deslizar a los lados en la presentación de bienvenida
+document.addEventListener('touchstart', e => { WLX = e.target.closest('.wl') && e.touches[0] ? e.touches[0].clientX : null; }, { passive: true });
+document.addEventListener('touchend', e => { if (WLX == null || !e.changedTouches[0]) return; const dx = e.changedTouches[0].clientX - WLX; WLX = null;
+  if (Math.abs(dx) < 50 || !$('.wl-slide')) return; WLI = Math.max(0, Math.min(WL_SLIDES.length - 1, WLI + (dx < 0 ? 1 : -1))); KEEP = true; render(); }, { passive: true });
 document.addEventListener('submit', async e => {
   const form = e.target.closest('[data-form]'); if (!form) return;
   e.preventDefault();
   const kind = form.dataset.form, v = id => ($(id) ? $(id).value : '');
+  if (isGuest() && ['comment', 'reply', 'pcreply', 'myprofile'].includes(kind)) return guestGate('comentar');
   if (kind === 'myprofile') {
     const name = $('#pf-name').value.trim(); if (!name) return toast('El usuario no puede estar vacío.');
     const u = getUsers(); u[S.user].name = name; u[S.user].bio = $('#pf-bio').value.trim(); G.set('users', u); toast('Perfil guardado'); return render();
