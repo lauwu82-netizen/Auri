@@ -375,7 +375,15 @@ function startGuest() {
   startSession(GUEST);
 }
 const GUEST_ACTS = { like: 'dar me gusta', 'c-like': 'dar me gusta', 'pc-like': 'dar me gusta', follow: 'seguir a otras personas', 'c-reply': 'comentar', 'c-edit': 'comentar', 'c-save': 'comentar', 'c-del': 'comentar', 'c-more': 'comentar', 'pc-reply': 'comentar', 'pc-send': 'comentar', 'pc-more': 'comentar', 'pc-del': 'comentar', 'report-story': 'reportar contenido', 'report-comment': 'reportar contenido', 'report-pc': 'reportar contenido', 'report-user': 'reportar contenido', mute: 'silenciar o bloquear', block: 'silenciar o bloquear' };
-const guestGate = why => dialog('Se necesita una cuenta para ' + why, 'Crearla es gratis y el progreso de lectura actual se conserva.', 'Crear cuenta', 'Ahora no', () => go('/register'));
+function guestGate(why) {                              // pantallazo: primero crear cuenta o iniciar sesión
+  const old = $('#guest-gate'); if (old) old.remove();
+  const m = document.createElement('div'); m.className = 'modal sheet'; m.id = 'guest-gate';
+  m.innerHTML = `<div class="modal-box mini-box wl-gate" role="alertdialog" aria-modal="true" aria-label="Se necesita una cuenta">${mascot('wl-gate-m')}<h2>Se necesita una cuenta para ${esc(why)}</h2><p class="helper">Crear una cuenta es gratis y el progreso de lectura actual se conserva. Si ya existe una cuenta, basta con iniciar sesión.</p>
+  <div class="wl-actions"><button type="button" class="button" data-g="register">Crear cuenta</button><button type="button" class="button secondary" data-g="login">Iniciar sesión</button><button type="button" class="button ghost" data-g="no">Ahora no</button></div></div>`;
+  m.addEventListener('click', e => { const g = e.target.closest('[data-g]'); if (!g && e.target !== m) return; m.remove(); if (!g || g.dataset.g === 'no') return;
+    const ps = $('#pc-sheet'); if (ps) { ps.remove(); PCS = null; } go('/' + g.dataset.g); });
+  document.body.appendChild(m);
+}
 
 const interestChips = (sel, act) => `<div class="qz-chips">${INTERESTS.map(([n, e]) => `<button type="button" class="qz-chip ${sel.includes(n) ? 'on' : ''}" data-act="${act}" data-v="${esc(n)}" aria-pressed="${sel.includes(n)}">${e} ${esc(n)}</button>`).join('')}</div>`;
 function signupView() {
@@ -1238,7 +1246,7 @@ function settingsView(secId) {
       <div class="set-btns"><button class="button secondary" data-act="export-file">⬇ Exportar mis datos (archivo)</button><button class="button secondary" data-act="export-copy">📋 Copiar mis datos</button>
       <label class="button secondary" style="cursor:pointer">⬆ Importar desde archivo<input id="import-file" type="file" accept="application/json,.json" hidden></label>
       <button class="button danger" data-act="wipe-device">🗑 Borrar datos de este dispositivo</button></div></section>` },
-    cuenta: { ico: '👤', c: '#5b6ee1', t: 'Cuenta', sub: S.user, body: () => `<section class="panel set-sec"><div class="form-grid" style="grid-template-columns:1fr"><div class="form-group"><label for="ac-name">Nombre de usuario</label><input id="ac-name" class="field" maxlength="30" value="${esc(u.name || '')}"></div>
+    cuenta: { ico: '👤', c: '#5b6ee1', t: 'Cuenta', sub: isGuest() ? 'Invitado · crear cuenta o iniciar sesión' : S.user, body: () => isGuest() ? guestCard() : `<section class="panel set-sec"><div class="form-grid" style="grid-template-columns:1fr"><div class="form-group"><label for="ac-name">Nombre de usuario</label><input id="ac-name" class="field" maxlength="30" value="${esc(u.name || '')}"></div>
       <div class="form-group"><label for="ac-email">Correo</label><input id="ac-email" type="email" class="field" value="${esc(S.user)}"></div>
       <div class="form-group"><label for="ac-pass">Contraseña actual</label><input id="ac-pass" type="password" class="field" autocomplete="current-password" placeholder="Solo para cambiar el correo"></div></div>
       <button class="button" style="margin-top:12px;width:100%" data-act="acct-save">Guardar cambios de cuenta</button></section>
@@ -1253,8 +1261,8 @@ function settingsView(secId) {
   const group = (t, ids) => `<h3 class="set-group">${t}</h3><div class="set-list">${ids.map(item).join('')}</div>`;
   const role = ROLE_LABEL[roleOf(S.user)];
   return `<main class="page story-layout settings"><div class="set-head"><button class="icon-btn" data-act="settings-back" aria-label="Volver">‹</button><h2>Ajustes</h2></div>
-  ${isGuest() ? guestCard() : ''}<a class="set-me" style="${isGuest() ? 'display:none' : ''}" href="#/profile" data-dir="next">${userAvatar(S.user, 'big')}<span class="set-txt"><b>${esc(u.name || 'Mi cuenta')}</b><small>${esc(S.user)}</small>${role ? `<em class="role-tag ${roleOf(S.user).toLowerCase()}">🛡 ${role}</em>` : ''}</span>${CHEV}</a>
-  ${isGuest() ? group('Preferencias', ['apariencia', 'lectura']) + group('Ayuda', ['acerca']) : group('Cuenta', ['cuenta', 'intereses', 'bloqueos']) + group('Preferencias', ['apariencia', 'lectura', 'contenido', 'notificaciones']) + group('Datos y ayuda', ['datos', 'acerca'])}
+  <a class="set-me" style="${isGuest() ? 'display:none' : ''}" href="#/profile" data-dir="next">${userAvatar(S.user, 'big')}<span class="set-txt"><b>${esc(u.name || 'Mi cuenta')}</b><small>${esc(S.user)}</small>${role ? `<em class="role-tag ${roleOf(S.user).toLowerCase()}">🛡 ${role}</em>` : ''}</span>${CHEV}</a>
+  ${isGuest() ? group('Cuenta', ['cuenta']) + group('Preferencias', ['apariencia', 'lectura']) + group('Ayuda', ['acerca']) : group('Cuenta', ['cuenta', 'intereses', 'bloqueos']) + group('Preferencias', ['apariencia', 'lectura', 'contenido', 'notificaciones']) + group('Datos y ayuda', ['datos', 'acerca'])}
   <button class="button danger set-logout" data-act="logout">${isGuest() ? 'Salir del modo invitado' : 'Cerrar sesión'}</button></main>`;
 }
 
@@ -1860,7 +1868,7 @@ document.addEventListener('click', e => {
     'wl-next': () => { WLI = Math.min(WLI + 1, WL_SLIDES.length - 1); KEEP = true; render(); }, 'wl-prev': () => { WLI = Math.max(WLI - 1, 0); KEEP = true; render(); },
     'wl-go': () => { WLI = +el.dataset.i || 0; KEEP = true; render(); }, 'wl-done': () => { LS.set('auri.intro', true); WLI = 0; go('/start'); },
     'wl-replay': () => { WLI = 0; go('/welcome'); }, 'guest-enter': () => startGuest(),
-    'guest-cta': () => { const m = $('#pc-sheet'); if (m) { m.remove(); PCS = null; } go('/register'); },
+    'guest-cta': () => guestGate('comentar'),
     'exit-book': () => {                               // salir del libro: guarda el progreso y, si no está en tu biblioteca, pregunta
       saveReadPos(id, +el.dataset.n);
       const leave = () => { toast('Progreso guardado'); goReplace('/story/' + id); };
