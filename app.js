@@ -794,8 +794,8 @@ function infoView(existing) {
     ${sagaBox()}
   </div><div class="toggle-line"><div><strong>Tarjeta de personaje lector</strong><div class="helper">Reemplaza TN / T/N por el nombre de tu personaje.</div></div>
   <button type="button" role="switch" class="switch" aria-checked="${W.useReaderCharacter}" data-act="toggle-tn" aria-label="Usar tarjeta de personaje lector"></button></div>
-  <div class="toggle-line"><div><strong>Historia +18</strong><div class="helper">${isMinor(getUsers()[S.user]) ? 'Las cuentas menores de 18 años no pueden publicar contenido +18.' : 'Actívalo si tiene contenido sugerente o temas para mayores de edad.'}</div></div>
-  <button type="button" role="switch" class="switch" aria-checked="${W.mature}" data-act="toggle-18" aria-label="Historia +18" ${isMinor(getUsers()[S.user]) ? 'disabled' : ''}></button></div>
+  ${isMinor(getUsers()[S.user]) ? '' : `<div class="toggle-line"><div><strong>Historia +18</strong><div class="helper">Actívalo si tiene contenido sugerente o temas para mayores de edad. Una vez publicada, quitar la marca +18 necesita aprobación de moderación.</div></div>
+  <button type="button" role="switch" class="switch" aria-checked="${W.mature}" data-act="toggle-18" aria-label="Historia +18"></button></div>`}
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px">${existing ? '<button class="button" data-act="info-save">Guardar cambios</button>' : '<button class="button" data-act="save-next">Guardar y siguiente ›</button>'}</div></section>${existing ? chaptersEntry() : ''}</main>`;
 }
 
@@ -834,9 +834,23 @@ const freshStories = () => LS.get(uk('stories'), []).map(norm);
 const INFO_FIELDS = ['title', 'synopsis', 'genre', 'fandom', 'tags', 'cover', 'mature', 'phase', 'prev', 'useReaderCharacter'];
 /** Guarda SOLO los datos generales (título, sinopsis, portada, género, etiquetas…). Parte del libro tal como está guardado: no toca los capítulos
  *  ni su estado de moderación, y no pide capítulos nuevos ni términos. Devuelve true si guardó. */
+function requestUnmature(sid, title) {                  // la autoría pide quitar +18 de una obra ya publicada: queda en Reportes para moderación
+  const l = G.get('reports', []);
+  if (l.some(r => r.type === 'reclass' && r.sid === sid && (r.status || 'open') === 'open')) return 'Ya hay una solicitud en revisión para esta obra.';
+  l.unshift({ id: Date.now(), type: 'reclass', sid, owner: S.user, by: S.user, title: title || '', date: today(), status: 'open' }); G.set('reports', l);
+  [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) !== 'USER')])].filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Solicitud para quitar +18 de «' + (title || 'una obra') + '»', href: '#/moderation/reports' }));
+  return 'Solicitud enviada. La obra sigue marcada +18 hasta que moderación la revise.';
+}
+function staffSetMature(sid, v) {
+  const st = allStories().find(x => x.id === sid); if (!st) return null;
+  const k = 'auri.u.' + st.owner + '.stories'; LS.set(k, LS.get(k, []).map(x => x.id === sid ? { ...x, mature: v } : x)); if (st.owner === S.user) S.stories = freshStories(); return st;
+}
 function saveInfoOnly(silent) {
   if (!W) return false;
   collect();
+  { const stv = freshStories().find(x => x.id === W.id);
+    if (isMinor(getUsers()[S.user])) W.mature = false;
+    else if (stv && stv.mature && !W.mature && publicPrefix(stv.chapters).length && !isStaff()) W.mature = true; }      // quitar +18 de una obra publicada necesita aprobación
   if (!W.title.trim()) { if (!silent) toast('Ponle un título a tu historia.'); return false; }
   fixSaga();
   const info = Object.fromEntries(INFO_FIELDS.map(k => [k, W[k]])), stored = freshStories().find(s => s.id === W.id);
@@ -1201,7 +1215,7 @@ function openReportFor(type, o) {
   document.body.appendChild(m);
 }
 let RFILT = 'open';
-const RTYPE = { story: '📖 Obra', comment: '💬 Comentario', pcomment: '💬 Comentario de párrafo', user: '👤 Perfil', problem: '🛠 Problema' };
+const RTYPE = { story: '📖 Obra', comment: '💬 Comentario', pcomment: '💬 Comentario de párrafo', user: '👤 Perfil', problem: '🛠 Problema', reclass: '🏷 Clasificación' };
 function rpSet(id, st) {
   if (!isStaff()) return; const l = reportsAll(), i = l.findIndex(r => String(r.id) === String(id)); if (i < 0) return;
   l[i] = st === 'open' ? { ...l[i], status: 'open', handledBy: '', handledDate: '' } : { ...l[i], status: st, handledBy: S.user, handledDate: today() };
@@ -1210,14 +1224,15 @@ function rpSet(id, st) {
 function reportCard(r) {
   const ty = r.type || 'problem', open = (r.status || 'open') === 'open', owner = r.owner || '', s = r.sid ? findStory(r.sid) : null, td = r.sid && takedown().includes(r.sid);
   const ctx = ty === 'story' ? `<div class="rp-ctx"><b>${esc(r.title || (s && s.title) || 'Obra')}</b>${s ? ` · por ${esc(s.author || '')}${s.mature ? ' · +18' : ''}<div class="tags">${s.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ' · ya no está disponible'}${td ? '<div class="helper">🚩 Retirada de Descubrir</div>' : ''}</div>`
+    : ty === 'reclass' ? `<div class="rp-ctx"><b>${esc(r.title || (s && s.title) || 'Obra')}</b> · por ${esc(uName(owner))}<div class="helper">La autoría pide quitar la marca +18 de una obra publicada. ${s ? (s.mature ? 'Ahora está marcada +18.' : 'Ya no está marcada +18.') : 'La obra ya no está disponible.'}</div></div>`
     : ty === 'comment' || ty === 'pcomment' ? `<div class="rp-ctx"><b>${esc(uName(owner))}</b> escribió: “${esc(r.excerpt || '')}”${ty === 'comment' && r.sid && !comments(r.sid).some(c => String(c.id) === String(r.cid)) ? '<div class="helper">Ese comentario ya no existe.</div>' : ''}</div>`
     : ty === 'user' ? `<div class="rp-ctx"><b>${esc(uName(r.target))}</b></div>` : '';
-  const link = ty === 'story' && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}" data-dir="next">📖 Ir a la obra</a>` : ty === 'comment' && s ? `<button class="button secondary sm" data-act="rp-comments" data-id="${esc(r.sid)}">📖 Ir al comentario</button>` : ty === 'pcomment' && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}/${(+r.ci || 0) + 1}" data-dir="next">📖 Ir al párrafo</a>` : '';
+  const link = (ty === 'story' || ty === 'reclass') && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}" data-dir="next">📖 Ir a la obra</a>` : ty === 'comment' && s ? `<button class="button secondary sm" data-act="rp-comments" data-id="${esc(r.sid)}">📖 Ir al comentario</button>` : ty === 'pcomment' && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}/${(+r.ci || 0) + 1}" data-dir="next">📖 Ir al párrafo</a>` : '';
   const who = ty === 'user' ? r.target : owner;
   return `<article class="panel rp ${open ? '' : 'done'}"><div class="rp-head"><span class="pill">${RTYPE[ty]}</span><span class="helper">${esc(r.date)} · reporta ${esc(uName(r.by))}</span></div>${ctx}
   ${(r.reasons || []).length ? `<div class="tags rp-why">${r.reasons.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}${r.text ? `<p class="rp-text">${esc(r.text)}</p>` : ''}
   <div class="rp-acts">${link}${who && getUsers()[who] ? `<a class="button ghost sm" href="#/user/${encodeURIComponent(who)}" data-dir="next">👤 Perfil</a>` : ''}
-  ${open ? `${ty === 'story' && s ? (td ? `<button class="button secondary sm" data-act="td-off" data-id="${esc(r.sid)}">Restaurar</button>` : `<button class="button danger sm" data-act="td-on" data-id="${esc(r.sid)}">Retirar de Descubrir</button>`) : ''}${ty === 'comment' && r.sid && comments(r.sid).some(c => String(c.id) === String(r.cid)) ? `<button class="button danger sm" data-act="rp-delcomment" data-id="${esc(r.sid)}" data-cid="${esc(r.cid)}">Eliminar comentario</button>` : ''}${who && canAct(who) ? `<button class="button ghost sm" data-act="adm-strike" data-id="${esc(who)}">⚠️ Strike</button><button class="button ghost sm" data-act="adm-ban" data-id="${esc(who)}">🚫 Suspender</button>` : ''}
+  ${open ? `${ty === 'reclass' ? `<button class="button sm" data-act="rc-ok" data-id="${r.id}">Aprobar: quitar +18</button><button class="button secondary sm" data-act="rc-no" data-id="${r.id}">Mantener +18</button>` : ''}${ty === 'story' && s ? `<button class="button secondary sm" data-act="rc-set" data-id="${esc(r.sid)}" data-v="${s.mature ? 0 : 1}">${s.mature ? 'Quitar +18' : 'Marcar como +18'}</button>` : ''}${ty === 'story' && s ? (td ? `<button class="button secondary sm" data-act="td-off" data-id="${esc(r.sid)}">Restaurar</button>` : `<button class="button danger sm" data-act="td-on" data-id="${esc(r.sid)}">Retirar de Descubrir</button>`) : ''}${ty === 'comment' && r.sid && comments(r.sid).some(c => String(c.id) === String(r.cid)) ? `<button class="button danger sm" data-act="rp-delcomment" data-id="${esc(r.sid)}" data-cid="${esc(r.cid)}">Eliminar comentario</button>` : ''}${who && canAct(who) ? `<button class="button ghost sm" data-act="adm-strike" data-id="${esc(who)}">⚠️ Strike</button><button class="button ghost sm" data-act="adm-ban" data-id="${esc(who)}">🚫 Suspender</button>` : ''}
   <button class="button sm" data-act="rp-done" data-id="${r.id}">✓ Resuelto</button><button class="button ghost sm" data-act="rp-dismiss" data-id="${r.id}">Descartar</button>`
     : `<span class="helper">${r.status === 'dismissed' ? 'Descartado' : 'Resuelto'} por ${esc(uName(r.handledBy))} · ${esc(r.handledDate || '')}</span><button class="button ghost sm" data-act="rp-reopen" data-id="${r.id}">Reabrir</button>`}
   ${ty === 'problem' && open ? `<button class="icon-btn" data-act="report-del" data-id="${r.id}" aria-label="Eliminar reporte">${TRASH}</button>` : ''}</div></article>`;
@@ -1443,10 +1458,13 @@ function libraryView() {
   const drafts = S.stories.filter(s => s.chapters.some(c => c.status !== 'approved')), pubIds = publishedStories().map(s => s.id), all = publishedStories().concat(drafts.filter(d => !pubIds.includes(d.id)).map(d => ({ ...d, owner: S.user, author: userName() }))).filter(matureOK);
   const lists = { lib: all.filter(s => S.lib.includes(s.id)), col: all.filter(s => S.cols.includes(s.id)), fav: all.filter(s => S.favs.includes(s.id)), read: all.filter(s => S.progress[s.id]), draft: drafts };
   const l = lists[TAB], tabs = [['lib', 'Mi biblioteca'], ['col', 'Colecciones'], ['fav', 'Favoritos'], ['read', 'Progreso de lectura'], ['draft', 'Borradores y revisión']];
-  const body = !l.length ? empty(TAB === 'draft' ? 'Aún no tienes borradores' : 'Este estante está vacío', 'Cuando guardes historias aparecerán aquí.', `<a class="button secondary" href="${TAB === 'draft' ? '#/write' : '#/'}">${TAB === 'draft' ? 'Escribir una historia' : 'Buscar una historia'}</a>`)
+  const ids = { lib: S.lib, col: S.cols, fav: S.favs, read: Object.keys(S.progress || {}) }, minor = isMinor(getUsers()[S.user]);
+  const lockedL = ids[TAB] ? publishedStories().filter(x => x.mature && !matureOK(x) && ids[TAB].includes(x.id)) : [];
+  const lockCard = x => `<article class="row-card locked"><div class="lock-cv">+18</div><div class="row-info"><strong class="serif">Obra no disponible</strong><p class="helper" style="margin:2px 0 8px">${minor ? 'Esta obra cambió de clasificación y ya no está disponible.' : 'Obra +18 oculta por la configuración de contenido.'}</p><button type="button" class="button ghost sm" data-act="lock-remove" data-id="${esc(x.id)}">Quitar de aquí</button></div></article>`;
+  const body = !l.length && !lockedL.length ? empty(TAB === 'draft' ? 'Aún no tienes borradores' : 'Este estante está vacío', 'Cuando guardes historias aparecerán aquí.', `<a class="button secondary" href="${TAB === 'draft' ? '#/write' : '#/'}">${TAB === 'draft' ? 'Escribir una historia' : 'Buscar una historia'}</a>`)
     : `<div class="story-grid">${l.map((s, i) => TAB === 'draft' ? `<article class="row-card">${coverHTML(s, i)}<div class="row-info"><a href="#/write/${esc(s.id)}/chapters"><strong class="serif">${esc(s.title || 'Sin título')}</strong></a>
       <div class="story-meta">${STATUS[storyState(s)]} · ${s.chapters.length} cap. · actualizado el ${esc(s.updatedAt)} ${s.mature ? '<span class="dot18" style="display:inline-grid;vertical-align:middle">+18</span>' : ''}</div>${statusNote(s) ? `<p class="notice">${esc(statusNote(s))}</p>` : ''}
-      <div class="card-footer" style="justify-content:flex-start"><a class="button secondary sm" href="#/write/${esc(s.id)}/chapters">Seguir escribiendo</a>${storyState(s) !== 'published' ? `<button class="icon-btn" data-act="delete" data-id="${esc(s.id)}" aria-label="Eliminar">🗑</button>` : ''}</div></div></article>` : TAB === 'lib' || TAB === 'col' ? libRow(s, i) : storyCard(s, i)).join('')}</div>`;
+      <div class="card-footer" style="justify-content:flex-start"><a class="button secondary sm" href="#/write/${esc(s.id)}/chapters">Seguir escribiendo</a>${storyState(s) !== 'published' ? `<button class="icon-btn" data-act="delete" data-id="${esc(s.id)}" aria-label="Eliminar">🗑</button>` : ''}</div></div></article>` : TAB === 'lib' || TAB === 'col' ? libRow(s, i) : storyCard(s, i)).join('')}${lockedL.map(lockCard).join('')}</div>`;
   return `<main class="page"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">Tus estantes</span><h2 style="margin-top:8px">Un lugar para lo que te gusta</h2></div><a class="button" href="#/write">Empezar a escribir</a></div>
   <div class="tabs" role="tablist">${tabs.map(([k, n]) => `<button class="tab ${TAB === k ? 'active' : ''}" data-act="tab" data-id="${k}">${n}</button>`).join('')}</div>${body}</main>`;
 }
@@ -2002,7 +2020,16 @@ document.addEventListener('click', e => {
     comments: () => { SHOWC = !SHOWC; KEEP = true; render(); if (SHOWC) { const c = $('#comments'); if (c && c.scrollIntoView) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
     'ch-add': addChapter,
     'ch-trash': () => { const c = W.chapters.find(x => x.id === +el.dataset.cid); if (c) confirmBox(`¿Seguro que quieres eliminar el «${c.title || 'capítulo'}»?`, () => deleteChapter(c.id)); },
-    'toggle-18': () => { if (isMinor(getUsers()[S.user])) return toast('Las cuentas menores de 18 años no pueden publicar contenido +18.'); collect(); W.mature = !W.mature; el.setAttribute('aria-checked', W.mature); },
+    'toggle-18': () => { if (isMinor(getUsers()[S.user])) return; collect(); const st = freshStories().find(x => x.id === W.id);
+      if (W.mature && st && st.mature && publicPrefix(st.chapters).length && !isStaff()) { el.setAttribute('aria-checked', 'true'); return dialog('Quitar +18 de una obra publicada', 'Para proteger a las personas menores, quitar la marca +18 de una obra ya publicada necesita aprobación de moderación. Seguirá marcada +18 mientras tanto.', 'Enviar solicitud', 'Cancelar', () => toast(requestUnmature(W.id, W.title))); }
+      W.mature = !W.mature; el.setAttribute('aria-checked', W.mature); },
+    'rc-ok': () => { if (!isStaff()) return; const r = reportsAll().find(x => String(x.id) === String(id)); if (!r) return; const st = staffSetMature(r.sid, false); logAction('unmature', r.owner, r.sid);
+      if (st) pushNotif(r.owner, { type: 'sys', extra: 'Moderación aprobó quitar la marca +18 de «' + st.title + '».' }); rpSet(id, 'resolved'); },
+    'rc-no': () => { if (!isStaff()) return; const r = reportsAll().find(x => String(x.id) === String(id)); if (!r) return;
+      pushNotif(r.owner, { type: 'sys', extra: 'Moderación mantuvo la marca +18 en «' + (r.title || 'tu obra') + '». Si crees que fue un error, escribe a la administración.' }); rpSet(id, 'dismissed'); },
+    'rc-set': () => { if (!isStaff()) return; const v = el.dataset.v === '1', st = staffSetMature(id, v); if (!st) return toast('La obra ya no existe.'); logAction(v ? 'mark18' : 'unmature', st.owner, id);
+      pushNotif(st.owner, { type: 'sys', extra: v ? 'Moderación marcó «' + st.title + '» como +18.' : 'Moderación quitó la marca +18 de «' + st.title + '».' }); toast(v ? 'Marcada como +18' : 'Marca +18 quitada'); KEEP = true; render(); },
+    'lock-remove': () => { if (TAB === 'lib') libRemove(id); else if (TAB === 'col') { S.cols = S.cols.filter(x => x !== id); LS.set(uk('cols'), S.cols); } else if (TAB === 'fav') { S.favs = S.favs.filter(x => x !== id); LS.set(uk('favs'), S.favs); } else if (TAB === 'read') { delete S.progress[id]; LS.set(uk('progress'), S.progress); } KEEP = true; render(); },
     terms: showTerms, 'close-modal': () => el.closest('.modal').remove(),
     adult: () => { const u = getUsers(); if (isMinor(u[S.user])) return; u[S.user].adultDeclared = true; G.set('users', u); render(); },
     approve: () => { if (!isStaff()) return; const bk = allStories().find(x => x.id === id), i = bk ? bk.chapters.findIndex(c => c.id === +el.dataset.cid) : -1;
