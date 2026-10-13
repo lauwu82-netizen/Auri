@@ -374,7 +374,7 @@ function startGuest() {
   if (!users[GUEST]) { users[GUEST] = { name: 'Invitado', guest: true, onboarded: true, termsAccepted: today(), created: today(), role: 'USER', strikes: [] }; LS.set('auri.users', users); }
   startSession(GUEST);
 }
-const GUEST_ACTS = { like: 'dar me gusta', 'c-like': 'dar me gusta', 'pc-like': 'dar me gusta', follow: 'seguir a otras personas', 'c-reply': 'comentar', 'c-edit': 'comentar', 'c-save': 'comentar', 'c-del': 'comentar', 'c-more': 'comentar', 'pc-reply': 'comentar', 'pc-send': 'comentar', 'pc-more': 'comentar', 'pc-del': 'comentar', 'report-story': 'reportar contenido', 'report-comment': 'reportar contenido', 'report-pc': 'reportar contenido', 'report-user': 'reportar contenido', mute: 'silenciar o bloquear', block: 'silenciar o bloquear' };
+const GUEST_ACTS = { 'dm-why': 'enviar mensajes', 'dm-book': 'enviar mensajes', like: 'dar me gusta', 'c-like': 'dar me gusta', 'pc-like': 'dar me gusta', follow: 'seguir a otras personas', 'c-reply': 'comentar', 'c-edit': 'comentar', 'c-save': 'comentar', 'c-del': 'comentar', 'c-more': 'comentar', 'pc-reply': 'comentar', 'pc-send': 'comentar', 'pc-more': 'comentar', 'pc-del': 'comentar', 'report-story': 'reportar contenido', 'report-comment': 'reportar contenido', 'report-pc': 'reportar contenido', 'report-user': 'reportar contenido', mute: 'silenciar o bloquear', block: 'silenciar o bloquear' };
 function guestGate(why) {                              // pantallazo: primero crear cuenta o iniciar sesión
   const old = $('#guest-gate'); if (old) old.remove();
   const m = document.createElement('div'); m.className = 'modal sheet'; m.id = 'guest-gate';
@@ -431,7 +431,8 @@ const ICON = {
   books: IC('<path d="M4 4h5v16H4zM11 4h5v16h-5zM18 5l3 1-4 14-3-1z"/>'),
   plus: IC('<path d="M12 5v14M5 12h14"/>', 2.8),
   news: IC('<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"/>'),
-  user: IC('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>')
+  user: IC('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
+  mail: IC('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7.5 8.5 6 8.5-6"/>')
 };
 function shell(path, html) {
   const pop = NOTIF_OPEN ? notifPop() : '', n = unread();      // (primero la ventanita: al abrirla marca como leídas y el contador baja)
@@ -440,6 +441,7 @@ function shell(path, html) {
     <div class="top-row">
       <button class="icon-btn" data-act="settings" aria-label="Configuración">${ICON.gear}</button>
       <div class="nav-actions"><button class="icon-btn" data-act="search-toggle" aria-label="Buscar" aria-expanded="${SEARCH_OPEN}">${ICON.search}</button>
+        <a class="icon-btn bell" href="#/messages" aria-label="Mensajes">${ICON.mail}${dmUnread() ? `<b class="badge">${dmUnread()}</b>` : ''}</a>
         <button class="icon-btn bell" data-act="notif-toggle" aria-label="Notificaciones" aria-expanded="${NOTIF_OPEN}">${ICON.bell}${n ? `<b class="badge">${n}</b>` : ''}</button>
         <a href="#/profile" aria-label="Mi perfil">${userAvatar(S.user)}</a></div>
     </div>
@@ -469,6 +471,111 @@ function authView(mode) {
   <p class="helper" style="text-align:center;margin-top:4px"><a class="link-btn" href="#/start">Volver</a></p>
   <p class="notice" style="margin-top:14px">Tu cuenta se guarda solo en este navegador. Auri todavía no envía datos a ningún servidor.</p></main>`;
 }
+
+/* --- Mensajes: requisitos, filtro de seguridad y vistas --- */
+const ageGroup = e => { const u = getUsers()[e]; return u && isAdult(u) ? 'adult' : 'minor'; };      // 17 o menos (o edad sin confirmar) = menores · 18+ = mayores de edad
+const mutual = (a, b) => following(a).includes(b) && following(b).includes(a);
+function dmWhy(a, b) {                                  // '' = pueden escribirse; si no, la razón
+  if (!getUsers()[b]) return 'Esta persona no existe en este dispositivo.';
+  if (a === b) return 'No se puede enviar mensajes a la propia cuenta.';
+  if (bl(a, 'blocked').includes(b) || bl(b, 'blocked').includes(a)) return 'No se puede enviar mensajes a esta persona.';
+  if (!mutual(a, b)) return 'Para enviarse mensajes, ambas personas deben seguirse mutuamente.';
+  if (ageGroup(a) !== ageGroup(b)) return 'Los mensajes solo están disponibles entre personas del mismo rango de edad: menores de 18 con menores, y mayores de edad con mayores de edad.';
+  return '';
+}
+const dmKey = (a, b) => [a, b].sort().join('|');
+const dmAll = () => G.get('dm', {});
+const dmThread = e => dmAll()[dmKey(S.user, e)] || [];
+const dmRead = () => LS.get(uk('dmread'), {});
+const dmBlocked = e => bl(S.user, 'blocked').includes(e) || bl(e, 'blocked').includes(S.user);
+function dmConvos() {
+  if (!S.user) return []; const all = dmAll();
+  return Object.keys(all).filter(k => k.split('|').includes(S.user)).map(k => ({ key: k, other: k.split('|').find(x => x !== S.user), last: all[k][all[k].length - 1] })).filter(x => x.last && getUsers()[x.other] && !dmBlocked(x.other)).sort((a, b) => b.last.id - a.last.id);
+}
+const dmUnread = () => { if (!S.user || isGuest()) return 0; const r = dmRead(); return dmConvos().filter(x => x.last.by !== S.user && x.last.id > (r[x.key] || 0)).length; };
+/** Filtro de chats de menores: teléfonos, correos, enlaces, usuarios y redes sociales, y frases para pedir datos o fotos */
+const DM_NET = ['facebook', 'instagram', 'tiktok', 'whatsapp', 'wasap', 'guasap', 'telegram', 'snapchat', 'discord', 'twitter', 'youtube', 'messenger', 'skype', 'onlyfans', 'twitch', 'omegle', 'pinterest', 'tumblr'];
+const DM_NUM = { cero: 0, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9 };
+function dmUnsafe(text) {
+  const raw = String(text).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const digits = raw.replace(/\b(cero|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|zero|one|two|three|four|five|six|seven|eight|nine)\b/g, w => DM_NUM[w]);
+  if (/(?:\d[\s().\-_*]*){7,}/.test(digits)) return 'números de teléfono';
+  const leet = raw.replace(/0/g, 'o').replace(/1/g, 'i').replace(/3/g, 'e').replace(/4/g, 'a').replace(/5/g, 's').replace(/7/g, 't').replace(/\$/g, 's');
+  if (DM_NET.some(n => new RegExp(n.split('').join('[^a-z]{0,3}') + '(?![a-z])').test(leet)) || /\b(ig|fb|insta|wpp|wsp|snap|tt|tg|whats|wats)\b/.test(leet)) return 'redes sociales';
+  if (/\S+@\S+\.\S+|\barroba\b|\b(gmail|hotmail|outlook|yahoo|icloud)\b/.test(raw) || /(^|\s)@\w{3,}/.test(raw)) return 'correos o usuarios';
+  if (/https?:|www\.|\.(com|net|org|me|gg|tv|ly|io|link)\b|\bt\.me|\bwa\.me/.test(raw)) return 'enlaces';
+  if (/\b(mi|tu|su)\s+(numero|num|cel|celular|telefono|tel|correo|mail|direccion|insta|face|whats)\b/.test(raw) || /\b(pasa|pasame|dame|dime|manda|mandame|envia|enviame)\s+(tu\s+|su\s+)?(num|numero|cel|celular|telefono|whats|insta|face|tiktok|correo|mail|direccion|foto|fotos)\b/.test(raw) || /\b(donde vives|tu ubicacion|nudes?|sexting|desnud[ao]s?|pack de fotos)\b/.test(raw)) return 'datos personales o fotos';
+  return '';
+}
+function dmSend(to, msg) {                              // devuelve '' si se envió; si no, el motivo
+  const why = dmWhy(S.user, to); if (why) return why;
+  const minor = ageGroup(S.user) === 'minor';
+  if (msg.img && minor) return 'El envío de fotos no está disponible en chats de menores.';
+  if (msg.text && minor) { const u = dmUnsafe(msg.text); if (u) return `Por seguridad, en chats de menores no se pueden compartir ${u}. El mensaje no se envió.`; }
+  if (msg.sid) { const st = publishedStories().find(x => x.id === msg.sid); if (!st) return 'Esa obra ya no está disponible.'; if (minor && st.mature) return 'Las obras +18 no se pueden enviar en chats de menores.'; }
+  const all = dmAll(), k = dmKey(S.user, to), l = all[k] = all[k] || [];
+  l.push({ id: Date.now(), by: S.user, ...msg }); all[k] = l.slice(-300); return G.set('dm', all) ? '' : 'No se pudo guardar el mensaje.';
+}
+const hm = ts => new Date(ts).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+const dayLab = ts => { const d = new Date(ts), t = new Date(), y = new Date(Date.now() - 864e5), same = (a, b) => a.toDateString() === b.toDateString(); return same(d, t) ? 'Hoy' : same(d, y) ? 'Ayer' : d.toLocaleDateString('es', { day: 'numeric', month: 'long' }); };
+function dmBubble(m) {
+  const mine = m.by === S.user; let body = '';
+  if (m.sid) { const st = publishedStories().find(x => x.id === m.sid);
+    body = !st ? '<div class="dm-book gone">Esta obra ya no está disponible.</div>' : st.mature && !matureOK(st) ? '<div class="dm-book gone">Obra +18 oculta por la configuración de contenido.</div>'
+      : `<a class="dm-book" href="#/story/${esc(st.id)}" data-dir="next"><span class="dm-cv">${coverHTML(st, 0)}</span><span class="dm-bt"><small>Obra recomendada</small><b>${esc(st.title)}</b><em>por ${esc(st.author || '')}</em><span class="pill">Abrir</span></span></a>`; }
+  else if (m.img && safeImg(m.img)) body = `<img class="dm-img" src="${esc(m.img)}" alt="Foto enviada">`;
+  else body = `<span class="dm-txt">${esc(m.text || '')}</span>`;
+  return `<div class="dm-row ${mine ? 'me' : 'you'}"><div class="dm-b">${body}<time>${hm(m.id)}</time></div></div>`;
+}
+function dmMsgsHTML(to) {
+  const th = dmThread(to); if (!th.length) return '<p class="helper dm-empty">Aún no hay mensajes. Escribe el primero o recomienda una obra.</p>';
+  let out = '', last = ''; th.forEach(m => { const d = dayLab(m.id); if (d !== last) { out += `<div class="dm-day">${esc(d)}</div>`; last = d; } out += dmBubble(m); }); return out;
+}
+function paintDm(to, force) {
+  const box = $('#dm-msgs'); if (!box) return; const th = dmThread(to), sig = th.length + ':' + ((th[th.length - 1] || {}).id || 0);
+  if (!force && box.dataset.sig === sig) return;
+  box.innerHTML = dmMsgsHTML(to); box.dataset.sig = sig; window.scrollTo(0, document.body.scrollHeight);
+  if (th.length) { const r = dmRead(); r[dmKey(S.user, to)] = th[th.length - 1].id; LS.set(uk('dmread'), r); }
+}
+function dmAfter() { const m = location.hash.match(/^#\/messages\/(.+)$/); if (m && S.user && !isGuest()) paintDm(decodeURIComponent(m[1]), true); }
+function dmView(sub) {
+  if (sub) {
+    const to = decodeURIComponent(sub), u = getUsers()[to]; if (!u || dmBlocked(to) && !dmThread(to).length) return `<main class="page">${empty('No se puede abrir esta conversación', 'La persona no existe o hay un bloqueo entre ambas cuentas.', '<a class="button" href="#/messages">Volver a mensajes</a>')}</main>`;
+    const why = dmWhy(S.user, to), minor = ageGroup(S.user) === 'minor';
+    return `<main class="dm"><header class="dm-head"><a class="icon-btn" href="#/messages" data-dir="prev" aria-label="Volver a mensajes">‹</a><a class="dm-who" href="#/user/${encodeURIComponent(to)}" data-dir="next">${userAvatar(to)}<b>${esc(u.name)}</b></a>
+      <span class="dm-hacts"><button type="button" class="link-btn" data-act="report-user" data-id="${esc(to)}">Reportar</button><button type="button" class="link-btn danger-link" data-act="block" data-id="${esc(to)}">Bloquear</button></span></header>
+      ${minor ? '<p class="dm-safe">Chat de menores: no se permiten teléfonos, enlaces, redes sociales ni fotos.</p>' : ''}
+      <div id="dm-msgs" class="dm-msgs" aria-live="polite"></div>
+      ${why ? `<div class="notice dm-lock">${esc(why)}</div>` : `<div class="dm-compose"><div class="dm-tools"><button type="button" class="chip" data-act="dm-book" data-id="${esc(to)}">Enviar una obra para recomendar</button>${minor ? '' : `<label class="chip" style="cursor:pointer">Enviar una foto<input id="dm-img" type="file" accept="image/*" data-to="${esc(to)}" hidden></label>`}</div>
+      <form data-form="dm" data-to="${esc(to)}" class="c-compose"><div class="c-pill"><input id="dm-text" maxlength="500" placeholder="Escribe un mensaje…" aria-label="Escribe un mensaje" autocomplete="off"><button class="c-send" type="submit" aria-label="Enviar mensaje">${ICO_SEND}</button></div></form><p class="error" id="dm-err" role="alert"></p></div>`}</main>`;
+  }
+  const cv = dmConvos(), r = dmRead(), have = new Set(cv.map(x => x.other)), cand = following(S.user).filter(e => !have.has(e) && dmWhy(S.user, e) === '');
+  const row = (e, sub, right, href) => `<a class="dm-item" href="#/messages/${encodeURIComponent(e)}" data-dir="next">${userAvatar(e)}<span class="dm-it"><b>${esc(uName(e))}</b><small>${sub}</small></span>${right}</a>`;
+  const prev = m => m.sid ? 'Obra recomendada' : m.img ? 'Foto' : esc(clip(m.text, 60));
+  return `<main class="page story-layout"><div class="set-head"><a class="icon-btn" href="#/" data-dir="prev" aria-label="Volver">‹</a><h2>Mensajes</h2></div>
+  ${cv.length ? `<div class="set-list">${cv.map(x => { const un = x.last.by !== S.user && x.last.id > (r[x.key] || 0); return row(x.other, `${x.last.by === S.user ? 'Tú: ' : ''}${prev(x.last)}`, `<span class="dm-meta">${relSpan(x.last)}${un ? '<i class="dm-dot" aria-label="Sin leer"></i>' : ''}</span>`); }).join('')}</div>` : ''}
+  ${cand.length ? `<h3 class="set-group">Escribir a</h3><div class="set-list">${cand.map(e => row(e, 'Se siguen mutuamente', '<span class="dm-meta">›</span>')).join('')}</div>` : ''}
+  ${!cv.length && !cand.length ? empty('Aún no hay conversaciones', 'Cuando dos personas se sigan mutuamente y estén en el mismo rango de edad, podrán escribirse desde aquí o desde el perfil.') : ''}
+  <section class="panel dm-rules"><h3>Quiénes pueden escribirse</h3><ul><li>Ambas personas deben seguirse mutuamente.</li><li>Menores de 18 solo hablan con menores de 18, y mayores de edad solo con mayores de edad.</li><li>Entre mayores de edad se pueden enviar fotos.</li><li>En chats de menores no hay fotos y se bloquean teléfonos, enlaces y redes sociales.</li><li>Cualquier persona puede enviar una obra para recomendar.</li></ul></section></main>`;
+}
+function openDmBookPicker(to) {
+  const m = document.createElement('div'); m.className = 'modal sheet'; let tab = 'home', q = ''; const minor = ageGroup(S.user) === 'minor';
+  m.innerHTML = `<div class="modal-box bp-box" role="dialog" aria-modal="true" aria-label="Enviar una obra para recomendar"><button class="icon-btn close-x" data-x aria-label="Cerrar">✕</button><h2>Enviar una obra para recomendar</h2><p class="helper">Toca una obra y se envía en el chat.</p>
+  <div class="bp-tabs"><button type="button" class="chip active" data-t="home">Inicio</button><button type="button" class="chip" data-t="lib">Mis guardados</button><button type="button" class="chip" data-t="favs">Mis favoritos</button></div>
+  <input class="field bp-q" type="search" placeholder="Buscar por título o autoría…" aria-label="Buscar obra"><div class="bp-list"></div></div>`;
+  const list = m.querySelector('.bp-list');
+  const src = () => { const all = publishedStories().filter(matureOK).filter(x => !(minor && x.mature)); return (tab === 'favs' ? all.filter(x => S.favs.includes(x.id)) : tab === 'lib' ? all.filter(x => S.lib.includes(x.id)) : all).filter(x => !q || `${x.title} ${x.author}`.toLowerCase().includes(q)); };
+  const paint = () => { const l = src(); list.innerHTML = l.length ? l.map((x, i) => `<button type="button" class="bp-item" data-id="${esc(x.id)}"><span class="bp-cv">${coverHTML(x, i)}</span><span class="bp-t"><b>${esc(x.title)}</b><small>por ${esc(x.author || '')}</small></span><span class="bp-add">Enviar</span></button>`).join('')
+    : `<p class="helper" style="text-align:center;margin:18px 0">${tab === 'favs' ? 'Aún no hay obras favoritas.' : tab === 'lib' ? 'Aún no hay obras guardadas.' : 'No hay obras publicadas.'}</p>`; };
+  m.querySelector('[data-x]').onclick = () => m.remove(); m.onclick = ev => { if (ev.target === m) m.remove(); };
+  m.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; m.querySelectorAll('[data-t]').forEach(x => x.classList.toggle('active', x === b)); paint(); });
+  m.querySelector('.bp-q').oninput = ev => { q = ev.target.value.trim().toLowerCase(); paint(); };
+  list.onclick = ev => { const it = ev.target.closest('.bp-item'); if (!it) return; const r = dmSend(to, { sid: it.dataset.id }); if (r) return toast(r); m.remove(); paintDm(to, true); toast('Obra enviada'); };
+  paint(); document.body.appendChild(m);
+}
+setInterval(() => { if (!S.user || isGuest()) return; const m = location.hash.match(/^#\/messages\/(.+)$/); if (m) paintDm(decodeURIComponent(m[1])); }, 2500);
+document.addEventListener('change', e => { const f = e.target; if (!f || f.id !== 'dm-img' || !f.files || !f.files[0]) return; const to = f.dataset.to, file = f.files[0]; f.value = '';
+  fitPhoto(file, 900, 900, img => { const r = dmSend(to, { img }); if (r) return toast(r); paintDm(to, true); }, .72); });
 
 /* --- Primer uso: bienvenida, acceso e invitado --- */
 let WLI = 0;
@@ -1429,6 +1536,7 @@ function userView(e) {
   return `<main class="page">${profileHero(e, false)}<div class="profile-head panel"><div class="pf-avatar">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}</div>
   <div class="pf-form"><h2 class="serif" style="font-size:27px;margin:0">${esc(u.name)}</h2>${ROLE_LABEL[roleOf(e)] ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${ROLE_LABEL[roleOf(e)]}</span>` : ''}<p style="color:var(--soft);line-height:1.6;margin:0">${esc(u.bio || 'Esta persona aún no escribió su biografía.')}</p>
   <button class="button ${fl ? 'secondary' : ''}" data-act="follow" data-id="${esc(e)}">${fl ? 'Siguiendo ✓' : '＋ Seguir'}</button>
+  ${dmWhy(S.user, e) === '' ? `<a class="button secondary" href="#/messages/${encodeURIComponent(e)}" data-dir="next">Mensaje</a>` : `<button type="button" class="button ghost" data-act="dm-why" data-id="${esc(e)}">Mensaje</button>`}
   <div class="pf-more"><button class="button ghost sm" data-act="${iMute(e) ? 'unmute' : 'mute'}" data-id="${esc(e)}">${iMute(e) ? '🔔 Dejar de silenciar' : '🔇 Silenciar'}</button><button class="button ghost sm" data-act="${iBlock(e) ? 'unblock' : 'block'}" data-id="${esc(e)}">${iBlock(e) ? '✅ Desbloquear' : '🚫 Bloquear'}</button><button class="button ghost sm" data-act="report-user" data-id="${esc(e)}">Reportar</button></div></div></div>
   ${admMenu(e)}<div class="section-head"><h2>Obras de ${esc(u.name)}</h2></div>${worksGrid(works)}</main>`;
 }
@@ -1764,7 +1872,7 @@ function render() {
   if (a === 'welcome') app.innerHTML = welcomeView();
   else if (a === 'start') app.innerHTML = startView();
   else if (a === 'login' || a === 'register') app.innerHTML = authView(a);
-  else if (isGuest() && ['write', 'stats', 'moderation', 'strike'].includes(a)) app.innerHTML = shell(a === 'write' ? '/write' : '', guestWall(a === 'write' ? 'escribir historias' : a === 'stats' ? 'ver estadísticas' : 'entrar aquí'));
+  else if (isGuest() && ['write', 'stats', 'moderation', 'strike', 'messages'].includes(a)) app.innerHTML = shell(a === 'write' ? '/write' : '', guestWall(a === 'write' ? 'escribir historias' : a === 'stats' ? 'ver estadísticas' : a === 'messages' ? 'enviar mensajes' : 'entrar aquí'));
   else if (a === 'signup') app.innerHTML = signupView();
   else if (a === 'write') { const v = writeRoute(b, c, d); app.innerHTML = c === 'ch' && W ? v : shell('/write', v); }   // escribir un capítulo = pantalla completa
   else if (a === 'story') { const v = storyView(b, c); app.innerHTML = c ? v : shell('', v); }   // leer un capítulo = pantalla completa
@@ -1774,6 +1882,7 @@ function render() {
   else if (a === 'strike') app.innerHTML = shell('', strikeView(b));
   else if (a === 'moderation') app.innerHTML = shell('/moderation', modView(b));
   else if (a === 'stats') app.innerHTML = shell('', statsView());
+  else if (a === 'messages') app.innerHTML = b ? dmView(b) : shell('', dmView(''));
   else if (a === 'news') app.innerHTML = shell('/news', newsView(b));
   else if (a === 'settings') app.innerHTML = shell('', settingsView(b));
   else if (a === 'notifications') app.innerHTML = shell('', notifView());
@@ -1782,7 +1891,7 @@ function render() {
   if (a !== 'story') EDITC = null;
   if (a !== 'story' || (MUSIC && b !== MUSIC.sid)) closeMusic();
   if (!KEEP) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); }
-  KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit();
+  KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
   if (nav && a === 'story' && c && c !== 'fin') pcHintOnce();
   if (S.user) showModOverlay();                                      // moderador/a sin marco puesto: el aviso reaparece hasta que se lo ponga
@@ -1865,6 +1974,7 @@ document.addEventListener('click', e => {
   if (isGuest() && GUEST_ACTS[act]) { e.preventDefault(); return guestGate(GUEST_ACTS[act]); }
   const persist = (k, v) => LS.set(uk(k), v);
   const actions = {
+    'dm-book': () => openDmBookPicker(id), 'dm-why': () => toast(dmWhy(S.user, id) || 'Ya pueden escribirse.'),
     'wl-next': () => { WLI = Math.min(WLI + 1, WL_SLIDES.length - 1); KEEP = true; render(); }, 'wl-prev': () => { WLI = Math.max(WLI - 1, 0); KEEP = true; render(); },
     'wl-go': () => { WLI = +el.dataset.i || 0; KEEP = true; render(); }, 'wl-done': () => { LS.set('auri.intro', true); WLI = 0; go('/start'); },
     'wl-replay': () => { WLI = 0; go('/welcome'); }, 'guest-enter': () => startGuest(),
@@ -2068,7 +2178,9 @@ document.addEventListener('submit', async e => {
   const form = e.target.closest('[data-form]'); if (!form) return;
   e.preventDefault();
   const kind = form.dataset.form, v = id => ($(id) ? $(id).value : '');
-  if (isGuest() && ['comment', 'reply', 'pcreply', 'myprofile'].includes(kind)) return guestGate('comentar');
+  if (isGuest() && ['comment', 'reply', 'pcreply', 'myprofile', 'dm'].includes(kind)) return guestGate(kind === 'dm' ? 'enviar mensajes' : 'comentar');
+  if (kind === 'dm') { const to = form.dataset.to, inp = $('#dm-text'), er = $('#dm-err'), t = ((inp || {}).value || '').trim(); if (!t) return;
+    const r = dmSend(to, { text: t.slice(0, 500) }); if (er) er.textContent = r; if (r) return; inp.value = ''; paintDm(to, true); return; }
   if (kind === 'myprofile') {
     const name = $('#pf-name').value.trim(); if (!name) return toast('El usuario no puede estar vacío.');
     const u = getUsers(); u[S.user].name = name; u[S.user].bio = $('#pf-bio').value.trim(); G.set('users', u); toast('Perfil guardado'); return render();
