@@ -32,7 +32,7 @@ const LS = {
   get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch { return f; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { toast('No se pudo guardar: almacenamiento lleno'); return false; } }
 };
-const S = { user: LS.get('auri.session', null), theme: LS.get('auri.theme', 'light'), stories: [], favs: [], progress: {}, character: {} };
+const S = { user: LS.get('auri.session', null), theme: LS.get('auri.themeSet', false) ? LS.get('auri.theme', 'auto') : 'auto', stories: [], favs: [], progress: {}, character: {} };
 const uk = n => `auri.u.${S.user}.${n}`;           // datos separados por cuenta
 const emptyChar = () => ({ name: '', nickname: '', hair: '', eyes: '', personality: '' });
 const saveChars = () => LS.set(uk('chars'), { list: S.chars, active: S.activeId });
@@ -132,8 +132,15 @@ function fixRoles() {                                      // normaliza: cada cu
 const ROLE_LABEL = { OWNER: 'Owner', ADMIN: 'Administración', MODERATOR: 'Moderación', USER: '' };
 /* COMUNIDADES: Español (es) e Inglés (en). Cada cuenta pertenece a una; el equipo modera solo las suyas (la Owner, ambas) */
 const COMMS = { es: 'Español', en: 'English' };
+/** Región del dispositivo: Latinoamérica → Español; Estados Unidos y el resto del mundo → English (si el teléfono está en español, también Español). Solo es la sugerencia inicial */
+const LATAM_TZ = /^(America\/(Mexico_City|Cancun|Merida|Monterrey|Matamoros|Chihuahua|Ciudad_Juarez|Ojinaga|Mazatlan|Hermosillo|Tijuana|Bahia_Banderas|Bogota|Lima|Guayaquil|Caracas|La_Paz|Santiago|Punta_Arenas|Asuncion|Montevideo|Panama|Costa_Rica|Guatemala|El_Salvador|Tegucigalpa|Managua|Havana|Santo_Domingo|Puerto_Rico|Argentina\/.+|Buenos_Aires|Cordoba|Mendoza|Catamarca|Jujuy)|Pacific\/(Easter|Galapagos)|Chile\/.+)$/;
+function detectComm() {
+  try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; if (LATAM_TZ.test(tz)) return 'es'; } catch {}
+  const l = String((navigator.languages && navigator.languages[0]) || navigator.language || '').toLowerCase();
+  return l.startsWith('es') ? 'es' : 'en';
+}
 const commOf = e => (getUsers()[e] || {}).community === 'en' ? 'en' : 'es';
-const myComm = () => S.user && !isGuest() ? commOf(S.user) : 'es';
+const myComm = () => S.user && !isGuest() ? commOf(S.user) : detectComm();
 const staffScope = e => { const r = roleOf(e); if (r === 'OWNER') return ['es', 'en']; if (r === 'USER') return []; const sc = ((getUsers()[e] || {}).scope || []).filter(x => COMMS[x]); return sc.length ? sc : [commOf(e)]; };
 let MODC = 'all';                                                       // comunidad elegida en Moderación (solo si el equipo cubre ambas)
 const modSel = () => staffScope(S.user).length > 1 ? MODC : 'all';
@@ -457,7 +464,7 @@ async function register({ name, email, pass, pass2 }) {      // paso 0: correo y
   if (pass !== pass2) return 'Las contraseñas no coinciden.';
   if (users[email]) return 'Ese correo ya tiene una cuenta.';
   const salt = Math.random().toString(36).slice(2);
-  PENDING = { name, email, salt, hash: await sha(salt + pass) }; QZ = { step: 1, comm: 'es', birth: '', gender: '', interests: [], mature: false, blocked: false, terms: false };
+  PENDING = { name, email, salt, hash: await sha(salt + pass) }; QZ = { step: 1, comm: detectComm(), birth: '', gender: '', interests: [], mature: false, blocked: false, terms: false };
   go('/signup'); return '';
 }
 function createAccount() {                             // último paso: se crea la cuenta con las respuestas
@@ -514,7 +521,7 @@ function signupView() {
   let body;
   if (q.step === 1) body = `<span class="eyebrow">Paso 1 de 3</span><h1>¿Cuándo es tu cumpleaños? 🎂</h1><p class="helper">Lo usamos para mostrarte contenido adecuado para tu edad. No se muestra en tu perfil.</p>
     <input id="qz-birth" type="date" class="field" style="margin-top:18px" min="1900-01-01" max="${today()}" value="${esc(q.birth)}" aria-label="Fecha de nacimiento"><p class="error" id="qz-err"></p>
-    <h2 style="margin-top:14px">¿En qué comunidad quieres estar?</h2><p class="helper">Cada comunidad tiene sus propias historias, noticias y equipo de moderación. Después podrás elegir ver también la otra.</p>
+    <h2 style="margin-top:14px">¿En qué comunidad quieres estar?</h2><p class="helper">Cada comunidad tiene sus propias historias, noticias y equipo de moderación. ${q.comm === detectComm() ? 'La elegimos según tu región; puedes cambiarla. ' : ''}Después podrás elegir ver también la otra.</p>
     <div class="qz-opts" role="radiogroup">${Object.entries(COMMS).map(([k, n]) => `<button type="button" class="qz-opt ${q.comm === k ? 'on' : ''}" role="radio" aria-checked="${q.comm === k}" data-act="qz-comm" data-v="${k}">${n}</button>`).join('')}</div>
     <div class="qz-foot"><button class="button" style="width:100%" data-act="qz-next">Siguiente ›</button></div>`;
   else if (q.step === 2) body = `<span class="eyebrow">Paso 2 de 3</span><h1>¿Cuál es tu género?</h1><p class="helper">Elige la opción con la que te identifiques.</p>
@@ -1477,7 +1484,7 @@ function applyImport(d) {
 function wipeDevice() {
   const ks = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('auri.')) ks.push(k); }
   ks.forEach(k => localStorage.removeItem(k));
-  S.user = null; S.theme = 'light'; W = null; document.documentElement.classList.toggle('dark', false); closeMusic(); toast('Datos de este dispositivo borrados'); go('/login');
+  S.user = null; S.theme = 'auto'; LS.set('auri.themeSet', false); W = null; applyTheme(); closeMusic(); toast('Datos de este dispositivo borrados'); go('/login');
 }
 
 /* --- Cuenta: cambiar correo / eliminar --- */
@@ -2395,7 +2402,7 @@ document.addEventListener('click', e => {
     'pc-del': () => { if (!PCS) return; const s = findStory(PCS.sid), cid = el.dataset.cid; confirmBox('¿Seguro que quieres eliminar este comentario?', () => { const all = pcAll(), k = pcKey(PCS.sid, PCS.ci, PCS.pi); const t0 = (all[k] || []).find(c => c.id === cid); if (t0 && (t0.by === S.user || (s && s.owner === S.user) || isStaff())) all[k] = all[k].filter(c => c.id !== cid && c.parent !== cid); G.set('pcom', all); paintPcList(); if (cfg('pcom') === 'dots') { KEEP = true; render(); } }); },
     'set-back': () => { NAVDIR = 'prev'; const h = window.history; if (SETDEEP && h && h.length > 1) h.back(); else goReplace('/settings'); },   // si vienes del menú: retrocede en el historial (no apila otra copia)
     'settings-back': () => { const h = window.history; if (h && h.length > 1) h.back(); else go('/'); },
-    cfg: () => { const k = el.dataset.k, v = el.dataset.v; if (k === 'theme') { S.theme = v; applyTheme(); } else setCfg(k, v); KEEP = true; render(); },
+    cfg: () => { const k = el.dataset.k, v = el.dataset.v; if (k === 'theme') { S.theme = v; LS.set('auri.themeSet', true); applyTheme(); } else setCfg(k, v); KEEP = true; render(); },
     'cfg-toggle': () => { const k = el.dataset.k;
       if (k.startsWith('notif.')) { const key = k.slice(6); setCfg('notif', { ...cfg('notif'), [key]: !cfg('notif')[key] }); }
       else if (k === 'showMature') {
