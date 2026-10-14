@@ -68,7 +68,7 @@ const READ = { size: { sm: '17px', md: '19px', lg: '22px' }, lh: { compact: '1.7
 function applyReading() {                               // tamaño, interlineado y tipografía del lector, como variables CSS
   const r = document.documentElement.style; if (!r || !r.setProperty) return;
   r.setProperty('--read-size', READ.size[cfg('fontSize')]); r.setProperty('--read-lh', READ.lh[cfg('lh')]); r.setProperty('--read-font', READ.font[cfg('font')]);
-  document.documentElement.lang = cfg('lang');
+  document.documentElement.lang = uiLang();
 }
 function setCfg(k, v) { S.cfg = { ...S.cfg, [k]: v }; LS.set(uk('cfg'), S.cfg); applyReading(); }
 const matureOK = s => cfg('showMature') || !s.mature || s.owner === S.user;   // ocultar +18 (tus propias obras siempre se ven)
@@ -141,6 +141,15 @@ function detectComm() {
 }
 const commOf = e => (getUsers()[e] || {}).community === 'en' ? 'en' : 'es';
 const myComm = () => S.user && !isGuest() ? commOf(S.user) : detectComm();
+/* --- Idioma de la interfaz (i18n): t('texto en español', {vars}) → en inglés se busca en I18N.en; si falta, queda en español --- */
+let UILANG = null;
+const uiSetting = () => { const v = LS.get('auri.ui', 'auto'); return v === 'es' || v === 'en' ? v : 'auto'; };
+const uiLang = () => UILANG || (UILANG = uiSetting() === 'auto' ? myComm() : uiSetting());      // 'auto' sigue a la comunidad de la cuenta (o a la región si no hay sesión)
+const uiReset = () => { UILANG = null; document.documentElement.lang = uiLang(); };
+const t = (s, v) => { let r = uiLang() === 'en' && window.I18N && I18N.en[s] != null ? I18N.en[s] : s; return v ? r.replace(/\{(\w+)\}/g, (m, k) => k in v ? v[k] : m) : r; };
+const tn = (n, one, other, v) => t(n === 1 ? one : other, { n, ...v });
+const LOC = () => uiLang() === 'en' ? 'en' : 'es';                     // para toLocaleString y similares
+const YN = () => uiLang() === 'en' ? 'YN' : 'TN';                      // cómo se escribe «nombre del lector» en cada idioma
 const staffScope = e => { const r = roleOf(e); if (r === 'OWNER') return ['es', 'en']; if (r === 'USER') return []; const sc = ((getUsers()[e] || {}).scope || []).filter(x => COMMS[x]); return sc.length ? sc : [commOf(e)]; };
 let MODC = 'all';                                                       // comunidad elegida en Moderación (solo si el equipo cubre ambas)
 const modSel = () => staffScope(S.user).length > 1 ? MODC : 'all';
@@ -310,7 +319,7 @@ function giftView() {
 function giftsView(tabs) {                              // pestaña de la Owner dentro de Moderación
   giftSweep(); const L = giftsAll(), left = giftLeft(), pend = L.filter(g => g.status === 'pending'), got = L.filter(g => g.status === 'claimed'), hist = L.filter(g => g.status === 'expired' || g.status === 'revoked');
   const row = (g, info, act) => `<div class="log-row"><div class="log-top"><b>${esc(uName(g.to))}</b><time class="helper">${esc(info)}</time></div><div class="helper">${esc(g.to)}</div>${act ? `<div class="rp-acts" style="margin-top:8px">${act}</div>` : ''}</div>`;
-  const fd = iso => new Date(iso).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const fd = iso => new Date(iso).toLocaleString(LOC(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">🎁 Regalos</span><h2 style="margin-top:8px">Marco Top 50</h2><p>Solo tú puedes regalarlo. Quien lo recibe tiene 24 h para reclamarlo; si no lo hace, el regalo se cancela y el cupo vuelve a ti.</p></div></div>
   <section class="panel gift-top"><div class="gift-av">${giftPreview(S.user)}</div><div class="gift-count"><b>${left}</b><span>de ${GIFT_TOTAL} cupos disponibles</span><small class="helper">50 para el top + 3 de prueba</small></div></section>
   <section class="panel" style="margin-top:14px"><h3 style="margin-bottom:8px">Regalar a una cuenta</h3><div class="form-group"><label for="g-to">Usuario o correo</label><input id="g-to" class="field" autocomplete="off" placeholder="Ej: RiRi o correo@ejemplo.com"></div><p class="error-line" data-err role="alert"></p><button class="button" data-act="gift-send" ${left > 0 ? '' : 'disabled'}>Regalar marco</button><p class="helper" style="margin-top:8px">También puedes regalarlo desde el perfil de la persona, en Administración.</p></section>
@@ -458,33 +467,33 @@ let PENDING = null, QZ = null;                         // registro en curso: la 
 async function register({ name, email, pass, pass2 }) {      // paso 0: correo y contraseña
   email = email.trim().toLowerCase(); name = name.trim();
   const users = LS.get('auri.users', {});
-  if (!name) return 'Escribe tu nombre de usuario.';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Ingresa un correo válido.';
-  if (pass.length < 8) return 'La contraseña debe tener al menos 8 caracteres.';
-  if (pass !== pass2) return 'Las contraseñas no coinciden.';
-  if (users[email]) return 'Ese correo ya tiene una cuenta.';
+  if (!name) return t('Escribe tu nombre de usuario.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return t('Ingresa un correo válido.');
+  if (pass.length < 8) return t('La contraseña debe tener al menos 8 caracteres.');
+  if (pass !== pass2) return t('Las contraseñas no coinciden.');
+  if (users[email]) return t('Ese correo ya tiene una cuenta.');
   const salt = Math.random().toString(36).slice(2);
   PENDING = { name, email, salt, hash: await sha(salt + pass) }; QZ = { step: 1, comm: detectComm(), birth: '', gender: '', interests: [], mature: false, blocked: false, terms: false };
   go('/signup'); return '';
 }
 function createAccount() {                             // último paso: se crea la cuenta con las respuestas
   const { name, email, salt, hash } = PENDING, users = LS.get('auri.users', {});
-  if (users[email]) { PENDING = null; QZ = null; go('/register'); return toast('Ese correo ya tiene una cuenta.'); }
+  if (users[email]) { PENDING = null; QZ = null; go('/register'); return toast(t('Ese correo ya tiene una cuenta.')); }
   users[email] = { name, salt, hash, community: QZ.comm === 'en' ? 'en' : 'es', birth: QZ.birth, gender: QZ.gender, interests: QZ.interests, onboarded: true, termsAccepted: today(), created: today(), role: email === OWNER_EMAIL ? 'OWNER' : 'USER', strikes: [] };
   LS.set('auri.users', users);
   const kept = isGuest() ? adoptGuest(email) : false;
   LS.set('auri.u.' + email + '.cfg', { ...(kept ? LS.get('auri.u.' + email + '.cfg', {}) : {}), showMature: ageOf(QZ.birth) >= 18 && QZ.mature });   // la opción +18 del cuestionario enciende "Mostrar contenido +18"
-  PENDING = null; QZ = null; startSession(email); toast(kept ? '¡Listo! Cuenta creada y progreso conservado ✨' : '¡Listo! Tu cuenta está creada ✨');
+  PENDING = null; QZ = null; uiReset(); startSession(email); toast(kept ? t('¡Listo! Cuenta creada y progreso conservado ✨') : t('¡Listo! Tu cuenta está creada ✨'));
 }
 async function login({ email, pass }) {
   email = email.trim().toLowerCase();
   const u = LS.get('auri.users', {})[email];
-  if (!u || u.hash !== await sha(u.salt + pass)) return 'Correo o contraseña incorrectos.';
+  if (!u || u.hash !== await sha(u.salt + pass)) return t('Correo o contraseña incorrectos.');
   if (isGuest()) wipeGuest();                          // lo guardado como invitado se pierde: queda lo de esa cuenta
   startSession(email); return '';
 }
-function startSession(email) { S.user = email; LS.set('auri.session', email); loadUser(); go('/'); }
-function logout() { S.user = null; localStorage.removeItem('auri.session'); go('/start'); }
+function startSession(email) { S.user = email; UILANG = null; LS.set('auri.session', email); loadUser(); go('/'); }
+function logout() { S.user = null; UILANG = null; localStorage.removeItem('auri.session'); go('/start'); }
 const userName = () => (LS.get('auri.users', {})[S.user] || {}).name || '';
 /* --- Modo invitado: cuenta temporal local; no da likes ni comenta; al crear cuenta su progreso se conserva --- */
 const GUEST = 'invitado@auri.local', isGuest = () => S.user === GUEST;
@@ -506,37 +515,37 @@ const GUEST_ACTS = { 'dm-why': 'enviar mensajes', 'dm-book': 'enviar mensajes', 
 function guestGate(why) {                              // pantallazo: primero crear cuenta o iniciar sesión
   const old = $('#guest-gate'); if (old) old.remove();
   const m = document.createElement('div'); m.className = 'modal sheet'; m.id = 'guest-gate';
-  m.innerHTML = `<div class="modal-box mini-box wl-gate" role="alertdialog" aria-modal="true" aria-label="Se necesita una cuenta">${mascot('wl-gate-m')}<h2>Se necesita una cuenta para ${esc(why)}</h2><p class="helper">Crear una cuenta es gratis y el progreso de lectura actual se conserva. Si ya existe una cuenta, basta con iniciar sesión.</p>
-  <div class="wl-actions"><button type="button" class="button" data-g="register">Crear cuenta</button><button type="button" class="button secondary" data-g="login">Iniciar sesión</button><button type="button" class="button ghost" data-g="no">Ahora no</button></div></div>`;
+  m.innerHTML = `<div class="modal-box mini-box wl-gate" role="alertdialog" aria-modal="true" aria-label="${esc(t('Se necesita una cuenta'))}">${mascot('wl-gate-m')}<h2>${t('Se necesita una cuenta para {what}', { what: esc(t(why)) })}</h2><p class="helper">${t('Crear una cuenta es gratis y el progreso de lectura actual se conserva. Si ya existe una cuenta, basta con iniciar sesión.')}</p>
+  <div class="wl-actions"><button type="button" class="button" data-g="register">${t('Crear cuenta')}</button><button type="button" class="button secondary" data-g="login">${t('Iniciar sesión')}</button><button type="button" class="button ghost" data-g="no">${t('Ahora no')}</button></div></div>`;
   m.addEventListener('click', e => { const g = e.target.closest('[data-g]'); if (!g && e.target !== m) return; m.remove(); if (!g || g.dataset.g === 'no') return;
     const ps = $('#pc-sheet'); if (ps) { ps.remove(); PCS = null; } go('/' + g.dataset.g); });
   document.body.appendChild(m);
 }
 
-const interestChips = (sel, act) => `<div class="qz-chips">${INTERESTS.map(([n, e]) => `<button type="button" class="qz-chip ${sel.includes(n) ? 'on' : ''}" data-act="${act}" data-v="${esc(n)}" aria-pressed="${sel.includes(n)}">${e} ${esc(n)}</button>`).join('')}</div>`;
+const interestChips = (sel, act) => `<div class="qz-chips">${INTERESTS.map(([n, e]) => `<button type="button" class="qz-chip ${sel.includes(n) ? 'on' : ''}" data-act="${act}" data-v="${esc(n)}" aria-pressed="${sel.includes(n)}">${e} ${esc(t(n))}</button>`).join('')}</div>`;
 function signupView() {
   const q = QZ, adult = validBirth(q.birth) && ageOf(q.birth) >= 18;
-  const top = `<div class="qz-top"><button class="icon-btn" data-act="qz-back" aria-label="Atrás">‹</button><div class="qz-dots" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="${q.step}" aria-label="Paso ${q.step} de 3">${[1, 2, 3].map(i => `<i class="qz-dot ${i < q.step ? 'done' : i === q.step ? 'on' : ''}"></i>`).join('')}</div><span style="width:40px"></span></div>`;
-  if (q.blocked) return `<main class="qz-wrap"><div class="qz-card" style="justify-content:center;text-align:center"><div class="end-emoji">🌙</div><h1>Todavía no puedes unirte</h1><p class="helper">Auri es para personas de ${MIN_AGE} años o más, así que no podemos crear tu cuenta. ¡Gracias por entender!</p><div class="qz-foot"><button class="button" data-act="qz-exit">Volver al inicio</button></div></div></main>`;
+  const top = `<div class="qz-top"><button class="icon-btn" data-act="qz-back" aria-label="${esc(t('Atrás'))}">‹</button><div class="qz-dots" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="${q.step}" aria-label="${esc(t('Paso {n} de 3', { n: q.step }))}">${[1, 2, 3].map(i => `<i class="qz-dot ${i < q.step ? 'done' : i === q.step ? 'on' : ''}"></i>`).join('')}</div><span style="width:40px"></span></div>`;
+  if (q.blocked) return `<main class="qz-wrap"><div class="qz-card" style="justify-content:center;text-align:center"><div class="end-emoji">🌙</div><h1>${t('Todavía no puedes unirte')}</h1><p class="helper">${t('Auri es para personas de {n} años o más, así que no podemos crear tu cuenta. ¡Gracias por entender!', { n: MIN_AGE })}</p><div class="qz-foot"><button class="button" data-act="qz-exit">${t('Volver al inicio')}</button></div></div></main>`;
   let body;
-  if (q.step === 1) body = `<span class="eyebrow">Paso 1 de 3</span><h1>¿Cuándo es tu cumpleaños? 🎂</h1><p class="helper">Lo usamos para mostrarte contenido adecuado para tu edad. No se muestra en tu perfil.</p>
-    <input id="qz-birth" type="date" class="field" style="margin-top:18px" min="1900-01-01" max="${today()}" value="${esc(q.birth)}" aria-label="Fecha de nacimiento"><p class="error" id="qz-err"></p>
-    <h2 style="margin-top:14px">¿En qué comunidad quieres estar?</h2><p class="helper">Cada comunidad tiene sus propias historias, noticias y equipo de moderación. ${q.comm === detectComm() ? 'La elegimos según tu región; puedes cambiarla. ' : ''}Después podrás elegir ver también la otra.</p>
+  if (q.step === 1) body = `<span class="eyebrow">${t('Paso {n} de 3', { n: 1 })}</span><h1>${t('¿Cuándo es tu cumpleaños? 🎂')}</h1><p class="helper">${t('Lo usamos para mostrarte contenido adecuado para tu edad. No se muestra en tu perfil.')}</p>
+    <input id="qz-birth" type="date" class="field" style="margin-top:18px" min="1900-01-01" max="${today()}" value="${esc(q.birth)}" aria-label="${esc(t('Fecha de nacimiento'))}"><p class="error" id="qz-err"></p>
+    <h2 style="margin-top:14px">${t('¿En qué comunidad quieres estar?')}</h2><p class="helper">${t('Cada comunidad tiene sus propias historias, noticias y equipo de moderación.')} ${q.comm === detectComm() ? t('La elegimos según tu región; puedes cambiarla.') + ' ' : ''}${t('Después podrás elegir ver también la otra.')}</p>
     <div class="qz-opts" role="radiogroup">${Object.entries(COMMS).map(([k, n]) => `<button type="button" class="qz-opt ${q.comm === k ? 'on' : ''}" role="radio" aria-checked="${q.comm === k}" data-act="qz-comm" data-v="${k}">${n}</button>`).join('')}</div>
-    <div class="qz-foot"><button class="button" style="width:100%" data-act="qz-next">Siguiente ›</button></div>`;
-  else if (q.step === 2) body = `<span class="eyebrow">Paso 2 de 3</span><h1>¿Cuál es tu género?</h1><p class="helper">Elige la opción con la que te identifiques.</p>
-    <div class="qz-opts" role="radiogroup">${GENDERS.map(g => `<button type="button" class="qz-opt ${q.gender === g ? 'on' : ''}" role="radio" aria-checked="${q.gender === g}" data-act="qz-gender" data-v="${g}">${g}</button>`).join('')}</div>
-    <div class="qz-foot"><button class="button" style="width:100%" data-act="qz-next" ${q.gender ? '' : 'disabled'}>Siguiente ›</button></div>`;
-  else body = `<span class="eyebrow">Paso 3 de 3</span><h1>¿Qué te gusta leer?</h1><p class="helper">Elige todos los temas que quieras. Necesitamos al menos uno.</p>
+    <div class="qz-foot"><button class="button" style="width:100%" data-act="qz-next">${t('Siguiente ›')}</button></div>`;
+  else if (q.step === 2) body = `<span class="eyebrow">${t('Paso {n} de 3', { n: 2 })}</span><h1>${t('¿Cuál es tu género?')}</h1><p class="helper">${t('Elige la opción con la que te identifiques.')}</p>
+    <div class="qz-opts" role="radiogroup">${GENDERS.map(g => `<button type="button" class="qz-opt ${q.gender === g ? 'on' : ''}" role="radio" aria-checked="${q.gender === g}" data-act="qz-gender" data-v="${g}">${esc(t(g))}</button>`).join('')}</div>
+    <div class="qz-foot"><button class="button" style="width:100%" data-act="qz-next" ${q.gender ? '' : 'disabled'}>${t('Siguiente ›')}</button></div>`;
+  else body = `<span class="eyebrow">${t('Paso {n} de 3', { n: 3 })}</span><h1>${t('¿Qué te gusta leer?')}</h1><p class="helper">${t('Elige todos los temas que quieras. Necesitamos al menos uno.')}</p>
     ${interestChips(q.interests, 'qz-int')}
-    ${adult ? `<p class="helper" style="margin-top:6px">Solo para mayores de edad</p><div class="qz-chips"><button type="button" class="qz-chip mature ${q.mature ? 'on' : ''}" data-act="qz-18" aria-pressed="${q.mature}">🔞 Contenido +18</button></div>` : ''}
-    <label class="check qz-terms"><input type="checkbox" data-act="qz-terms" ${q.terms ? 'checked' : ''}><span>Acepto los <button type="button" class="link-btn" data-act="terms">términos y condiciones</button> y la <button type="button" class="link-btn" data-act="privacy">política de privacidad</button> de Auri.</span></label>
-    <div class="qz-foot"><p class="qz-count">${q.interests.length ? `${q.interests.length} elegido${q.interests.length === 1 ? '' : 's'}` : 'Elige al menos uno'}${q.terms ? '' : ' · falta aceptar los términos'}</p><button class="button" style="width:100%" data-act="qz-finish" ${q.interests.length && q.terms ? '' : 'disabled'}>Crear mi cuenta ✨</button></div>`;
+    ${adult ? `<p class="helper" style="margin-top:6px">${t('Solo para mayores de edad')}</p><div class="qz-chips"><button type="button" class="qz-chip mature ${q.mature ? 'on' : ''}" data-act="qz-18" aria-pressed="${q.mature}">🔞 ${t('Contenido +18')}</button></div>` : ''}
+    <label class="check qz-terms"><input type="checkbox" data-act="qz-terms" ${q.terms ? 'checked' : ''}><span>${t('Acepto los {terms} y la {privacy} de Auri.', { terms: '<button type="button" class="link-btn" data-act="terms">' + t('términos y condiciones') + '</button>', privacy: '<button type="button" class="link-btn" data-act="privacy">' + t('política de privacidad') + '</button>' })}</span></label>
+    <div class="qz-foot"><p class="qz-count">${q.interests.length ? tn(q.interests.length, '{n} elegido', '{n} elegidos') : t('Elige al menos uno')}${q.terms ? '' : ' · ' + t('falta aceptar los términos')}</p><button class="button" style="width:100%" data-act="qz-finish" ${q.interests.length && q.terms ? '' : 'disabled'}>${t('Crear mi cuenta ✨')}</button></div>`;
   return `<main class="qz-wrap">${top}<div class="qz-card">${body}</div></main>`;
 }
 
 /* 4. MASCOTA ------------------------------------------------------ */
-const mascot = (cls = '') => `<svg class="${cls}" viewBox="0 0 240 230" role="img" aria-label="Auri, la gata alienígena">
+const mascot = (cls = '') => `<svg class="${cls}" viewBox="0 0 240 230" role="img" aria-label="${t('Auri, la gata alienígena')}">
 <path d="M54 91 36 28q-2-9 7-4l42 32M186 91l18-63q2-9-7-4l-42 32" fill="url(#auri-fur)" stroke="#8062a8" stroke-width="4" stroke-linejoin="round"/>
 <path d="M46 116c0-45 33-73 74-73s74 28 74 73v38c0 36-30 58-74 58s-74-22-74-58z" fill="url(#auri-fur)" stroke="#8062a8" stroke-width="4"/>
 <path d="M73 47 58 39l8 27M167 47l15-8-8 27" fill="#efb8d7"/>
@@ -587,19 +596,19 @@ const coverHTML = (s, i) => `<div class="cover c${(i % 5) + 1}">${s.cover ? `<im
 function authView(mode) {
   const reg = mode === 'register';
   return `<main class="auth-wrap"><div class="brand-big">${mascot()}</div>
-  <h1>${reg ? 'Crea tu cuenta' : 'Inicia sesión'}</h1>
-  <p class="helper" style="text-align:center;margin-bottom:18px">${reg ? 'Guarda tus historias y tu personaje lector.' : 'Inicia sesión para seguir leyendo y escribiendo.'}</p>
+  <h1>${reg ? t('Crea tu cuenta') : t('Inicia sesión')}</h1>
+  <p class="helper" style="text-align:center;margin-bottom:18px">${reg ? t('Guarda tus historias y tu personaje lector.') : t('Inicia sesión para seguir leyendo y escribiendo.')}</p>
   <form class="panel" data-form="${mode}" novalidate><div class="form-grid" style="grid-template-columns:1fr">
-    ${reg ? `<div class="form-group"><label for="a-name">Nombre de usuario</label><input id="a-name" class="field" autocomplete="nickname" maxlength="30" value="${PENDING ? esc(PENDING.name) : ''}"></div>` : ''}
-    <div class="form-group"><label for="a-email">Correo</label><input id="a-email" type="email" class="field" autocomplete="email" placeholder="tucorreo@ejemplo.com" value="${reg && PENDING ? esc(PENDING.email) : ''}"></div>
-    <div class="form-group"><label for="a-pass">Contraseña</label><input id="a-pass" type="password" class="field" autocomplete="${reg ? 'new-password' : 'current-password'}" placeholder="Mínimo 8 caracteres"></div>
-    ${reg ? `<div class="form-group"><label for="a-pass2">Repite la contraseña</label><input id="a-pass2" type="password" class="field" autocomplete="new-password"></div>
-    <p class="helper" style="margin:2px 0 0">Después te haremos 3 preguntas rápidas: tu cumpleaños, tu género y los temas que te gustan.</p>` : ''}
+    ${reg ? `<div class="form-group"><label for="a-name">${t('Nombre de usuario')}</label><input id="a-name" class="field" autocomplete="nickname" maxlength="30" value="${PENDING ? esc(PENDING.name) : ''}"></div>` : ''}
+    <div class="form-group"><label for="a-email">${t('Correo')}</label><input id="a-email" type="email" class="field" autocomplete="email" placeholder="${esc(t('tucorreo@ejemplo.com'))}" value="${reg && PENDING ? esc(PENDING.email) : ''}"></div>
+    <div class="form-group"><label for="a-pass">${t('Contraseña')}</label><input id="a-pass" type="password" class="field" autocomplete="${reg ? 'new-password' : 'current-password'}" placeholder="${esc(t('Mínimo 8 caracteres'))}"></div>
+    ${reg ? `<div class="form-group"><label for="a-pass2">${t('Repite la contraseña')}</label><input id="a-pass2" type="password" class="field" autocomplete="new-password"></div>
+    <p class="helper" style="margin:2px 0 0">${t('Después te haremos 3 preguntas rápidas: tu cumpleaños, tu género y los temas que te gustan.')}</p>` : ''}
   </div><p class="error" id="auth-error" role="alert"></p>
-  <button class="button" style="width:100%" type="submit">${reg ? 'Crear cuenta' : 'Entrar'}</button></form>
-  <p class="helper" style="text-align:center;margin-top:16px">${reg ? '¿Ya tienes cuenta? <a class="link-btn" href="#/login">Inicia sesión</a>' : '¿Primera vez? <a class="link-btn" href="#/register">Crea tu cuenta</a>'}</p>
-  <p class="helper" style="text-align:center;margin-top:4px"><a class="link-btn" href="#/start">Volver</a></p>
-  <p class="notice" style="margin-top:14px">Tu cuenta se guarda solo en este navegador. Auri todavía no envía datos a ningún servidor.</p></main>`;
+  <button class="button" style="width:100%" type="submit">${reg ? t('Crear cuenta') : t('Entrar')}</button></form>
+  <p class="helper" style="text-align:center;margin-top:16px">${reg ? t('¿Ya tienes cuenta?') + ' <a class="link-btn" href="#/login">' + t('Inicia sesión') + '</a>' : t('¿Primera vez?') + ' <a class="link-btn" href="#/register">' + t('Crea tu cuenta') + '</a>'}</p>
+  <p class="helper" style="text-align:center;margin-top:4px"><a class="link-btn" href="#/start">${t('Volver')}</a></p>
+  <p class="notice" style="margin-top:14px">${t('Tu cuenta se guarda solo en este navegador. Auri todavía no envía datos a ningún servidor.')}</p></main>`;
 }
 
 /* --- Mensajes: requisitos, filtro de seguridad y vistas --- */
@@ -646,8 +655,8 @@ function dmSend(to, msg) {                              // devuelve '' si se env
   const all = dmAll(), k = dmKey(S.user, to), l = all[k] = all[k] || [];
   l.push({ id: Date.now(), by: S.user, ...msg }); all[k] = l.slice(-300); return G.set('dm', all) ? '' : 'No se pudo guardar el mensaje.';
 }
-const hm = ts => new Date(ts).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
-const dayLab = ts => { const d = new Date(ts), t = new Date(), y = new Date(Date.now() - 864e5), same = (a, b) => a.toDateString() === b.toDateString(); return same(d, t) ? 'Hoy' : same(d, y) ? 'Ayer' : d.toLocaleDateString('es', { day: 'numeric', month: 'long' }); };
+const hm = ts => new Date(ts).toLocaleTimeString(LOC(), { hour: '2-digit', minute: '2-digit' });
+const dayLab = ts => { const d = new Date(ts), now = new Date(), y = new Date(Date.now() - 864e5), same = (a, b) => a.toDateString() === b.toDateString(); return same(d, now) ? t('Hoy') : same(d, y) ? t('Ayer') : d.toLocaleDateString(LOC(), { day: 'numeric', month: 'long' }); };
 function dmBubble(m) {
   const mine = m.by === S.user; let body = '';
   if (m.sid) { const st = publishedStories().find(x => x.id === m.sid);
@@ -717,36 +726,36 @@ const WI = {
   down: IC('<path d="M12 5v14M6 13l6 6 6-6"/>')
 };
 const WL_SLIDES = [
-  () => `<div class="wl-art">${mascot('wl-mascot')}</div><h1>Te damos la bienvenida a Auri</h1><p>Un rincón acogedor para leer fanfics, escribir historias y compartirlas con una comunidad que ama los libros tanto como Auri.</p>`,
-  () => `<div class="wl-art"><div class="wl-demo"><div class="wl-oc"><span class="wl-av">L</span><span class="wl-ocx"><b>Luna</b><small>OC · cabello plateado · ojos violetas</small></span></div>
-    <p class="wl-from">«TN sonrió bajo la luna…»</p><span class="wl-ic wl-down">${WI.down}</span><p class="wl-to">«<mark>Luna</mark> sonrió bajo la luna…»</p></div></div>
-    <span class="eyebrow">Función estrella</span><h1>Un OC como protagonista de cada historia</h1><p>El nombre, el apodo y la personalidad del OC reemplazan al TN en los fanfics compatibles, sin cambiar la historia original.</p>`,
-  () => `<h1>Pensada para disfrutar cada capítulo</h1><div class="wl-feats">${[
+  () => `<div class="wl-art">${mascot('wl-mascot')}</div><h1>${t('Te damos la bienvenida a Auri')}</h1><p>${t('Un rincón acogedor para leer fanfics, escribir historias y compartirlas con una comunidad que ama los libros tanto como Auri.')}</p>`,
+  () => `<div class="wl-art"><div class="wl-demo"><div class="wl-oc"><span class="wl-av">L</span><span class="wl-ocx"><b>Luna</b><small>${t('OC · cabello plateado · ojos violetas')}</small></span></div>
+    <p class="wl-from">«${t('TN sonrió bajo la luna…')}»</p><span class="wl-ic wl-down">${WI.down}</span><p class="wl-to">«<mark>Luna</mark> ${t('sonrió bajo la luna…')}»</p></div></div>
+    <span class="eyebrow">${t('Función estrella')}</span><h1>${t('Un OC como protagonista de cada historia')}</h1><p>${t('El nombre, el apodo y la personalidad del OC reemplazan al TN en los fanfics compatibles, sin cambiar la historia original.')}</p>`,
+  () => `<h1>${t('Pensada para disfrutar cada capítulo')}</h1><div class="wl-feats">${[
     ['book', 'Biblioteca y progreso', 'Cada historia recuerda en qué capítulo quedó la lectura.'],
     ['chat', 'Comentarios por párrafo', 'Reaccionar a un momento exacto, con spoilers difuminados.'],
     ['note', 'Música en los capítulos', 'Las autorías pueden sumar una canción para acompañar.'],
     ['shield', 'Sin anuncios entre capítulos', 'Lectura cómoda y moderación para una comunidad segura.']
-  ].map(([i, t, d], k) => `<div class="wl-feat" style="--i:${k}"><span class="wl-ic">${WI[i]}</span><span><b>${t}</b><small>${d}</small></span></div>`).join('')}</div>`
+  ].map(([i, ti, d], k) => `<div class="wl-feat" style="--i:${k}"><span class="wl-ic">${WI[i]}</span><span><b>${t(ti)}</b><small>${t(d)}</small></span></div>`).join('')}</div>`
 ];
 function welcomeView() {
   const n = WL_SLIDES.length, last = WLI >= n - 1;
-  return `<main class="wl" aria-roledescription="presentación"><button type="button" class="link-btn wl-skip" data-act="wl-done" style="${last ? 'visibility:hidden' : ''}">Saltar</button>
+  return `<main class="wl" aria-roledescription="${esc(t('presentación'))}"><button type="button" class="link-btn wl-skip" data-act="wl-done" style="${last ? 'visibility:hidden' : ''}">${t('Saltar')}</button>
   <section class="wl-slide" aria-live="polite">${WL_SLIDES[WLI]()}</section>
-  <div class="wl-dots">${WL_SLIDES.map((_, i) => `<button type="button" class="wl-dot ${i === WLI ? 'on' : ''}" data-act="wl-go" data-i="${i}" aria-label="Pantalla ${i + 1} de ${n}"></button>`).join('')}</div>
-  <div class="wl-nav">${WLI > 0 ? '<button type="button" class="button ghost" data-act="wl-prev">Atrás</button>' : '<span></span>'}<button type="button" class="button" data-act="${last ? 'wl-done' : 'wl-next'}">${last ? 'Comenzar' : 'Siguiente'}</button></div></main>`;
+  <div class="wl-dots">${WL_SLIDES.map((_, i) => `<button type="button" class="wl-dot ${i === WLI ? 'on' : ''}" data-act="wl-go" data-i="${i}" aria-label="${esc(t('Pantalla {i} de {n}', { i: i + 1, n }))}"></button>`).join('')}</div>
+  <div class="wl-nav">${WLI > 0 ? '<button type="button" class="button ghost" data-act="wl-prev">' + t('Atrás') + '</button>' : '<span></span>'}<button type="button" class="button" data-act="${last ? 'wl-done' : 'wl-next'}">${last ? t('Comenzar') : t('Siguiente')}</button></div></main>`;
 }
 function startView() {
-  return `<main class="auth-wrap wl-start"><div class="brand-big">${mascot()}</div><h1>Auri</h1><p class="helper" style="text-align:center;margin-bottom:22px">Leer, escribir y compartir fanfics.</p>
-  <div class="wl-actions"><a class="button" href="#/register">Crear cuenta</a><a class="button secondary" href="#/login">Iniciar sesión</a><button type="button" class="button ghost" data-act="guest-enter">Entrar como invitado</button></div>
-  <p class="notice" style="margin-top:18px">Como invitado se puede explorar y leer, pero no dar me gusta ni comentar. Al crear una cuenta después, el progreso de lectura se conserva.</p>
-  <p class="helper" style="text-align:center;margin-top:10px"><button type="button" class="link-btn" data-act="wl-replay">Ver de nuevo la presentación</button></p></main>`;
+  return `<main class="auth-wrap wl-start"><div class="brand-big">${mascot()}</div><h1>Auri</h1><p class="helper" style="text-align:center;margin-bottom:22px">${t('Leer, escribir y compartir fanfics.')}</p>
+  <div class="wl-actions"><a class="button" href="#/register">${t('Crear cuenta')}</a><a class="button secondary" href="#/login">${t('Iniciar sesión')}</a><button type="button" class="button ghost" data-act="guest-enter">${t('Entrar como invitado')}</button></div>
+  <p class="notice" style="margin-top:18px">${t('Como invitado se puede explorar y leer, pero no dar me gusta ni comentar. Al crear una cuenta después, el progreso de lectura se conserva.')}</p>
+  <p class="helper" style="text-align:center;margin-top:10px"><button type="button" class="link-btn" data-act="wl-replay">${t('Ver de nuevo la presentación')}</button></p></main>`;
 }
-const guestCard = () => `<div class="panel wl-guest"><div class="wl-guest-top">${avatarHTML('', 'Invitado', 'xl')}<div><h2 class="serif">Invitado</h2><p>Explorando sin cuenta: se puede leer, guardar historias en la biblioteca y crear personajes.</p></div></div>
-  <div class="wl-actions"><a class="button" href="#/register">Crear cuenta</a><a class="button secondary" href="#/login">Iniciar sesión</a></div>
-  <p class="helper">Al crear una cuenta, el progreso, la biblioteca y los personajes se conservan. Al iniciar sesión en una cuenta existente, lo guardado como invitado se pierde.</p></div>`;
+const guestCard = () => `<div class="panel wl-guest"><div class="wl-guest-top">${avatarHTML('', t('Invitado'), 'xl')}<div><h2 class="serif">${t('Invitado')}</h2><p>${t('Explorando sin cuenta: se puede leer, guardar historias en la biblioteca y crear personajes.')}</p></div></div>
+  <div class="wl-actions"><a class="button" href="#/register">${t('Crear cuenta')}</a><a class="button secondary" href="#/login">${t('Iniciar sesión')}</a></div>
+  <p class="helper">${t('Al crear una cuenta, el progreso, la biblioteca y los personajes se conservan. Al iniciar sesión en una cuenta existente, lo guardado como invitado se pierde.')}</p></div>`;
 const guestProfile = () => `<main class="page">${guestCard()}${charsSection()}</main>`;
-const guestWall = what => `<main class="page"><div class="empty wl-wall">${mascot()}<h3>Se necesita una cuenta para ${what}</h3><p>Crearla es gratis y el progreso de lectura actual se conserva.</p><div class="wl-actions"><a class="button" href="#/register">Crear cuenta</a><a class="button secondary" href="#/login">Iniciar sesión</a></div></div></main>`;
-const guestCompose = what => `<div class="wl-compose"><span>Se necesita una cuenta para ${what}</span><button type="button" class="button sm" data-act="guest-cta">Crear cuenta</button></div>`;
+const guestWall = what => `<main class="page"><div class="empty wl-wall">${mascot()}<h3>${t('Se necesita una cuenta para {what}', { what: t(what) })}</h3><p>${t('Crearla es gratis y el progreso de lectura actual se conserva.')}</p><div class="wl-actions"><a class="button" href="#/register">${t('Crear cuenta')}</a><a class="button secondary" href="#/login">${t('Iniciar sesión')}</a></div></div></main>`;
+const guestCompose = what => `<div class="wl-compose"><span>${t('Se necesita una cuenta para {what}', { what: t(what) })}</span><button type="button" class="button sm" data-act="guest-cta">${t('Crear cuenta')}</button></div>`;
 
 /* --- Descubrir --- */
 let Q = '', GEN = 'All';
@@ -852,9 +861,9 @@ function collect() {                                   // lee solo los campos de
   }
 }
 const coverPrev = () => W.cover ? `<img src="${esc(W.cover)}" alt="Vista previa de la portada">` : 'Sin portada';
-const TN_RE = /[\[(]\s*(?:T\/N|TN)\s*[\])]|\bT\/N\b|\bTN\b/gi;
+const TN_RE = /[\[(]\s*(?:T\/N|Y\/N|TN|YN)\s*[\])]|\b(?:T\/N|Y\/N)\b|\b(?:TN|YN)\b/gi;
 /** TN / T/N / [TN] / (T/N) → nombre del personaje. "TN" en MAYÚSCULAS da el nombre en MAYÚSCULAS; "tn" o "Tn" lo dan tal cual */
-const fillTN = (text, name) => text.replace(TN_RE, m => m.replace(/[^A-Za-z]/g, '') === 'TN' ? name.toLocaleUpperCase('es') : name);
+const fillTN = (text, name) => text.replace(TN_RE, m => ['TN', 'YN'].includes(m.replace(/[^A-Za-z]/g, '')) ? name.toLocaleUpperCase(LOC()) : name);
 /* Comentarios por párrafo: ocultos al leer; se tocan los párrafos para comentar. Se guardan por libro + capítulo + párrafo (con una "huella" del párrafo) */
 const PC_MAX = 400, paraSplit = t => String(t || '').split(/\n\s*\n/);
 const pQ = t => String(t || '').replace(/\s+/g, ' ').trim().slice(0, 30);            // huella: si el autor reescribe el párrafo, esos comentarios dejan de mostrarse
@@ -1404,7 +1413,7 @@ function logView(tabs) {
   <div class="filter-row">${F.map(([k, n]) => `<button class="chip ${LOGF === k ? 'active' : ''}" data-act="log-filter" data-id="${k}">${n}</button>`).join('')}</div>
   <div class="filter-row" style="overflow-x:auto;flex-wrap:nowrap"><button class="chip ${LOGW === 'all' ? 'active' : ''}" data-act="log-who" data-id="all">Todas las personas</button>${who.map(e => `<button class="chip ${LOGW === e ? 'active' : ''}" data-act="log-who" data-id="${esc(e)}" style="flex:none">${e === 'sistema' ? 'Sistema' : esc(uName(e))}${ROLE_LABEL[roleOf(e)] ? ' · ' + esc(ROLE_LABEL[roleOf(e)]) : ''}</button>`).join('')}</div>
   ${l.length ? `<div class="log-list">${l.map(x => { const t = getUsers()[x.target], d = new Date(x.date);
-    return `<div class="log-row"><div class="log-top"><b>${esc(logInfo(x.type)[0])}</b><time class="helper">${esc(d.toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</time></div><div class="helper">Por <b>${x.by === 'sistema' ? 'Sistema (automático)' : esc(uName(x.by))}</b>${ROLE_LABEL[roleOf(x.by)] ? ' (' + esc(ROLE_LABEL[roleOf(x.by)]) + ')' : ''}${t ? ` · sobre <a href="#/user/${encodeURIComponent(x.target)}" data-dir="next">${esc(t.name)}</a>` : ''}</div>${x.extra ? `<div class="log-extra">${esc(String(x.extra))}</div>` : ''}</div>`; }).join('')}</div>`
+    return `<div class="log-row"><div class="log-top"><b>${esc(logInfo(x.type)[0])}</b><time class="helper">${esc(d.toLocaleString(LOC(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</time></div><div class="helper">Por <b>${x.by === 'sistema' ? 'Sistema (automático)' : esc(uName(x.by))}</b>${ROLE_LABEL[roleOf(x.by)] ? ' (' + esc(ROLE_LABEL[roleOf(x.by)]) + ')' : ''}${t ? ` · sobre <a href="#/user/${encodeURIComponent(x.target)}" data-dir="next">${esc(t.name)}</a>` : ''}</div>${x.extra ? `<div class="log-extra">${esc(String(x.extra))}</div>` : ''}</div>`; }).join('')}</div>`
     : empty('Sin acciones registradas', 'Aquí aparecerán los strikes, suspensiones, reportes atendidos y revisiones de capítulos.')}</main>`;
 }
 let RFILT = 'open';
@@ -1507,7 +1516,7 @@ async function saveAccount() {
   if (!name) return toast('Escribe un nombre de usuario.');
   if (email !== S.user) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('Ingresa un correo válido.');
-    if (users[email]) return toast('Ese correo ya tiene una cuenta.');
+    if (users[email]) return toast(t('Ese correo ya tiene una cuenta.'));
     if (S.user === OWNER_EMAIL) return toast('La cuenta Owner no puede cambiar de correo.');
     if (email === OWNER_EMAIL) return toast('Ese correo está reservado.');
     if (!pass || u.hash !== await sha(u.salt + pass)) return toast('Escribe tu contraseña actual para cambiar el correo.');
@@ -1538,10 +1547,10 @@ function settingsView(secId) {
   const u = getUsers()[S.user] || {}, n = cfg('notif'), act = S.chars.find(c => c.id === S.activeId);
   const nOn = ['chapter', 'like', 'comment', 'follow'].filter(k => n[k]).length;
   const SECS = {
-    apariencia: { ico: '🎨', c: '#8c5fc1', t: 'Apariencia', sub: `Tema ${({ light: 'claro', dark: 'oscuro', auto: 'automático' })[S.theme] || 'automático'} · Español`, body: () => `<section class="panel set-sec"><div class="set-row"><span>Tema</span>${seg('theme', [['light', '☀ Claro'], ['dark', '🌙 Oscuro'], ['auto', 'Automático']], S.theme)}</div>
-      <div class="set-row"><span>Tu comunidad</span><b>${esc(COMMS[commOf(S.user)])}</b></div>
-      <div class="set-row"><span>Ver también la otra comunidad</span>${seg('otherComm', [['no', 'No'], ['yes', 'Sí']], cfg('otherComm'))}</div>
-      <div class="set-row"><span>Idioma</span><select class="select set-lang" aria-label="Idioma"><option value="es" selected>Español</option><option disabled>English — próximamente</option><option disabled>Português — próximamente</option><option disabled>Français — próximamente</option></select></div></section>` },
+    apariencia: { ico: '🎨', c: '#8c5fc1', t: t('Apariencia'), sub: `${t('Tema')} ${t(({ light: 'claro', dark: 'oscuro', auto: 'automático' })[S.theme] || 'automático')} · ${uiLang() === 'en' ? 'English' : 'Español'}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tema')}</span>${seg('theme', [['light', '☀ ' + t('Claro')], ['dark', '🌙 ' + t('Oscuro')], ['auto', t('Automático')]], S.theme)}</div>
+      <div class="set-row"><span>${t('Tu comunidad')}</span><b>${esc(COMMS[commOf(S.user)])}</b></div>
+      <div class="set-row"><span>${t('Ver también la otra comunidad')}</span>${seg('otherComm', [['no', t('No')], ['yes', t('Sí')]], cfg('otherComm'))}</div>
+      <div class="set-row"><span>${t('Idioma')}</span><select class="select set-lang" aria-label="${esc(t('Idioma'))}"><option value="auto" ${uiSetting() === 'auto' ? 'selected' : ''}>${t('Automático')}</option><option value="es" ${uiSetting() === 'es' ? 'selected' : ''}>Español</option><option value="en" ${uiSetting() === 'en' ? 'selected' : ''}>English</option></select></div></section>` },
     lectura: { ico: '📖', c: '#3e8fd0', t: 'Lectura', sub: `Letra ${({ sm: 'pequeña', md: 'normal', lg: 'grande' })[cfg('fontSize')]} · ${cfg('font') === 'serif' ? 'con serifa' : 'sin serifa'}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>Tamaño de letra</span>${seg('fontSize', [['sm', 'Pequeña'], ['md', 'Normal'], ['lg', 'Grande']], cfg('fontSize'))}</div>
       <div class="set-row"><span>Tipografía</span>${seg('font', [['serif', 'Con serifa'], ['sans', 'Sin serifa']], cfg('font'))}</div>
       <div class="set-row"><span>Interlineado</span>${seg('lh', [['compact', 'Compacto'], ['normal', 'Normal'], ['relaxed', 'Amplio']], cfg('lh'))}</div>
@@ -2140,6 +2149,7 @@ function clearSearch() {
 let SETDEEP = false;                                   // true = entraste a una sección de Ajustes desde el menú (el "atrás" vuelve a él, sin bucles)
 let SHOWC = false, LASTP = '', ASV = null, KEEP = false;   // true = no volver arriba al re-dibujar (likes, comentarios…)
 function render() {
+  uiReset();
   giftSweep();                                                   // vence regalos sin reclamar (24 h) y devuelve el cupo
   if (S.user && canNews() && $('#nb-list')) { if (NBFRESH) NBFRESH = false; else nbDraftSave(true); }       // si te vas de Noticias sin terminar, lo escrito queda como borrador
   if (W && S.user && ($('#w-ch-text') || $('#w-title'))) autosave();      // guarda lo que estabas escribiendo antes de cambiar de pantalla
@@ -2422,17 +2432,17 @@ document.addEventListener('click', e => {
     'qz-next': () => {
       if (QZ.step === 1) {
         const v = ($('#qz-birth') || {}).value || '';
-        if (!validBirth(v) || ageOf(v) > 120) return void ($('#qz-err').textContent = 'Escribe una fecha de nacimiento válida.');
+        if (!validBirth(v) || ageOf(v) > 120) return void ($('#qz-err').textContent = t('Escribe una fecha de nacimiento válida.'));
         QZ.birth = v;
         if (ageOf(v) < MIN_AGE) { QZ.blocked = true; PENDING = null; return render(); }          // no se crea ninguna cuenta ni se guarda nada
-      } else if (!QZ.gender) return toast('Elige una opción para continuar.');
+      } else if (!QZ.gender) return toast(t('Elige una opción para continuar.'));
       QZ.step++; render(); },
     'qz-comm': () => { const b = $('#qz-birth'); if (b && QZ) QZ.birth = b.value; QZ.comm = el.dataset.v === 'en' ? 'en' : 'es'; KEEP = true; render(); },
     'qz-gender': () => { QZ.gender = el.dataset.v; KEEP = true; render(); },
     'qz-int': () => { const v = el.dataset.v; QZ.interests = QZ.interests.includes(v) ? QZ.interests.filter(x => x !== v) : [...QZ.interests, v]; KEEP = true; render(); },
     'qz-18': () => { QZ.mature = !QZ.mature; KEEP = true; render(); },
     'qz-terms': () => { QZ.terms = !!el.checked; KEEP = true; render(); },
-    'qz-finish': () => { if (!QZ.interests.length) return toast('Elige al menos un tema.'); if (!QZ.terms) return toast('Debes aceptar los términos y condiciones.'); createAccount(); },
+    'qz-finish': () => { if (!QZ.interests.length) return toast(t('Elige al menos un tema.')); if (!QZ.terms) return toast(t('Debes aceptar los términos y condiciones.')); createAccount(); },
     'qz-exit': () => { PENDING = null; QZ = null; go('/login'); },
     'int-set': () => { const u = getUsers(), me = u[S.user], v = el.dataset.v, cur = me.interests || [], next = cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v];
       if (!next.length) return toast('Deja al menos un tema.'); me.interests = next; G.set('users', u); KEEP = true; render(); },
@@ -2474,6 +2484,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   const id = e.target.id, f = e.target.files && e.target.files[0];
+  if (e.target.classList && e.target.classList.contains('set-lang')) { LS.set('auri.ui', e.target.value); uiReset(); KEEP = true; render(); return; }
   if (e.target.classList && e.target.classList.contains('nb-file') && canNews()) { const i = +e.target.dataset.i; nbCollect(); newsPhoto(f, d => { if (NB[i]) NB[i].img = d; KEEP = true; render(); }); return; }
   if (id === 'ce-file' && canNews()) { newsPhoto(f, d => { CEIMG = d; const p = $('#ce-prev'); if (p) p.innerHTML = `<img src="${esc(d)}" alt="Vista previa de la imagen del evento">`; }); return; }
   if (id === 'cover-file') { loadCover(f); e.target.value = ''; }
