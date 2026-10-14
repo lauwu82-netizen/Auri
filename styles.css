@@ -940,3 +940,7 @@ a.icon-btn.bell{position:relative}
 .gift-count b{font:700 44px var(--serif);line-height:1}
 .gift-card{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
 .gift-card .button{width:100%;max-width:320px}
+
+/* 46. Comunidades (Español / English) */
+.comm-bar{margin:0 0 10px}
+.comm-bar .pill{display:inline-block}

@@ -18,7 +18,7 @@ function parseTags(v) {
 }
 const tagsText = tg => (tg || []).map(t => '#' + t).join(' ');
 const tagChips = (tg, cls = '') => (tg || []).map(t => `<button type="button" class="tag tag-link ${cls}" data-act="tag-search" data-id="${esc(t)}" aria-label="Buscar la etiqueta ${esc(t)}">#${esc(t)}</button>`).join('');
-const popTags = (n = 10) => { const c = {}; publishedStories().filter(matureOK).forEach(s => s.tags.forEach(t => { const k = t.toLowerCase(); c[k] = c[k] || { t, n: 0 }; c[k].n++; })); return Object.values(c).sort((a, b) => b.n - a.n).slice(0, n).map(x => x.t); };
+const popTags = (n = 10) => { const c = {}; publishedStories().filter(matureOK).filter(storyVisible).forEach(s => s.tags.forEach(t => { const k = t.toLowerCase(); c[k] = c[k] || { t, n: 0 }; c[k].n++; })); return Object.values(c).sort((a, b) => b.n - a.n).slice(0, n).map(x => x.t); };
 const GENRES = { Fantasy: 'Fantasía', Romance: 'Romance', 'Slice of life': 'Costumbrista', 'Sci-fi': 'Ciencia ficción', Mystery: 'Misterio', Other: 'Otro' };
 const genreName = g => GENRES[g] || g;
 let toastTimer;
@@ -57,7 +57,7 @@ function applyTheme() {                                 // 'light' | 'dark' | 'a
 }
 /* --- Ajustes (se guardan por cuenta) --- */
 const APP_VERSION = '0.9 (beta)';
-const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', notif: { chapter: true, like: true, comment: true, follow: true } };
+const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', notif: { chapter: true, like: true, comment: true, follow: true } };
 const cfg = k => {
   const c = S.cfg || {};
   if (k === 'showMature') { const u = getUsers()[S.user]; if (isMinor(u)) return false; return c.showMature == null ? isAdult(u) : c.showMature; }   // por defecto: visible solo si ya declaraste ser mayor de edad
@@ -130,10 +130,23 @@ function fixRoles() {                                      // normaliza: cada cu
   if (ch) G.set('users', us);
 }
 const ROLE_LABEL = { OWNER: 'Owner', ADMIN: 'Administración', MODERATOR: 'Moderación', USER: '' };
+/* COMUNIDADES: Español (es) e Inglés (en). Cada cuenta pertenece a una; el equipo modera solo las suyas (la Owner, ambas) */
+const COMMS = { es: 'Español', en: 'English' };
+const commOf = e => (getUsers()[e] || {}).community === 'en' ? 'en' : 'es';
+const myComm = () => S.user && !isGuest() ? commOf(S.user) : 'es';
+const staffScope = e => { const r = roleOf(e); if (r === 'OWNER') return ['es', 'en']; if (r === 'USER') return []; const sc = ((getUsers()[e] || {}).scope || []).filter(x => COMMS[x]); return sc.length ? sc : [commOf(e)]; };
+let MODC = 'all';                                                       // comunidad elegida en Moderación (solo si el equipo cubre ambas)
+const modSel = () => staffScope(S.user).length > 1 ? MODC : 'all';
+const inScope = c => c === 'all' || (staffScope(S.user).includes(c) && (modSel() === 'all' || modSel() === c));
+const postComm = o => o && (o.comm === 'es' || o.comm === 'en') ? o.comm : 'all';    // sin comunidad = se ve en las dos (lo anterior)
+const commVisible = c => c === 'all' || c === myComm() || cfg('otherComm') === 'yes' || (isStaff() && staffScope(S.user).includes(c));
+const storyVisible = s => commVisible(commOf(s.owner));
+const staffFor = c => [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) !== 'USER' && (c === 'all' || staffScope(e).includes(c)))])];
 /** ¿La persona en sesión puede aplicar acciones de administración sobre esta cuenta? Owner: a todas menos a sí misma. Moderación: solo a USER. */
 function canAct(t) {
   t = String(t || '').toLowerCase(); if (!S.user || t === S.user || !getUsers()[t]) return false;
   const me = roleOf(S.user), tr = roleOf(t);
+  if (me !== 'OWNER' && !staffScope(S.user).includes(commOf(t))) return false;      // Moderación y Administración actúan solo en su comunidad
   return me === 'OWNER' ? tr !== 'OWNER' : me === 'ADMIN' ? (tr === 'USER' || tr === 'MODERATOR') : me === 'MODERATOR' ? tr === 'USER' : false;   // strikes y suspensiones
 }
 const strikesOf = e => ((getUsers()[e] || {}).strikes || []).filter(x => !x.void);          // los anulados no cuentan
@@ -148,7 +161,7 @@ function giveStrike(t, reason) {
 }
 const canBan = () => isOwner() || isAdm();             // suspender o bloquear: solo Administración y Owner
 const appealsAll = () => G.get('appeals', []);
-const openAppeals = () => appealsAll().filter(a => a.status === 'open').length;
+const openAppeals = () => appealsAll().filter(a => a.status === 'open' && inScope(commOf(a.user))).length;
 const myAppeal = b => b && appealsAll().find(a => a.user === S.user && a.banDate === b.date);
 function submitAppeal(text, imgs) {
   const b = activeBan(S.user); if (!b) return 'La cuenta ya no está suspendida.';
@@ -156,7 +169,7 @@ function submitAppeal(text, imgs) {
   if (myAppeal(b)) return 'Ya se envió una apelación para esta decisión.';
   const l = appealsAll(); l.unshift({ id: Date.now(), user: S.user, banDate: b.date, ban: { reason: b.reason, by: b.by, until: b.until || null }, text: text.slice(0, 1000), imgs: (imgs || []).slice(0, 4), date: today(), status: 'open' });
   if (!G.set('appeals', l)) return 'No se pudo guardar. Prueba con menos imágenes o más livianas.';
-  [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) === 'ADMIN')])].forEach(e => pushNotif(e, { type: 'sys', extra: 'Nueva apelación de ' + uName(S.user), href: '#/moderation/appeals' }));
+  staffFor(commOf(S.user)).filter(e => e === OWNER_EMAIL || roleOf(e) === 'ADMIN').forEach(e => pushNotif(e, { type: 'sys', extra: 'Nueva apelación de ' + uName(S.user), href: '#/moderation/appeals' }));
   return '';
 }
 function annulStrike(t, sid, reason) {
@@ -328,14 +341,14 @@ const likes = id => G.get('likes', {})[id] || [];
 const comments = id => G.get('comments', {})[id] || [];
 const news = () => G.get('news', []);
 const pubOK = o => !o.status || o.status === 'published';               // sin estado = publicado (lo anterior)
-const newsPub = () => news().filter(pubOK);
+const newsPub = () => news().filter(pubOK).filter(n => commVisible(postComm(n)));
 const POST_ROLE = { OWNER: 'Owner', ADMIN: 'Administración', MODERATOR: 'Moderación' };
 function byline(o) {                                    // quién publicó: siempre el rol; el nombre solo si no lo ocultó (la Owner siempre lo ve)
   const by = o.by || OWNER_EMAIL, role = POST_ROLE[o.byRole || roleOf(by)] || 'Auri Studios', real = uName(by) === 'Usuario' ? 'Auri Studios' : uName(by);
   return o.anon ? (isOwner() ? `${role} · ${real} (nombre oculto al público)` : role) : `${real} · ${role}`;
 }
-const postMeta = anon => ({ byRole: roleOf(S.user), anon: !!anon, ...(isMod() ? { status: 'pending' } : {}) });
-const notifyApprovers = what => [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) === 'ADMIN')])].filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: what, href: '#/moderation/posts' }));
+const postMeta = (anon, cid) => ({ byRole: roleOf(S.user), anon: !!anon, comm: (($('#' + cid) || {}).value) || (staffScope(S.user).length > 1 ? 'all' : staffScope(S.user)[0] || 'es'), ...(isMod() ? { status: 'pending' } : {}) });
+const notifyApprovers = what => [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) === 'ADMIN' && staffScope(e).some(c => staffScope(S.user).includes(c)))])].filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: what, href: '#/moderation/posts' }));
 /** Una noticia son bloques: cada párrafo puede llevar su propia imagen (cualquier proporción). Las noticias antiguas (solo texto) se convierten al vuelo */
 const newsBlocks = n => Array.isArray(n.blocks) && n.blocks.length ? n.blocks : String(n.text || '').split(/\n\s*\n/).filter(Boolean).map(t => ({ t, img: '' }));
 const newsCover = n => { const b = n && newsBlocks(n).find(x => /^data:image\//.test(x.img || '')); return b ? b.img : ''; };
@@ -444,13 +457,13 @@ async function register({ name, email, pass, pass2 }) {      // paso 0: correo y
   if (pass !== pass2) return 'Las contraseñas no coinciden.';
   if (users[email]) return 'Ese correo ya tiene una cuenta.';
   const salt = Math.random().toString(36).slice(2);
-  PENDING = { name, email, salt, hash: await sha(salt + pass) }; QZ = { step: 1, birth: '', gender: '', interests: [], mature: false, blocked: false, terms: false };
+  PENDING = { name, email, salt, hash: await sha(salt + pass) }; QZ = { step: 1, comm: 'es', birth: '', gender: '', interests: [], mature: false, blocked: false, terms: false };
   go('/signup'); return '';
 }
 function createAccount() {                             // último paso: se crea la cuenta con las respuestas
   const { name, email, salt, hash } = PENDING, users = LS.get('auri.users', {});
   if (users[email]) { PENDING = null; QZ = null; go('/register'); return toast('Ese correo ya tiene una cuenta.'); }
-  users[email] = { name, salt, hash, birth: QZ.birth, gender: QZ.gender, interests: QZ.interests, onboarded: true, termsAccepted: today(), created: today(), role: email === OWNER_EMAIL ? 'OWNER' : 'USER', strikes: [] };
+  users[email] = { name, salt, hash, community: QZ.comm === 'en' ? 'en' : 'es', birth: QZ.birth, gender: QZ.gender, interests: QZ.interests, onboarded: true, termsAccepted: today(), created: today(), role: email === OWNER_EMAIL ? 'OWNER' : 'USER', strikes: [] };
   LS.set('auri.users', users);
   const kept = isGuest() ? adoptGuest(email) : false;
   LS.set('auri.u.' + email + '.cfg', { ...(kept ? LS.get('auri.u.' + email + '.cfg', {}) : {}), showMature: ageOf(QZ.birth) >= 18 && QZ.mature });   // la opción +18 del cuestionario enciende "Mostrar contenido +18"
@@ -501,6 +514,8 @@ function signupView() {
   let body;
   if (q.step === 1) body = `<span class="eyebrow">Paso 1 de 3</span><h1>¿Cuándo es tu cumpleaños? 🎂</h1><p class="helper">Lo usamos para mostrarte contenido adecuado para tu edad. No se muestra en tu perfil.</p>
     <input id="qz-birth" type="date" class="field" style="margin-top:18px" min="1900-01-01" max="${today()}" value="${esc(q.birth)}" aria-label="Fecha de nacimiento"><p class="error" id="qz-err"></p>
+    <h2 style="margin-top:14px">¿En qué comunidad quieres estar?</h2><p class="helper">Cada comunidad tiene sus propias historias, noticias y equipo de moderación. Después podrás elegir ver también la otra.</p>
+    <div class="qz-opts" role="radiogroup">${Object.entries(COMMS).map(([k, n]) => `<button type="button" class="qz-opt ${q.comm === k ? 'on' : ''}" role="radio" aria-checked="${q.comm === k}" data-act="qz-comm" data-v="${k}">${n}</button>`).join('')}</div>
     <div class="qz-foot"><button class="button" style="width:100%" data-act="qz-next">Siguiente ›</button></div>`;
   else if (q.step === 2) body = `<span class="eyebrow">Paso 2 de 3</span><h1>¿Cuál es tu género?</h1><p class="helper">Elige la opción con la que te identifiques.</p>
     <div class="qz-opts" role="radiogroup">${GENDERS.map(g => `<button type="button" class="qz-opt ${q.gender === g ? 'on' : ''}" role="radio" aria-checked="${q.gender === g}" data-act="qz-gender" data-v="${g}">${g}</button>`).join('')}</div>
@@ -735,7 +750,7 @@ function storyCard(s, i) {                       // portada limpia; título + fa
   <div class="mini-meta">${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : `<span>${esc(userName())}</span>`}${s.mature ? '<span class="dot18" title="Contenido +18">+18</span>' : ''}</div>${b ? `<div class="mini-pill">${esc(b)}</div>` : ''}</article>`;
 }
 function discoverList() {
-  const live = publishedStories().filter(matureOK).filter(s => !hidesStory(s.owner));
+  const live = publishedStories().filter(matureOK).filter(storyVisible).filter(s => !hidesStory(s.owner));
   const qs = Q.trim().toLowerCase(), tq = qs.includes('#') ? parseTags(qs).map(x => x.toLowerCase()) : null;      // «#romance #au» busca por etiquetas
   const f = live.filter(s => (GEN === 'All' || s.genre === GEN) && (tq ? tq.every(t => s.tags.some(x => x.toLowerCase() === t || x.toLowerCase().includes(t))) : `${s.title} ${s.synopsis} ${s.fandom} ${s.tags.join(' ')}`.toLowerCase().includes(qs)));
   if (f.length) return `<div class="story-grid">${f.map(storyCard).join('')}</div>`;
@@ -744,11 +759,11 @@ function discoverList() {
 }
 /* --- Banner de Inicio: carrusel (noticias automáticas + tarjetas manuales de la Owner) --- */
 const crAll = () => G.get('banners', []);
-const crPub = () => crAll().filter(pubOK);
+const crPub = () => crAll().filter(pubOK).filter(b => commVisible(postComm(b)));
 const clip = (t, n) => { t = String(t || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t; };
 let CARI = 0, CARTIMER = null, CARHOLD = 0;            // tarjeta actual, temporizador y pausa tras tocar/deslizar
 function carSlides() {                                 // primero las tarjetas manuales (recomendaciones y eventos), luego las últimas noticias
-  const pub = publishedStories().filter(matureOK), out = [], dOf = (b, n) => b.date || (n && n.date) || (+b.id > 1e12 ? new Date(+b.id).toISOString().slice(0, 10) : '');
+  const pub = publishedStories().filter(matureOK).filter(storyVisible), out = [], dOf = (b, n) => b.date || (n && n.date) || (+b.id > 1e12 ? new Date(+b.id).toISOString().slice(0, 10) : '');
   crPub().forEach(b => {
     if (b.kind === 'book') { const st = pub.find(x => x.id === b.storyId); if (!st) return;
       out.push({ k: 'book', by: byline(b), badge: '📚 Recomendado', title: b.title || st.title, text: b.text || st.synopsis, cover: st.cover, date: dOf(b), sub: `📖 ${st.title}${st.author ? ' · ' + st.author : ''}`, href: `#/story/${esc(st.id)}/${st.chapters[0].idx + 1}`, tn: st.useReaderCharacter ? st.id : '', btn: b.btn || 'Leer ahora' }); }
@@ -777,7 +792,7 @@ function carInit() {                                   // se llama tras cada dib
   CARTIMER = setInterval(() => { if (!document.body.contains(t)) { clearInterval(CARTIMER); CARTIMER = null; return; } if (document.hidden || Date.now() < CARHOLD) return; carGo(CARI + 1); }, 5000);
 }
 function discoverView() {
-  const gens = ['All', ...new Set(publishedStories().map(s => s.genre))];
+  const gens = ['All', ...new Set(publishedStories().filter(storyVisible).map(s => s.genre))];
   return `<main class="page">${carouselHTML() || `<section class="hero"><span class="eyebrow">✦ Un pequeño hogar para grandes emociones</span>
   <h1>Encuentra tu próxima emoción favorita.</h1><p>Historias para leer a gusto, personajes que te acompañan y un rincón para crear algo propio.</p>
   <a class="button secondary" href="#/library">Ir a mi biblioteca</a>${mascot('mascot')}</section>`}
@@ -947,7 +962,7 @@ function requestUnmature(sid, title) {                  // la autoría pide quit
   const l = G.get('reports', []);
   if (l.some(r => r.type === 'reclass' && r.sid === sid && (r.status || 'open') === 'open')) return 'Ya hay una solicitud en revisión para esta obra.';
   l.unshift({ id: Date.now(), type: 'reclass', sid, owner: S.user, by: S.user, title: title || '', date: today(), status: 'open' }); G.set('reports', l);
-  [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) !== 'USER')])].filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Solicitud para quitar +18 de «' + (title || 'una obra') + '»', href: '#/moderation/reports' }));
+  staffFor(commOf(S.user)).filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Solicitud para quitar +18 de «' + (title || 'una obra') + '»', href: '#/moderation/reports' }));
   return 'Solicitud enviada. La obra sigue marcada +18 hasta que moderación la revise.';
 }
 function staffSetMature(sid, v) {
@@ -1246,9 +1261,14 @@ function setChapterStatus(id, owner, cid, status, reason = '') {
   if (status === 'approved') announceChapters(id, before);
 }
 const OPEN = new Set();   // libros desplegados (se conservan al re-dibujar)
+function commBar() {                                    // quien ve todo elige comunidad; quien tiene una sola ve su etiqueta
+  const sc = staffScope(S.user); if (!sc.length) return '';
+  if (sc.length === 1) return `<p class="comm-bar"><span class="pill">Comunidad: ${esc(COMMS[sc[0]])}</span></p>`;
+  return `<div class="filter-row comm-bar" role="radiogroup" aria-label="Comunidad">${[['all', 'Todas'], ['es', 'Español'], ['en', 'English']].map(([k, n]) => `<button type="button" class="chip ${MODC === k ? 'active' : ''}" data-act="mod-comm" data-id="${k}">${n}</button>`).join('')}</div>`;
+}
 function modView(sub) {
   if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">Volver</a>')}</main>`;
-  const books = pendingBooks().reverse(), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, npo = pendingPosts().length, tabs = `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log', 'posts', 'gifts'].includes(sub) ? '' : 'active'}" href="#/moderation">📚 Libros (${books.length})</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">🚩 Reportes${nr ? ` (${nr})` : ''}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">👥 Cuentas${nacc ? ` (${nacc})` : ''}</a>${canBan() ? `<a class="tab ${sub === 'posts' ? 'active' : ''}" href="#/moderation/posts">📣 Publicaciones${npo ? ` (${npo})` : ''}</a>` : ''}${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">📨 Apelaciones${na ? ` (${na})` : ''}</a>` : ''}${isOwner() ? `<a class="tab ${sub === 'gifts' ? 'active' : ''}" href="#/moderation/gifts">🎁 Regalos</a><a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">📋 Registro</a>` : ''}</div>`;
+  const books = pendingBooks().filter(s => inScope(commOf(s.owner))).reverse(), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, npo = pendingPosts().length, tabs = commBar() + `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log', 'posts', 'gifts'].includes(sub) ? '' : 'active'}" href="#/moderation">📚 Libros (${books.length})</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">🚩 Reportes${nr ? ` (${nr})` : ''}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">👥 Cuentas${nacc ? ` (${nacc})` : ''}</a>${canBan() ? `<a class="tab ${sub === 'posts' ? 'active' : ''}" href="#/moderation/posts">📣 Publicaciones${npo ? ` (${npo})` : ''}</a>` : ''}${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">📨 Apelaciones${na ? ` (${na})` : ''}</a>` : ''}${isOwner() ? `<a class="tab ${sub === 'gifts' ? 'active' : ''}" href="#/moderation/gifts">🎁 Regalos</a><a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">📋 Registro</a>` : ''}</div>`;
   if (sub === 'reports') return reportsView(tabs);
   if (sub === 'appeals' && canBan()) return appealsView(tabs);
   if (sub === 'accounts') return accountsView(tabs);
@@ -1313,7 +1333,7 @@ function openReport() {
 const REASONS_USER = ['Acoso, odio o amenazas', 'Pide datos personales o fotos', 'Contenido sexual con menores', 'Sospecha de edad falsa', 'Suplantación de identidad', 'Spam o publicidad', 'Otro motivo'];
 const REASONS = ['Contenido sexual con menores', 'Contenido sexual explícito', 'Acoso, odio o amenazas', 'Violencia extrema', 'Plagio o copia', 'Spam o publicidad', 'Datos personales de alguien', 'Mal etiquetado (+18 o spoilers)', 'Otro motivo'];
 const reportsAll = () => G.get('reports', []);
-const openReports = () => reportsAll().filter(r => (r.status || 'open') === 'open').length;
+const openReports = () => reportsAll().filter(r => (r.status || 'open') === 'open' && inScope(commOf(accOf(r) || r.by))).length;
 function openReportFor(type, o) {
   const RS = type === 'user' ? REASONS_USER : REASONS, imgs = [];
   const m = document.createElement('div'); m.className = 'modal sheet';
@@ -1329,7 +1349,7 @@ function openReportFor(type, o) {
     if (!reasons.length && !text) { m.querySelector('[data-err]').textContent = 'Marca un motivo o escribe qué pasó.'; return; }
     if (reportsAll().some(r => r.by === S.user && r.type === type && r.sid === o.sid && String(r.cid || '') === String(o.cid || '') && r.target === o.target && (r.status || 'open') === 'open')) { m.remove(); return toast('Ya reportaste esto: el equipo lo está revisando.'); }
     if (!G.set('reports', [{ id: Date.now(), by: S.user, type, imgs, sid: o.sid || '', cid: o.cid || '', ci: o.ci, target: o.target || '', owner: o.owner || '', title: o.title || '', excerpt: String(o.excerpt || '').slice(0, 200), reasons, text, date: today(), status: 'open' }, ...reportsAll()])) { m.querySelector('[data-err]').textContent = 'No se pudo guardar el reporte (las imágenes pesan demasiado). Prueba con menos imágenes.'; return; }
-    Object.keys(getUsers()).filter(e => roleOf(e) !== 'USER' && e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Nuevo reporte por revisar: ' + o.label, href: '#/moderation/reports' }));
+    staffFor(commOf(accOf(o) || S.user)).filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Nuevo reporte por revisar: ' + o.label, href: '#/moderation/reports' }));
     m.remove(); toast('Gracias, recibimos tu reporte ✓');
   };
   document.body.appendChild(m);
@@ -1352,7 +1372,7 @@ let RACC = null;
 function accRows() {
   const m = {}; reportsAll().filter(r => r.type !== 'problem' && r.type !== 'reclass').forEach(r => { const e = accOf(r); if (!e || !getUsers()[e]) return;
     const a = m[e] = m[e] || { e, n: 0, open: 0, last: '', by: new Set(), why: {} }; a.n++; if ((r.status || 'open') === 'open') a.open++; if ((r.date || '') > a.last) a.last = r.date || ''; a.by.add(r.by); (r.reasons || []).forEach(x => { a.why[x] = (a.why[x] || 0) + 1; }); });
-  return Object.values(m).sort((x, y) => y.open - x.open || y.n - x.n || (y.last > x.last ? 1 : -1));
+  return Object.values(m).filter(a => inScope(commOf(a.e))).sort((x, y) => y.open - x.open || y.n - x.n || (y.last > x.last ? 1 : -1));
 }
 function accountsView(tabs) {
   const l = accRows();
@@ -1369,10 +1389,10 @@ const LOGT = { strike: ['Strike', 'strikes'], 'strike-annul': ['Strike anulado',
   'report-resolved': ['Reporte resuelto', 'rep'], 'report-dismissed': ['Reporte descartado', 'rep'], 'report-open': ['Reporte reabierto', 'rep'], takedown: ['Obra retirada de Descubrir', 'cont'], restore: ['Obra restaurada', 'cont'], unmature: ['Quitó la marca +18', 'cont'], mark18: ['Marcó como +18', 'cont'],
   'news-post': ['Publicó un anuncio', 'pub'], 'news-edit': ['Editó un anuncio', 'pub'], 'news-del': ['Eliminó un anuncio', 'pub'], 'banner-add': ['Añadió una tarjeta al banner', 'pub'], 'banner-edit': ['Editó una tarjeta del banner', 'pub'], 'banner-del': ['Quitó una tarjeta del banner', 'pub'], 'post-approve': ['Aprobó una publicación', 'pub'], 'post-reject': ['Rechazó una publicación', 'pub'],
   'del-comment': ['Comentario eliminado', 'cont'], 'chapter-approve': ['Capítulo aprobado', 'cont'], 'chapter-reject': ['Capítulo rechazado', 'cont'],
-  'gift-send': ['Regaló un marco', 'gifts'], 'gift-claim': ['Reclamó su marco', 'gifts'], 'gift-expire': ['Regalo vencido (cupo devuelto)', 'gifts'], 'gift-revoke': ['Regalo retirado (cupo devuelto)', 'gifts'] };
+  'scope-set': ['Cambió las comunidades que modera', 'roles'], 'gift-send': ['Regaló un marco', 'gifts'], 'gift-claim': ['Reclamó su marco', 'gifts'], 'gift-expire': ['Regalo vencido (cupo devuelto)', 'gifts'], 'gift-revoke': ['Regalo retirado (cupo devuelto)', 'gifts'] };
 const logInfo = t => LOGT[t] || (/^(invite|accept|test-role)/.test(t) ? ['Cambio de rol', 'roles'] : [t, 'otro']);
 function logView(tabs) {
-  const F = [['all', 'Todo'], ['strikes', 'Strikes'], ['susp', 'Suspensiones'], ['rep', 'Reportes'], ['cont', 'Contenido'], ['pub', 'Publicaciones'], ['gifts', 'Regalos'], ['roles', 'Roles']], all = G.get('modlog', []), who = [...new Set(all.map(x => x.by).filter(Boolean))], l = all.filter(x => (LOGF === 'all' || logInfo(x.type)[1] === LOGF) && (LOGW === 'all' || x.by === LOGW));
+  const F = [['all', 'Todo'], ['strikes', 'Strikes'], ['susp', 'Suspensiones'], ['rep', 'Reportes'], ['cont', 'Contenido'], ['pub', 'Publicaciones'], ['gifts', 'Regalos'], ['roles', 'Roles']], all = G.get('modlog', []).filter(x => modSel() === 'all' || !getUsers()[x.target] || commOf(x.target) === modSel()), who = [...new Set(all.map(x => x.by).filter(Boolean))], l = all.filter(x => (LOGF === 'all' || logInfo(x.type)[1] === LOGF) && (LOGW === 'all' || x.by === LOGW));
   return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">Registro</span><h2 style="margin-top:8px">Acciones del equipo (${l.length})</h2><p>Solo la Owner ve esta pantalla. Cada acción muestra quién la hizo, aunque haya ocultado su nombre al publicar. Se conservan las últimas 1000.</p></div></div>
   <div class="filter-row">${F.map(([k, n]) => `<button class="chip ${LOGF === k ? 'active' : ''}" data-act="log-filter" data-id="${k}">${n}</button>`).join('')}</div>
   <div class="filter-row" style="overflow-x:auto;flex-wrap:nowrap"><button class="chip ${LOGW === 'all' ? 'active' : ''}" data-act="log-who" data-id="all">Todas las personas</button>${who.map(e => `<button class="chip ${LOGW === e ? 'active' : ''}" data-act="log-who" data-id="${esc(e)}" style="flex:none">${e === 'sistema' ? 'Sistema' : esc(uName(e))}${ROLE_LABEL[roleOf(e)] ? ' · ' + esc(ROLE_LABEL[roleOf(e)]) : ''}</button>`).join('')}</div>
@@ -1404,12 +1424,12 @@ function reportCard(r) {
   ${ty === 'problem' && open ? `<button class="icon-btn" data-act="report-del" data-id="${r.id}" aria-label="Eliminar reporte">${TRASH}</button>` : ''}</div></article>`;
 }
 function reportsView(tabs) {
-  const all = reportsAll().filter(r => !RACC || accOf(r) === RACC), l = all.filter(r => ((r.status || 'open') === 'open') === (RFILT === 'open'));
+  const all = reportsAll().filter(r => inScope(commOf(accOf(r) || r.by))).filter(r => !RACC || accOf(r) === RACC), l = all.filter(r => ((r.status || 'open') === 'open') === (RFILT === 'open'));
   return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">🚩 Reportes</span><h2 style="margin-top:8px">${RFILT === 'open' ? 'Por revisar' : 'Ya atendidos'} (${l.length})</h2><p>Abre la obra, analiza el caso y toma medidas. Todo queda en el registro.</p></div></div>
   <div class="filter-row">${RACC ? `<button class="chip active" data-act="acc-clear">Cuenta: ${esc(uName(RACC))} ✕</button>` : ''}<button class="chip ${RFILT === 'open' ? 'active' : ''}" data-act="rp-filter" data-id="open">Abiertos (${openReports()})</button><button class="chip ${RFILT === 'done' ? 'active' : ''}" data-act="rp-filter" data-id="done">Atendidos</button></div>
   ${l.length ? l.map(reportCard).join('') : empty(RFILT === 'open' ? 'Sin reportes pendientes' : 'Nada atendido todavía', RFILT === 'open' ? 'Cuando alguien reporte una obra, un comentario o un perfil, aparecerá aquí.' : 'Los reportes resueltos o descartados se guardan aquí.')}</main>`;
 }
-const reportsPanel = () => { const l = G.get('reports', []); return l.length ? `<section class="panel" style="margin-top:20px"><h2>📨 Reportes (${l.length})</h2>${l.map(r => `<div class="comment"><div style="flex:1;min-width:0"><strong>${esc(uName(r.by))}</strong> <span class="helper">${esc(r.date)}</span><div style="overflow-wrap:anywhere">${esc(r.text)}</div></div><button class="icon-btn" data-act="report-del" data-id="${r.id}" aria-label="Eliminar reporte">${TRASH}</button></div>`).join('')}</section>` : ''; };
+const reportsPanel = () => { const l = G.get('reports', []).filter(r => inScope(commOf(accOf(r) || r.by))); return l.length ? `<section class="panel" style="margin-top:20px"><h2>📨 Reportes (${l.length})</h2>${l.map(r => `<div class="comment"><div style="flex:1;min-width:0"><strong>${esc(uName(r.by))}</strong> <span class="helper">${esc(r.date)}</span><div style="overflow-wrap:anywhere">${esc(r.text)}</div></div><button class="icon-btn" data-act="report-del" data-id="${r.id}" aria-label="Eliminar reporte">${TRASH}</button></div>`).join('')}</section>` : ''; };
 
 /* --- Datos: exportar / importar / borrar --- */
 function buildExport() {
@@ -1512,6 +1532,8 @@ function settingsView(secId) {
   const nOn = ['chapter', 'like', 'comment', 'follow'].filter(k => n[k]).length;
   const SECS = {
     apariencia: { ico: '🎨', c: '#8c5fc1', t: 'Apariencia', sub: `Tema ${({ light: 'claro', dark: 'oscuro', auto: 'automático' })[S.theme] || 'automático'} · Español`, body: () => `<section class="panel set-sec"><div class="set-row"><span>Tema</span>${seg('theme', [['light', '☀ Claro'], ['dark', '🌙 Oscuro'], ['auto', 'Automático']], S.theme)}</div>
+      <div class="set-row"><span>Tu comunidad</span><b>${esc(COMMS[commOf(S.user)])}</b></div>
+      <div class="set-row"><span>Ver también la otra comunidad</span>${seg('otherComm', [['no', 'No'], ['yes', 'Sí']], cfg('otherComm'))}</div>
       <div class="set-row"><span>Idioma</span><select class="select set-lang" aria-label="Idioma"><option value="es" selected>Español</option><option disabled>English — próximamente</option><option disabled>Português — próximamente</option><option disabled>Français — próximamente</option></select></div></section>` },
     lectura: { ico: '📖', c: '#3e8fd0', t: 'Lectura', sub: `Letra ${({ sm: 'pequeña', md: 'normal', lg: 'grande' })[cfg('fontSize')]} · ${cfg('font') === 'serif' ? 'con serifa' : 'sin serifa'}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>Tamaño de letra</span>${seg('fontSize', [['sm', 'Pequeña'], ['md', 'Normal'], ['lg', 'Grande']], cfg('fontSize'))}</div>
       <div class="set-row"><span>Tipografía</span>${seg('font', [['serif', 'Con serifa'], ['sans', 'Sin serifa']], cfg('font'))}</div>
@@ -1763,7 +1785,7 @@ function appealCard(a) {
     : `<span class="helper">${a.status === 'released' ? 'Cuenta liberada' : 'Apelación rechazada'} por ${esc(uName(a.handledBy))} · ${esc(a.handledDate || '')}${a.note && a.status === 'rejected' ? ' · ' + esc(a.note) : ''}</span>`}</div></article>`;
 }
 function appealsView(tabs) {
-  const all = appealsAll(), l = all.filter(a => (a.status === 'open') === (AFILT === 'open'));
+  const all = appealsAll().filter(a => inScope(commOf(a.user))), l = all.filter(a => (a.status === 'open') === (AFILT === 'open'));
   return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">Apelaciones</span><h2 style="margin-top:8px">${AFILT === 'open' ? 'Por revisar' : 'Ya atendidas'} (${l.length})</h2><p>Lee la explicación y las pruebas. Puedes liberar la cuenta o rechazar la apelación con un motivo.</p></div></div>
   <div class="filter-row"><button class="chip ${AFILT === 'open' ? 'active' : ''}" data-act="ap-filter" data-id="open">Abiertas (${openAppeals()})</button><button class="chip ${AFILT === 'done' ? 'active' : ''}" data-act="ap-filter" data-id="done">Atendidas</button></div>
   ${l.length ? l.map(appealCard).join('') : empty(AFILT === 'open' ? 'Sin apelaciones pendientes' : 'Nada atendido todavía', 'Cuando una cuenta suspendida apele, aparecerá aquí.')}</main>`;
@@ -1827,6 +1849,7 @@ function admMenu(t) {
   <div class="adm-list" hidden><button class="adm-item" data-act="adm-strike" data-id="${esc(t)}">⚠️ Dar strike</button>
   ${!canBan() ? '' : ban ? `<button class="adm-item" data-act="adm-unban" data-id="${esc(t)}">✅ Levantar suspensión</button>` : `<button class="adm-item danger" data-act="adm-ban" data-id="${esc(t)}">🚫 Suspender o bloquear cuenta</button>`}
   ${canBan() && strikesOf(t).length ? `<div class="adm-strikes"><b>Strikes activos</b>${strikesOf(t).map(x => `<div class="adm-strike"><span>${esc(x.date.slice(0, 10))} · ${esc(x.reason)}</span><button type="button" class="link-btn" data-act="adm-unstrike" data-id="${esc(t)}" data-sid="${esc(x.id)}">Anular</button></div>`).join('')}</div>` : ''}
+  ${up && (r === 'MODERATOR' || r === 'ADMIN') ? `<button class="adm-item" data-act="adm-scope" data-id="${esc(t)}">🌐 Comunidades que modera: ${staffScope(t).map(c => COMMS[c]).join(' y ')}</button>` : ''}
   ${up ? `<button class="adm-item" data-act="gift-profile" data-id="${esc(t)}">🎁 Regalar marco Top 50 (quedan ${giftLeft()})</button>` : ''}
   ${up && r === 'USER' ? `<button class="adm-item" data-act="adm-mod" data-id="${esc(t)}">🛡 Hacer moderador</button>` : ''}
   ${up && r === 'MODERATOR' ? `<button class="adm-item" data-act="adm-admin" data-id="${esc(t)}">⭐ Ascender a administración</button>` : ''}
@@ -1850,13 +1873,18 @@ function openBookPicker() {
   list.onclick = ev => { const it = ev.target.closest('.bp-item'); if (!it || !canNews()) return; const sid = it.dataset.id, L = crAll();
     if (L.some(b => b.kind === 'book' && b.storyId === sid)) return toast('Ese libro ya está en el banner.');
     if (L.length >= 6) return toast('Máximo 6 tarjetas manuales: elimina alguna.');
-    G.set('banners', [...L, { id: Date.now(), kind: 'book', by: S.user, date: today(), storyId: sid, title: '', text: '', btn: 'Leer ahora', ...postMeta((m.querySelector('[data-anon]') || {}).checked) }]); logAction('banner-add', S.user, ((findStory(sid) || {}).title || '') + (isMod() ? ' (en revisión)' : '')); if (isMod()) notifyApprovers('Nueva recomendación de libro por aprobar'); m.remove(); toast(isMod() ? 'Enviado a revisión: lo verá Administración u Owner' : 'Añadido al banner ✓'); KEEP = true; render(); };
+    G.set('banners', [...L, { id: Date.now(), kind: 'book', by: S.user, date: today(), storyId: sid, title: '', text: '', btn: 'Leer ahora', ...postMeta((m.querySelector('[data-anon]') || {}).checked, 'cr-comm') }]); logAction('banner-add', S.user, ((findStory(sid) || {}).title || '') + (isMod() ? ' (en revisión)' : '')); if (isMod()) notifyApprovers('Nueva recomendación de libro por aprobar'); m.remove(); toast(isMod() ? 'Enviado a revisión: lo verá Administración u Owner' : 'Añadido al banner ✓'); KEEP = true; render(); };
   paint(); document.body.appendChild(m);
+}
+function commPick(id) {                                // dónde se ve la publicación (si el equipo cubre una sola comunidad, va fija)
+  const sc = staffScope(S.user); if (sc.length < 2) return `<input type="hidden" id="${id}" value="${esc(sc[0] || 'es')}">`;
+  return `<div class="form-group"><label for="${id}">Comunidad</label><select id="${id}" class="select"><option value="all">Ambas comunidades</option><option value="es">Español</option><option value="en">English</option></select></div>`;
 }
 function crPanel() {
   const L = crAll(), pubs = publishedStories(), nw = news();
   return `<section class="panel" style="margin-bottom:20px"><h2>🎠 Banner de Inicio</h2><p class="helper" style="margin:4px 0 12px">Las noticias salen solas en el carrusel. Aquí añades tarjetas manuales (aparecen primero).${isOwner() ? '' : ' Solo puedes editar y eliminar las tuyas.'}${isMod() ? ' Lo que envíes pasa primero por la aprobación de Administración y Owner.' : ''}</p>
   ${L.length ? L.map((b, i) => { const mine = ownsPost(b); return `<div class="cr-row"><span class="cr-rt">${b.kind === 'book' ? '📚' : '🎉'} <b>${esc(b.title || (findStory(b.storyId) || {}).title || 'Libro eliminado')}</b><small class="helper">· ${esc(byline(b))}</small>${b.status === 'pending' ? ' <span class="pill">En revisión</span>' : b.status === 'rejected' ? ` <span class="pill">Rechazada${b.reason ? ': ' + esc(b.reason) : ''}</span>` : ''}</span><span class="cr-rb">${mine ? `${isMod() ? '' : `<button class="icon-btn sm" data-act="cr-up" data-id="${b.id}" ${i ? '' : 'disabled'} aria-label="Subir">↑</button><button class="icon-btn sm" data-act="cr-down" data-id="${b.id}" ${i < L.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button>`}${canEditPost(b) ? `<button class="link-btn" data-act="cr-edit" data-id="${b.id}">Editar</button>` : ''}<button class="link-btn danger-link" data-act="cr-del" data-id="${b.id}">Eliminar</button>` : '<small class="helper">de otra persona</small>'}</span></div>`; }).join('') : '<p class="helper">Aún no hay tarjetas manuales.</p>'}
+ ${commPick('cr-comm')}
  <button type="button" class="button secondary" data-act="cr-pick-open" style="margin:8px 0">＋ Recomendar un libro</button>
   <details class="cr-add" hidden><summary>＋ Recomendar un libro</summary><form data-form="cr-book" class="form-grid" style="grid-template-columns:1fr;margin-top:10px">
     <div class="form-group"><label for="cb-story">Libro</label><select id="cb-story" class="select">${pubs.length ? pubs.map(x => `<option value="${esc(x.id)}">${esc(x.title)}</option>`).join('') : '<option value="">No hay libros publicados</option>'}</select></div>
@@ -1877,8 +1905,8 @@ function subsPanel() {                                 // Moderación: sus enví
   return `<section class="panel" style="margin-bottom:20px"><h2>Mis envíos en revisión</h2>${l.map(n => `<div class="cr-row"><span class="cr-rt"><b>${esc(n.title)}</b> ${n.status === 'pending' ? '<span class="pill">En revisión</span>' : `<span class="pill">Rechazada${n.reason ? ': ' + esc(n.reason) : ''}</span>`}</span><span class="cr-rb"><button class="link-btn" data-act="news-edit" data-id="${n.id}">Editar y reenviar</button><button class="link-btn danger-link" data-act="news-del" data-id="${n.id}">Eliminar</button></span></div>`).join('')}</section>`;
 }
 function pendingPosts() {
-  const cards = crAll().filter(b => b.status === 'pending'), linked = new Set(cards.map(b => String(b.newsId || '')).filter(Boolean));
-  return [...cards.map(o => ({ kind: 'card', o })), ...news().filter(n => n.status === 'pending' && !linked.has(String(n.id))).map(o => ({ kind: 'news', o }))].sort((a, b) => b.o.id - a.o.id);
+  const cards = crAll().filter(b => b.status === 'pending' && inScope(postComm(b))), linked = new Set(cards.map(b => String(b.newsId || '')).filter(Boolean));
+  return [...cards.map(o => ({ kind: 'card', o })), ...news().filter(n => n.status === 'pending' && inScope(postComm(n)) && !linked.has(String(n.id))).map(o => ({ kind: 'news', o }))].sort((a, b) => b.o.id - a.o.id);
 }
 function resolvePost(kind, id, ok, reason) {
   if (!canBan()) return 'Solo Administración y Owner pueden aprobar publicaciones.';
@@ -1935,6 +1963,7 @@ function newsView(nid) {
   ${pub ? ndPanel() : ''}
   ${isMod() ? subsPanel() : ''}
   ${pub ? `<form class="panel" data-form="news" style="margin-bottom:20px"><h2>${NBEDIT ? '✏️ Editar anuncio publicado' : 'Publicar anuncio'}</h2><div class="form-grid" style="grid-template-columns:1fr">
+  ${commPick('n-comm')}
   <div class="form-group"><label for="n-type">Tipo</label><select id="n-type" class="select">${['Actualización', 'Evento', 'Aviso'].map(t => `<option ${NBM.type === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
   <div class="form-group"><label for="n-title">Título</label><input id="n-title" class="field" maxlength="80" value="${esc(NBM.title)}"></div>
   <div id="nb-list">${NB.map(nbRow).join('')}</div>
@@ -2238,6 +2267,8 @@ document.addEventListener('click', e => {
     'adm-strike': () => openStrikeForm(id), 'adm-ban': () => openBanForm(id),
     'adm-unban': () => { const r = liftBan(id); if (r) return toast(r); toast('Suspensión levantada'); KEEP = true; render(); },
     'test-role': () => { testRole(id, el.dataset.role); toast('Rol de prueba actualizado ✓'); KEEP = true; render(); },
+    'mod-comm': () => { if (!isStaff()) return; MODC = ['es', 'en'].includes(id) ? id : 'all'; KEEP = true; render(); },
+    'adm-scope': () => { if (!isOwner()) return; const us = getUsers(), cur = staffScope(id), nx = cur.length > 1 ? ['es'] : cur[0] === 'es' ? ['en'] : ['es', 'en']; if (!us[id]) return; us[id].scope = nx; G.set('users', us); logAction('scope-set', id, 'Modera: ' + nx.map(c => COMMS[c]).join(' y ')); toast('Ahora modera: ' + nx.map(c => COMMS[c]).join(' y ')); KEEP = true; render(); },
     'gift-send': () => { const inp = $('#g-to'), r = giftSend(inp ? inp.value : ''), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast('Regalo enviado: tiene 24 h para reclamarlo'); KEEP = true; render(); },
     'gift-profile': () => { if (!isOwner() || !canAct(id)) return; dialog('¿Regalar el marco Top 50 a ' + uName(id) + '?', 'Tendrá 24 h para reclamarlo. Si no lo hace, el regalo se cancela y el cupo vuelve a ti. Quedan ' + giftLeft() + ' de ' + GIFT_TOTAL + '.', 'Regalar', 'Cancelar', () => { const r = giftSend(id); toast(r || 'Regalo enviado ✓'); KEEP = true; render(); }); },
     'gift-claim': () => { const r = giftClaim(id), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast('¡Marco reclamado!'); KEEP = true; render(); },
@@ -2389,6 +2420,7 @@ document.addEventListener('click', e => {
         if (ageOf(v) < MIN_AGE) { QZ.blocked = true; PENDING = null; return render(); }          // no se crea ninguna cuenta ni se guarda nada
       } else if (!QZ.gender) return toast('Elige una opción para continuar.');
       QZ.step++; render(); },
+    'qz-comm': () => { const b = $('#qz-birth'); if (b && QZ) QZ.birth = b.value; QZ.comm = el.dataset.v === 'en' ? 'en' : 'es'; KEEP = true; render(); },
     'qz-gender': () => { QZ.gender = el.dataset.v; KEEP = true; render(); },
     'qz-int': () => { const v = el.dataset.v; QZ.interests = QZ.interests.includes(v) ? QZ.interests.filter(x => x !== v) : [...QZ.interests, v]; KEEP = true; render(); },
     'qz-18': () => { QZ.mature = !QZ.mature; KEEP = true; render(); },
@@ -2480,13 +2512,13 @@ document.addEventListener('submit', async e => {
   if (kind === 'cr-book' || kind === 'cr-event') {
     if (!canNews()) return; const L = crAll(); if (L.length >= 6) return toast('Máximo 6 tarjetas manuales: elimina alguna.');
     if (kind === 'cr-book') { const sid = v('#cb-story'); if (!sid || !publishedStories().some(x => x.id === sid)) return toast('Elige un libro publicado.');
-      G.set('banners', [...L, { id: Date.now(), kind: 'book', storyId: sid, by: S.user, date: today(), title: v('#cb-title').trim().slice(0, 70), text: v('#cb-text').trim().slice(0, 160), btn: v('#cb-btn').trim().slice(0, 24), ...postMeta($('#cb-anon') && $('#cb-anon').checked) }]); }
+      G.set('banners', [...L, { id: Date.now(), kind: 'book', storyId: sid, by: S.user, date: today(), title: v('#cb-title').trim().slice(0, 70), text: v('#cb-text').trim().slice(0, 160), btn: v('#cb-btn').trim().slice(0, 24), ...postMeta($('#cb-anon') && $('#cb-anon').checked, 'cr-comm') }]); }
     else { const anonE = !!($('#ce-anon') && $('#ce-anon').checked), t = v('#ce-title').trim(), m = v('#ce-text').trim(); if (!t || !m) return toast('Escribe título y descripción.');
       let nid = v('#ce-news');
       if (!nid) {                                      // el evento crea su publicación completa (firmada por la Owner) en Noticias
         const post = v('#ce-post').trim() || m; nid = String(Date.now() + 1);
-        if (!G.set('news', [{ id: +nid, type: 'Evento', title: t.slice(0, 80), text: post, blocks: [{ t: post, img: CEIMG }], by: S.user, date: today(), ...postMeta(anonE) }, ...news()])) return; }
-      G.set('banners', [...L, { id: Date.now(), kind: 'event', by: S.user, date: today(), title: t.slice(0, 70), text: m.slice(0, 160), btn: v('#ce-btn').trim().slice(0, 24), newsId: nid, ...postMeta(anonE) }]); CEIMG = ''; }
+        if (!G.set('news', [{ id: +nid, type: 'Evento', title: t.slice(0, 80), text: post, blocks: [{ t: post, img: CEIMG }], by: S.user, date: today(), ...postMeta(anonE, 'cr-comm') }, ...news()])) return; }
+      G.set('banners', [...L, { id: Date.now(), kind: 'event', by: S.user, date: today(), title: t.slice(0, 70), text: m.slice(0, 160), btn: v('#ce-btn').trim().slice(0, 24), newsId: nid, ...postMeta(anonE, 'cr-comm') }]); CEIMG = ''; }
     logAction('banner-add', S.user, (kind === 'cr-event' ? v('#ce-title') : '').slice(0, 60) + (isMod() ? ' (en revisión)' : '')); if (isMod()) notifyApprovers('Nueva tarjeta del banner por aprobar');
     toast(isMod() ? 'Enviado a revisión: lo verá Administración u Owner' : 'Tarjeta añadida al banner'); return render();
   }
@@ -2497,7 +2529,7 @@ document.addEventListener('submit', async e => {
       L[i] = { ...L[i], type: NBM.type, title: t, text: blocks.map(b => b.t).filter(Boolean).join('\n\n'), blocks, edited: today(), ...(isMod() ? { status: 'pending', reason: '' } : {}) }; if (!G.set('news', L)) return;
       logAction('news-edit', S.user, t.slice(0, 60)); if (isMod()) notifyApprovers('Un anuncio se volvió a enviar para aprobación');
       nbReset(); toast(isMod() ? 'Reenviado a revisión ✓' : 'Cambios guardados ✓'); return render(); }
-    if (!G.set('news', [{ id: Date.now(), type: NBM.type, title: t, text: blocks.map(b => b.t).filter(Boolean).join('\n\n'), blocks, by: S.user, date: today(), ...postMeta($('#n-anon') && $('#n-anon').checked) }, ...news()])) return;
+    if (!G.set('news', [{ id: Date.now(), type: NBM.type, title: t, text: blocks.map(b => b.t).filter(Boolean).join('\n\n'), blocks, by: S.user, date: today(), ...postMeta($('#n-anon') && $('#n-anon').checked, 'n-comm') }, ...news()])) return;
     logAction('news-post', S.user, t.slice(0, 80) + (isMod() ? ' (en revisión)' : '')); if (isMod()) notifyApprovers('Nuevo anuncio por aprobar: ' + t.slice(0, 50));
     if (NBID) G.set('newsdrafts', ndAll().filter(x => x.id !== NBID));
     nbReset(); toast(isMod() ? 'Enviado a revisión: lo verá Administración u Owner' : 'Anuncio publicado'); return render();
