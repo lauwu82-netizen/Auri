@@ -17,10 +17,10 @@ function parseTags(v) {
   return out.slice(0, 15);
 }
 const tagsText = tg => (tg || []).map(t => '#' + t).join(' ');
-const tagChips = (tg, cls = '') => (tg || []).map(t => `<button type="button" class="tag tag-link ${cls}" data-act="tag-search" data-id="${esc(t)}" aria-label="Buscar la etiqueta ${esc(t)}">#${esc(t)}</button>`).join('');
+const tagChips = (tg, cls = '') => (tg || []).map(x => `<button type="button" class="tag tag-link ${cls}" data-act="tag-search" data-id="${esc(x)}" aria-label="${esc(t('Buscar la etiqueta {x}', { x }))}">#${esc(x)}</button>`).join('');
 const popTags = (n = 10) => { const c = {}; publishedStories().filter(matureOK).filter(storyVisible).forEach(s => s.tags.forEach(t => { const k = t.toLowerCase(); c[k] = c[k] || { t, n: 0 }; c[k].n++; })); return Object.values(c).sort((a, b) => b.n - a.n).slice(0, n).map(x => x.t); };
 const GENRES = { Fantasy: 'Fantasía', Romance: 'Romance', 'Slice of life': 'Costumbrista', 'Sci-fi': 'Ciencia ficción', Mystery: 'Misterio', Other: 'Otro' };
-const genreName = g => GENRES[g] || g;
+const genreName = g => t(GENRES[g] || g);
 let toastTimer;
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
@@ -345,13 +345,14 @@ const followers = e => Object.keys(follows()).filter(f => following(f).includes(
 /** Fecha relativa («Hace 2 h»): el id de cada comentario es su marca de tiempo; se refresca sola cada 30 s */
 function relTime(ts) {
   const n = parseInt(String(ts), 10); if (!n || n < 1e12) return ''; const sec = Math.max(0, Math.floor((Date.now() - n) / 1000));
-  if (sec < 60) return 'Hace un momento'; const m = Math.floor(sec / 60); if (m < 60) return `Hace ${m} min`;
-  const h = Math.floor(m / 60); if (h < 24) return `Hace ${h} h`; const d = Math.floor(h / 24); if (d < 30) return `Hace ${d} ${d === 1 ? 'día' : 'días'}`;
-  const mo = Math.floor(d / 30); if (mo < 12) return `Hace ${mo} ${mo === 1 ? 'mes' : 'meses'}`; const y = Math.floor(d / 365); return `Hace ${y} ${y === 1 ? 'año' : 'años'}`;
+  if (sec < 60) return t('Hace un momento'); const m = Math.floor(sec / 60); if (m < 60) return t('Hace {n} min', { n: m });
+  const h = Math.floor(m / 60); if (h < 24) return t('Hace {n} h', { n: h }); const d = Math.floor(h / 24); if (d < 30) return tn(d, 'Hace {n} día', 'Hace {n} días');
+  const mo = Math.floor(d / 30); if (mo < 12) return tn(mo, 'Hace {n} mes', 'Hace {n} meses'); const y = Math.floor(d / 365); return tn(y, 'Hace {n} año', 'Hace {n} años');
 }
 const relSpan = c => `<time class="rel-t" data-ts="${esc(String(c.id))}" title="${esc(c.date || '')}">${esc(relTime(c.id) || c.date || '')}</time>`;
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-const fmtDate = iso => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${+m[3]} ${MESES[+m[2] - 1]} ${m[1]}` : ''; };
+const MESES_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmtDate = iso => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (uiLang() === 'en' ? `${MESES_EN[+m[2] - 1]} ${+m[3]}, ${m[1]}` : `${+m[3]} ${MESES[+m[2] - 1]} ${m[1]}`) : ''; };
 const HEART = '<svg class="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
 const likes = id => G.get('likes', {})[id] || [];
 const comments = id => G.get('comments', {})[id] || [];
@@ -360,8 +361,8 @@ const pubOK = o => !o.status || o.status === 'published';               // sin e
 const newsPub = () => news().filter(pubOK).filter(n => commVisible(postComm(n)));
 const POST_ROLE = { OWNER: 'Owner', ADMIN: 'Administración', MODERATOR: 'Moderación' };
 function byline(o) {                                    // quién publicó: siempre el rol; el nombre solo si no lo ocultó (la Owner siempre lo ve)
-  const by = o.by || OWNER_EMAIL, role = POST_ROLE[o.byRole || roleOf(by)] || 'Auri Studios', real = uName(by) === 'Usuario' ? 'Auri Studios' : uName(by);
-  return o.anon ? (isOwner() ? `${role} · ${real} (nombre oculto al público)` : role) : `${real} · ${role}`;
+  const by = o.by || OWNER_EMAIL, role = t(POST_ROLE[o.byRole || roleOf(by)] || 'Auri Studios'), real = uName(by) === 'Usuario' ? 'Auri Studios' : uName(by);
+  return o.anon ? (isOwner() ? `${role} · ${real} ${t('(nombre oculto al público)')}` : role) : `${real} · ${role}`;
 }
 const postMeta = (anon, cid) => ({ byRole: roleOf(S.user), anon: !!anon, comm: (($('#' + cid) || {}).value) || (staffScope(S.user).length > 1 ? 'all' : staffScope(S.user)[0] || 'es'), ...(isMod() ? { status: 'pending' } : {}) });
 const notifyApprovers = what => [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) === 'ADMIN' && staffScope(e).some(c => staffScope(S.user).includes(c)))])].filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: what, href: '#/moderation/posts' }));
@@ -578,19 +579,19 @@ function shell(path, html) {
   const item = (href, label, ic, on) => `<a class="bn-item ${on ? 'active' : ''}" href="${href}" ${on ? 'aria-current="page"' : ''}><span class="bn-ic">${ic}</span><span>${label}</span></a>`;
   return `<div class="shell"><header class="topbar tb2">
     <div class="top-row">
-      <button class="icon-btn" data-act="settings" aria-label="Configuración">${ICON.gear}</button>
-      <div class="nav-actions"><button class="icon-btn" data-act="search-toggle" aria-label="Buscar" aria-expanded="${SEARCH_OPEN}">${ICON.search}</button>
-        <a class="icon-btn bell" href="#/messages" aria-label="Mensajes">${ICON.mail}${dmUnread() ? `<b class="badge">${dmUnread()}</b>` : ''}</a>
-        <button class="icon-btn bell" data-act="notif-toggle" aria-label="Notificaciones" aria-expanded="${NOTIF_OPEN}">${ICON.bell}${n ? `<b class="badge">${n}</b>` : ''}</button>
-        <a href="#/profile" aria-label="Mi perfil">${userAvatar(S.user)}</a></div>
+      <button class="icon-btn" data-act="settings" aria-label="${esc(t('Configuración'))}">${ICON.gear}</button>
+      <div class="nav-actions"><button class="icon-btn" data-act="search-toggle" aria-label="${esc(t('Buscar'))}" aria-expanded="${SEARCH_OPEN}">${ICON.search}</button>
+        <a class="icon-btn bell" href="#/messages" aria-label="${esc(t('Mensajes'))}">${ICON.mail}${dmUnread() ? `<b class="badge">${dmUnread()}</b>` : ''}</a>
+        <button class="icon-btn bell" data-act="notif-toggle" aria-label="${esc(t('Notificaciones'))}" aria-expanded="${NOTIF_OPEN}">${ICON.bell}${n ? `<b class="badge">${n}</b>` : ''}</button>
+        <a href="#/profile" aria-label="${esc(t('Mi perfil'))}">${userAvatar(S.user)}</a></div>
     </div>
-    <div class="search-bar ${SEARCH_OPEN ? 'open' : ''}"><input id="sq" class="field" type="search" placeholder="Buscar títulos, etiquetas o fandoms…" aria-label="Buscar" value="${esc(Q)}"><button class="icon-btn" data-act="search-close" aria-label="Cerrar búsqueda">✕</button></div>
+    <div class="search-bar ${SEARCH_OPEN ? 'open' : ''}"><input id="sq" class="field" type="search" placeholder="${esc(t('Buscar títulos, etiquetas o fandoms…'))}" aria-label="${esc(t('Buscar'))}" value="${esc(Q)}"><button class="icon-btn" data-act="search-close" aria-label="${esc(t('Cerrar búsqueda'))}">✕</button></div>
   </header>${html}${pop}
-  <nav class="bottom-nav" aria-label="Navegación principal">${item('#/', 'Inicio', ICON.home, path === '/')}${item('#/library', 'Biblioteca', ICON.books, path === '/library')}<a class="bn-plus ${path === '/write' ? 'active' : ''}" href="#/write" aria-label="Crear historia">${ICON.plus}</a>${item('#/news', 'Noticias', ICON.news, path === '/news')}${item('#/profile', 'Mi Perfil', ICON.user, path === '/profile')}</nav></div>`;
+  <nav class="bottom-nav" aria-label="${esc(t('Navegación principal'))}">${item('#/', t('Inicio'), ICON.home, path === '/')}${item('#/library', t('Biblioteca'), ICON.books, path === '/library')}<a class="bn-plus ${path === '/write' ? 'active' : ''}" href="#/write" aria-label="${esc(t('Crear historia'))}">${ICON.plus}</a>${item('#/news', t('Noticias'), ICON.news, path === '/news')}${item('#/profile', t('Mi Perfil'), ICON.user, path === '/profile')}</nav></div>`;
 }
 const empty = (title, copy, action = '') => `<div class="empty">${mascot()}<h3>${esc(title)}</h3><p>${esc(copy)}</p>${action}</div>`;
-const badgeText = s => { const st = storyState(s), p = s.chapters.filter(c => c.status === 'pending').length; return st !== 'published' ? STATUS[st] : p ? `${p} cap. en revisión` : ''; };
-const coverHTML = (s, i) => `<div class="cover c${(i % 5) + 1}">${s.cover ? `<img class="cover-img" src="${esc(s.cover)}" alt="Portada de ${esc(s.title)}" loading="lazy">` : `<span class="cover-title">${esc(s.title || 'Sin título')}</span>`}</div>`;
+const badgeText = s => { const st = storyState(s), p = s.chapters.filter(c => c.status === 'pending').length; return st !== 'published' ? t(STATUS[st]) : p ? t('{n} cap. en revisión', { n: p }) : ''; };
+const coverHTML = (s, i) => `<div class="cover c${(i % 5) + 1}">${s.cover ? `<img class="cover-img" src="${esc(s.cover)}" alt="${esc(t('Portada de {title}', { title: s.title }))}" loading="lazy">` : `<span class="cover-title">${esc(s.title || t('Sin título'))}</span>`}</div>`;
 
 /* --- Auth --- */
 function authView(mode) {
@@ -762,16 +763,16 @@ let Q = '', GEN = 'All';
 function storyCard(s, i) {                       // portada limpia; título + favorito y autoría + badge +18 debajo
   const fav = S.favs.includes(s.id), b = badgeText(s);
   return `<article class="mini"><a href="#/story/${esc(s.id)}" aria-label="${esc(s.title)}">${coverHTML(s, i)}</a>
-  <div class="mini-row"><a class="mini-title" href="#/story/${esc(s.id)}">${esc(s.title)}</a><button class="mini-fav" data-act="fav" data-id="${esc(s.id)}" aria-label="Favorito" aria-pressed="${fav}">${fav ? '♥' : '♡'}</button></div>
-  <div class="mini-meta">${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : `<span>${esc(userName())}</span>`}${s.mature ? '<span class="dot18" title="Contenido +18">+18</span>' : ''}</div>${b ? `<div class="mini-pill">${esc(b)}</div>` : ''}</article>`;
+  <div class="mini-row"><a class="mini-title" href="#/story/${esc(s.id)}">${esc(s.title)}</a><button class="mini-fav" data-act="fav" data-id="${esc(s.id)}" aria-label="${esc(t('Favorito'))}" aria-pressed="${fav}">${fav ? '♥' : '♡'}</button></div>
+  <div class="mini-meta">${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : `<span>${esc(userName())}</span>`}${s.mature ? `<span class="dot18" title="${esc(t('Contenido +18'))}">+18</span>` : ''}</div>${b ? `<div class="mini-pill">${esc(b)}</div>` : ''}</article>`;
 }
 function discoverList() {
   const live = publishedStories().filter(matureOK).filter(storyVisible).filter(s => !hidesStory(s.owner));
   const qs = Q.trim().toLowerCase(), tq = qs.includes('#') ? parseTags(qs).map(x => x.toLowerCase()) : null;      // «#romance #au» busca por etiquetas
   const f = live.filter(s => (GEN === 'All' || s.genre === GEN) && (tq ? tq.every(t => s.tags.some(x => x.toLowerCase() === t || x.toLowerCase().includes(t))) : `${s.title} ${s.synopsis} ${s.fandom} ${s.tags.join(' ')}`.toLowerCase().includes(qs)));
   if (f.length) return `<div class="story-grid">${f.map(storyCard).join('')}</div>`;
-  if (!live.length) return empty('El estante de Auri está vacío', 'Aquí aparecerán las historias creadas por las personas usuarias. Puedes escribir la primera.', '<a class="button secondary" href="#/write">Crear la primera historia</a>');
-  return empty('No encontramos historias', 'Prueba con otra búsqueda o género.', '<button class="button secondary" data-act="clear">Borrar filtros</button>');
+  if (!live.length) return empty(t('El estante de Auri está vacío'), t('Aquí aparecerán las historias creadas por las personas usuarias. Puedes escribir la primera.'), '<a class="button secondary" href="#/write">' + t('Crear la primera historia') + '</a>');
+  return empty(t('No encontramos historias'), t('Prueba con otra búsqueda o género.'), '<button class="button secondary" data-act="clear">' + t('Borrar filtros') + '</button>');
 }
 /* --- Banner de Inicio: carrusel (noticias automáticas + tarjetas manuales de la Owner) --- */
 const crAll = () => G.get('banners', []);
@@ -782,19 +783,19 @@ function carSlides() {                                 // primero las tarjetas m
   const pub = publishedStories().filter(matureOK).filter(storyVisible), out = [], dOf = (b, n) => b.date || (n && n.date) || (+b.id > 1e12 ? new Date(+b.id).toISOString().slice(0, 10) : '');
   crPub().forEach(b => {
     if (b.kind === 'book') { const st = pub.find(x => x.id === b.storyId); if (!st) return;
-      out.push({ k: 'book', by: byline(b), badge: '📚 Recomendado', title: b.title || st.title, text: b.text || st.synopsis, cover: st.cover, date: dOf(b), sub: `📖 ${st.title}${st.author ? ' · ' + st.author : ''}`, href: `#/story/${esc(st.id)}/${st.chapters[0].idx + 1}`, tn: st.useReaderCharacter ? st.id : '', btn: b.btn || 'Leer ahora' }); }
+      out.push({ k: 'book', by: byline(b), badge: '📚 ' + t('Recomendado'), title: b.title || st.title, text: b.text || st.synopsis, cover: st.cover, date: dOf(b), sub: `📖 ${st.title}${st.author ? ' · ' + st.author : ''}`, href: `#/story/${esc(st.id)}/${st.chapters[0].idx + 1}`, tn: st.useReaderCharacter ? st.id : '', btn: b.btn || t('Leer ahora') }); }
     else { const n = b.newsId ? news().find(x => String(x.id) === String(b.newsId)) : null;
-      out.push({ k: 'event', by: byline(b), badge: '🎉 Evento', date: dOf(b, n), title: b.title, text: b.text, cover: newsCover(n), wide: true, href: n ? '#/news/' + n.id : '', btn: b.btn || 'Ver más' }); }
+      out.push({ k: 'event', by: byline(b), badge: '🎉 ' + t('Evento'), date: dOf(b, n), title: b.title, text: b.text, cover: newsCover(n), wide: true, href: n ? '#/news/' + n.id : '', btn: b.btn || t('Ver más') }); }
   });
-  newsPub().slice(0, 4).forEach(n => out.push({ k: 'news', by: byline(n), badge: '📣 ' + (n.type || 'Noticia'), date: n.date, title: n.title, text: n.text, cover: newsCover(n), wide: true, href: '#/news/' + n.id, btn: 'Leer noticia' }));
+  newsPub().slice(0, 4).forEach(n => out.push({ k: 'news', by: byline(n), badge: '📣 ' + t(n.type || 'Noticia'), date: n.date, title: n.title, text: n.text, cover: newsCover(n), wide: true, href: '#/news/' + n.id, btn: t('Leer noticia') }));
   return out.slice(0, 8);
 }
 function carouselHTML() {
   const sl = carSlides(); if (!sl.length) return '';
-  const card = (x, i) => `<article class="cr-slide cr-${x.k}" role="group" aria-roledescription="diapositiva" aria-label="${i + 1} de ${sl.length}"><div class="cr-txt"><span class="eyebrow">${esc(x.badge)}</span>${x.date ? `<span class="cr-date">Publicado el ${esc(x.date)}</span>` : ''}${x.by ? `<span class="cr-by">Por ${esc(x.by)}</span>` : ''}<h2>${esc(clip(x.title, 70))}</h2>${x.sub && x.sub.indexOf(x.title) < 0 ? `<div class="cr-book">${esc(clip(x.sub, 60))}</div>` : ''}<p>${esc(clip(x.text, 130))}</p>
+  const card = (x, i) => `<article class="cr-slide cr-${x.k}" role="group" aria-roledescription="${esc(t('diapositiva'))}" aria-label="${esc(t('{i} de {n}', { i: i + 1, n: sl.length }))}"><div class="cr-txt"><span class="eyebrow">${esc(x.badge)}</span>${x.date ? `<span class="cr-date">${t('Publicado el {d}', { d: esc(x.date) })}</span>` : ''}${x.by ? `<span class="cr-by">${t('Por {x}', { x: esc(x.by) })}</span>` : ''}<h2>${esc(clip(x.title, 70))}</h2>${x.sub && x.sub.indexOf(x.title) < 0 ? `<div class="cr-book">${esc(clip(x.sub, 60))}</div>` : ''}<p>${esc(clip(x.text, 130))}</p>
     ${x.href ? `<a class="button secondary sm" href="${x.href}" data-dir="next" ${x.tn ? `data-readas="${esc(x.tn)}"` : ''}>${esc(x.btn)}</a>` : ''}</div>${safeImg(x.cover) ? `<img class="cr-cover ${x.wide ? 'wide' : ''}" src="${esc(x.cover)}" alt="">` : ''}</article>`;
-  return `<section class="carousel" aria-roledescription="carrusel" aria-label="Novedades de Auri"><div class="cr-track" id="cr-track">${sl.map(card).join('')}</div>
-  ${sl.length > 1 ? `<div class="cr-dots">${sl.map((_, i) => `<button type="button" class="cr-dot ${i === CARI ? 'on' : ''}" data-act="car-go" data-i="${i}" aria-label="Ir a la tarjeta ${i + 1}"></button>`).join('')}</div>` : ''}</section>`;
+  return `<section class="carousel" aria-roledescription="${esc(t('carrusel'))}" aria-label="${esc(t('Novedades de Auri'))}"><div class="cr-track" id="cr-track">${sl.map(card).join('')}</div>
+  ${sl.length > 1 ? `<div class="cr-dots">${sl.map((_, i) => `<button type="button" class="cr-dot ${i === CARI ? 'on' : ''}" data-act="car-go" data-i="${i}" aria-label="${esc(t('Ir a la tarjeta {i}', { i: i + 1 }))}"></button>`).join('')}</div>` : ''}</section>`;
 }
 function carGo(i) { const t = $('#cr-track'); if (!t || !t.children) return; const n = t.children.length; if (!n) return; i = (i + n) % n; t.scrollTo({ left: i * t.clientWidth, behavior: reduceMotion() ? 'auto' : 'smooth' }); }
 function carInit() {                                   // se llama tras cada dibujado: restaura la posición, sincroniza los puntos y cambia sola cada 5 s
@@ -809,14 +810,14 @@ function carInit() {                                   // se llama tras cada dib
 }
 function discoverView() {
   const gens = ['All', ...new Set(publishedStories().filter(storyVisible).map(s => s.genre))];
-  return `<main class="page">${carouselHTML() || `<section class="hero"><span class="eyebrow">✦ Un pequeño hogar para grandes emociones</span>
-  <h1>Encuentra tu próxima emoción favorita.</h1><p>Historias para leer a gusto, personajes que te acompañan y un rincón para crear algo propio.</p>
-  <a class="button secondary" href="#/library">Ir a mi biblioteca</a>${mascot('mascot')}</section>`}
-  <div class="section-head"><div><h2>Historias que te roban el sueño</h2><p>Libros creados por personas usuarias.</p></div></div>
-  ${popTags().length ? `<div class="tag-row" aria-label="Etiquetas populares"><span class="helper">Etiquetas:</span>${popTags().map(t => `<button type="button" class="tag tag-link ${Q.trim().toLowerCase() === '#' + t.toLowerCase() ? 'on' : ''}" data-act="tag-search" data-id="${esc(t)}">#${esc(t)}</button>`).join('')}</div>` : ''}
-  <div class="filter-row">${gens.map(g => `<button class="chip ${GEN === g ? 'active' : ''}" data-act="genre" data-id="${esc(g)}">${g === 'All' ? 'Todos' : esc(genreName(g))}</button>`).join('')}</div>
+  return `<main class="page">${carouselHTML() || `<section class="hero"><span class="eyebrow">${t('✦ Un pequeño hogar para grandes emociones')}</span>
+  <h1>${t('Encuentra tu próxima emoción favorita.')}</h1><p>${t('Historias para leer a gusto, personajes que te acompañan y un rincón para crear algo propio.')}</p>
+  <a class="button secondary" href="#/library">${t('Ir a mi biblioteca')}</a>${mascot('mascot')}</section>`}
+  <div class="section-head"><div><h2>${t('Historias que te roban el sueño')}</h2><p>${t('Libros creados por personas usuarias.')}</p></div></div>
+  ${popTags().length ? `<div class="tag-row" aria-label="${esc(t('Etiquetas populares'))}"><span class="helper">${t('Etiquetas:')}</span>${popTags().map(x => `<button type="button" class="tag tag-link ${Q.trim().toLowerCase() === '#' + x.toLowerCase() ? 'on' : ''}" data-act="tag-search" data-id="${esc(x)}">#${esc(x)}</button>`).join('')}</div>` : ''}
+  <div class="filter-row">${gens.map(g => `<button class="chip ${GEN === g ? 'active' : ''}" data-act="genre" data-id="${esc(g)}">${g === 'All' ? t('Todos') : esc(genreName(g))}</button>`).join('')}</div>
   <div id="list">${discoverList()}</div>
-  <p class="notice" style="margin-top:24px">En esta versión las historias se guardan en este navegador y solo las ven las cuentas de este dispositivo.</p></main>`;
+  <p class="notice" style="margin-top:24px">${t('En esta versión las historias se guardan en este navegador y solo las ven las cuentas de este dispositivo.')}</p></main>`;
 }
 
 /* --- Escribir (portada, capítulos ilimitados, +18 y revisión) --- */
@@ -826,7 +827,7 @@ const CH_MARK = { approved: ' ✓', pending: ' ⏳', rejected: ' ✕' };
 /** Estado general de la obra, derivado de sus capítulos */
 const storyState = s => publicPrefix(s.chapters).length ? 'published' : s.chapters.some(x => x.status === 'pending') ? 'pending' : s.chapters.some(x => x.status === 'rejected') ? 'rejected' : 'draft';
 const statusNote = s => { const p = s.chapters.filter(c => c.status === 'pending').length;
-  return [p ? `${p} capítulo(s) en revisión: aún no se ven en la app.` : '', ...s.chapters.filter(c => c.status === 'rejected').map(c => `«${c.title}» fue rechazado${c.reason ? ': ' + c.reason : ''}. Edítalo y vuelve a enviarlo.`)].filter(Boolean).join(' '); };
+  return [p ? t('{n} capítulo(s) en revisión: aún no se ven en la app.', { n: p }) : '', ...s.chapters.filter(c => c.status === 'rejected').map(c => t('«{title}» fue rechazado{reason}. Edítalo y vuelve a enviarlo.', { title: c.title, reason: c.reason ? ': ' + c.reason : '' }))].filter(Boolean).join(' '); };
 // Borrador de términos: conviene que una persona con formación legal los revise antes de lanzar la app
 const TERMS = `<ol>
 <li><b>Etiqueta +18.</b> Marca tu historia como +18 si tiene contenido sexual sugerido, violencia intensa, drogas o temas delicados para menores. Si dudas, márcala.</li>
@@ -872,16 +873,16 @@ const pcAll = () => G.get('pcom', {});
 const pcPara = (sid, ci, pi) => { const s = findStory(sid), ch = s && s.chapters.find(c => c.idx === ci); return ch ? paraSplit(ch.text)[pi] : undefined; };
 const pcList = (sid, ci, pi, all = pcAll()) => { const t = pcPara(sid, ci, pi); return t === undefined ? [] : (all[pcKey(sid, ci, pi)] || []).filter(c => c.q === pQ(t)); };
 function readerText(text, on, pc) {
-  const name = S.character.name || 'Lectora', raw = paraSplit(text), all = pc && cfg('pcom') !== 'off' ? pcAll() : null;
+  const name = S.character.name || t('Lectora'), raw = paraSplit(text), all = pc && cfg('pcom') !== 'off' ? pcAll() : null;
   return `<div class="reader-text">${(on ? fillTN(text, name) : text).split(/\n\s*\n/).map((p, i) => {
     const n = all && cfg('pcom') === 'dots' ? (all[pcKey(pc.sid, pc.ci, i)] || []).filter(c => c.q === pQ(raw[i])).length : 0;
-    return `<p${all ? ` data-pi="${i}"` : ''}>${esc(p)}${n ? `<span class="pc-n" aria-label="${n} comentarios">${n}</span>` : ''}</p>`; }).join('')}</div>`;
+    return `<p${all ? ` data-pi="${i}"` : ''}>${esc(p)}${n ? `<span class="pc-n" aria-label="${tn(n, '{n} comentario', '{n} comentarios')}">${n}</span>` : ''}</p>`; }).join('')}</div>`;
 }
 const TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v7M14 10v7"/></svg>';
 function confirmBox(msg, onYes) {                // cuadro de confirmación propio (no usa confirm() del navegador)
   const m = document.createElement('div'); m.className = 'modal';
-  m.innerHTML = `<div class="modal-box" role="alertdialog" aria-modal="true"><h2>${esc(msg)}</h2><p class="helper">Esta acción no se puede deshacer.</p>
-  <div style="display:flex;gap:10px;margin-top:16px"><button class="button ghost" data-no style="flex:1">Cancelar</button><button class="button danger" data-yes style="flex:1">Eliminar</button></div></div>`;
+  m.innerHTML = `<div class="modal-box" role="alertdialog" aria-modal="true"><h2>${esc(msg)}</h2><p class="helper">${t('Esta acción no se puede deshacer.')}</p>
+  <div style="display:flex;gap:10px;margin-top:16px"><button class="button ghost" data-no style="flex:1">${t('Cancelar')}</button><button class="button danger" data-yes style="flex:1">${t('Eliminar')}</button></div></div>`;
   m.querySelector('[data-no]').onclick = () => m.remove();
   m.querySelector('[data-yes]').onclick = () => { m.remove(); onYes(); };
   document.body.appendChild(m);
@@ -949,7 +950,7 @@ function chaptersView() {
 }
 
 const safeImg = u => typeof u === 'string' && /^data:image\//.test(u);
-const chHero = (c, cls = 'ch-hero') => safeImg(c.cover) ? `<img class="${cls}" src="${esc(c.cover)}" alt="Portada del capítulo">` : '';
+const chHero = (c, cls = 'ch-hero') => safeImg(c.cover) ? `<img class="${cls}" src="${esc(c.cover)}" alt="${esc(t('Portada del capítulo'))}">` : '';
 const chCoverBox = ch => `<div class="chc-box">${safeImg(ch.cover)
   ? `<div class="chc-prev"><img src="${esc(ch.cover)}" alt="Portada del capítulo"><label class="button secondary sm chc-change">Cambiar<input id="chc-file" type="file" accept="image/*" hidden></label><button type="button" class="icon-btn chc-x" data-act="chc-clear" aria-label="Quitar portada del capítulo">✕</button></div>`
   : '<label class="chc-add">🖼 Portada del capítulo (opcional)<input id="chc-file" type="file" accept="image/*" hidden></label>'}</div>`;
@@ -1136,26 +1137,26 @@ function autoMusic(a, b, c) {
 }
 function closeMusic() { const d = $('#music-dock'); if (d) d.remove(); MUSIC = null; }
 function playMusic(url, sid) {                    // solo se abre cuando la persona lectora lo pide
-  const m = musicEmbed(url); if (!m) return toast('No se pudo abrir esa canción.');
+  const m = musicEmbed(url); if (!m) return toast(t('No se pudo abrir esa canción.'));
   closeMusic(); MUSIC = { url, sid };
   const d = document.createElement('div'); d.id = 'music-dock'; d.className = 'music-dock';
-  d.innerHTML = `<div class="music-top"><span>🎵 Música del capítulo</span><button class="icon-btn" data-act="music-close" aria-label="Cerrar música">✕</button></div>${m.audio ? `<audio controls autoplay src="${esc(m.src)}"></audio>` : `<iframe src="${esc(m.src)}" height="${m.h}" allow="autoplay; encrypted-media" title="Reproductor de música"></iframe>`}`;
+  d.innerHTML = `<div class="music-top"><span>🎵 ${t('Música del capítulo')}</span><button class="icon-btn" data-act="music-close" aria-label="${esc(t('Cerrar música'))}">✕</button></div>${m.audio ? `<audio controls autoplay src="${esc(m.src)}"></audio>` : `<iframe src="${esc(m.src)}" height="${m.h}" allow="autoplay; encrypted-media" title="${esc(t('Reproductor de música'))}"></iframe>`}`;
   document.body.appendChild(d);
 }
 
 /* --- Historia (varios capítulos) --- */
 const readList = id => { const p = S.progress[id]; return Array.isArray(p) ? p : p ? [0] : []; };
-const commentsBox = s => `<div class="comments-box"><button class="button secondary" data-act="comments" aria-expanded="${SHOWC}">💬 Comentarios (${comments(s.id).length}) ${SHOWC ? '▴' : '▾'}</button>${SHOWC ? `<div id="comments">${commentsHTML(s)}</div>` : ''}</div>`;
+const commentsBox = s => `<div class="comments-box"><button class="button secondary" data-act="comments" aria-expanded="${SHOWC}">💬 ${t('Comentarios ({n})', { n: comments(s.id).length })} ${SHOWC ? '▴' : '▾'}</button>${SHOWC ? `<div id="comments">${commentsHTML(s)}</div>` : ''}</div>`;
 function storyView(id, num) {
   const s = findStory(id);
-  if (!s) return `<main class="page">${empty('Esta historia se ha perdido', 'Puede que se haya eliminado o que aún esté en revisión.', '<a class="button" href="#/">Volver a descubrir</a>')}</main>`;
+  if (!s) return `<main class="page">${empty(t('Esta historia se ha perdido'), t('Puede que se haya eliminado o que aún esté en revisión.'), '<a class="button" href="#/">' + t('Volver a descubrir') + '</a>')}</main>`;
   const mine = S.stories.some(x => x.id === s.id);
-  if (s.mature && !mine && isMinor(getUsers()[S.user])) return `<main class="page story-layout"><a class="button ghost" href="#/">‹ Volver</a>
-  <div class="empty" style="margin-top:16px">${mascot()}<h3>Contenido +18</h3><p>Esta historia es solo para personas mayores de 18 años, así que no está disponible para tu cuenta.</p></div></main>`;
-  if (s.mature && !mine && !isAdult(getUsers()[S.user])) return `<main class="page story-layout"><a class="button ghost" href="#/">‹ Volver</a>
-  <div class="empty" style="margin-top:16px">${mascot()}<h3>Contenido +18</h3><p>Esta historia está marcada como +18. Para leerla declara que eres mayor de edad. Por ahora es solo una declaración; la verificación real llegará con el servidor.</p><button class="button" data-act="adult">Soy mayor de 18 años</button></div></main>`;
-  if (s.mature && !mine && !cfg('showMature')) return `<main class="page story-layout"><a class="button ghost" href="#/">‹ Volver</a>
-  <div class="empty" style="margin-top:16px">${mascot()}<h3>Contenido +18 oculto</h3><p>Tienes desactivado «Mostrar contenido +18». Puedes volver a activarlo en Ajustes.</p><button class="button" data-act="settings">Ir a Ajustes</button></div></main>`;
+  if (s.mature && !mine && isMinor(getUsers()[S.user])) return `<main class="page story-layout"><a class="button ghost" href="#/">${t('‹ Volver')}</a>
+  <div class="empty" style="margin-top:16px">${mascot()}<h3>${t('Contenido +18')}</h3><p>${t('Esta historia es solo para personas mayores de 18 años, así que no está disponible para tu cuenta.')}</p></div></main>`;
+  if (s.mature && !mine && !isAdult(getUsers()[S.user])) return `<main class="page story-layout"><a class="button ghost" href="#/">${t('‹ Volver')}</a>
+  <div class="empty" style="margin-top:16px">${mascot()}<h3>${t('Contenido +18')}</h3><p>${t('Esta historia está marcada como +18. Para leerla declara que eres mayor de edad. Por ahora es solo una declaración; la verificación real llegará con el servidor.')}</p><button class="button" data-act="adult">${t('Soy mayor de 18 años')}</button></div></main>`;
+  if (s.mature && !mine && !cfg('showMature')) return `<main class="page story-layout"><a class="button ghost" href="#/">${t('‹ Volver')}</a>
+  <div class="empty" style="margin-top:16px">${mascot()}<h3>${t('Contenido +18 oculto')}</h3><p>${t('Tienes desactivado «Mostrar contenido +18». Puedes volver a activarlo en Ajustes.')}</p><button class="button" data-act="settings">${t('Ir a Ajustes')}</button></div></main>`;
   return num === 'fin' ? bookEnd(s) : num ? chapterRead(s, +num - 1) : storyDetail(s, mine);
 }
 const staffBar = (s, mine) => {
@@ -1167,24 +1168,24 @@ function storyDetail(s, mine) {
   const read = readList(s.id), fav = S.favs.includes(s.id), n = likes(s.id).length, first = s.chapters[0];
   const lp = (S.pos || {})[s.id], at0 = lp && s.chapters.find(c => c.idx === lp.idx), at = at0 && !read.includes(at0.idx) ? at0 : null;   // si ya lo leíste, sigue con el primero sin leer
   const next = at || s.chapters.find(c => !read.includes(c.idx)) || first, all = !at && s.chapters.every(c => read.includes(c.idx));
-  return `<main class="page story-layout"><a class="button ghost" href="#/">‹ Todas las historias</a>
+  return `<main class="page story-layout"><a class="button ghost" href="#/">${t('‹ Todas las historias')}</a>
   <section class="detail">${sagaNav(s)}${sagaCovers(s)}
   <span class="eyebrow">${esc(genreName(s.genre))} · ${esc(s.fandom)}${s.mature ? ' · +18' : ''}</span><h1>${esc(s.title)}</h1>
-  <div class="detail-by">por ${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : esc(userName())}</div>${s.publishedAt ? `<div class="detail-date">📅 Publicado el ${fmtDate(s.publishedAt)}</div>` : ''}
-  <div class="detail-likes">👍 ${n} ${n === 1 ? 'like' : 'likes'}</div>${bookState(s)}
+  <div class="detail-by">${t('por')} ${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : esc(userName())}</div>${s.publishedAt ? `<div class="detail-date">📅 ${t('Publicado el {d}', { d: fmtDate(s.publishedAt) })}</div>` : ''}
+  <div class="detail-likes">👍 ${tn(n, '{n} like', '{n} likes')}</div>${bookState(s)}
   <p class="detail-syn">${esc(s.synopsis)}</p>
   <div class="tags" style="justify-content:center">${tagChips(s.tags)}</div>
   ${staffBar(s, mine)}
   ${mine && statusNote(ownOf(s)) ? `<p class="notice">${esc(statusNote(ownOf(s)))}</p>` : ''}
-  <a class="button" data-replace data-dir="next" ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} style="width:100%;max-width:420px" href="#/story/${esc(s.id)}/${next.idx + 1}">${!read.length && !at ? 'Empezar a leer' : all ? 'Leer otra vez' : `Continuar: cap. ${next.idx + 1}`}</a>
-  <div class="row-btns"><button class="button secondary" data-act="like" data-id="${esc(s.id)}">👍 ${likes(s.id).includes(S.user) ? 'Te gusta' : 'Me gusta'}</button><button class="button secondary" data-act="fav" data-id="${esc(s.id)}">${fav ? '♥ En favoritos' : '♡ Favorito'}</button><button class="button secondary" data-act="lib-toggle" data-id="${esc(s.id)}">${S.lib.includes(s.id) ? '✓ En tu biblioteca' : '📚 Guardar en biblioteca'}</button>${mine ? `<a class="button ghost" href="#/write/${esc(s.id)}">Editar</a>` : `<button class="button ghost" data-act="report-story" data-id="${esc(s.id)}">Reportar</button>`}</div>
-  <details class="ch-index"><summary>Capítulos (${s.chapters.length})</summary>${s.chapters.map(c => `<a data-replace ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} href="#/story/${esc(s.id)}/${c.idx + 1}"><b>${read.includes(c.idx) ? '✓' : c.idx + 1}</b><span>${esc(c.title || 'Capítulo ' + (c.idx + 1))}${mine && c.status !== 'approved' ? ` (${CH_STATUS[c.status].toLowerCase()})` : ''}</span></a>`).join('')}</details>
+  <a class="button" data-replace data-dir="next" ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} style="width:100%;max-width:420px" href="#/story/${esc(s.id)}/${next.idx + 1}">${!read.length && !at ? t('Empezar a leer') : all ? t('Leer otra vez') : t('Continuar: cap. {n}', { n: next.idx + 1 })}</a>
+  <div class="row-btns"><button class="button secondary" data-act="like" data-id="${esc(s.id)}">👍 ${likes(s.id).includes(S.user) ? t('Te gusta') : t('Me gusta')}</button><button class="button secondary" data-act="fav" data-id="${esc(s.id)}">${fav ? '♥ ' + t('En favoritos') : '♡ ' + t('Favorito')}</button><button class="button secondary" data-act="lib-toggle" data-id="${esc(s.id)}">${S.lib.includes(s.id) ? '✓ ' + t('En tu biblioteca') : '📚 ' + t('Guardar en biblioteca')}</button>${mine ? `<a class="button ghost" href="#/write/${esc(s.id)}">${t('Editar')}</a>` : `<button class="button ghost" data-act="report-story" data-id="${esc(s.id)}">${t('Reportar')}</button>`}</div>
+  <details class="ch-index"><summary>${t('Capítulos ({n})', { n: s.chapters.length })}</summary>${s.chapters.map(c => `<a data-replace ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} href="#/story/${esc(s.id)}/${c.idx + 1}"><b>${read.includes(c.idx) ? '✓' : c.idx + 1}</b><span>${esc(c.title || t('Capítulo {n}', { n: c.idx + 1 }))}${mine && c.status !== 'approved' ? ` (${t(CH_STATUS[c.status]).toLowerCase()})` : ''}</span></a>`).join('')}</details>
   ${commentsBox(s)}</section></main>`;
 }
 /* Estado del libro + barra de progreso (solo si ya empezaste o lo guardaste) */
 function bookState(s) {
   const p = bookProgress(s), ph = s.phase || 'ongoing', inLib = S.lib.includes(s.id), show = readList(s.id).length > 0 || inLib;
-  return `<div class="book-state"><span class="pill ph-${ph}">${PHASE[ph]}</span></div>${show ? `<div class="pbar big"><i data-key="b-${esc(s.id)}" data-w="${p.pct}" style="width:${p.pct}%"></i></div><div class="story-meta" style="text-align:center"><b class="plabel ${p.finished ? 'done' : p.caught ? 'caught' : ''}">${p.label}</b> · ${p.done}/${p.total} cap.</div>${p.caught && !p.finished ? `<p class="notice">${esc(moreNotice(s, inLib))}</p>` : ''}` : ''}`;
+  return `<div class="book-state"><span class="pill ph-${ph}">${t(PHASE[ph])}</span></div>${show ? `<div class="pbar big"><i data-key="b-${esc(s.id)}" data-w="${p.pct}" style="width:${p.pct}%"></i></div><div class="story-meta" style="text-align:center"><b class="plabel ${p.finished ? 'done' : p.caught ? 'caught' : ''}">${t(p.label)}</b> · ${t('{done}/{total} cap.', { done: p.done, total: p.total })}</div>${p.caught && !p.finished ? `<p class="notice">${esc(moreNotice(s, inLib))}</p>` : ''}` : ''}`;
 }
 /* Pantalla final: al día / terminado, opciones de biblioteca y salto al siguiente libro de la saga */
 /** Partes de la saga que esta persona puede ver (públicas, o todas si son suyas) */
@@ -1213,9 +1214,9 @@ function sagaGoto(tr, k) {                              // la portada elegida cr
 /** Portada de la ficha: si es parte de una saga, se muestra el carrusel (si no, la portada sola) */
 function sagaCovers(s) {
   const parts = sagaVisible(s), i = parts.findIndex(p => p.id === s.id);
-  if (parts.length < 2 || i < 0) return s.cover ? `<img class="detail-cover" src="${esc(s.cover)}" alt="Portada de ${esc(s.title)}">` : `<div class="detail-cover ph">${esc(s.title)}</div>`;
+  if (parts.length < 2 || i < 0) return s.cover ? `<img class="detail-cover" src="${esc(s.cover)}" alt="${esc(t('Portada de {title}', { title: s.title }))}">` : `<div class="detail-cover ph">${esc(s.title)}</div>`;
   const pose = k => { const q = sagaPose(k - i); return `transform:translateX(${q.x}px) scale(${q.sc});opacity:${q.op};z-index:${q.z}`; };
-  return `<div class="saga-view" data-saga data-ids="${parts.map(p => esc(p.id)).join(',')}" data-i="${i}" data-pos="${i}">${parts.map((p, k) => `<a class="sc" data-k="${k}" href="#/story/${esc(p.id)}" aria-label="${esc(p.title)}" ${k === i ? 'aria-current="true"' : ''} style="${pose(k)}">${coverHTML(p, k)}</a>`).join('')}</div><p class="swipe-hint">Desliza o toca una portada para cambiar de parte</p>`;
+  return `<div class="saga-view" data-saga data-ids="${parts.map(p => esc(p.id)).join(',')}" data-i="${i}" data-pos="${i}">${parts.map((p, k) => `<a class="sc" data-k="${k}" href="#/story/${esc(p.id)}" aria-label="${esc(p.title)}" ${k === i ? 'aria-current="true"' : ''} style="${pose(k)}">${coverHTML(p, k)}</a>`).join('')}</div><p class="swipe-hint">${t('Desliza o toca una portada para cambiar de parte')}</p>`;
 }
 /* Pantalla final: celebración + tarjeta del libro siguiente (se arma con los datos reales de la secuela) */
 function bookEnd(s) {
@@ -1223,37 +1224,37 @@ function bookEnd(s) {
   const parts = sagaParts(s).filter(x => x.id === s.id || publicPrefix(x.chapters).length), i = parts.findIndex(x => x.id === s.id), nxt = parts[i + 1];
   const pillCls = { 'Terminado': 'ph-finished', 'Al día': 'st-approved', 'En emisión': 'ph-ongoing', 'En pausa': 'ph-paused' };
   const pills = [p.label, PHASE[ph]].filter((x, k, a) => a.indexOf(x) === k);                 // sin etiquetas repetidas ("Terminado Terminado")
-  const head = p.finished ? '🎉 ¡Felicidades, terminaste esta historia!' : p.caught ? '✨ ¡Estás al día!' : 'Capítulo completado';
-  const notice = p.caught && !p.finished ? `<p class="notice">${esc(moreNotice(s, inLib))}</p>${inLib ? '' : `<button class="button secondary" data-act="lib-toggle" data-id="${id}">📚 Guardar en biblioteca</button>`}` : !p.caught ? `<p class="helper">Todavía te quedan capítulos por leer.</p><a class="button" data-replace href="#/story/${id}">Continuar leyendo</a>` : '';
-  const colBtn = inCol ? '<span class="end-note">⭐ Ya está en tus colecciones</span>' : `<button class="button ${nxt ? 'ghost sm' : 'secondary'}" data-act="col-add" data-id="${id}">⭐ Guardar en colecciones</button>`;
+  const head = p.finished ? t('🎉 ¡Felicidades, terminaste esta historia!') : p.caught ? t('✨ ¡Estás al día!') : t('Capítulo completado');
+  const notice = p.caught && !p.finished ? `<p class="notice">${esc(moreNotice(s, inLib))}</p>${inLib ? '' : `<button class="button secondary" data-act="lib-toggle" data-id="${id}">📚 ${t('Guardar en biblioteca')}</button>`}` : !p.caught ? `<p class="helper">${t('Todavía te quedan capítulos por leer.')}</p><a class="button" data-replace href="#/story/${id}">${t('Continuar leyendo')}</a>` : '';
+  const colBtn = inCol ? `<span class="end-note">⭐ ${t('Ya está en tus colecciones')}</span>` : `<button class="button ${nxt ? 'ghost sm' : 'secondary'}" data-act="col-add" data-id="${id}">⭐ ${t('Guardar en colecciones')}</button>`;
   let main;
   if (nxt) {
     const first = publicPrefix(nxt.chapters)[0];
-    main = `<article class="seq-card"><div class="seq-cover">${coverHTML(nxt, 1)}</div><div class="seq-info"><span class="eyebrow">${i + 1 < ORD.length ? `A continuación: ${ORD[i + 1]} libro` : `Parte ${i + 2}`}</span><h2>${esc(nxt.title)}</h2>
-      <a class="button seq-go" data-replace data-dir="next" ${nxt.useReaderCharacter ? `data-readas="${esc(nxt.id)}"` : ''} href="#/story/${esc(nxt.id)}/${first.idx + 1}">📖 Comenzar a leer ${esc(nxt.title)}</a></div></article>
-      <div class="end-sub">${colBtn}<a class="end-link" data-replace href="#/story/${id}">‹ Volver a la portada</a></div>`;
+    main = `<article class="seq-card"><div class="seq-cover">${coverHTML(nxt, 1)}</div><div class="seq-info"><span class="eyebrow">${i + 1 < ORD.length ? t('A continuación: {ord} libro', { ord: t(ORD[i + 1]) }) : t('Parte {n}', { n: i + 2 })}</span><h2>${esc(nxt.title)}</h2>
+      <a class="button seq-go" data-replace data-dir="next" ${nxt.useReaderCharacter ? `data-readas="${esc(nxt.id)}"` : ''} href="#/story/${esc(nxt.id)}/${first.idx + 1}">📖 ${t('Comenzar a leer {title}', { title: esc(nxt.title) })}</a></div></article>
+      <div class="end-sub">${colBtn}<a class="end-link" data-replace href="#/story/${id}">${t('‹ Volver a la portada')}</a></div>`;
   } else {
-    main = `<div class="end-panel">${colBtn}${inLib ? `<button class="button ghost" data-act="lib-del" data-id="${id}">🗑️ Borrar de la biblioteca</button>` : ''}<a class="end-link" href="#/">‹ Volver al inicio</a></div>`;
+    main = `<div class="end-panel">${colBtn}${inLib ? `<button class="button ghost" data-act="lib-del" data-id="${id}">🗑️ ${t('Borrar de la biblioteca')}</button>` : ''}<a class="end-link" href="#/">${t('‹ Volver al inicio')}</a></div>`;
   }
-  return `<div class="rf"><header class="rf-top"><a class="button ghost sm" data-replace href="#/story/${id}">✕ Cerrar</a><div class="rf-title">${esc(s.title)}</div><span style="width:44px"></span></header>
+  return `<div class="rf"><header class="rf-top"><a class="button ghost sm" data-replace href="#/story/${id}">✕ ${t('Cerrar')}</a><div class="rf-title">${esc(s.title)}</div><span style="width:44px"></span></header>
   <div class="rf-body end-card"><h1 class="rf-h end-h">${head}</h1><p class="story-meta">${esc(s.title)}</p>
   <div class="pbar big"><i data-key="b-${esc(s.id)}" data-w="${p.pct}" style="width:${p.pct}%"></i></div>
-  <p class="end-pills">${pills.map(x => `<span class="pill ${pillCls[x] || ''}">${x}</span>`).join(' ')}</p>${notice}${main}</div></div>`;
+  <p class="end-pills">${pills.map(x => `<span class="pill ${pillCls[x] || ''}">${t(x)}</span>`).join(' ')}</p>${notice}${main}</div></div>`;
 }
 /* Pantalla 2: lectura a pantalla completa (sin barra de la app); la salida guarda el progreso */
 function chapterRead(s, N) {
   const read = readList(s.id), mine = S.stories.some(x => x.id === s.id);
   let pos = s.chapters.findIndex(c => c.idx === N); if (pos < 0) pos = 0;
   const ch = s.chapters[pos], before = s.chapters[pos - 1], after = s.chapters[pos + 1];
-  if (!ch) return `<main class="page">${empty('Aún no hay capítulos', 'Esta historia todavía no tiene capítulos publicados.', `<a class="button" href="#/story/${esc(s.id)}">Volver a la historia</a>`)}</main>`;
+  if (!ch) return `<main class="page">${empty(t('Aún no hay capítulos'), t('Esta historia todavía no tiene capítulos publicados.'), `<a class="button" href="#/story/${esc(s.id)}">${t('Volver a la historia')}</a>`)}</main>`;
   const nc = comments(s.id).length, exit = `data-act="exit-book" data-id="${esc(s.id)}" data-n="${ch.idx}"`;
   return `<div class="rf"><div class="rf-bar"><i id="rf-bar-i"></i></div>
-  <header class="rf-top"><button class="button ghost sm" ${exit} aria-label="Guardar progreso y salir del libro">✕ Salir</button><div class="rf-title"><b>Cap. ${ch.idx + 1}</b> · ${esc(ch.title)}</div><button class="icon-btn" data-act="comments" aria-label="Comentarios">💬</button></header>
-  <article class="rf-body">${chHero(ch)}<h1 class="rf-h">${esc(ch.title)}</h1>${s.useReaderCharacter && S.chars.length > 1 ? `<label class="helper" style="display:flex;align-items:center;gap:8px;margin-bottom:14px">Leyendo como <select id="char-sel" class="select" style="max-width:200px">${S.chars.map((x, k) => `<option value="${x.id}" ${x.id === S.activeId ? 'selected' : ''}>${esc(x.name || 'Personaje ' + (k + 1))}</option>`).join('')}</select></label>` : ''}${ch.music && musicEmbed(ch.music) ? `<button class="button secondary sm" data-act="music" data-url="${esc(ch.music)}" style="margin-bottom:14px">🎵 Escuchar la canción de este capítulo</button>` : ''}${readerText(ch.text, s.useReaderCharacter, { sid: s.id, ci: ch.idx })}</article>
-  <footer class="rf-end"><div class="ch-nav">${before ? `<a class="button secondary" data-replace data-dir="prev" href="#/story/${esc(s.id)}/${before.idx + 1}">‹ Anterior</a>` : '<span></span>'}<button class="button" data-act="read" data-id="${esc(s.id)}" data-n="${ch.idx}">${read.includes(ch.idx) ? 'Leído ✓' : 'Marcar como leído'}</button>${after ? `<a class="button secondary" data-replace data-dir="next" href="#/story/${esc(s.id)}/${after.idx + 1}">Siguiente ›</a>` : '<span></span>'}</div>
-  <label class="helper" style="display:flex;align-items:center;gap:8px;margin-top:16px">Ir a <select id="ch-sel" class="select" aria-label="Elegir capítulo">${s.chapters.map(c => `<option value="${c.idx + 1}" ${c === ch ? 'selected' : ''}>${read.includes(c.idx) ? '✓ ' : ''}${esc(c.title || 'Capítulo ' + (c.idx + 1))}${mine && c.status !== 'approved' ? ` (${CH_STATUS[c.status].toLowerCase()})` : ''}</option>`).join('')}</select></label>
-  <button class="button secondary" style="width:100%;margin-top:14px" data-act="comments">💬 ${SHOWC ? 'Ocultar comentarios' : `Comentarios (${nc})`}</button>${SHOWC ? `<div id="comments">${commentsHTML(s)}</div>` : ''}
-  <button class="button ghost" style="width:100%;margin-top:18px" ${exit}>Guardar progreso y salir del libro</button></footer></div>`;
+  <header class="rf-top"><button class="button ghost sm" ${exit} aria-label="${esc(t('Guardar progreso y salir del libro'))}">✕ ${t('Salir')}</button><div class="rf-title"><b>${t('Cap. {n}', { n: ch.idx + 1 })}</b> · ${esc(ch.title)}</div><button class="icon-btn" data-act="comments" aria-label="${esc(t('Comentarios'))}">💬</button></header>
+  <article class="rf-body">${chHero(ch)}<h1 class="rf-h">${esc(ch.title)}</h1>${s.useReaderCharacter && S.chars.length > 1 ? `<label class="helper" style="display:flex;align-items:center;gap:8px;margin-bottom:14px">${t('Leyendo como')} <select id="char-sel" class="select" style="max-width:200px">${S.chars.map((x, k) => `<option value="${x.id}" ${x.id === S.activeId ? 'selected' : ''}>${esc(x.name || t('Personaje {n}', { n: k + 1 }))}</option>`).join('')}</select></label>` : ''}${ch.music && musicEmbed(ch.music) ? `<button class="button secondary sm" data-act="music" data-url="${esc(ch.music)}" style="margin-bottom:14px">🎵 ${t('Escuchar la canción de este capítulo')}</button>` : ''}${readerText(ch.text, s.useReaderCharacter, { sid: s.id, ci: ch.idx })}</article>
+  <footer class="rf-end"><div class="ch-nav">${before ? `<a class="button secondary" data-replace data-dir="prev" href="#/story/${esc(s.id)}/${before.idx + 1}">${t('‹ Anterior')}</a>` : '<span></span>'}<button class="button" data-act="read" data-id="${esc(s.id)}" data-n="${ch.idx}">${read.includes(ch.idx) ? t('Leído ✓') : t('Marcar como leído')}</button>${after ? `<a class="button secondary" data-replace data-dir="next" href="#/story/${esc(s.id)}/${after.idx + 1}">${t('Siguiente ›')}</a>` : '<span></span>'}</div>
+  <label class="helper" style="display:flex;align-items:center;gap:8px;margin-top:16px">${t('Ir a')} <select id="ch-sel" class="select" aria-label="${esc(t('Elegir capítulo'))}">${s.chapters.map(c => `<option value="${c.idx + 1}" ${c === ch ? 'selected' : ''}>${read.includes(c.idx) ? '✓ ' : ''}${esc(c.title || t('Capítulo {n}', { n: c.idx + 1 }))}${mine && c.status !== 'approved' ? ` (${t(CH_STATUS[c.status]).toLowerCase()})` : ''}</option>`).join('')}</select></label>
+  <button class="button secondary" style="width:100%;margin-top:14px" data-act="comments">💬 ${SHOWC ? t('Ocultar comentarios') : t('Comentarios ({n})', { n: nc })}</button>${SHOWC ? `<div id="comments">${commentsHTML(s)}</div>` : ''}
+  <button class="button ghost" style="width:100%;margin-top:18px" ${exit}>${t('Guardar progreso y salir del libro')}</button></footer></div>`;
 }
 
 /* --- Moderación por capítulo (solo la cuenta dueña) --- */
@@ -1602,7 +1603,7 @@ function bookProgress(s) {
   const caught = !!last && read.includes(last.idx), finished = caught && s.phase === 'finished';
   return { total, done, left: total - done, caught, finished, pct: caught ? 100 : total ? Math.round(done / total * 100) : 0, label: finished ? 'Terminado' : caught ? 'Al día' : done ? 'Leyendo' : 'Sin empezar' };
 }
-const moreNotice = (s, inLib) => `${s.phase === 'paused' ? 'Esta historia está en pausa. ' : ''}${inLib ? 'Próximamente habrá más capítulos, te avisaremos cuando el autor publique.' : 'Próximamente habrá más capítulos. Guarda el libro en tu biblioteca y te avisaremos cuando el autor publique.'}`;
+const moreNotice = (s, inLib) => `${s.phase === 'paused' ? t('Esta historia está en pausa.') + ' ' : ''}${inLib ? t('Próximamente habrá más capítulos, te avisaremos cuando el autor publique.') : t('Próximamente habrá más capítulos. Guarda el libro en tu biblioteca y te avisaremos cuando el autor publique.')}`;
 /* Suscripción automática: guardar en la biblioteca = recibir avisos; quitarlo = cancelar el aviso */
 const subs = () => G.get('subs', {});
 function subscribe(id) { const m = subs(); m[id] = [...new Set([...(m[id] || []), S.user])]; G.set('subs', m); }
@@ -1637,7 +1638,7 @@ function sagaNav(s) {
   const mine = S.stories.some(x => x.id === s.id), parts = sagaParts(s).filter(p => p.id === s.id || publicPrefix(p.chapters).length || (mine && p.owner === S.user)), i = parts.findIndex(p => p.id === s.id);
   if (parts.length < 2 || i < 0) return '';
   const arrow = (p, txt, cls) => p ? `<a class="saga-arrow ${cls}" data-replace data-dir="${cls === 'l' ? 'prev' : 'next'}" data-goto="${parts.indexOf(p)}" href="#/story/${esc(p.id)}" title="${esc(p.title)}">${txt}</a>` : `<span class="saga-arrow off ${cls}">·</span>`;
-  return `<nav class="saga-nav" aria-label="Partes de la saga">${arrow(parts[i - 1], `◀ Parte ${i}`, 'l')}<span class="saga-now">Saga · Parte ${i + 1} de ${parts.length}</span>${arrow(parts[i + 1], `Parte ${i + 2} ▶`, 'r')}</nav>`;
+  return `<nav class="saga-nav" aria-label="${esc(t('Partes de la saga'))}">${arrow(parts[i - 1], '◀ ' + t('Parte {n}', { n: i }), 'l')}<span class="saga-now">${t('Saga · Parte {n} de {m}', { n: i + 1, m: parts.length })}</span>${arrow(parts[i + 1], t('Parte {n}', { n: i + 2 }) + ' ▶', 'r')}</nav>`;
 }
 function sagaBox() {                              // solo existe si la persona ya tiene al menos otro libro
   if (!S.stories.some(x => x.id !== W.id)) return '';
@@ -1652,7 +1653,7 @@ function libRow(s, i) {                           // fila de la biblioteca / col
     : p.finished ? `<button class="button secondary sm" data-act="lib-del" data-id="${id}">🗑️ Borrar de la biblioteca</button><button class="button sm" data-act="col-add" data-id="${id}">⭐ Guardar en colecciones</button>`
     : `<button class="icon-btn" data-act="lib-del" data-id="${id}" aria-label="Quitar de la biblioteca" title="Quitar de la biblioteca">🗑</button>`;
   return `<article class="row-card">${coverHTML(s, i)}<div class="row-info"><a href="#/story/${id}"><strong class="serif">${esc(s.title)}</strong></a>
-    <div class="story-meta">${esc(s.author || '')} · <span class="pill ph-${ph}">${PHASE[ph]}</span></div><div class="pbar"><i data-key="b-${esc(s.id)}" data-w="${p.pct}" style="width:${p.pct}%"></i></div>
+    <div class="story-meta">${esc(s.author || '')} · <span class="pill ph-${ph}">${t(PHASE[ph])}</span></div><div class="pbar"><i data-key="b-${esc(s.id)}" data-w="${p.pct}" style="width:${p.pct}%"></i></div>
     <div class="story-meta"><b class="plabel ${p.finished ? 'done' : p.caught ? 'caught' : ''}">${p.label}</b>${!p.caught && p.done ? ` · ${p.left} por leer` : ''} · ${p.done}/${p.total} cap.</div>
     ${p.caught && !p.finished && TAB === 'lib' ? `<p class="notice">${esc(moreNotice(s, true))}</p>` : ''}
     <div class="card-footer" style="justify-content:flex-start;flex-wrap:wrap"><a class="button secondary sm" href="#/story/${id}">Abrir</a>${acts}</div></div></article>`;
@@ -1679,27 +1680,27 @@ function updateComments(sid, fn) { const all = G.get('comments', {}); all[sid] =
 let REPLYTO = null, REPLYPRE = ''; const REPOPEN = new Set();        // hilo donde estás respondiendo · hilos con las respuestas abiertas
 const ICO_REPLY = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12c0 4.4-4 8-9 8-1.2 0-2.3-.2-3.3-.5L3 21l1.6-4.3C3.6 15.5 3 13.8 3 12c0-4.4 4-8 9-8s9 3.6 9 8z"/></svg>';
 const ICO_SEND = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>';
-const authLike = (x, s) => (x.lk || []).includes(s.owner) && x.by !== s.owner ? `<span class="c-authlike">${HEART}Le gustó a la autoría</span>` : '';
+const authLike = (x, s) => (x.lk || []).includes(s.owner) && x.by !== s.owner ? `<span class="c-authlike">${HEART}${t('Le gustó a la autoría')}</span>` : '';
 let MENUC = null;                                      // comentario con el menú «⋯» abierto
 function cmRow(x, s, sub, extra = '') {
-  const mine = x.by === S.user, lk = x.lk || [], liked = lk.includes(S.user), top = sub ? x.parent : x.id, role = ROLE_LABEL[roleOf(x.by)];
-  const menu = MENUC === x.id ? `<div class="c-menu" role="menu">${mine ? `<button type="button" role="menuitem" data-act="c-edit" data-cid="${x.id}">Editar</button>` : `<button type="button" role="menuitem" data-act="report-comment" data-id="${esc(s.id)}" data-cid="${x.id}">Reportar</button>`}${mine || isAdmin() ? `<button type="button" role="menuitem" class="danger-link" data-act="c-del" data-id="${esc(s.id)}" data-cid="${x.id}">Eliminar</button>` : ''}</div>` : '';
+  const mine = x.by === S.user, lk = x.lk || [], liked = lk.includes(S.user), top = sub ? x.parent : x.id, role = t(ROLE_LABEL[roleOf(x.by)]);
+  const menu = MENUC === x.id ? `<div class="c-menu" role="menu">${mine ? `<button type="button" role="menuitem" data-act="c-edit" data-cid="${x.id}">${t('Editar')}</button>` : `<button type="button" role="menuitem" data-act="report-comment" data-id="${esc(s.id)}" data-cid="${x.id}">${t('Reportar')}</button>`}${mine || isAdmin() ? `<button type="button" role="menuitem" class="danger-link" data-act="c-del" data-id="${esc(s.id)}" data-cid="${x.id}">${t('Eliminar')}</button>` : ''}</div>` : '';
   return `<div class="comment ${sub ? 'reply' : ''} ${x.by === s.owner ? 'by-own' : ''}" id="cm-${x.id}">${userAvatar(x.by)}<div class="c-main">
-    <div class="c-bubble"><div class="c-meta"><a href="#/user/${encodeURIComponent(x.by)}"><strong>${esc(uName(x.by))}</strong></a>${x.by === s.owner ? '<span class="c-badge own">Autoría</span>' : ''}${role ? `<span class="c-badge staff">${esc(role)}</span>` : ''}${relSpan(x)}${x.edited ? '<span class="c-ed">· editado</span>' : ''}
-      <span class="c-more-wrap"><button type="button" class="c-more" data-act="c-more" data-cid="${x.id}" aria-label="Más opciones" aria-expanded="${MENUC === x.id}">⋯</button>${menu}</span></div>
-    ${EDITC === x.id ? `<textarea id="c-edit-text" class="textarea" style="min-height:70px;margin-top:6px" maxlength="300">${esc(x.text)}</textarea><div class="c-actions"><button class="button sm" data-act="c-save" data-id="${esc(s.id)}" data-cid="${x.id}">Guardar</button><button class="button ghost sm" data-act="c-cancel">Cancelar</button></div>` : `<div class="c-text">${esc(x.text)}</div>`}</div>
-    ${EDITC === x.id ? '' : `<div class="c-actions"><button type="button" class="c-heart ${liked ? 'on' : ''}" data-act="c-like" data-id="${esc(s.id)}" data-cid="${x.id}" aria-pressed="${liked}" aria-label="${liked ? 'Quitar me gusta' : 'Me gusta'}">${HEART}<span class="c-n">${lk.length || ''}</span></button><button type="button" class="c-act" data-act="c-reply" data-top="${top}" data-pre="${sub ? esc('@' + uName(x.by) + ' ') : ''}">${ICO_REPLY}Responder</button>${authLike(x, s)}</div>`}${extra}</div></div>`;
+    <div class="c-bubble"><div class="c-meta"><a href="#/user/${encodeURIComponent(x.by)}"><strong>${esc(uName(x.by))}</strong></a>${x.by === s.owner ? `<span class="c-badge own">${t('Autoría')}</span>` : ''}${role ? `<span class="c-badge staff">${esc(role)}</span>` : ''}${relSpan(x)}${x.edited ? `<span class="c-ed">· ${t('editado')}</span>` : ''}
+      <span class="c-more-wrap"><button type="button" class="c-more" data-act="c-more" data-cid="${x.id}" aria-label="${esc(t('Más opciones'))}" aria-expanded="${MENUC === x.id}">⋯</button>${menu}</span></div>
+    ${EDITC === x.id ? `<textarea id="c-edit-text" class="textarea" style="min-height:70px;margin-top:6px" maxlength="300">${esc(x.text)}</textarea><div class="c-actions"><button class="button sm" data-act="c-save" data-id="${esc(s.id)}" data-cid="${x.id}">${t('Guardar')}</button><button class="button ghost sm" data-act="c-cancel">${t('Cancelar')}</button></div>` : `<div class="c-text">${esc(x.text)}</div>`}</div>
+    ${EDITC === x.id ? '' : `<div class="c-actions"><button type="button" class="c-heart ${liked ? 'on' : ''}" data-act="c-like" data-id="${esc(s.id)}" data-cid="${x.id}" aria-pressed="${liked}" aria-label="${esc(liked ? t('Quitar me gusta') : t('Me gusta'))}">${HEART}<span class="c-n">${lk.length || ''}</span></button><button type="button" class="c-act" data-act="c-reply" data-top="${top}" data-pre="${sub ? esc('@' + uName(x.by) + ' ') : ''}">${ICO_REPLY}${t('Responder')}</button>${authLike(x, s)}</div>`}${extra}</div></div>`;
 }
 function commentsHTML(s) {
   const all = comments(s.id).filter(c => !hidesFrom(c.by)), tops = all.filter(c => !c.parent);
-  return `<section class="panel" style="margin-top:20px"><h2>Comentarios (${all.length})</h2>
-  ${isGuest() ? guestCompose('comentar') : ''}<form data-form="comment" data-id="${esc(s.id)}" class="c-compose" ${isGuest() ? 'style="display:none"' : ''}>${userAvatar(S.user)}<div class="c-pill"><input id="c-text" maxlength="300" placeholder="Escribe un comentario…" aria-label="Escribe un comentario" autocomplete="off"><button class="c-send" type="submit" aria-label="Enviar comentario">${ICO_SEND}</button></div></form>
+  return `<section class="panel" style="margin-top:20px"><h2>${t('Comentarios ({n})', { n: all.length })}</h2>
+  ${isGuest() ? guestCompose('comentar') : ''}<form data-form="comment" data-id="${esc(s.id)}" class="c-compose" ${isGuest() ? 'style="display:none"' : ''}>${userAvatar(S.user)}<div class="c-pill"><input id="c-text" maxlength="300" placeholder="${esc(t('Escribe un comentario…'))}" aria-label="${esc(t('Escribe un comentario'))}" autocomplete="off"><button class="c-send" type="submit" aria-label="${esc(t('Enviar comentario'))}">${ICO_SEND}</button></div></form>
   ${tops.length ? tops.map(x => {
     const reps = all.filter(r => r.parent === x.id), open = REPOPEN.has(x.id);
-    const rf = REPLYTO === x.id ? `<form data-form="reply" data-id="${esc(s.id)}" data-cid="${x.id}" class="c-replyform">${userAvatar(S.user)}<div class="c-pill"><input id="c-reply-text" maxlength="300" value="${esc(REPLYPRE)}" placeholder="Escribe una respuesta…" aria-label="Tu respuesta" autocomplete="off"><button class="c-send" type="submit" aria-label="Enviar respuesta">${ICO_SEND}</button></div><button type="button" class="c-act" data-act="c-reply-cancel">Cancelar</button></form>` : '';
-    const tg = reps.length ? `<button type="button" class="c-rtoggle" data-act="c-replies" data-cid="${x.id}" aria-expanded="${open}"><i class="c-line"></i>${open ? 'Ocultar respuestas' : `Ver las respuestas (${reps.length})`}</button>` : '';
+    const rf = REPLYTO === x.id ? `<form data-form="reply" data-id="${esc(s.id)}" data-cid="${x.id}" class="c-replyform">${userAvatar(S.user)}<div class="c-pill"><input id="c-reply-text" maxlength="300" value="${esc(REPLYPRE)}" placeholder="${esc(t('Escribe una respuesta…'))}" aria-label="${esc(t('Tu respuesta'))}" autocomplete="off"><button class="c-send" type="submit" aria-label="${esc(t('Enviar respuesta'))}">${ICO_SEND}</button></div><button type="button" class="c-act" data-act="c-reply-cancel">${t('Cancelar')}</button></form>` : '';
+    const tg = reps.length ? `<button type="button" class="c-rtoggle" data-act="c-replies" data-cid="${x.id}" aria-expanded="${open}"><i class="c-line"></i>${open ? t('Ocultar respuestas') : t('Ver las respuestas ({n})', { n: reps.length })}</button>` : '';
     return cmRow(x, s, false, `${tg}${open ? `<div class="c-replies">${reps.map(r => cmRow(r, s, true)).join('')}</div>` : ''}${rf}`);
-  }).join('') : '<p class="helper">Sé la primera persona en comentar.</p>'}</section>`;
+  }).join('') : `<p class="helper">${t('Sé la primera persona en comentar.')}</p>`}</section>`;
 }
 
 /* --- Mi perfil / perfil de otra persona --- */
@@ -2058,13 +2059,13 @@ function openCharForm(id, after) {
 function readAs(path) {
   const go2 = () => { NAVDIR = 'next'; goReplace(path); };
   const m = document.createElement('div'); m.className = 'modal sheet';
-  m.innerHTML = `<div class="modal-box readas" role="dialog" aria-modal="true" aria-label="Leer como"><button class="icon-btn close-x" data-x aria-label="Cerrar">✕</button><h2>Leer como…</h2>
-  <p class="helper">Elige con qué personaje quieres leer: su nombre reemplazará a [TN] en la historia.</p>
-  <div class="ra-car" role="listbox" aria-label="Personajes">${S.chars.length ? S.chars.map(c => {
+  m.innerHTML = `<div class="modal-box readas" role="dialog" aria-modal="true" aria-label="${esc(t('Leer como'))}"><button class="icon-btn close-x" data-x aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Leer como…')}</h2>
+  <p class="helper">${t('Elige con qué personaje quieres leer: su nombre reemplazará a [TN] en la historia.')}</p>
+  <div class="ra-car" role="listbox" aria-label="${esc(t('Personajes'))}">${S.chars.length ? S.chars.map(c => {
     const on = c.id === S.activeId;
-    return `<button type="button" class="ra-card ${on ? 'active' : ''}" data-pick="${c.id}" role="option" aria-selected="${on}"><span class="ra-img">${c.photo ? `<img src="${esc(c.photo)}" alt="">` : `<b>${esc([...c.name][0].toUpperCase())}</b>`}</span><strong class="ra-name">${esc(c.name)}</strong>${on ? '<i class="ra-badge">Último usado</i>' : ''}</button>`; }).join('') : '<p class="helper">Todavía no tienes personajes.</p>'}</div>
-  ${S.chars.length > 2 ? '<p class="helper ra-hint">Desliza para ver más →</p>' : ''}
-  <button type="button" class="button secondary" data-new>＋ Crear personaje</button><button type="button" class="button ghost" data-skip>Leer sin personaje</button></div>`;
+    return `<button type="button" class="ra-card ${on ? 'active' : ''}" data-pick="${c.id}" role="option" aria-selected="${on}"><span class="ra-img">${c.photo ? `<img src="${esc(c.photo)}" alt="">` : `<b>${esc([...c.name][0].toUpperCase())}</b>`}</span><strong class="ra-name">${esc(c.name)}</strong>${on ? `<i class="ra-badge">${t('Último usado')}</i>` : ''}</button>`; }).join('') : `<p class="helper">${t('Todavía no tienes personajes.')}</p>`}</div>
+  ${S.chars.length > 2 ? `<p class="helper ra-hint">${t('Desliza para ver más →')}</p>` : ''}
+  <button type="button" class="button secondary" data-new>＋ ${t('Crear personaje')}</button><button type="button" class="button ghost" data-skip>${t('Leer sin personaje')}</button></div>`;
   m.onclick = ev => {
     const t = ev.target, pick = t.closest && t.closest('[data-pick]');
     if (pick) { setActive(+pick.dataset.pick); m.remove(); go2(); }
@@ -2121,9 +2122,9 @@ function animateBars() {                               // las barras de progreso
 let ASKING = false;                                    // hay un cuadro "guardar en biblioteca" abierto (evita que se apilen)
 function libPrompt(title, onYes, onNo) {               // cuadrito pequeño superpuesto: Aceptar / Cancelar
   const m = document.createElement('div'); m.className = 'modal';
-  m.innerHTML = `<div class="modal-box mini-box" role="dialog" aria-modal="true" aria-label="Guardar en tu biblioteca"><h2>📚 ¿Guardar en tu biblioteca?</h2>
-  <p class="helper">«${esc(title)}»<br>Así recibirás un aviso cuando haya capítulos nuevos.</p>
-  <div style="display:flex;gap:10px;margin-top:16px"><button class="button ghost" data-no style="flex:1">Cancelar</button><button class="button" data-yes style="flex:1">Aceptar</button></div></div>`;
+  m.innerHTML = `<div class="modal-box mini-box" role="dialog" aria-modal="true" aria-label="${esc(t('Guardar en tu biblioteca'))}"><h2>📚 ${t('¿Guardar en tu biblioteca?')}</h2>
+  <p class="helper">«${esc(title)}»<br>${t('Así recibirás un aviso cuando haya capítulos nuevos.')}</p>
+  <div style="display:flex;gap:10px;margin-top:16px"><button class="button ghost" data-no style="flex:1">${t('Cancelar')}</button><button class="button" data-yes style="flex:1">${t('Aceptar')}</button></div></div>`;
   m.querySelector('[data-no]').onclick = () => { m.remove(); ASKING = false; onNo(); };
   m.querySelector('[data-yes]').onclick = () => { m.remove(); ASKING = false; onYes(); };
   document.body.appendChild(m);
@@ -2134,7 +2135,7 @@ function askSaveLib(id, onYes, onNo) {
   if (!S.user || ASKING || S.lib.includes(id) || S.cols.includes(id)) return false;
   const sv = publishedStories().find(x => x.id === id); if (!sv) return false;
   ASKING = true;
-  libPrompt(sv.title, () => { libAdd(id); toast('Guardado en tu biblioteca. Te avisaremos cuando haya capítulos nuevos.'); if (onYes) onYes(); }, () => { if (onNo) onNo(); });
+  libPrompt(sv.title, () => { libAdd(id); toast(t('Guardado en tu biblioteca. Te avisaremos cuando haya capítulos nuevos.')); if (onYes) onYes(); }, () => { if (onNo) onNo(); });
   return true;
 }
 function fadeInfo() {                                  // tras deslizar entre partes: la portada ya está en su sitio, solo cambia el texto
@@ -2206,46 +2207,46 @@ function pcTap(p) {                                      // tocar un párrafo: s
   const sid = decodeURIComponent(m[1]), ci = +m[2] - 1, pi = +p.dataset.pi, n = pcList(sid, ci, pi).length;
   p.classList.add('pc-on');
   const b = document.createElement('button'); b.type = 'button'; b.className = 'pc-pill'; b.dataset.act = 'pc-open'; b.dataset.pi = pi;
-  b.textContent = n ? `💬 ${n} comentario${n === 1 ? '' : 's'}` : '💬 Comentar'; p.appendChild(b);
+  b.textContent = n ? '💬 ' + tn(n, '{n} comentario', '{n} comentarios') : '💬 ' + t('Comentar'); p.appendChild(b);
 }
-function pcHintOnce() { if (cfg('pcom') !== 'off' && !cfg('pcHint')) { setCfg('pcHint', true); toast('Tip: toca un párrafo para comentarlo 💬'); } }
+function pcHintOnce() { if (cfg('pcom') !== 'off' && !cfg('pcHint')) { setCfg('pcHint', true); toast(t('Tip: toca un párrafo para comentarlo 💬')); } }
 let PCREPLY = null, PCREPPRE = ''; const PCREPOPEN = new Set();       // comentarios de párrafo: hilo en el que respondes · hilos abiertos
 function pcItem(c, s, sub = false, extra = '') {
   const hide = c.spoiler && cfg('spoilers') === 'hide' && c.by !== S.user, mine = c.by === S.user, can = mine || s.owner === S.user || isStaff();
-  const lk = c.lk || [], liked = lk.includes(S.user), top = sub ? c.parent : c.id, role = ROLE_LABEL[roleOf(c.by)], cid = esc(String(c.id));
-  const items = `${!mine ? `<button type="button" role="menuitem" data-act="report-pc" data-cid="${cid}">Reportar</button>` : ''}${can ? `<button type="button" role="menuitem" class="danger-link" data-act="pc-del" data-cid="${cid}">Eliminar</button>` : ''}`;
+  const lk = c.lk || [], liked = lk.includes(S.user), top = sub ? c.parent : c.id, role = t(ROLE_LABEL[roleOf(c.by)]), cid = esc(String(c.id));
+  const items = `${!mine ? `<button type="button" role="menuitem" data-act="report-pc" data-cid="${cid}">${t('Reportar')}</button>` : ''}${can ? `<button type="button" role="menuitem" class="danger-link" data-act="pc-del" data-cid="${cid}">${t('Eliminar')}</button>` : ''}`;
   const menu = MENUC === c.id && items ? `<div class="c-menu" role="menu">${items}</div>` : '';
-  return `<div class="comment ${sub ? 'reply' : ''} ${c.by === s.owner ? 'by-own' : ''}">${userAvatar(c.by)}<div class="c-main"><div class="c-bubble"><div class="c-meta"><b class="c-name">${esc(uName(c.by))}</b>${c.by === s.owner ? '<span class="c-badge own">Autoría</span>' : ''}${role ? `<span class="c-badge staff">${esc(role)}</span>` : ''}${c.spoiler ? '<span class="pc-tag">⚠ Spoiler</span>' : ''}${relSpan(c)}
-    ${items ? `<span class="c-more-wrap"><button type="button" class="c-more" data-act="pc-more" data-cid="${cid}" aria-label="Más opciones" aria-expanded="${MENUC === c.id}">⋯</button>${menu}</span>` : ''}</div>
-    <div class="c-text pc-text ${hide ? 'spoil' : ''}" ${hide ? 'data-act="pc-reveal" role="button" aria-label="Spoiler oculto: toca para ver"' : ''}>${esc(c.text)}</div>${hide ? '<button type="button" class="link-btn pc-hint" data-act="pc-reveal-btn">👁 Revelar spoiler</button>' : ''}</div>
-    <div class="c-actions"><button type="button" class="c-heart ${liked ? 'on' : ''}" data-act="pc-like" data-cid="${cid}" aria-pressed="${liked}" aria-label="${liked ? 'Quitar me gusta' : 'Me gusta'}">${HEART}<span class="c-n">${lk.length || ''}</span></button><button type="button" class="c-act" data-act="pc-reply" data-top="${esc(String(top))}" data-pre="${sub ? esc('@' + uName(c.by) + ' ') : ''}">${ICO_REPLY}Responder</button>${authLike(c, s)}</div>${extra}</div></div>`;
+  return `<div class="comment ${sub ? 'reply' : ''} ${c.by === s.owner ? 'by-own' : ''}">${userAvatar(c.by)}<div class="c-main"><div class="c-bubble"><div class="c-meta"><b class="c-name">${esc(uName(c.by))}</b>${c.by === s.owner ? `<span class="c-badge own">${t('Autoría')}</span>` : ''}${role ? `<span class="c-badge staff">${esc(role)}</span>` : ''}${c.spoiler ? `<span class="pc-tag">⚠ ${t('Spoiler')}</span>` : ''}${relSpan(c)}
+    ${items ? `<span class="c-more-wrap"><button type="button" class="c-more" data-act="pc-more" data-cid="${cid}" aria-label="${esc(t('Más opciones'))}" aria-expanded="${MENUC === c.id}">⋯</button>${menu}</span>` : ''}</div>
+    <div class="c-text pc-text ${hide ? 'spoil' : ''}" ${hide ? `data-act="pc-reveal" role="button" aria-label="${esc(t('Spoiler oculto: toca para ver'))}"` : ''}>${esc(c.text)}</div>${hide ? `<button type="button" class="link-btn pc-hint" data-act="pc-reveal-btn">👁 ${t('Revelar spoiler')}</button>` : ''}</div>
+    <div class="c-actions"><button type="button" class="c-heart ${liked ? 'on' : ''}" data-act="pc-like" data-cid="${cid}" aria-pressed="${liked}" aria-label="${esc(liked ? t('Quitar me gusta') : t('Me gusta'))}">${HEART}<span class="c-n">${lk.length || ''}</span></button><button type="button" class="c-act" data-act="pc-reply" data-top="${esc(String(top))}" data-pre="${sub ? esc('@' + uName(c.by) + ' ') : ''}">${ICO_REPLY}${t('Responder')}</button>${authLike(c, s)}</div>${extra}</div></div>`;
 }
 function paintPcList() {
   const box = $('#pc-list'); if (!box || !PCS) return; const s = findStory(PCS.sid); if (!s) return;
   const l = pcList(PCS.sid, PCS.ci, PCS.pi).filter(c => !hidesFrom(c.by)), tops = l.filter(c => !c.parent);
   box.innerHTML = tops.length ? tops.map(x => {
     const reps = l.filter(r => r.parent === x.id), open = PCREPOPEN.has(x.id);
-    const tg = reps.length ? `<button type="button" class="c-rtoggle" data-act="pc-replies" data-cid="${esc(String(x.id))}" aria-expanded="${open}"><i class="c-line"></i>${open ? 'Ocultar respuestas' : `Ver las respuestas (${reps.length})`}</button>` : '';
-    const rf = PCREPLY === x.id ? `<form data-form="pcreply" data-top="${esc(String(x.id))}" class="c-replyform">${userAvatar(S.user)}<div class="c-pill"><input id="pc-reply-text" maxlength="${PC_MAX}" value="${esc(PCREPPRE)}" placeholder="Escribe una respuesta…" aria-label="Tu respuesta" autocomplete="off"><button class="c-send" type="submit" aria-label="Enviar respuesta">${ICO_SEND}</button></div><button type="button" class="c-act" data-act="pc-reply-cancel">Cancelar</button></form>` : '';
+    const tg = reps.length ? `<button type="button" class="c-rtoggle" data-act="pc-replies" data-cid="${esc(String(x.id))}" aria-expanded="${open}"><i class="c-line"></i>${open ? t('Ocultar respuestas') : t('Ver las respuestas ({n})', { n: reps.length })}</button>` : '';
+    const rf = PCREPLY === x.id ? `<form data-form="pcreply" data-top="${esc(String(x.id))}" class="c-replyform">${userAvatar(S.user)}<div class="c-pill"><input id="pc-reply-text" maxlength="${PC_MAX}" value="${esc(PCREPPRE)}" placeholder="${esc(t('Escribe una respuesta…'))}" aria-label="${esc(t('Tu respuesta'))}" autocomplete="off"><button class="c-send" type="submit" aria-label="${esc(t('Enviar respuesta'))}">${ICO_SEND}</button></div><button type="button" class="c-act" data-act="pc-reply-cancel">${t('Cancelar')}</button></form>` : '';
     return pcItem(x, s, false, `${tg}${open ? `<div class="c-replies">${reps.map(r => pcItem(r, s, true)).join('')}</div>` : ''}${rf}`);
-  }).join('') : '<p class="helper" style="text-align:center;margin:10px 0">Aún no hay comentarios en este párrafo. ¡Sé la primera persona!</p>';
-  const t = $('#pc-count'); if (t) t.textContent = l.length ? `(${l.length})` : '';
+  }).join('') : `<p class="helper" style="text-align:center;margin:10px 0">${t('Aún no hay comentarios en este párrafo. ¡Sé la primera persona!')}</p>`;
+  const pcn = $('#pc-count'); if (pcn) pcn.textContent = l.length ? `(${l.length})` : '';
 }
 function openParaSheet(pi) {
   const m0 = (location.hash || '').match(/^#\/story\/([^/]+)\/(\d+)/); if (!m0) return;
   const sid = decodeURIComponent(m0[1]), ci = +m0[2] - 1, raw = pcPara(sid, ci, pi); if (raw === undefined) return;
   PCS = { sid, ci, pi, q: pQ(raw) }; const old = $('#pc-sheet'); if (old) old.remove();
   const ex = raw.replace(/\s+/g, ' ').trim(), m = document.createElement('div'); m.className = 'modal sheet'; m.id = 'pc-sheet';
-  m.innerHTML = `<div class="modal-box pc-box" role="dialog" aria-modal="true" aria-label="Comentarios del párrafo"><div class="pc-head"><strong>💬 Comentarios del párrafo <span id="pc-count"></span></strong><button class="icon-btn" data-act="pc-close" aria-label="Cerrar">✕</button></div>
+  m.innerHTML = `<div class="modal-box pc-box" role="dialog" aria-modal="true" aria-label="${esc(t('Comentarios del párrafo'))}"><div class="pc-head"><strong>💬 ${t('Comentarios del párrafo')} <span id="pc-count"></span></strong><button class="icon-btn" data-act="pc-close" aria-label="${esc(t('Cerrar'))}">✕</button></div>
   <blockquote class="pc-quote">“${esc(ex.length > 150 ? ex.slice(0, 150) + '…' : ex)}”</blockquote><div id="pc-list" class="pc-list"></div>
-  ${isGuest() ? guestCompose('comentar') : ''}<div class="pc-compose" ${isGuest() ? 'style="display:none"' : ''}><textarea id="pc-text" class="textarea" maxlength="${PC_MAX}" placeholder="Escribe un comentario…" aria-label="Tu comentario"></textarea>
-  <div class="pc-row"><label class="pc-spoil"><input type="checkbox" id="pc-spoil"> ⚠ Contiene spoiler</label><button class="button sm" data-act="pc-send">Publicar</button></div></div></div>`;
+  ${isGuest() ? guestCompose('comentar') : ''}<div class="pc-compose" ${isGuest() ? 'style="display:none"' : ''}><textarea id="pc-text" class="textarea" maxlength="${PC_MAX}" placeholder="${esc(t('Escribe un comentario…'))}" aria-label="${esc(t('Tu comentario'))}"></textarea>
+  <div class="pc-row"><label class="pc-spoil"><input type="checkbox" id="pc-spoil"> ⚠ ${t('Contiene spoiler')}</label><button class="button sm" data-act="pc-send">${t('Publicar')}</button></div></div></div>`;
   m.addEventListener('click', e => { if (e.target === m) { m.remove(); PCS = null; pcClear(); } });
   document.body.appendChild(m); paintPcList();
 }
 function sendParaComment() {
   if (!PCS) return; const s = findStory(PCS.sid), ta = $('#pc-text'), text = ((ta || {}).value || '').trim().slice(0, PC_MAX), spoiler = !!($('#pc-spoil') || {}).checked;
-  if (!s) return; if (!text) return toast('Escribe tu comentario.'); if (pcPara(PCS.sid, PCS.ci, PCS.pi) === undefined) return toast('Este párrafo ya no existe.');
+  if (!s) return; if (!text) return toast(t('Escribe tu comentario.')); if (pcPara(PCS.sid, PCS.ci, PCS.pi) === undefined) return toast(t('Este párrafo ya no existe.'));
   const all = pcAll(), k = pcKey(PCS.sid, PCS.ci, PCS.pi); (all[k] = all[k] || []).push({ id: Date.now() + Math.random().toString(36).slice(2, 5), by: S.user, text, date: today(), spoiler, q: PCS.q });
   G.set('pcom', all); notify(s.owner, 'comment', s.id, spoiler ? '(comentario con spoiler en un párrafo)' : 'en un párrafo: ' + text.slice(0, 70));
   ta.value = ''; const sp = $('#pc-spoil'); if (sp) sp.checked = false; paintPcList(); if (cfg('pcom') === 'dots') { KEEP = true; render(); }
@@ -2277,7 +2278,7 @@ document.addEventListener('click', e => {
     'guest-cta': () => guestGate('comentar'),
     'exit-book': () => {                               // salir del libro: guarda el progreso y, si no está en tu biblioteca, pregunta
       saveReadPos(id, +el.dataset.n);
-      const leave = () => { toast('Progreso guardado'); goReplace('/story/' + id); };
+      const leave = () => { toast(t('Progreso guardado')); goReplace('/story/' + id); };
       if (!askSaveLib(id, () => goReplace('/story/' + id), leave)) leave();
     },
     'adm-toggle': () => { const l = el.parentNode.parentNode.querySelector('.adm-list'); if (!l) return; l.hidden = !l.hidden; el.setAttribute('aria-expanded', String(!l.hidden)); },
@@ -2363,14 +2364,14 @@ document.addEventListener('click', e => {
     'c-replies': () => { const c = +el.dataset.cid; REPOPEN.has(c) ? REPOPEN.delete(c) : REPOPEN.add(c); KEEP = true; render(); },
     'c-edit': () => { MENUC = null; EDITC = +el.dataset.cid; KEEP = true; render(); },
     'c-cancel': () => { EDITC = null; KEEP = true; render(); },
-    'c-save': () => { const t = ($('#c-edit-text').value || '').trim(), cid = +el.dataset.cid; if (!t) return toast('El comentario no puede estar vacío.');
-      updateComments(id, l => l.map(c => c.id === cid && c.by === S.user ? { ...c, text: t, edited: true } : c)); EDITC = null; KEEP = true; render(); },
-    'c-del': () => { const cid = +el.dataset.cid; confirmBox('¿Seguro que quieres eliminar este comentario?', () => { updateComments(id, l => { const t = l.find(c => c.id === cid); return t && (t.by === S.user || isAdmin()) ? l.filter(c => c.id !== cid && c.parent !== cid) : l; }); KEEP = true; render(); }); },
+    'c-save': () => { const tx = ($('#c-edit-text').value || '').trim(), cid = +el.dataset.cid; if (!tx) return toast(t('El comentario no puede estar vacío.'));
+      updateComments(id, l => l.map(c => c.id === cid && c.by === S.user ? { ...c, text: tx, edited: true } : c)); EDITC = null; KEEP = true; render(); },
+    'c-del': () => { const cid = +el.dataset.cid; confirmBox(t('¿Seguro que quieres eliminar este comentario?'), () => { updateComments(id, l => { const t = l.find(c => c.id === cid); return t && (t.by === S.user || isAdmin()) ? l.filter(c => c.id !== cid && c.parent !== cid) : l; }); KEEP = true; render(); }); },
     music: () => { setCfg('musicLast', 'play'); playMusic(el.dataset.url, location.hash.split('/')[2]); }, 'music-close': () => { setCfg('musicLast', 'close'); closeMusic(); },
-    'lib-toggle': () => { if (S.lib.includes(id)) { libRemove(id); toast('Quitado de tu biblioteca. Ya no recibirás avisos de esta obra.'); } else { libAdd(id); toast('Guardado en tu biblioteca. Te avisaremos cuando haya capítulos nuevos.'); } KEEP = true; render(); },
-    'lib-del': () => { libRemove(id); toast('Quitado de tu biblioteca. Ya no recibirás avisos de esta obra.'); KEEP = true; render(); },
-    'col-add': () => { colAdd(id); toast('Guardado en tus colecciones ⭐'); KEEP = true; render(); },
-    'col-del': () => { colDel(id); toast('Quitado de tus colecciones'); KEEP = true; render(); },
+    'lib-toggle': () => { if (S.lib.includes(id)) { libRemove(id); toast(t('Quitado de tu biblioteca. Ya no recibirás avisos de esta obra.')); } else { libAdd(id); toast(t('Guardado en tu biblioteca. Te avisaremos cuando haya capítulos nuevos.')); } KEEP = true; render(); },
+    'lib-del': () => { libRemove(id); toast(t('Quitado de tu biblioteca. Ya no recibirás avisos de esta obra.')); KEEP = true; render(); },
+    'col-add': () => { colAdd(id); toast(t('Guardado en tus colecciones ⭐')); KEEP = true; render(); },
+    'col-del': () => { colDel(id); toast(t('Quitado de tus colecciones')); KEEP = true; render(); },
     like: () => { const s = findStory(id); if (s) { toggleLike(s); KEEP = true; render(); } },
     follow: () => { toggleFollow(id); KEEP = true; render(); },
     'car-go': () => { CARHOLD = Date.now() + 8000; carGo(+el.dataset.i); },
@@ -2409,7 +2410,7 @@ document.addEventListener('click', e => {
     'pc-replies': () => { const c = el.dataset.cid; PCREPOPEN.has(c) ? PCREPOPEN.delete(c) : PCREPOPEN.add(c); paintPcList(); },
     'pc-reveal-btn': () => { const t = el.previousElementSibling; if (t) { t.classList.remove('spoil'); t.removeAttribute('data-act'); } el.remove(); },
     'pc-reveal': () => { el.classList.remove('spoil'); const h = el.nextElementSibling; if (h && h.classList.contains('pc-hint')) h.remove(); },
-    'pc-del': () => { if (!PCS) return; const s = findStory(PCS.sid), cid = el.dataset.cid; confirmBox('¿Seguro que quieres eliminar este comentario?', () => { const all = pcAll(), k = pcKey(PCS.sid, PCS.ci, PCS.pi); const t0 = (all[k] || []).find(c => c.id === cid); if (t0 && (t0.by === S.user || (s && s.owner === S.user) || isStaff())) all[k] = all[k].filter(c => c.id !== cid && c.parent !== cid); G.set('pcom', all); paintPcList(); if (cfg('pcom') === 'dots') { KEEP = true; render(); } }); },
+    'pc-del': () => { if (!PCS) return; const s = findStory(PCS.sid), cid = el.dataset.cid; confirmBox(t('¿Seguro que quieres eliminar este comentario?'), () => { const all = pcAll(), k = pcKey(PCS.sid, PCS.ci, PCS.pi); const t0 = (all[k] || []).find(c => c.id === cid); if (t0 && (t0.by === S.user || (s && s.owner === S.user) || isStaff())) all[k] = all[k].filter(c => c.id !== cid && c.parent !== cid); G.set('pcom', all); paintPcList(); if (cfg('pcom') === 'dots') { KEEP = true; render(); } }); },
     'set-back': () => { NAVDIR = 'prev'; const h = window.history; if (SETDEEP && h && h.length > 1) h.back(); else goReplace('/settings'); },   // si vienes del menú: retrocede en el historial (no apila otra copia)
     'settings-back': () => { const h = window.history; if (h && h.length > 1) h.back(); else go('/'); },
     cfg: () => { const k = el.dataset.k, v = el.dataset.v; if (k === 'theme') { S.theme = v; LS.set('auri.themeSet', true); applyTheme(); } else setCfg(k, v); KEEP = true; render(); },
