@@ -398,7 +398,7 @@ function addComment(s, text) {
 /** Recorta al centro con "cover" (llena w×h sin deformar) y reduce; guarda como JPEG para ahorrar espacio */
 /** Recorta al centro con "cover" (llena w×h sin deformar); q = calidad JPEG */
 function cropPhoto(file, w, h, cb, q = .85) {
-  if (!file || !file.type.startsWith('image/')) return toast('Elige un archivo de imagen.');
+  if (!file || !file.type.startsWith('image/')) return toast(t('Elige un archivo de imagen.'));
   const r = new FileReader();
   r.onload = () => {
     const img = new Image();
@@ -407,14 +407,14 @@ function cropPhoto(file, w, h, cb, q = .85) {
       c.getContext('2d').drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, 0, 0, w, h);
       cb(c.toDataURL('image/jpeg', q));
     };
-    img.onerror = () => toast('No se pudo leer esa imagen.'); img.src = r.result;
+    img.onerror = () => toast(t('No se pudo leer esa imagen.')); img.src = r.result;
   };
   r.readAsDataURL(file);
 }
 /** Reduce la imagen COMPLETA (sin recortar nada) para que quepa en maxW×maxH; conserva sus proporciones */
 /** Imagen de noticias: se conserva COMPLETA y con su proporción (vertical, horizontal o larga); solo se reduce su ancho si es enorme */
 function newsPhoto(file, cb) {
-  if (!file || !file.type.startsWith('image/')) return toast('Elige un archivo de imagen.');
+  if (!file || !file.type.startsWith('image/')) return toast(t('Elige un archivo de imagen.'));
   const r = new FileReader();
   r.onload = () => {
     const img = new Image();
@@ -423,12 +423,12 @@ function newsPhoto(file, cb) {
       const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
       cb(c.toDataURL('image/jpeg', .8));
     };
-    img.onerror = () => toast('No se pudo leer esa imagen.'); img.src = r.result;
+    img.onerror = () => toast(t('No se pudo leer esa imagen.')); img.src = r.result;
   };
   r.readAsDataURL(file);
 }
 function fitPhoto(file, maxW, maxH, cb, q = .85) {
-  if (!file || !file.type.startsWith('image/')) return toast('Elige un archivo de imagen.');
+  if (!file || !file.type.startsWith('image/')) return toast(t('Elige un archivo de imagen.'));
   const r = new FileReader();
   r.onload = () => {
     const img = new Image();
@@ -437,7 +437,7 @@ function fitPhoto(file, maxW, maxH, cb, q = .85) {
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
       cb(c.toDataURL('image/jpeg', q));
     };
-    img.onerror = () => toast('No se pudo leer esa imagen.'); img.src = r.result;
+    img.onerror = () => toast(t('No se pudo leer esa imagen.')); img.src = r.result;
   };
   r.readAsDataURL(file);
 }
@@ -841,12 +841,12 @@ const TERMS = `<ol>
 <li><b>Autoría y fanfics.</b> Tus historias siguen siendo tuyas. En los fanfics respeta a quienes crearon el material original y no copies textos ajenos.</li></ol>`;
 function showTerms() {
   const m = document.createElement('div'); m.className = 'modal';
-  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>Términos y condiciones de contenido</h2><div class="terms">${TERMS}</div><button class="button" data-act="close-modal" style="width:100%;margin-top:14px">Entendido</button></div>`;
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${t('Términos y condiciones de contenido')}</h2><div class="terms">${TERMS}</div><button class="button" data-act="close-modal" style="width:100%;margin-top:14px">${t('Entendido')}</button></div>`;
   document.body.appendChild(m);
 }
 let W = null, WPREVIEW = false, WCUR = 0;
-const newDraft = () => ({ id: 'story-' + Date.now(), title: '', synopsis: '', genre: 'Fantasy', fandom: 'Original', tags: [], cover: '', chapters: [{ id: 1, title: 'Capítulo 1', text: '', status: 'draft' }], mature: false, phase: 'ongoing', prev: '', terms: false, useReaderCharacter: true, updatedAt: today() });
-const wc = t => `${t.trim() ? t.trim().split(/\s+/).length : 0} palabras · ${t.length} caracteres`;
+const newDraft = () => ({ id: 'story-' + Date.now(), title: '', synopsis: '', genre: 'Fantasy', fandom: 'Original', tags: [], cover: '', chapters: [{ id: 1, title: t('Capítulo {n}', { n: 1 }), text: '', status: 'draft' }], mature: false, phase: 'ongoing', prev: '', terms: false, useReaderCharacter: true, updatedAt: today() });
+const wc = x => t('{w} palabras · {c} caracteres', { w: x.trim() ? x.trim().split(/\s+/).length : 0, c: x.length });
 function collect() {                                   // lee solo los campos de la pantalla que está abierta
   if ($('#w-title')) {                                 // pantalla de datos de la historia
     W.title = $('#w-title').value; W.synopsis = $('#w-syn').value; W.genre = $('#w-genre').value; W.fandom = $('#w-fandom').value;
@@ -861,7 +861,7 @@ function collect() {                                   // lee solo los campos de
     if (ch) { ch.title = ($('#w-ch-title') || { value: ch.title }).value; ch.text = t.value; ch.music = ($('#w-ch-music') || { value: '' }).value.trim(); }
   }
 }
-const coverPrev = () => W.cover ? `<img src="${esc(W.cover)}" alt="Vista previa de la portada">` : 'Sin portada';
+const coverPrev = () => W.cover ? `<img src="${esc(W.cover)}" alt="${esc(t('Vista previa de la portada'))}">` : t('Sin portada');
 const TN_RE = /[\[(]\s*(?:T\/N|Y\/N|TN|YN)\s*[\])]|\b(?:T\/N|Y\/N)\b|\b(?:TN|YN)\b/gi;
 /** TN / T/N / [TN] / (T/N) → nombre del personaje. "TN" en MAYÚSCULAS da el nombre en MAYÚSCULAS; "tn" o "Tn" lo dan tal cual */
 const fillTN = (text, name) => text.replace(TN_RE, m => ['TN', 'YN'].includes(m.replace(/[^A-Za-z]/g, '')) ? name.toLocaleUpperCase(LOC()) : name);
@@ -892,8 +892,8 @@ function deleteChapter(cid) {
   collect();
   const gone = W.chapters.find(c => c.id === cid); if (!gone) return;
   W.chapters = W.chapters.filter(c => c.id !== cid);
-  if (!W.chapters.length) W.chapters = [{ id: chapId(), title: 'Capítulo 1', text: '', status: 'draft' }];
-  persistDraft(); toast(`«${gone.title || 'Capítulo'}» eliminado`); KEEP = true; render();
+  if (!W.chapters.length) W.chapters = [{ id: chapId(), title: t('Capítulo {n}', { n: 1 }), text: '', status: 'draft' }];
+  persistDraft(); toast(t('«{title}» eliminado', { title: gone.title || t('Capítulo') })); KEEP = true; render();
 }
 function ensureW(editId) {
   if (W && (editId ? W.id === editId : !S.stories.some(x => x.id === W.id))) return;
@@ -904,71 +904,71 @@ function ensureW(editId) {
 /** /write → datos · /write/ID → datos · /write/ID/chapters → lista · /write/ID/ch/CID → un capítulo */
 function writeRoute(editId, sub, cid) {
   ensureW(editId);
-  if (!W) return `<main class="page">${empty('Historia no encontrada', 'Puede que se haya eliminado.', '<a class="button" href="#/library">Ir a mi biblioteca</a>')}</main>`;
+  if (!W) return `<main class="page">${empty(t('Historia no encontrada'), t('Puede que se haya eliminado.'), '<a class="button" href="#/library">' + t('Ir a mi biblioteca') + '</a>')}</main>`;
   if (!editId) return infoView(false);
   return sub === 'chapters' ? chaptersView() : sub === 'ch' ? chapterView(+cid) : infoView(true);
 }
 const needTerms = () => !(getUsers()[S.user] || {}).termsAccepted;     // cuentas anteriores al nuevo registro: aceptan una sola vez aquí
-const submitBlock = () => `<div class="panel" style="margin-top:16px">${needTerms() ? `<label class="check"><input type="checkbox" id="w-terms" ${W.terms ? 'checked' : ''}><span>Acepto los <button type="button" class="link-btn" data-act="terms">términos y condiciones</button> de Auri.</span></label>` : ''}
-  <p class="notice" style="margin:0 0 4px">🔞 Si tu historia tiene contenido +18, acuérdate de marcarla como +18 antes de enviarla. Los términos ya los aceptaste al crear tu cuenta.</p>
-  <button class="button" style="margin-top:12px;width:100%" data-act="publish">Enviar a revisión</button>
-  <p class="helper" style="margin-top:8px">Se envían todos los capítulos terminados que aún no están en revisión. Moderación los revisa en orden: la historia aparece en Descubrir cuando se aprueba el primero.</p></div>`;
+const submitBlock = () => `<div class="panel" style="margin-top:16px">${needTerms() ? `<label class="check"><input type="checkbox" id="w-terms" ${W.terms ? 'checked' : ''}><span>${t('Acepto los {terms} de Auri.', { terms: '<button type="button" class="link-btn" data-act="terms">' + t('términos y condiciones') + '</button>' })}</span></label>` : ''}
+  <p class="notice" style="margin:0 0 4px">🔞 ${t('Si tu historia tiene contenido +18, acuérdate de marcarla como +18 antes de enviarla. Los términos ya los aceptaste al crear tu cuenta.')}</p>
+  <button class="button" style="margin-top:12px;width:100%" data-act="publish">${t('Enviar a revisión')}</button>
+  <p class="helper" style="margin-top:8px">${t('Se envían todos los capítulos terminados que aún no están en revisión. Moderación los revisa en orden: la historia aparece en Descubrir cuando se aprueba el primero.')}</p></div>`;
 
 /** Botón de acceso a los capítulos (debajo de los datos del libro) */
 const chaptersEntry = () => { const n = W.chapters.length, pend = W.chapters.filter(c => c.status === 'pending').length;
-  return `<section class="panel ch-entry"><div><strong>Capítulos</strong><div class="helper">${n} capítulo${n === 1 ? '' : 's'}${pend ? ` · ${pend} en revisión` : ''}. Cada uno se edita en su propia pantalla.</div></div><button class="button secondary" data-act="ch-list">Editar capítulos</button></section>`; };
+  return `<section class="panel ch-entry"><div><strong>${t('Capítulos')}</strong><div class="helper">${tn(n, '{n} capítulo', '{n} capítulos')}${pend ? ' · ' + t('{n} en revisión', { n: pend }) : ''}. ${t('Cada uno se edita en su propia pantalla.')}</div></div><button class="button secondary" data-act="ch-list">${t('Editar capítulos')}</button></section>`; };
 /* Paso 1: datos de la historia */
 function infoView(existing) {
-  return `<main class="page story-layout"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">✎ ${existing ? 'Datos de la historia' : 'Paso 1 · Datos de la historia'}</span><h2 style="margin-top:8px">${existing ? 'Edita los datos' : 'Aquí empieza una historia'}</h2><p>Portada, título y sinopsis. Después escribirás cada capítulo en su propia pantalla.</p></div></div>
+  return `<main class="page story-layout"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">✎ ${existing ? t('Datos de la historia') : t('Paso 1 · Datos de la historia')}</span><h2 style="margin-top:8px">${existing ? t('Edita los datos') : t('Aquí empieza una historia')}</h2><p>${t('Portada, título y sinopsis. Después escribirás cada capítulo en su propia pantalla.')}</p></div></div>
   <section class="panel"><div class="form-grid">
-    <div class="form-group full"><label>Portada del libro</label><div class="cover-picker"><div class="cover-prev" id="cover-prev">${coverPrev()}</div>
-      <div class="cover-fields"><label class="button secondary sm" style="cursor:pointer">📷 Subir imagen<input id="cover-file" type="file" accept="image/*" hidden></label><button class="button ghost sm" data-act="cover-adjust" type="button">✂ Ajustar imagen</button>
-      <input id="cover-url" class="field" placeholder="…o pega la URL de una imagen" value="${W.cover.startsWith('data:') ? '' : esc(W.cover)}">
-      <button class="button ghost sm" data-act="clear-cover" type="button">Quitar portada</button>
-      <span class="helper">Puedes subir cualquier tamaño: después la ajustas (mover y zoom) a la proporción 2:3 de las tarjetas.</span></div></div></div>
-    <div class="form-group full"><label for="w-title">Título</label><input id="w-title" class="field" value="${esc(W.title)}" placeholder="Ponle un nombre…"></div>
-    <div class="form-group full"><label for="w-syn">Sinopsis</label><textarea id="w-syn" class="textarea" placeholder="Unas líneas para invitar a leer…">${esc(W.synopsis)}</textarea></div>
-    <div class="form-group"><label for="w-genre">Género</label><select id="w-genre" class="select">${Object.keys(GENRES).map(g => `<option value="${g}" ${W.genre === g ? 'selected' : ''}>${GENRES[g]}</option>`).join('')}</select></div>
-    <div class="form-group"><label for="w-fandom">Fandom / universo</label><input id="w-fandom" class="field" value="${esc(W.fandom)}"></div>
-    <div class="form-group full"><label for="w-tags">Etiquetas</label><input id="w-tags" class="field" value="${esc(tagsText(W.tags))}" placeholder="#romance lento #magia #enemies to lovers" autocapitalize="none"><div id="w-tags-prev" class="tag-prev">${W.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div><div class="tag-sug"><span class="helper">Sugeridas:</span>${[...new Set([...popTags(6), 'lgbtq+', 'yaoi', 'yuri', 'poliamor', 'romance lento', 'au'])].slice(0, 10).map(t => `<button type="button" class="tag tag-link" data-act="tag-add" data-id="${esc(t)}">#${esc(t)}</button>`).join('')}</div><span class="helper">Escribe cada etiqueta con # al inicio. Ej: #romance lento #magia. Así la gente te encuentra al buscar por etiquetas. </span></div>
-    <div class="form-group"><label for="w-phase">Estado del libro</label><select id="w-phase" class="select">${Object.keys(PHASE).map(k => `<option value="${k}" ${(W.phase || 'ongoing') === k ? 'selected' : ''}>${PHASE[k]}</option>`).join('')}</select></div>
+    <div class="form-group full"><label>${t('Portada del libro')}</label><div class="cover-picker"><div class="cover-prev" id="cover-prev">${coverPrev()}</div>
+      <div class="cover-fields"><label class="button secondary sm" style="cursor:pointer">📷 ${t('Subir imagen')}<input id="cover-file" type="file" accept="image/*" hidden></label><button class="button ghost sm" data-act="cover-adjust" type="button">✂ ${t('Ajustar imagen')}</button>
+      <input id="cover-url" class="field" placeholder="${esc(t('…o pega la URL de una imagen'))}" value="${W.cover.startsWith('data:') ? '' : esc(W.cover)}">
+      <button class="button ghost sm" data-act="clear-cover" type="button">${t('Quitar portada')}</button>
+      <span class="helper">${t('Puedes subir cualquier tamaño: después la ajustas (mover y zoom) a la proporción 2:3 de las tarjetas.')}</span></div></div></div>
+    <div class="form-group full"><label for="w-title">${t('Título')}</label><input id="w-title" class="field" value="${esc(W.title)}" placeholder="${esc(t('Ponle un nombre…'))}"></div>
+    <div class="form-group full"><label for="w-syn">${t('Sinopsis')}</label><textarea id="w-syn" class="textarea" placeholder="${esc(t('Unas líneas para invitar a leer…'))}">${esc(W.synopsis)}</textarea></div>
+    <div class="form-group"><label for="w-genre">${t('Género')}</label><select id="w-genre" class="select">${Object.keys(GENRES).map(g => `<option value="${g}" ${W.genre === g ? 'selected' : ''}>${esc(t(GENRES[g]))}</option>`).join('')}</select></div>
+    <div class="form-group"><label for="w-fandom">${t('Fandom / universo')}</label><input id="w-fandom" class="field" value="${esc(W.fandom)}"></div>
+    <div class="form-group full"><label for="w-tags">${t('Etiquetas')}</label><input id="w-tags" class="field" value="${esc(tagsText(W.tags))}" placeholder="${esc(t('#romance lento #magia #enemies to lovers'))}" autocapitalize="none"><div id="w-tags-prev" class="tag-prev">${W.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div><div class="tag-sug"><span class="helper">${t('Sugeridas:')}</span>${[...new Set([...popTags(6), 'lgbtq+', 'yaoi', 'yuri', t('poliamor'), t('romance lento'), 'au'])].slice(0, 10).map(t => `<button type="button" class="tag tag-link" data-act="tag-add" data-id="${esc(t)}">#${esc(t)}</button>`).join('')}</div><span class="helper">${t('Escribe cada etiqueta con # al inicio. Ej: #romance lento #magia. Así la gente te encuentra al buscar por etiquetas.')}</span></div>
+    <div class="form-group"><label for="w-phase">${t('Estado del libro')}</label><select id="w-phase" class="select">${Object.keys(PHASE).map(k => `<option value="${k}" ${(W.phase || 'ongoing') === k ? 'selected' : ''}>${esc(t(PHASE[k]))}</option>`).join('')}</select></div>
     ${sagaBox()}
-  </div><div class="toggle-line"><div><strong>Tarjeta de personaje lector</strong><div class="helper">Reemplaza TN / T/N por el nombre de tu personaje.</div></div>
-  <button type="button" role="switch" class="switch" aria-checked="${W.useReaderCharacter}" data-act="toggle-tn" aria-label="Usar tarjeta de personaje lector"></button></div>
-  ${isMinor(getUsers()[S.user]) ? '' : `<div class="toggle-line"><div><strong>Historia +18</strong><div class="helper">Actívalo si tiene contenido sugerente o temas para mayores de edad. Una vez publicada, quitar la marca +18 necesita aprobación de moderación.</div></div>
-  <button type="button" role="switch" class="switch" aria-checked="${W.mature}" data-act="toggle-18" aria-label="Historia +18"></button></div>`}
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px">${existing ? '<button class="button" data-act="info-save">Guardar cambios</button>' : '<button class="button" data-act="save-next">Guardar y siguiente ›</button>'}</div></section>${existing ? chaptersEntry() : ''}</main>`;
+  </div><div class="toggle-line"><div><strong>${t('Tarjeta de personaje lector')}</strong><div class="helper">${t('Reemplaza TN / T/N por el nombre de tu personaje.')}</div></div>
+  <button type="button" role="switch" class="switch" aria-checked="${W.useReaderCharacter}" data-act="toggle-tn" aria-label="${esc(t('Usar tarjeta de personaje lector'))}"></button></div>
+  ${isMinor(getUsers()[S.user]) ? '' : `<div class="toggle-line"><div><strong>${t('Historia +18')}</strong><div class="helper">${t('Actívalo si tiene contenido sugerente o temas para mayores de edad. Una vez publicada, quitar la marca +18 necesita aprobación de moderación.')}</div></div>
+  <button type="button" role="switch" class="switch" aria-checked="${W.mature}" data-act="toggle-18" aria-label="${esc(t('Historia +18'))}"></button></div>`}
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px">${existing ? '<button class="button" data-act="info-save">' + t('Guardar cambios') + '</button>' : '<button class="button" data-act="save-next">' + t('Guardar y siguiente ›') + '</button>'}</div></section>${existing ? chaptersEntry() : ''}</main>`;
 }
 
 /* Lista de capítulos de la historia */
 function chaptersView() {
   const n = W.chapters.length;
-  return `<main class="page story-layout"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">☰ Capítulos</span><h2 style="margin-top:8px">${esc(W.title)}</h2><p>Cada capítulo se escribe en su propia pantalla.</p></div><button class="button secondary sm" data-act="info-go">✎ Datos de la historia</button></div>
+  return `<main class="page story-layout"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">☰ ${t('Capítulos')}</span><h2 style="margin-top:8px">${esc(W.title)}</h2><p>${t('Cada capítulo se escribe en su propia pantalla.')}</p></div><button class="button secondary sm" data-act="info-go">✎ ${t('Datos de la historia')}</button></div>
   ${statusNote(W) ? `<p class="notice" style="margin-bottom:14px">${esc(statusNote(W))}</p>` : ''}
-  <div class="ch-list ch-list-big">${W.chapters.map((c, i) => `<div class="ch-item"><button type="button" class="ch-open" data-act="ch-go" data-cid="${c.id}"><b>Cap. ${i + 1}</b><span>${esc(c.title || 'Sin título')}</span><i>${CH_MARK[c.status] || ''}</i></button><button type="button" class="icon-btn ch-trash" data-act="ch-trash" data-cid="${c.id}" aria-label="Eliminar ${esc(c.title || 'capítulo ' + (i + 1))}">${TRASH}</button></div>`).join('')}</div>
-  <button type="button" class="button secondary" data-act="ch-add" style="margin:12px 0">＋ Capítulo ${n + 1}</button>${submitBlock()}</main>`;
+  <div class="ch-list ch-list-big">${W.chapters.map((c, i) => `<div class="ch-item"><button type="button" class="ch-open" data-act="ch-go" data-cid="${c.id}"><b>${t('Cap. {n}', { n: i + 1 })}</b><span>${esc(c.title || t('Sin título'))}</span><i>${CH_MARK[c.status] || ''}</i></button><button type="button" class="icon-btn ch-trash" data-act="ch-trash" data-cid="${c.id}" aria-label="${esc(t('Eliminar {x}', { x: c.title || t('capítulo {n}', { n: i + 1 }) }))}">${TRASH}</button></div>`).join('')}</div>
+  <button type="button" class="button secondary" data-act="ch-add" style="margin:12px 0">＋ ${t('Capítulo {n}', { n: n + 1 })}</button>${submitBlock()}</main>`;
 }
 
 const safeImg = u => typeof u === 'string' && /^data:image\//.test(u);
 const chHero = (c, cls = 'ch-hero') => safeImg(c.cover) ? `<img class="${cls}" src="${esc(c.cover)}" alt="${esc(t('Portada del capítulo'))}">` : '';
 const chCoverBox = ch => `<div class="chc-box">${safeImg(ch.cover)
-  ? `<div class="chc-prev"><img src="${esc(ch.cover)}" alt="Portada del capítulo"><label class="button secondary sm chc-change">Cambiar<input id="chc-file" type="file" accept="image/*" hidden></label><button type="button" class="icon-btn chc-x" data-act="chc-clear" aria-label="Quitar portada del capítulo">✕</button></div>`
-  : '<label class="chc-add">🖼 Portada del capítulo (opcional)<input id="chc-file" type="file" accept="image/*" hidden></label>'}</div>`;
+  ? `<div class="chc-prev"><img src="${esc(ch.cover)}" alt="${esc(t('Portada del capítulo'))}"><label class="button secondary sm chc-change">${t('Cambiar')}<input id="chc-file" type="file" accept="image/*" hidden></label><button type="button" class="icon-btn chc-x" data-act="chc-clear" aria-label="${esc(t('Quitar portada del capítulo'))}">✕</button></div>`
+  : `<label class="chc-add">🖼 ${t('Portada del capítulo (opcional)')}<input id="chc-file" type="file" accept="image/*" hidden></label>`}</div>`;
 /* Pantalla individual para escribir UN capítulo: a pantalla completa, sin la barra de la app */
 function chapterView(cid) {
   const i = W.chapters.findIndex(c => c.id === cid);
-  if (i < 0) return `<main class="page">${empty('Capítulo no encontrado', 'Puede que se haya eliminado.', '<button class="button" data-act="ch-list">Ver capítulos</button>')}</main>`;
+  if (i < 0) return `<main class="page">${empty(t('Capítulo no encontrado'), t('Puede que se haya eliminado.'), '<button class="button" data-act="ch-list">' + t('Ver capítulos') + '</button>')}</main>`;
   const ch = W.chapters[i], n = W.chapters.length, before = W.chapters[i - 1], after = W.chapters[i + 1], st = ch.status || 'draft';
-  if (WPREVIEW) return `<div class="rf"><header class="rf-top"><button class="button ghost sm" data-act="back-edit">‹ Volver a escribir</button><div class="rf-title">Vista previa · Cap. ${i + 1}</div><span style="width:44px"></span></header>
-  <article class="rf-body">${chHero(ch)}<h1 class="rf-h">${esc(ch.title)}</h1>${readerText(ch.text || 'Aquí aparecerá el texto de tu capítulo.', W.useReaderCharacter)}</article></div>`;
-  return `<div class="wf"><header class="wf-top"><button class="button ghost sm" data-act="ch-list" aria-label="Guardar y salir a la lista de capítulos">✕ Salir</button>
-  <span class="grow">Cap. ${i + 1} de ${n} · <span class="pill st-${st}">${CH_STATUS[st]}</span> <span id="w-saved"></span></span><button class="button secondary sm" data-act="preview">Vista previa</button></header>
-  ${st === 'rejected' && ch.reason ? `<p class="notice">Rechazado: ${esc(ch.reason)}</p>` : ''}${ch.live ? '<p class="notice">Mientras se revisa esta edición, los lectores siguen viendo la versión aprobada anterior.</p>' : ''}
+  if (WPREVIEW) return `<div class="rf"><header class="rf-top"><button class="button ghost sm" data-act="back-edit">${t('‹ Volver a escribir')}</button><div class="rf-title">${t('Vista previa · Cap. {n}', { n: i + 1 })}</div><span style="width:44px"></span></header>
+  <article class="rf-body">${chHero(ch)}<h1 class="rf-h">${esc(ch.title)}</h1>${readerText(ch.text || t('Aquí aparecerá el texto de tu capítulo.'), W.useReaderCharacter)}</article></div>`;
+  return `<div class="wf"><header class="wf-top"><button class="button ghost sm" data-act="ch-list" aria-label="${esc(t('Guardar y salir a la lista de capítulos'))}">✕ ${t('Salir')}</button>
+  <span class="grow">${t('Cap. {i} de {n}', { i: i + 1, n })} · <span class="pill st-${st}">${t(CH_STATUS[st])}</span> <span id="w-saved"></span></span><button class="button secondary sm" data-act="preview">${t('Vista previa')}</button></header>
+  ${st === 'rejected' && ch.reason ? `<p class="notice">${t('Rechazado: {reason}', { reason: esc(ch.reason) })}</p>` : ''}${ch.live ? `<p class="notice">${t('Mientras se revisa esta edición, los lectores siguen viendo la versión aprobada anterior.')}</p>` : ''}
   ${chCoverBox(ch)}
-  <input id="w-ch-title" class="wf-title" data-cid="${ch.id}" value="${esc(ch.title)}" placeholder="Título del capítulo">
-  <textarea id="w-ch-text" class="wf-text" data-cid="${ch.id}" placeholder="Érase una vez…">${esc(ch.text)}</textarea>
-  <footer class="wf-bottom"><details class="wf-music" ${ch.music ? 'open' : ''}><summary class="helper" style="cursor:pointer">🎵 Canción del capítulo (opcional)</summary><input id="w-ch-music" class="field" style="margin-top:8px" value="${esc(ch.music || '')}" placeholder="Enlace de YouTube, Spotify o un .mp3"><span class="helper">Quien lee decide si la reproduce. Se revisa junto con el capítulo.</span></details>
-  <div class="wf-actions"><span class="helper" id="w-count">${wc(ch.text)}</span><span class="wf-btns">${before ? `<button type="button" class="button ghost sm" data-act="ch-go" data-cid="${before.id}">‹ Cap. ${i}</button>` : ''}<button class="button secondary sm" data-act="save-draft">💾 Guardar borrador</button>${after ? `<button type="button" class="button sm" data-act="ch-go" data-cid="${after.id}">Cap. ${i + 2} ›</button>` : `<button type="button" class="button sm" data-act="ch-add">＋ Cap. ${n + 1}</button>`}</span></div></footer></div>`;
+  <input id="w-ch-title" class="wf-title" data-cid="${ch.id}" value="${esc(ch.title)}" placeholder="${esc(t('Título del capítulo'))}">
+  <textarea id="w-ch-text" class="wf-text" data-cid="${ch.id}" placeholder="${esc(t('Érase una vez…'))}">${esc(ch.text)}</textarea>
+  <footer class="wf-bottom"><details class="wf-music" ${ch.music ? 'open' : ''}><summary class="helper" style="cursor:pointer">🎵 ${t('Canción del capítulo (opcional)')}</summary><input id="w-ch-music" class="field" style="margin-top:8px" value="${esc(ch.music || '')}" placeholder="${esc(t('Enlace de YouTube, Spotify o un .mp3'))}"><span class="helper">${t('Quien lee decide si la reproduce. Se revisa junto con el capítulo.')}</span></details>
+  <div class="wf-actions"><span class="helper" id="w-count">${wc(ch.text)}</span><span class="wf-btns">${before ? `<button type="button" class="button ghost sm" data-act="ch-go" data-cid="${before.id}">‹ ${t('Cap. {n}', { n: i })}</button>` : ''}<button class="button secondary sm" data-act="save-draft">💾 ${t('Guardar borrador')}</button>${after ? `<button type="button" class="button sm" data-act="ch-go" data-cid="${after.id}">${t('Cap. {n}', { n: i + 2 })} ›</button>` : `<button type="button" class="button sm" data-act="ch-add">＋ ${t('Cap. {n}', { n: n + 1 })}</button>`}</span></div></footer></div>`;
 }
 /** Lee las historias tal como están guardadas AHORA (moderación puede haber cambiado estados mientras tenías la pantalla abierta) */
 const freshStories = () => LS.get(uk('stories'), []).map(norm);
@@ -977,10 +977,10 @@ const INFO_FIELDS = ['title', 'synopsis', 'genre', 'fandom', 'tags', 'cover', 'm
  *  ni su estado de moderación, y no pide capítulos nuevos ni términos. Devuelve true si guardó. */
 function requestUnmature(sid, title) {                  // la autoría pide quitar +18 de una obra ya publicada: queda en Reportes para moderación
   const l = G.get('reports', []);
-  if (l.some(r => r.type === 'reclass' && r.sid === sid && (r.status || 'open') === 'open')) return 'Ya hay una solicitud en revisión para esta obra.';
+  if (l.some(r => r.type === 'reclass' && r.sid === sid && (r.status || 'open') === 'open')) return t('Ya hay una solicitud en revisión para esta obra.');
   l.unshift({ id: Date.now(), type: 'reclass', sid, owner: S.user, by: S.user, title: title || '', date: today(), status: 'open' }); G.set('reports', l);
-  staffFor(commOf(S.user)).filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Solicitud para quitar +18 de «' + (title || 'una obra') + '»', href: '#/moderation/reports' }));
-  return 'Solicitud enviada. La obra sigue marcada +18 hasta que moderación la revise.';
+  staffFor(commOf(S.user)).filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: t('Solicitud para quitar +18 de «{title}»', { title: title || t('una obra') }), href: '#/moderation/reports' }));
+  return t('Solicitud enviada. La obra sigue marcada +18 hasta que moderación la revise.');
 }
 function staffSetMature(sid, v) {
   const st = allStories().find(x => x.id === sid); if (!st) return null;
@@ -992,7 +992,7 @@ function saveInfoOnly(silent) {
   { const stv = freshStories().find(x => x.id === W.id);
     if (isMinor(getUsers()[S.user])) W.mature = false;
     else if (stv && stv.mature && !W.mature && publicPrefix(stv.chapters).length && !isStaff()) W.mature = true; }      // quitar +18 de una obra publicada necesita aprobación
-  if (!W.title.trim()) { if (!silent) toast('Ponle un título a tu historia.'); return false; }
+  if (!W.title.trim()) { if (!silent) toast(t('Ponle un título a tu historia.')); return false; }
   fixSaga();
   const info = Object.fromEntries(INFO_FIELDS.map(k => [k, W[k]])), stored = freshStories().find(s => s.id === W.id);
   const rec = stored ? { ...stored, ...info } : { ...JSON.parse(JSON.stringify(W)), ...info, updatedAt: today() };
@@ -1004,14 +1004,14 @@ function saveInfoOnly(silent) {
 /** Paso 1 → guarda los datos y pasa a escribir */
 function saveInfo() {
   collect();
-  if (!W.title.trim()) return toast('Ponle un título para continuar.');
+  if (!W.title.trim()) return toast(t('Ponle un título para continuar.'));
   persistDraft(); W.saved = true;
   const only = W.chapters.length === 1 && !W.chapters[0].text.trim();
   go(only ? `/write/${W.id}/ch/${W.chapters[0].id}` : `/write/${W.id}/chapters`);
 }
 function addChapter() {
   autosave();
-  const id = chapId(); W.chapters = [...W.chapters, { id, title: 'Capítulo ' + (W.chapters.length + 1), text: '', status: 'draft' }];
+  const id = chapId(); W.chapters = [...W.chapters, { id, title: t('Capítulo {n}', { n: W.chapters.length + 1 }), text: '', status: 'draft' }];
   persistDraft(); go(`/write/${W.id}/ch/${id}`);
 }
 
@@ -1038,14 +1038,14 @@ function persistDraft() {
 }
 function saveStory(submit) {
   collect();
-  if (!W.title.trim()) return toast('Ponle un título antes de guardar.');
-  const badM = W.chapters.find(c => c.music && !musicEmbed(c.music)); if (badM) return toast(`El enlace de música de «${badM.title}» no es válido (YouTube, Spotify o un .mp3).`);
+  if (!W.title.trim()) return toast(t('Ponle un título antes de guardar.'));
+  const badM = W.chapters.find(c => c.music && !musicEmbed(c.music)); if (badM) return toast(t('El enlace de música de «{title}» no es válido (YouTube, Spotify o un .mp3).', { title: badM.title }));
   const cur = freshStories();
   let chs = reconcile(W.chapters, cur.find(s => s.id === W.id));
   const toSend = chs.filter(c => c.status === 'draft' && c.text.trim());
   if (submit) {
-    if (!toSend.length) return toast('No hay capítulos nuevos o editados para enviar.');
-    if (needTerms()) { if (!W.terms) return toast('Debes aceptar los términos y condiciones para enviar.'); const us = getUsers(); if (us[S.user]) { us[S.user].termsAccepted = today(); G.set('users', us); } }
+    if (!toSend.length) return toast(t('No hay capítulos nuevos o editados para enviar.'));
+    if (needTerms()) { if (!W.terms) return toast(t('Debes aceptar los términos y condiciones para enviar.')); const us = getUsers(); if (us[S.user]) { us[S.user].termsAccepted = today(); G.set('users', us); } }
     chs = chs.map(c => toSend.includes(c) ? { ...c, status: 'pending' } : c);
   }
   W.chapters = chs; W.updatedAt = today();
@@ -1053,14 +1053,14 @@ function saveStory(submit) {
   if (!LS.set(uk('stories'), list)) return;
   S.stories = list; W.saved = true; WPREVIEW = false;
   if (submit) {
-    [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) !== 'USER')])].filter(e => e !== S.user).forEach(e => notify(e, 'review', W.id, W.title, toSend.length === 1 ? toSend[0].title : toSend.length + ' capítulos'));   // avisa a Owner, Administración y Moderación
-    toast(toSend.length === 1 ? 'Capítulo enviado a revisión' : 'Capítulos enviados a revisión'); TAB = 'draft'; go('/library');
-  } else toast('Borrador guardado ✓');
+    [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) !== 'USER')])].filter(e => e !== S.user).forEach(e => notify(e, 'review', W.id, W.title, toSend.length === 1 ? toSend[0].title : tn(toSend.length, '{n} capítulo', '{n} capítulos')));   // avisa a Owner, Administración y Moderación
+    toast(toSend.length === 1 ? t('Capítulo enviado a revisión') : t('Capítulos enviados a revisión')); TAB = 'draft'; go('/library');
+  } else toast(t('Borrador guardado ✓'));
 }
 /** Portada: al elegir una imagen se abre el ajustador (mover, zoom, ver completa) y se guarda al tamaño ideal 480×720 (2:3) */
 let COVSRC = null;                                     // imagen original (reducida) para poder volver a ajustarla
 function loadCover(file) {
-  if (!file || !file.type.startsWith('image/')) return toast('Elige un archivo de imagen.');
+  if (!file || !file.type.startsWith('image/')) return toast(t('Elige un archivo de imagen.'));
   const r = new FileReader();
   r.onload = () => {
     const img = new Image();
@@ -1068,7 +1068,7 @@ function loadCover(file) {
       const k = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); COVSRC = c.toDataURL('image/jpeg', .9); coverEditor(COVSRC, applyCover, img.width, img.height);
     };
-    img.onerror = () => toast('No se pudo leer esa imagen.');
+    img.onerror = () => toast(t('No se pudo leer esa imagen.'));
     img.src = r.result;
   };
   r.readAsDataURL(file);
@@ -1081,12 +1081,12 @@ function coverEditor(src, done, ow, oh) {
     const kc = Math.max(FW / iw, FH / ih), kf = Math.min(FW / iw, FH / ih), zmin = Math.min(1, kf / kc);
     let z = 1, ox = (FW - iw * kc) / 2, oy = (FH - ih * kc) / 2;
     const m = document.createElement('div'); m.className = 'modal';
-    m.innerHTML = `<div class="modal-box cv-box" role="dialog" aria-modal="true" aria-label="Ajustar portada"><h2>Ajusta tu portada</h2><p class="helper" style="margin:0 0 10px">Arrastra la imagen para moverla y usa el zoom. Se guarda en proporción 2:3.</p>
+    m.innerHTML = `<div class="modal-box cv-box" role="dialog" aria-modal="true" aria-label="${esc(t('Ajustar portada'))}"><h2>${t('Ajusta tu portada')}</h2><p class="helper" style="margin:0 0 10px">${t('Arrastra la imagen para moverla y usa el zoom. Se guarda en proporción 2:3.')}</p>
     <div class="cv-frame" style="width:${FW}px;height:${FH}px"><img class="cv-img" alt="" draggable="false" src="${esc(src)}"></div>
     <label class="cv-zoom"><span>Zoom</span><input type="range" min="${zmin}" max="3" step="0.01" value="1" aria-label="Zoom"></label>
-    <div class="cv-quick"><button type="button" class="button ghost sm" data-q="fill">Rellenar</button><button type="button" class="button ghost sm" data-q="fit">Ver completa</button><button type="button" class="button ghost sm" data-q="center">Centrar</button></div>
-    <p class="helper cv-info">${ow && oh ? `Original: ${ow}×${oh} px. ` : ''}Se guardará a 480×720 px, el tamaño ideal para portadas (las imágenes grandes se reducen solas).</p>
-    <div style="display:flex;gap:10px;margin-top:12px"><button class="button ghost" data-no style="flex:1">Cancelar</button><button class="button" data-yes style="flex:1">Aplicar</button></div></div>`;
+    <div class="cv-quick"><button type="button" class="button ghost sm" data-q="fill">${t('Rellenar')}</button><button type="button" class="button ghost sm" data-q="fit">${t('Ver completa')}</button><button type="button" class="button ghost sm" data-q="center">${t('Centrar')}</button></div>
+    <p class="helper cv-info">${ow && oh ? t('Original: {w}×{h} px.', { w: ow, h: oh }) + ' ' : ''}${t('Se guardará a 480×720 px, el tamaño ideal para portadas (las imágenes grandes se reducen solas).')}</p>
+    <div style="display:flex;gap:10px;margin-top:12px"><button class="button ghost" data-no style="flex:1">${t('Cancelar')}</button><button class="button" data-yes style="flex:1">${t('Aplicar')}</button></div></div>`;
     const el = m.querySelector('.cv-img'), fr = m.querySelector('.cv-frame'), rg = m.querySelector('input[type=range]');
     const paint = () => {
       const w = iw * kc * z, h = ih * kc * z;
@@ -1112,7 +1112,7 @@ function coverEditor(src, done, ow, oh) {
     };
     document.body.appendChild(m); paint();
   };
-  img.onerror = () => toast('No se pudo leer esa imagen.'); img.src = src;
+  img.onerror = () => toast(t('No se pudo leer esa imagen.')); img.src = src;
 }
 
 /* --- Música del capítulo (el lector decide si la reproduce) --- */
@@ -1172,13 +1172,13 @@ function storyDetail(s, mine) {
   <section class="detail">${sagaNav(s)}${sagaCovers(s)}
   <span class="eyebrow">${esc(genreName(s.genre))} · ${esc(s.fandom)}${s.mature ? ' · +18' : ''}</span><h1>${esc(s.title)}</h1>
   <div class="detail-by">${t('por')} ${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : esc(userName())}</div>${s.publishedAt ? `<div class="detail-date">📅 ${t('Publicado el {d}', { d: fmtDate(s.publishedAt) })}</div>` : ''}
-  <div class="detail-likes">👍 ${tn(n, '{n} like', '{n} likes')}</div>${bookState(s)}
+  <div class="detail-likes"><span class="hrt-i">${HEART}</span> ${tn(n, '{n} like', '{n} likes')}</div>${bookState(s)}
   <p class="detail-syn">${esc(s.synopsis)}</p>
   <div class="tags" style="justify-content:center">${tagChips(s.tags)}</div>
   ${staffBar(s, mine)}
   ${mine && statusNote(ownOf(s)) ? `<p class="notice">${esc(statusNote(ownOf(s)))}</p>` : ''}
   <a class="button" data-replace data-dir="next" ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} style="width:100%;max-width:420px" href="#/story/${esc(s.id)}/${next.idx + 1}">${!read.length && !at ? t('Empezar a leer') : all ? t('Leer otra vez') : t('Continuar: cap. {n}', { n: next.idx + 1 })}</a>
-  <div class="row-btns"><button class="button secondary" data-act="like" data-id="${esc(s.id)}">👍 ${likes(s.id).includes(S.user) ? t('Te gusta') : t('Me gusta')}</button><button class="button secondary" data-act="fav" data-id="${esc(s.id)}">${fav ? '♥ ' + t('En favoritos') : '♡ ' + t('Favorito')}</button><button class="button secondary" data-act="lib-toggle" data-id="${esc(s.id)}">${S.lib.includes(s.id) ? '✓ ' + t('En tu biblioteca') : '📚 ' + t('Guardar en biblioteca')}</button>${mine ? `<a class="button ghost" href="#/write/${esc(s.id)}">${t('Editar')}</a>` : `<button class="button ghost" data-act="report-story" data-id="${esc(s.id)}">${t('Reportar')}</button>`}</div>
+  <div class="row-btns"><button class="button secondary like-btn ${likes(s.id).includes(S.user) ? 'on' : ''}" data-act="like" data-id="${esc(s.id)}" aria-pressed="${likes(s.id).includes(S.user)}">${HEART}<span>${likes(s.id).includes(S.user) ? t('Te gusta') : t('Me gusta')}</span></button><button class="button secondary" data-act="fav" data-id="${esc(s.id)}">${fav ? '♥ ' + t('En favoritos') : '♡ ' + t('Favorito')}</button><button class="button secondary" data-act="lib-toggle" data-id="${esc(s.id)}">${S.lib.includes(s.id) ? '✓ ' + t('En tu biblioteca') : '📚 ' + t('Guardar en biblioteca')}</button>${mine ? `<a class="button ghost" href="#/write/${esc(s.id)}">${t('Editar')}</a>` : `<button class="button ghost" data-act="report-story" data-id="${esc(s.id)}">${t('Reportar')}</button>`}</div>
   <details class="ch-index"><summary>${t('Capítulos ({n})', { n: s.chapters.length })}</summary>${s.chapters.map(c => `<a data-replace ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} href="#/story/${esc(s.id)}/${c.idx + 1}"><b>${read.includes(c.idx) ? '✓' : c.idx + 1}</b><span>${esc(c.title || t('Capítulo {n}', { n: c.idx + 1 }))}${mine && c.status !== 'approved' ? ` (${t(CH_STATUS[c.status]).toLowerCase()})` : ''}</span></a>`).join('')}</details>
   ${commentsBox(s)}</section></main>`;
 }
@@ -1643,9 +1643,9 @@ function sagaNav(s) {
 function sagaBox() {                              // solo existe si la persona ya tiene al menos otro libro
   if (!S.stories.some(x => x.id !== W.id)) return '';
   const c = sagaCandidates(W);
-  return `<div class="form-group full"><details class="saga-box" ${W.prev ? 'open' : ''}><summary>🔗 Agrupar libro / Vincular como secuela</summary>${c.length
-    ? `<label for="w-prev" class="helper" style="display:block;margin:10px 0 6px">¿De cuál de tus libros es secuela este libro?</label><select id="w-prev" class="select"><option value="">No agrupar</option>${c.map(x => `<option value="${esc(x.id)}" ${W.prev === x.id ? 'selected' : ''}>${esc(x.title || 'Sin título')}</option>`).join('')}</select><span class="helper">Los lectores podrán pasar de una parte a la otra.</span>`
-    : '<p class="helper" style="margin-top:10px">No hay libros disponibles: cada libro solo puede tener una secuela.</p>'}</details></div>`;
+  return `<div class="form-group full"><details class="saga-box" ${W.prev ? 'open' : ''}><summary>🔗 ${t('Agrupar libro / Vincular como secuela')}</summary>${c.length
+    ? `<label for="w-prev" class="helper" style="display:block;margin:10px 0 6px">${t('¿De cuál de tus libros es secuela este libro?')}</label><select id="w-prev" class="select"><option value="">${t('No agrupar')}</option>${c.map(x => `<option value="${esc(x.id)}" ${W.prev === x.id ? 'selected' : ''}>${esc(x.title || t('Sin título'))}</option>`).join('')}</select><span class="helper">${t('Los lectores podrán pasar de una parte a la otra.')}</span>`
+    : `<p class="helper" style="margin-top:10px">${t('No hay libros disponibles: cada libro solo puede tener una secuela.')}</p>`}</details></div>`;
 }
 function libRow(s, i) {                           // fila de la biblioteca / colecciones con barra de progreso
   const p = bookProgress(s), ph = s.phase || 'ongoing', id = esc(s.id);
@@ -1735,7 +1735,7 @@ function statsView() {
   return `<main class="page story-layout">${back}<div class="section-head"><div><span class="eyebrow">📊 Estadísticas</span><h2 style="margin-top:8px">Tus lectores</h2><p>Qué pasa con tus obras publicadas.</p></div></div>
   <div class="st-cards">${card(uniq.size, 'lectores')}${card(sum('lk'), 'likes')}${card(sum('cm'), 'comentarios')}${card(sum('libs'), 'en bibliotecas')}</div>
   ${books.map(b => { const mx = Math.max(1, ...b.per); return `<section class="panel st-book"><h3 class="serif">${esc(b.s.title)}</h3>
-    <div class="st-mini"><span>👀 ${b.rd.length} lector${b.rd.length === 1 ? '' : 'es'}</span><span>🏁 ${b.fin} terminaron</span><span>📚 ${b.libs} en biblioteca</span><span>♥ ${b.favs} favoritos</span><span>👍 ${b.lk}</span><span>💬 ${b.cm}</span></div>
+    <div class="st-mini"><span>👀 ${b.rd.length} lector${b.rd.length === 1 ? '' : 'es'}</span><span>🏁 ${b.fin} terminaron</span><span>📚 ${b.libs} en biblioteca</span><span>♥ ${b.favs} favoritos</span><span class="hrt-i">${HEART} ${b.lk}</span><span>💬 ${b.cm}</span></div>
     <h4>Lectores por capítulo</h4>${b.ps.map((c, i) => `<div class="st-row"><span class="st-l">Cap. ${i + 1}</span><span class="st-bar"><i style="width:${Math.round(b.per[i] / mx * 100)}%"></i></span><span class="st-n">${b.per[i]}</span></div>`).join('')}
     ${b.worst > 0 && b.drop > 0 ? `<p class="helper">La mayor caída es entre el capítulo ${b.worst} y el ${b.worst + 1}: ${b.drop} lector${b.drop === 1 ? '' : 'es'} menos. Quizá valga la pena revisar ese tramo.</p>` : ''}</section>`; }).join('')}
   <p class="notice">Por ahora se cuentan solo las cuentas de este dispositivo. Con el servidor se sumarán todas las lecturas.</p></main>`;
@@ -2301,12 +2301,12 @@ document.addEventListener('click', e => {
     'ch-list': () => { autosave(); go(`/write/${W.id}/chapters`); },
     'info-go': () => go(`/write/${W.id}`),
     'save-next': saveInfo,
-    'info-save': () => { if (saveInfoOnly()) { toast('Cambios guardados ✓'); KEEP = true; render(); } },
+    'info-save': () => { if (saveInfoOnly()) { toast(t('Cambios guardados ✓')); KEEP = true; render(); } },
     comments: () => { SHOWC = !SHOWC; KEEP = true; render(); if (SHOWC) { const c = $('#comments'); if (c && c.scrollIntoView) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
     'ch-add': addChapter,
-    'ch-trash': () => { const c = W.chapters.find(x => x.id === +el.dataset.cid); if (c) confirmBox(`¿Seguro que quieres eliminar el «${c.title || 'capítulo'}»?`, () => deleteChapter(c.id)); },
+    'ch-trash': () => { const c = W.chapters.find(x => x.id === +el.dataset.cid); if (c) confirmBox(t('¿Seguro que quieres eliminar «{title}»?', { title: c.title || t('capítulo') }), () => deleteChapter(c.id)); },
     'toggle-18': () => { if (isMinor(getUsers()[S.user])) return; collect(); const st = freshStories().find(x => x.id === W.id);
-      if (W.mature && st && st.mature && publicPrefix(st.chapters).length && !isStaff()) { el.setAttribute('aria-checked', 'true'); return dialog('Quitar +18 de una obra publicada', 'Para proteger a las personas menores, quitar la marca +18 de una obra ya publicada necesita aprobación de moderación. Seguirá marcada +18 mientras tanto.', 'Enviar solicitud', 'Cancelar', () => toast(requestUnmature(W.id, W.title))); }
+      if (W.mature && st && st.mature && publicPrefix(st.chapters).length && !isStaff()) { el.setAttribute('aria-checked', 'true'); return dialog(t('Quitar +18 de una obra publicada'), t('Para proteger a las personas menores, quitar la marca +18 de una obra ya publicada necesita aprobación de moderación. Seguirá marcada +18 mientras tanto.'), t('Enviar solicitud'), t('Cancelar'), () => toast(requestUnmature(W.id, W.title))); }
       W.mature = !W.mature; el.setAttribute('aria-checked', W.mature); },
     'rp-img': () => { const r = reportsAll().find(x => String(x.id) === id), d = r && (r.imgs || [])[+el.dataset.i]; if (d) showImg(d); },
     'acc-reports': () => { if (!isStaff()) return; RACC = id; RFILT = 'open'; go('/moderation/reports'); }, 'acc-clear': () => { RACC = null; KEEP = true; render(); }, 'log-filter': () => { LOGF = id; KEEP = true; render(); }, 'log-who': () => { LOGW = id; KEEP = true; render(); },
@@ -2372,7 +2372,7 @@ document.addEventListener('click', e => {
     'lib-del': () => { libRemove(id); toast(t('Quitado de tu biblioteca. Ya no recibirás avisos de esta obra.')); KEEP = true; render(); },
     'col-add': () => { colAdd(id); toast(t('Guardado en tus colecciones ⭐')); KEEP = true; render(); },
     'col-del': () => { colDel(id); toast(t('Quitado de tus colecciones')); KEEP = true; render(); },
-    like: () => { const s = findStory(id); if (s) { toggleLike(s); KEEP = true; render(); } },
+    like: () => { const s = findStory(id); if (s) { const was = likes(s.id).includes(S.user); toggleLike(s); KEEP = true; render(); const hb = document.querySelector('.like-btn'); if (hb && !was) { hb.classList.add('pulse'); setTimeout(() => hb.classList.remove('pulse'), 500); } } },
     follow: () => { toggleFollow(id); KEEP = true; render(); },
     'car-go': () => { CARHOLD = Date.now() + 8000; carGo(+el.dataset.i); },
     'nd-save': () => { if (nbDraftSave(false)) { KEEP = true; render(); } },
@@ -2461,7 +2461,7 @@ document.addEventListener('click', e => {
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
     preview: () => { collect(); WPREVIEW = true; render(); }, 'back-edit': () => { WPREVIEW = false; render(); },
     'save-draft': () => saveStory(false), publish: () => saveStory(true),
-    'cover-adjust': () => { const src = COVSRC || (/^data:image\//.test(W.cover || '') ? W.cover : ''); if (!src) return toast('Sube una imagen para poder ajustarla.'); coverEditor(src, applyCover); },
+    'cover-adjust': () => { const src = COVSRC || (/^data:image\//.test(W.cover || '') ? W.cover : ''); if (!src) return toast(t('Sube una imagen para poder ajustarla.')); coverEditor(src, applyCover); },
     'clear-cover': () => { COVSRC = null; W.cover = ''; $('#cover-url').value = ''; $('#cover-prev').innerHTML = coverPrev(); }
   };
   actions[act] && actions[act]();
@@ -2470,7 +2470,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'w-ch-text') { $('#w-count').textContent = wc(e.target.value); autoGrow(); }
   if (['w-ch-text', 'w-ch-title', 'w-ch-music'].includes(e.target.id)) {            // guardado automático mientras escribes
     const sv = $('#w-saved'); if (sv) sv.textContent = '';
-    clearTimeout(ASV); ASV = setTimeout(() => { autosave(); const v = $('#w-saved'); if (v && W) v.textContent = 'Guardado ✓'; }, 1200);
+    clearTimeout(ASV); ASV = setTimeout(() => { autosave(); const v = $('#w-saved'); if (v && W) v.textContent = t('Guardado ✓'); }, 1200);
   }
   if (e.target.id === 'w-tags') { const pv = $('#w-tags-prev'); if (pv) pv.innerHTML = parseTags(e.target.value).map(t => `<span class="tag">#${esc(t)}</span>`).join(''); }
   if (e.target.id === 'sq') {                           // la búsqueda de la cabecera filtra Descubrir (si estás en otra pantalla, te lleva allí)
@@ -2480,7 +2480,7 @@ document.addEventListener('input', e => {
   }
   if (e.target.id === 'cover-url') {
     const v = e.target.value.trim(); W.cover = /^https?:\/\//i.test(v) ? v : ''; $('#cover-prev').innerHTML = coverPrev();
-    const im = $('#cover-prev img'); if (im) im.onerror = () => { $('#cover-prev').textContent = 'No se pudo cargar la imagen'; };
+    const im = $('#cover-prev img'); if (im) im.onerror = () => { $('#cover-prev').textContent = t('No se pudo cargar la imagen'); };
   }
 });
 document.addEventListener('change', e => {

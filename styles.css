@@ -944,3 +944,14 @@ a.icon-btn.bell{position:relative}
 /* 46. Comunidades (Español / English) */
 .comm-bar{margin:0 0 10px}
 .comm-bar .pill{display:inline-block}
+
+/* 47. Me gusta con corazón */
+.hrt-i{display:inline-flex;align-items:center;vertical-align:middle}
+.hrt-i .heart{width:1.05em;height:1.05em;fill:hsl(var(--primary));stroke:none}
+.like-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.like-btn .heart{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round;transition:fill .2s ease-in-out,stroke .2s ease-in-out,transform .2s ease-in-out}
+.like-btn.on{color:hsl(var(--primary))}
+.like-btn.on .heart{fill:hsl(var(--primary));stroke:hsl(var(--primary));filter:drop-shadow(0 0 5px hsl(var(--primary)/.5))}
+.like-btn.pulse .heart{animation:heartPulse .45s ease-in-out}
+@media (hover:hover){.like-btn:hover .heart{transform:scale(1.12)}}
+.like-btn:active .heart{transform:scale(.9)}
