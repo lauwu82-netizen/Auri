@@ -1,0 +1,19 @@
+name: Revisión de Auri
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Sintaxis, traducciones y claves repetidas
+        run: node scripts/check.js
+      - name: Prueba de humo (español e inglés)
+        run: |
+          npm i --no-save playwright
+          npx playwright install --with-deps chromium
+          node scripts/smoke.js
