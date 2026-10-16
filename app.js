@@ -160,10 +160,10 @@ const commVisible = c => c === 'all' || c === myComm() || cfg('otherComm') === '
 const storyVisible = s => commVisible(commOf(s.owner));
 const staffFor = c => [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) !== 'USER' && (c === 'all' || staffScope(e).includes(c)))])];
 /** ¿La persona en sesión puede aplicar acciones de administración sobre esta cuenta? Owner: a todas menos a sí misma. Moderación: solo a USER. */
-function canAct(t) {
-  t = String(t || '').toLowerCase(); if (!S.user || t === S.user || !getUsers()[t]) return false;
-  const me = roleOf(S.user), tr = roleOf(t);
-  if (me !== 'OWNER' && !staffScope(S.user).includes(commOf(t))) return false;      // Moderación y Administración actúan solo en su comunidad
+function canAct(tg) {
+  tg = String(tg || '').toLowerCase(); if (!S.user || tg === S.user || !getUsers()[tg]) return false;
+  const me = roleOf(S.user), tr = roleOf(tg);
+  if (me !== 'OWNER' && !staffScope(S.user).includes(commOf(tg))) return false;      // Moderación y Administración actúan solo en su comunidad
   return me === 'OWNER' ? tr !== 'OWNER' : me === 'ADMIN' ? (tr === 'USER' || tr === 'MODERATOR') : me === 'MODERATOR' ? tr === 'USER' : false;   // strikes y suspensiones
 }
 const strikesOf = e => ((getUsers()[e] || {}).strikes || []).filter(x => !x.void);          // los anulados no cuentan
@@ -171,38 +171,38 @@ const activeBan = e => { const b = (getUsers()[e] || {}).ban; if (!b) return nul
 function logAction(type, target, extra, by) { const l = G.get('modlog', []); l.unshift({ id: Date.now() + Math.random().toString(36).slice(2, 5), type, by: by || S.user, target, extra: extra || '', date: new Date().toISOString() }); G.set('modlog', l.slice(0, 1000)); }
 function pushNotif(to, o) { const k = 'notifs.' + to, l = G.get(k, []); l.unshift({ id: Date.now() + Math.random().toString(36).slice(2, 6), from: '', storyId: '', extra: '', chap: '', date: new Date().toISOString(), read: false, ...o }); G.set(k, l.slice(0, 100)); }
 /* Acciones con verificación de permisos (devuelven un texto de error o '' si todo salió bien) */
-function giveStrike(t, reason) {
-  reason = String(reason || '').trim(); if (!canAct(t)) return 'No tienes permiso para esta acción.'; if (reason.length < 3) return 'Escribe el motivo del strike.';
-  const us = getUsers(), id = 's' + Date.now().toString(36), arr = [...(us[t].strikes || []), { id, reason: reason.slice(0, 500), by: S.user, date: new Date().toISOString() }];
-  us[t].strikes = arr; G.set('users', us); pushNotif(t, { type: 'strike', extra: id }); logAction('strike', t, reason.slice(0, 120)); return '';
+function giveStrike(tg, reason) {
+  reason = String(reason || '').trim(); if (!canAct(tg)) return t('No tienes permiso para esta acción.'); if (reason.length < 3) return t('Escribe el motivo del strike.');
+  const us = getUsers(), id = 's' + Date.now().toString(36), arr = [...(us[tg].strikes || []), { id, reason: reason.slice(0, 500), by: S.user, date: new Date().toISOString() }];
+  us[tg].strikes = arr; G.set('users', us); pushNotif(tg, { type: 'strike', extra: id }); logAction('strike', tg, reason.slice(0, 120)); return '';
 }
 const canBan = () => isOwner() || isAdm();             // suspender o bloquear: solo Administración y Owner
 const appealsAll = () => G.get('appeals', []);
 const openAppeals = () => appealsAll().filter(a => a.status === 'open' && inScope(commOf(a.user))).length;
 const myAppeal = b => b && appealsAll().find(a => a.user === S.user && a.banDate === b.date);
 function submitAppeal(text, imgs) {
-  const b = activeBan(S.user); if (!b) return 'La cuenta ya no está suspendida.';
-  text = String(text || '').trim(); if (text.length < 10) return 'Cuenta qué ocurrió con al menos 10 caracteres.';
-  if (myAppeal(b)) return 'Ya se envió una apelación para esta decisión.';
+  const b = activeBan(S.user); if (!b) return t('La cuenta ya no está suspendida.');
+  text = String(text || '').trim(); if (text.length < 10) return t('Cuenta qué ocurrió con al menos 10 caracteres.');
+  if (myAppeal(b)) return t('Ya se envió una apelación para esta decisión.');
   const l = appealsAll(); l.unshift({ id: Date.now(), user: S.user, banDate: b.date, ban: { reason: b.reason, by: b.by, until: b.until || null }, text: text.slice(0, 1000), imgs: (imgs || []).slice(0, 4), date: today(), status: 'open' });
-  if (!G.set('appeals', l)) return 'No se pudo guardar. Prueba con menos imágenes o más livianas.';
-  staffFor(commOf(S.user)).filter(e => e === OWNER_EMAIL || roleOf(e) === 'ADMIN').forEach(e => pushNotif(e, { type: 'sys', extra: 'Nueva apelación de ' + uName(S.user), href: '#/moderation/appeals' }));
+  if (!G.set('appeals', l)) return t('No se pudo guardar. Prueba con menos imágenes o más livianas.');
+  staffFor(commOf(S.user)).filter(e => e === OWNER_EMAIL || roleOf(e) === 'ADMIN').forEach(e => pushNotif(e, { type: 'sys', extra: 'Nueva apelación de {n}', xv: { n: uName(S.user) }, href: '#/moderation/appeals' }));
   return '';
 }
-function annulStrike(t, sid, reason) {
-  reason = String(reason || '').trim(); if (!canAct(t) || !canBan()) return 'Solo Administración y Owner pueden anular strikes.'; if (reason.length < 3) return 'Escribe el motivo de la anulación.';
-  const us = getUsers(), l = us[t].strikes || [], i = l.findIndex(x => x.id === sid); if (i < 0) return 'Ese strike ya no existe.';
-  l[i] = { ...l[i], void: { by: S.user, date: new Date().toISOString(), reason: reason.slice(0, 300) } }; us[t].strikes = l; G.set('users', us);
-  pushNotif(t, { type: 'sys', extra: 'Un strike de tu cuenta fue anulado: ' + reason.slice(0, 120) }); logAction('strike-annul', t, reason.slice(0, 100)); return '';
+function annulStrike(tg, sid, reason) {
+  reason = String(reason || '').trim(); if (!canAct(tg) || !canBan()) return t('Solo Administración y Owner pueden anular strikes.'); if (reason.length < 3) return t('Escribe el motivo de la anulación.');
+  const us = getUsers(), l = us[tg].strikes || [], i = l.findIndex(x => x.id === sid); if (i < 0) return t('Ese strike ya no existe.');
+  l[i] = { ...l[i], void: { by: S.user, date: new Date().toISOString(), reason: reason.slice(0, 300) } }; us[tg].strikes = l; G.set('users', us);
+  pushNotif(tg, { type: 'sys', extra: 'Un strike de tu cuenta fue anulado: {r}', xv: { r: reason.slice(0, 120) } }); logAction('strike-annul', tg, reason.slice(0, 100)); return '';
 }
-function applyBan(t, days, reason) {
-  reason = String(reason || '').trim(); if (!canAct(t) || !canBan()) return 'Solo Administración y Owner pueden suspender o bloquear cuentas.'; if (reason.length < 3) return 'Escribe el motivo de la suspensión.';
-  const us = getUsers(), d = +days; us[t].ban = { reason: reason.slice(0, 500), by: S.user, date: new Date().toISOString(), until: d > 0 ? new Date(Date.now() + d * 864e5).toISOString() : null };
-  G.set('users', us); logAction('ban', t, (d > 0 ? d + ' día(s): ' : 'permanente: ') + reason.slice(0, 100)); return '';
+function applyBan(tg, days, reason) {
+  reason = String(reason || '').trim(); if (!canAct(tg) || !canBan()) return t('Solo Administración y Owner pueden suspender o bloquear cuentas.'); if (reason.length < 3) return t('Escribe el motivo de la suspensión.');
+  const us = getUsers(), d = +days; us[tg].ban = { reason: reason.slice(0, 500), by: S.user, date: new Date().toISOString(), until: d > 0 ? new Date(Date.now() + d * 864e5).toISOString() : null };
+  G.set('users', us); logAction('ban', tg, (d > 0 ? d + ' día(s): ' : 'permanente: ') + reason.slice(0, 100)); return '';
 }
-function liftBan(t) {
-  if (!canAct(t) || !canBan()) return 'Solo Administración y Owner pueden levantar una suspensión.'; const us = getUsers(); delete us[t].ban; G.set('users', us); logAction('unban', t);
-  G.set('appeals', appealsAll().map(a => a.user === t && a.status === 'open' ? { ...a, status: 'released', handledBy: S.user, handledDate: today(), note: 'Cuenta liberada' } : a)); return '';
+function liftBan(tg) {
+  if (!canAct(tg) || !canBan()) return t('Solo Administración y Owner pueden levantar una suspensión.'); const us = getUsers(); delete us[tg].ban; G.set('users', us); logAction('unban', tg);
+  G.set('appeals', appealsAll().map(a => a.user === tg && a.status === 'open' ? { ...a, status: 'released', handledBy: S.user, handledDate: today(), note: 'Cuenta liberada' } : a)); return '';
 }
 /* --- Cuenta de prueba «RiRi» (simula a otra persona). Para quitarla: Ajustes › Cuenta › Eliminar cuenta, o borra este bloque --- */
 const TEST_EMAIL = 'lauwu82@gmail.com', TEST_PASS = 'RiRi12345';
@@ -212,38 +212,38 @@ async function seedTest() {
     us[TEST_EMAIL] = { name: 'RiRi', salt, hash, birth: '2000-01-01', gender: 'Mujer', interests: [], onboarded: true, termsAccepted: today(), created: today(), role: 'USER', strikes: [], test: true };
     G.set('users', us); localStorage.setItem('auri.testseeded', '1'); } catch (e) {}
 }
-function testRole(t, role) {                           // solo Owner y solo sobre la cuenta de prueba: cambia el rol al instante (sin invitación) y pone el marco
-  if (!isOwner() || !(getUsers()[t] || {}).test) return; const us = getUsers();
-  us[t].role = role; us[t].frameWorn = role !== 'USER'; G.set('users', us); logAction('test-role-' + role.toLowerCase(), t);
+function testRole(tg, role) {                           // solo Owner y solo sobre la cuenta de prueba: cambia el rol al instante (sin invitación) y pone el marco
+  if (!isOwner() || !(getUsers()[tg] || {}).test) return; const us = getUsers();
+  us[tg].role = role; us[tg].frameWorn = role !== 'USER'; G.set('users', us); logAction('test-role-' + role.toLowerCase(), tg);
 }
-function inviteRole(t, role) {                          // solo la Owner asciende: USER → Moderación, Moderación → Administración
-  if (!isOwner()) return 'Solo la Owner puede hacer ascensos.'; if (!canAct(t)) return 'No tienes permiso para esta acción.';
-  const u = getUsers()[t], cur = roleOf(t);
-  if (role === 'MODERATOR' && cur !== 'USER') return 'Esta persona ya es parte del equipo.';
-  if (role === 'ADMIN' && cur !== 'MODERATOR') return 'Solo una persona moderadora puede ascender a administración.';
-  if (!isAdult(u)) return 'Solo personas mayores de 18 años pueden ser parte del equipo.';
-  if (G.get('notifs.' + t, []).some(n => n.type === 'modinvite' && !n.done)) return 'Ya tiene una invitación pendiente.';
-  pushNotif(t, { type: 'modinvite', role, from: S.user }); logAction('invite-' + role.toLowerCase(), t); return '';
+function inviteRole(tg, role) {                          // solo la Owner asciende: USER → Moderación, Moderación → Administración
+  if (!isOwner()) return t('Solo la Owner puede hacer ascensos.'); if (!canAct(tg)) return t('No tienes permiso para esta acción.');
+  const u = getUsers()[tg], cur = roleOf(tg);
+  if (role === 'MODERATOR' && cur !== 'USER') return t('Esta persona ya es parte del equipo.');
+  if (role === 'ADMIN' && cur !== 'MODERATOR') return t('Solo una persona moderadora puede ascender a administración.');
+  if (!isAdult(u)) return t('Solo personas mayores de 18 años pueden ser parte del equipo.');
+  if (G.get('notifs.' + tg, []).some(n => n.type === 'modinvite' && !n.done)) return t('Ya tiene una invitación pendiente.');
+  pushNotif(tg, { type: 'modinvite', role, from: S.user }); logAction('invite-' + role.toLowerCase(), tg); return '';
 }
-const inviteMod = t => inviteRole(t, 'MODERATOR');
+const inviteMod = tg => inviteRole(tg, 'MODERATOR');
 const myInvite = nid => G.get('notifs.' + S.user, []).find(n => n.id === nid && n.type === 'modinvite' && !n.done);
 function answerInvite(nid, res) { const k = 'notifs.' + S.user; G.set(k, G.get(k, []).map(n => n.id === nid ? { ...n, done: res } : n)); }
 function acceptInvite(nid) {
-  const n = myInvite(nid), u = getUsers()[S.user]; if (!n) return 'Esta invitación ya no está disponible.';
+  const n = myInvite(nid), u = getUsers()[S.user]; if (!n) return t('Esta invitación ya no está disponible.');
   const want = n.role === 'ADMIN' ? 'ADMIN' : 'MODERATOR', cur = roleOf(S.user);
-  if ((want === 'MODERATOR' && cur !== 'USER') || (want === 'ADMIN' && cur !== 'MODERATOR')) return 'Tu cuenta no puede aceptar esta invitación.';
-  if (!isAdult(u)) return 'Solo personas mayores de 18 años pueden ser parte del equipo.';
+  if ((want === 'MODERATOR' && cur !== 'USER') || (want === 'ADMIN' && cur !== 'MODERATOR')) return t('Tu cuenta no puede aceptar esta invitación.');
+  if (!isAdult(u)) return t('Solo personas mayores de 18 años pueden ser parte del equipo.');
   const us = getUsers(); us[S.user].role = want; us[S.user][want === 'ADMIN' ? 'admSince' : 'modSince'] = new Date().toISOString(); us[S.user].frameWorn = false; G.set('users', us);   // el marco nuevo es obligatorio
-  answerInvite(nid, 'accepted'); pushNotif(OWNER_EMAIL, { type: 'sys', extra: `${u.name} aceptó tu invitación y ya es parte de ${want === 'ADMIN' ? 'la administración' : 'la moderación'}.` }); logAction('accept-' + want.toLowerCase(), S.user); return '';
+  answerInvite(nid, 'accepted'); pushNotif(OWNER_EMAIL, { type: 'sys', extra: want === 'ADMIN' ? '{n} aceptó tu invitación y ya es parte de la administración.' : '{n} aceptó tu invitación y ya es parte de la moderación.', xv: { n: u.name } }); logAction('accept-' + want.toLowerCase(), S.user); return '';
 }
-function declineInvite(nid) { const n = myInvite(nid); if (!n) return; answerInvite(nid, 'declined'); pushNotif(OWNER_EMAIL, { type: 'sys', extra: `${uName(S.user)} rechazó la invitación a ${n.role === 'ADMIN' ? 'la administración' : 'la moderación'}.` }); }
-function revokeMod(t) {                                // "descender": Owner (Administración → Moderación, Moderación → USER) · Administración (Moderación → USER)
-  const tr = roleOf(t); if (!S.user || t === S.user) return 'No tienes permiso para esta acción.';
-  if (!(isOwner() ? (tr === 'MODERATOR' || tr === 'ADMIN') : isAdm() ? tr === 'MODERATOR' : false)) return 'No tienes permiso para esta acción.';
+function declineInvite(nid) { const n = myInvite(nid); if (!n) return; answerInvite(nid, 'declined'); pushNotif(OWNER_EMAIL, { type: 'sys', extra: n.role === 'ADMIN' ? '{n} rechazó la invitación a la administración.' : '{n} rechazó la invitación a la moderación.', xv: { n: uName(S.user) } }); }
+function revokeMod(tg) {                                // "descender": Owner (Administración → Moderación, Moderación → USER) · Administración (Moderación → USER)
+  const tr = roleOf(tg); if (!S.user || tg === S.user) return t('No tienes permiso para esta acción.');
+  if (!(isOwner() ? (tr === 'MODERATOR' || tr === 'ADMIN') : isAdm() ? tr === 'MODERATOR' : false)) return t('No tienes permiso para esta acción.');
   const us = getUsers();
-  if (tr === 'ADMIN') { us[t].role = 'MODERATOR'; us[t].frameWorn = true; delete us[t].admSince; } else { us[t].role = 'USER'; delete us[t].frameWorn; delete us[t].modSince; }
-  G.set('users', us); pushNotif(t, { type: 'sys', extra: tr === 'ADMIN' ? 'Tu rol de administración ha finalizado: sigues en el equipo de moderación.' : 'Tu participación en el equipo de moderación de Auri Studios ha finalizado.' });
-  logAction(tr === 'ADMIN' ? 'demote-admin' : 'revoke', t); return '';
+  if (tr === 'ADMIN') { us[tg].role = 'MODERATOR'; us[tg].frameWorn = true; delete us[tg].admSince; } else { us[tg].role = 'USER'; delete us[tg].frameWorn; delete us[tg].modSince; }
+  G.set('users', us); pushNotif(tg, { type: 'sys', extra: tr === 'ADMIN' ? 'Tu rol de administración ha finalizado: sigues en el equipo de moderación.' : 'Tu participación en el equipo de moderación de Auri Studios ha finalizado.' });
+  logAction(tr === 'ADMIN' ? 'demote-admin' : 'revoke', tg); return '';
 }
 /* Marcos de perfil: el de Owner solo existe para la Owner; el de moderación es obligatorio y no se puede quitar */
 const frameKey = e => { const r = roleOf(e), u = getUsers()[e] || {}, base = r === 'OWNER' ? (u.frameOn === false ? '' : 'own') : r === 'ADMIN' && u.frameWorn ? 'adm' : r === 'MODERATOR' && u.frameWorn ? 'mod' : ''; return base || (u.frameTop ? 'top' : ''); };   // el marco del rol manda; si no hay, el Top 50 regalado
@@ -262,34 +262,34 @@ function giftSweep() {                                  // los regalos sin recla
   const L = giftsAll(), now = Date.now(); let ch = false;
   L.forEach(g => { if (g.status === 'pending' && new Date(g.expires).getTime() <= now) {
     g.status = 'expired'; g.endDate = new Date().toISOString(); ch = true;
-    pushNotif(OWNER_EMAIL, { type: 'sys', extra: 'El regalo para ' + uName(g.to) + ' venció sin reclamarse: el cupo volvió a ti.', href: '#/moderation/gifts' });
+    pushNotif(OWNER_EMAIL, { type: 'sys', extra: 'El regalo para {n} venció sin reclamarse: el cupo volvió a ti.', xv: { n: uName(g.to) }, href: '#/moderation/gifts' });
     pushNotif(g.to, { type: 'sys', extra: 'Tu regalo (marco Top 50) se canceló porque pasaron 24 h sin reclamarlo.' });
     logAction('gift-expire', g.to, 'Marco Top 50 sin reclamar en 24 h · cupo devuelto', 'sistema'); } });
   if (ch) G.set('gifts', L);
 }
 function giftFind(raw) {                                // usuario (con o sin @) o correo
-  const q = String(raw || '').trim().replace(/^@/, '').toLowerCase(); if (!q) return { err: 'Escribe el usuario o el correo.' };
+  const q = String(raw || '').trim().replace(/^@/, '').toLowerCase(); if (!q) return { err: t('Escribe el usuario o el correo.') };
   const us = getUsers(), ks = Object.keys(us), byMail = ks.find(e => e.toLowerCase() === q);
   if (byMail) return { e: byMail };
   const m = ks.filter(e => String((us[e] || {}).name || '').toLowerCase() === q);
-  return m.length === 1 ? { e: m[0] } : m.length > 1 ? { err: 'Hay varias cuentas con ese nombre: usa el correo.' } : { err: 'No encontré esa cuenta.' };
+  return m.length === 1 ? { e: m[0] } : m.length > 1 ? { err: t('Hay varias cuentas con ese nombre: usa el correo.') } : { err: t('No encontré esa cuenta.') };
 }
 function giftSend(raw) {
-  if (!isOwner()) return 'Solo la Owner puede regalar.'; giftSweep();
-  const f = giftFind(raw); if (f.err) return f.err; const t = f.e, u = getUsers()[t];
-  if (t === S.user || roleOf(t) === 'OWNER') return 'Ese marco es para otras cuentas.';
-  if (u.frameTop || giftsAll().some(g => g.to === t && g.status === 'pending')) return u.frameTop ? uName(t) + ' ya tiene el marco.' : uName(t) + ' ya tiene un regalo pendiente.';
-  if (giftLeft() <= 0) return 'Ya no quedan cupos: ' + GIFT_TOTAL + ' de ' + GIFT_TOTAL + ' en uso.';
-  const now = Date.now(), L = giftsAll(); L.unshift({ id: now + Math.random().toString(36).slice(2, 5), kind: 'top50', to: t, by: S.user, date: new Date(now).toISOString(), expires: new Date(now + GIFT_MS).toISOString(), status: 'pending' }); G.set('gifts', L);
-  pushNotif(t, { type: 'sys', extra: '¡Te regalaron el marco exclusivo Top 50! Reclámalo en las próximas 24 h.', href: '#/gift' });
-  logAction('gift-send', t, 'Marco Top 50 · quedan ' + giftLeft() + ' de ' + GIFT_TOTAL); return '';
+  if (!isOwner()) return t('Solo la Owner puede regalar.'); giftSweep();
+  const f = giftFind(raw); if (f.err) return f.err; const tg = f.e, u = getUsers()[tg];
+  if (tg === S.user || roleOf(tg) === 'OWNER') return t('Ese marco es para otras cuentas.');
+  if (u.frameTop || giftsAll().some(g => g.to === tg && g.status === 'pending')) return u.frameTop ? t('{n} ya tiene el marco.', { n: uName(tg) }) : t('{n} ya tiene un regalo pendiente.', { n: uName(tg) });
+  if (giftLeft() <= 0) return t('Ya no quedan cupos: {n} de {n} en uso.', { n: GIFT_TOTAL });
+  const now = Date.now(), L = giftsAll(); L.unshift({ id: now + Math.random().toString(36).slice(2, 5), kind: 'top50', to: tg, by: S.user, date: new Date(now).toISOString(), expires: new Date(now + GIFT_MS).toISOString(), status: 'pending' }); G.set('gifts', L);
+  pushNotif(tg, { type: 'sys', extra: '¡Te regalaron el marco exclusivo Top 50! Reclámalo en las próximas 24 h.', href: '#/gift' });
+  logAction('gift-send', tg, 'Marco Top 50 · quedan ' + giftLeft() + ' de ' + GIFT_TOTAL); return '';
 }
 function giftClaim(id) {
-  giftSweep(); const L = giftsAll(), g = L.find(x => x.id === id); if (!g || g.to !== S.user) return 'Ese regalo no es tuyo.';
-  if (g.status === 'expired') return 'Este regalo venció: pasaron 24 h sin reclamarlo.'; if (g.status !== 'pending') return 'Este regalo ya no está disponible.';
+  giftSweep(); const L = giftsAll(), g = L.find(x => x.id === id); if (!g || g.to !== S.user) return t('Ese regalo no es tuyo.');
+  if (g.status === 'expired') return t('Este regalo venció: pasaron 24 h sin reclamarlo.'); if (g.status !== 'pending') return t('Este regalo ya no está disponible.');
   g.status = 'claimed'; g.claimedDate = new Date().toISOString(); G.set('gifts', L);
   const us = getUsers(); if (us[S.user]) { us[S.user].frameTop = true; G.set('users', us); }
-  pushNotif(OWNER_EMAIL, { type: 'sys', extra: uName(S.user) + ' reclamó su marco Top 50.', href: '#/moderation/gifts' });
+  pushNotif(OWNER_EMAIL, { type: 'sys', extra: '{n} reclamó su marco Top 50.', xv: { n: uName(S.user) }, href: '#/moderation/gifts' });
   logAction('gift-claim', S.user, 'Reclamó el marco Top 50'); return '';
 }
 function giftCancel(id) {
@@ -305,28 +305,28 @@ function showGiftOverlay() {                            // al entrar, quien tien
   if (GIFTOV || !S.user || isGuest()) return; giftSweep();
   const g = giftsAll().find(x => x.to === S.user && x.status === 'pending' && !GIFTSEEN.has(x.id)); if (!g) return; GIFTSEEN.add(g.id);
   const o = GIFTOV = document.createElement('div'); o.className = 'mod-ov'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true');
-  o.innerHTML = `<div class="mod-ov-box"><div class="end-emoji">🎁</div><h1>¡Te regalaron un marco!</h1><p>Marco exclusivo <b>Top 50</b> de Auri Studios</p><div class="mod-ov-av">${giftPreview(S.user)}</div><p class="helper">Tienes <b>${esc(leftTxt(g.expires))}</b> para reclamarlo. Si pasan 24 h, el regalo se cancela.</p><p class="error-line" data-err role="alert"></p><button class="button" data-claim>Reclamar marco</button><button class="link-btn" data-later style="color:#d9ccf0">Más tarde</button></div>`;
+  o.innerHTML = `<div class="mod-ov-box"><div class="end-emoji">🎁</div><h1>${t('¡Te regalaron un marco!')}</h1><p>${t('Marco exclusivo {x} de Auri Studios', { x: '<b>Top 50</b>' })}</p><div class="mod-ov-av">${giftPreview(S.user)}</div><p class="helper">${t('Tienes {x} para reclamarlo. Si pasan 24 h, el regalo se cancela.', { x: '<b>' + esc(leftTxt(g.expires)) + '</b>' })}</p><p class="error-line" data-err role="alert"></p><button class="button" data-claim>${t('Reclamar marco')}</button><button class="link-btn" data-later style="color:#d9ccf0">${t('Más tarde')}</button></div>`;
   o.querySelector('[data-later]').onclick = () => { o.remove(); GIFTOV = null; };
-  o.querySelector('[data-claim]').onclick = () => { const r = giftClaim(g.id); if (r) { o.querySelector('[data-err]').textContent = r; return; } o.querySelector('.end-emoji').textContent = '✨'; o.querySelector('h1').textContent = '¡Es tuyo!'; o.classList.add('worn'); setTimeout(() => { o.classList.add('bye'); setTimeout(() => { o.remove(); GIFTOV = null; KEEP = true; render(); }, 380); }, 1100); };
+  o.querySelector('[data-claim]').onclick = () => { const r = giftClaim(g.id); if (r) { o.querySelector('[data-err]').textContent = r; return; } o.querySelector('.end-emoji').textContent = '✨'; o.querySelector('h1').textContent = t('¡Es tuyo!'); o.classList.add('worn'); setTimeout(() => { o.classList.add('bye'); setTimeout(() => { o.remove(); GIFTOV = null; KEEP = true; render(); }, 380); }, 1100); };
   document.body.appendChild(o);
 }
 function giftView() {
   giftSweep(); const L = giftsAll(), g = L.find(x => x.to === S.user && x.status === 'pending'), got = L.some(x => x.to === S.user && x.status === 'claimed');
-  return `<main class="page story-layout"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">🎁 Regalo</span><h2 style="margin-top:8px">Marco exclusivo Top 50</h2></div></div>
-  ${g ? `<section class="panel gift-card"><div class="gift-av">${giftPreview(S.user)}</div><p class="helper">Te quedan <b>${esc(leftTxt(g.expires))}</b> para reclamarlo. Pasadas las 24 h el regalo se cancela y no se puede recuperar.</p><p class="error-line" data-err role="alert"></p><button class="button" data-act="gift-claim" data-id="${esc(g.id)}">Reclamar marco</button></section>`
-    : got ? `<section class="panel gift-card"><div class="gift-av">${giftPreview(S.user)}</div><p class="helper">Ya reclamaste tu marco Top 50. Se ve en tu perfil y junto a tu nombre.</p></section>`
-    : empty('Sin regalos por ahora', 'Cuando te regalen algo, aparecerá aquí y en tus notificaciones.', '<a class="button" href="#/">Volver al inicio</a>')}</main>`;
+  return `<main class="page story-layout"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('🎁 Regalo')}</span><h2 style="margin-top:8px">${t('Marco exclusivo Top 50')}</h2></div></div>
+  ${g ? `<section class="panel gift-card"><div class="gift-av">${giftPreview(S.user)}</div><p class="helper">${t('Te quedan {x} para reclamarlo. Pasadas las 24 h el regalo se cancela y no se puede recuperar.', { x: '<b>' + esc(leftTxt(g.expires)) + '</b>' })}</p><p class="error-line" data-err role="alert"></p><button class="button" data-act="gift-claim" data-id="${esc(g.id)}">${t('Reclamar marco')}</button></section>`
+    : got ? `<section class="panel gift-card"><div class="gift-av">${giftPreview(S.user)}</div><p class="helper">${t('Ya reclamaste tu marco Top 50. Se ve en tu perfil y junto a tu nombre.')}</p></section>`
+    : empty('Sin regalos por ahora', 'Cuando te regalen algo, aparecerá aquí y en tus notificaciones.', '<a class="button" href="#/">' + t('Volver al inicio') + '</a>')}</main>`;
 }
 function giftsView(tabs) {                              // pestaña de la Owner dentro de Moderación
   giftSweep(); const L = giftsAll(), left = giftLeft(), pend = L.filter(g => g.status === 'pending'), got = L.filter(g => g.status === 'claimed'), hist = L.filter(g => g.status === 'expired' || g.status === 'revoked');
   const row = (g, info, act) => `<div class="log-row"><div class="log-top"><b>${esc(uName(g.to))}</b><time class="helper">${esc(info)}</time></div><div class="helper">${esc(g.to)}</div>${act ? `<div class="rp-acts" style="margin-top:8px">${act}</div>` : ''}</div>`;
   const fd = iso => new Date(iso).toLocaleString(LOC(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">🎁 Regalos</span><h2 style="margin-top:8px">Marco Top 50</h2><p>Solo tú puedes regalarlo. Quien lo recibe tiene 24 h para reclamarlo; si no lo hace, el regalo se cancela y el cupo vuelve a ti.</p></div></div>
-  <section class="panel gift-top"><div class="gift-av">${giftPreview(S.user)}</div><div class="gift-count"><b>${left}</b><span>de ${GIFT_TOTAL} cupos disponibles</span><small class="helper">50 para el top + 3 de prueba</small></div></section>
-  <section class="panel" style="margin-top:14px"><h3 style="margin-bottom:8px">Regalar a una cuenta</h3><div class="form-group"><label for="g-to">Usuario o correo</label><input id="g-to" class="field" autocomplete="off" placeholder="Ej: RiRi o correo@ejemplo.com"></div><p class="error-line" data-err role="alert"></p><button class="button" data-act="gift-send" ${left > 0 ? '' : 'disabled'}>Regalar marco</button><p class="helper" style="margin-top:8px">También puedes regalarlo desde el perfil de la persona, en Administración.</p></section>
-  <h3 style="margin:18px 0 8px">Esperando que lo reclamen (${pend.length})</h3>${pend.length ? pend.map(g => row(g, 'Le quedan ' + leftTxt(g.expires), `<button class="button danger sm" data-act="gift-cancel" data-id="${esc(g.id)}">Cancelar regalo</button>`)).join('') : '<p class="helper">Ninguno.</p>'}
-  <h3 style="margin:18px 0 8px">Reclamados (${got.length})</h3>${got.length ? got.map(g => row(g, 'Reclamado ' + fd(g.claimedDate), `<button class="button secondary sm" data-act="gift-cancel" data-id="${esc(g.id)}">Quitar marco</button>`)).join('') : '<p class="helper">Ninguno.</p>'}
-  <h3 style="margin:18px 0 8px">Historial</h3>${hist.length ? hist.map(g => row(g, (g.status === 'expired' ? 'Venció sin reclamar · ' : 'Retirado · ') + fd(g.endDate), '')).join('') : '<p class="helper">Aún no hay movimientos.</p>'}</main>`;
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('🎁 Regalos')}</span><h2 style="margin-top:8px">${t('Marco Top 50')}</h2><p>${t('Solo tú puedes regalarlo. Quien lo recibe tiene 24 h para reclamarlo; si no lo hace, el regalo se cancela y el cupo vuelve a ti.')}</p></div></div>
+  <section class="panel gift-top"><div class="gift-av">${giftPreview(S.user)}</div><div class="gift-count"><b>${left}</b><span>${t('de {n} cupos disponibles', { n: GIFT_TOTAL })}</span><small class="helper">${t('50 para el top + 3 de prueba')}</small></div></section>
+  <section class="panel" style="margin-top:14px"><h3 style="margin-bottom:8px">${t('Regalar a una cuenta')}</h3><div class="form-group"><label for="g-to">${t('Usuario o correo')}</label><input id="g-to" class="field" autocomplete="off" placeholder="${esc(t('Ej: RiRi o correo@ejemplo.com'))}"></div><p class="error-line" data-err role="alert"></p><button class="button" data-act="gift-send" ${left > 0 ? '' : 'disabled'}>${t('Regalar marco')}</button><p class="helper" style="margin-top:8px">${t('También puedes regalarlo desde el perfil de la persona, en Administración.')}</p></section>
+  <h3 style="margin:18px 0 8px">${t('Esperando que lo reclamen')} (${pend.length})</h3>${pend.length ? pend.map(g => row(g, t('Le quedan {x}', { x: leftTxt(g.expires) }), `<button class="button danger sm" data-act="gift-cancel" data-id="${esc(g.id)}">${t('Cancelar regalo')}</button>`)).join('') : '<p class="helper">' + t('Ninguno.') + '</p>'}
+  <h3 style="margin:18px 0 8px">${t('Reclamados')} (${got.length})</h3>${got.length ? got.map(g => row(g, t('Reclamado {d}', { d: fd(g.claimedDate) }), `<button class="button secondary sm" data-act="gift-cancel" data-id="${esc(g.id)}">${t('Quitar marco')}</button>`)).join('') : '<p class="helper">' + t('Ninguno.') + '</p>'}
+  <h3 style="margin:18px 0 8px">${t('Historial')}</h3>${hist.length ? hist.map(g => row(g, (g.status === 'expired' ? t('Venció sin reclamar') : t('Retirado')) + ' · ' + fd(g.endDate), '')).join('') : '<p class="helper">' + t('Aún no hay movimientos.') + '</p>'}</main>`;
 }
 const avatarHTML = (src, name, cls = '') => `<span class="avatar ${cls}">${src ? `<img src="${esc(src)}" alt="">` : esc([...(name || '?')][0].toUpperCase())}</span>`;
 const userAvatar = (e, cls = '') => avatarHTML((getUsers()[e] || {}).avatar, uName(e), cls);
@@ -366,7 +366,7 @@ function byline(o) {                                    // quién publicó: siem
   return o.anon ? (isOwner() ? `${role} · ${real} ${t('(nombre oculto al público)')}` : role) : `${real} · ${role}`;
 }
 const postMeta = (anon, cid) => ({ byRole: roleOf(S.user), anon: !!anon, comm: (($('#' + cid) || {}).value) || (staffScope(S.user).length > 1 ? 'all' : staffScope(S.user)[0] || 'es'), ...(isMod() ? { status: 'pending' } : {}) });
-const notifyApprovers = what => [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) === 'ADMIN' && staffScope(e).some(c => staffScope(S.user).includes(c)))])].filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: what, href: '#/moderation/posts' }));
+const notifyApprovers = (what, xv) => [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) === 'ADMIN' && staffScope(e).some(c => staffScope(S.user).includes(c)))])].filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: what, xv, href: '#/moderation/posts' }));
 /** Una noticia son bloques: cada párrafo puede llevar su propia imagen (cualquier proporción). Las noticias antiguas (solo texto) se convierten al vuelo */
 const newsBlocks = n => Array.isArray(n.blocks) && n.blocks.length ? n.blocks : String(n.text || '').split(/\n\s*\n/).filter(Boolean).map(t => ({ t, img: '' }));
 const newsCover = n => { const b = n && newsBlocks(n).find(x => /^data:image\//.test(x.img || '')); return b ? b.img : ''; };
@@ -980,7 +980,7 @@ function requestUnmature(sid, title) {                  // la autoría pide quit
   const l = G.get('reports', []);
   if (l.some(r => r.type === 'reclass' && r.sid === sid && (r.status || 'open') === 'open')) return t('Ya hay una solicitud en revisión para esta obra.');
   l.unshift({ id: Date.now(), type: 'reclass', sid, owner: S.user, by: S.user, title: title || '', date: today(), status: 'open' }); G.set('reports', l);
-  staffFor(commOf(S.user)).filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: t('Solicitud para quitar +18 de «{title}»', { title: title || t('una obra') }), href: '#/moderation/reports' }));
+  staffFor(commOf(S.user)).filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Solicitud para quitar +18 de «{title}»', xv: { title: title || t('una obra') }, href: '#/moderation/reports' }));
   return t('Solicitud enviada. La obra sigue marcada +18 hasta que moderación la revise.');
 }
 function staffSetMature(sid, v) {
@@ -1162,7 +1162,7 @@ function storyView(id, num) {
 }
 const staffBar = (s, mine) => {
   const td = takedown().includes(s.id); if (!(isStaff() && !mine) && !(td && mine)) return '';
-  return `<div class="panel staff-bar"><b>${td ? '🚩 Retirada de Descubrir por moderación' : '🛡 Herramientas de moderación'}</b>${isStaff() && !mine ? `<div class="row-btns">${td ? `<button class="button secondary sm" data-act="td-off" data-id="${esc(s.id)}">Restaurar en Descubrir</button>` : `<button class="button danger sm" data-act="td-on" data-id="${esc(s.id)}">Retirar de Descubrir</button>`}${canAct(s.owner) ? `<button class="button ghost sm" data-act="adm-strike" data-id="${esc(s.owner)}">⚠️ Dar strike</button>` : ''}<a class="button ghost sm" href="#/user/${encodeURIComponent(s.owner)}">👤 Perfil</a><a class="button ghost sm" href="#/moderation/reports">🚩 Reportes</a></div>` : ''}</div>`;
+  return `<div class="panel staff-bar"><b>${td ? t('🚩 Retirada de Descubrir por moderación') : t('🛡 Herramientas de moderación')}</b>${isStaff() && !mine ? `<div class="row-btns">${td ? `<button class="button secondary sm" data-act="td-off" data-id="${esc(s.id)}">${t('Restaurar en Descubrir')}</button>` : `<button class="button danger sm" data-act="td-on" data-id="${esc(s.id)}">${t('Retirar de Descubrir')}</button>`}${canAct(s.owner) ? `<button class="button ghost sm" data-act="adm-strike" data-id="${esc(s.owner)}">${t('⚠️ Dar strike')}</button>` : ''}<a class="button ghost sm" href="#/user/${encodeURIComponent(s.owner)}">${t('👤 Perfil')}</a><a class="button ghost sm" href="#/moderation/reports">${t('🚩 Reportes')}</a></div>` : ''}</div>`;
 };
 /* Pantalla 1: portada, título, autoría, likes y sinopsis (sin el texto) */
 function storyDetail(s, mine) {
@@ -1281,32 +1281,32 @@ function setChapterStatus(id, owner, cid, status, reason = '') {
 const OPEN = new Set();   // libros desplegados (se conservan al re-dibujar)
 function commBar() {                                    // quien ve todo elige comunidad; quien tiene una sola ve su etiqueta
   const sc = staffScope(S.user); if (!sc.length) return '';
-  if (sc.length === 1) return `<p class="comm-bar"><span class="pill">Comunidad: ${esc(COMMS[sc[0]])}</span></p>`;
-  return `<div class="filter-row comm-bar" role="radiogroup" aria-label="Comunidad">${[['all', 'Todas'], ['es', 'Español'], ['en', 'English']].map(([k, n]) => `<button type="button" class="chip ${MODC === k ? 'active' : ''}" data-act="mod-comm" data-id="${k}">${n}</button>`).join('')}</div>`;
+  if (sc.length === 1) return `<p class="comm-bar"><span class="pill">${t('Comunidad: {c}', { c: esc(COMMS[sc[0]]) })}</span></p>`;
+  return `<div class="filter-row comm-bar" role="radiogroup" aria-label="${esc(t('Comunidad'))}">${[['all', 'Todas'], ['es', 'Español'], ['en', 'English']].map(([k, n]) => `<button type="button" class="chip ${MODC === k ? 'active' : ''}" data-act="mod-comm" data-id="${k}">${t(n)}</button>`).join('')}</div>`;
 }
 function modView(sub) {
-  if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">Volver</a>')}</main>`;
-  const books = pendingBooks().filter(s => inScope(commOf(s.owner))).reverse(), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, npo = pendingPosts().length, tabs = commBar() + `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log', 'posts', 'gifts'].includes(sub) ? '' : 'active'}" href="#/moderation">📚 Libros (${books.length})</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">🚩 Reportes${nr ? ` (${nr})` : ''}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">👥 Cuentas${nacc ? ` (${nacc})` : ''}</a>${canBan() ? `<a class="tab ${sub === 'posts' ? 'active' : ''}" href="#/moderation/posts">📣 Publicaciones${npo ? ` (${npo})` : ''}</a>` : ''}${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">📨 Apelaciones${na ? ` (${na})` : ''}</a>` : ''}${isOwner() ? `<a class="tab ${sub === 'gifts' ? 'active' : ''}" href="#/moderation/gifts">🎁 Regalos</a><a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">📋 Registro</a>` : ''}</div>`;
+  if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">' + t('Volver') + '</a>')}</main>`;
+  const books = pendingBooks().filter(s => inScope(commOf(s.owner))).reverse(), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, npo = pendingPosts().length, tabs = commBar() + `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log', 'posts', 'gifts'].includes(sub) ? '' : 'active'}" href="#/moderation">${t('📚 Libros')} (${books.length})</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">${t('🚩 Reportes')}${nr ? ` (${nr})` : ''}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">${t('👥 Cuentas')}${nacc ? ` (${nacc})` : ''}</a>${canBan() ? `<a class="tab ${sub === 'posts' ? 'active' : ''}" href="#/moderation/posts">${t('📣 Publicaciones')}${npo ? ` (${npo})` : ''}</a>` : ''}${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">${t('📨 Apelaciones')}${na ? ` (${na})` : ''}</a>` : ''}${isOwner() ? `<a class="tab ${sub === 'gifts' ? 'active' : ''}" href="#/moderation/gifts">${t('🎁 Regalos')}</a><a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">${t('📋 Registro')}</a>` : ''}</div>`;
   if (sub === 'reports') return reportsView(tabs);
   if (sub === 'appeals' && canBan()) return appealsView(tabs);
   if (sub === 'accounts') return accountsView(tabs);
   if (sub === 'posts' && canBan()) return postsView(tabs);
   if (sub === 'log' && isOwner()) return logView(tabs);
   if (sub === 'gifts' && isOwner()) return giftsView(tabs);
-  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">🛡 Moderación</span><h2 style="margin-top:8px">Libros por revisar (${books.length})</h2><p>Una ficha por libro. Los capítulos se aprueban en orden: 1, 2, 3…</p></div></div>
-  ${books.length ? '' : `<p class="notice" style="margin-bottom:14px">No hay libros en revisión en <b>este navegador</b>. Por ahora cada navegador o dispositivo guarda sus propios datos: un libro enviado desde otro teléfono, navegador o editor no llega hasta aquí. Para que lleguen entre dispositivos hace falta el servidor.</p>`}
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('🛡 Moderación')}</span><h2 style="margin-top:8px">${t('Libros por revisar')} (${books.length})</h2><p>${t('Una ficha por libro. Los capítulos se aprueban en orden: 1, 2, 3…')}</p></div></div>
+  ${books.length ? '' : `<p class="notice" style="margin-bottom:14px">${t('No hay libros en revisión en este navegador. Por ahora cada navegador o dispositivo guarda sus propios datos: un libro enviado desde otro teléfono, navegador o editor no llega hasta aquí. Para que lleguen entre dispositivos hace falta el servidor.')}</p>`}
   ${books.length ? books.map(s => {
     const first = !publicPrefix(s.chapters).length, np = s.chapters.filter(c => c.status === 'pending').length;
     return `<details class="panel book" data-book="${esc(s.id)}" ${OPEN.has(s.id) ? 'open' : ''} style="margin-bottom:14px"><summary class="book-sum">${s.cover ? `<img class="book-thumb" src="${esc(s.cover)}" alt="">` : '<span class="book-thumb">📖</span>'}
-    <div class="book-info"><strong class="serif">${esc(s.title)}</strong><div class="story-meta">por ${esc(s.author)} · ${np} en revisión · ${s.chapters.length} cap.${s.mature ? ' · +18' : ''}${first ? ' · Historia nueva' : ''}</div></div></summary>
-    <div class="book-body"><p class="story-meta">${esc(genreName(s.genre))} · ${esc(s.fandom)} · <a href="#/user/${encodeURIComponent(s.owner)}" style="text-decoration:underline">ver perfil</a></p>${first ? `<p style="color:var(--soft);line-height:1.6;margin:8px 0">${esc(s.synopsis)}</p><div class="tags" style="margin-bottom:10px">${s.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ''}
+    <div class="book-info"><strong class="serif">${esc(s.title)}</strong><div class="story-meta">${t('por {a}', { a: esc(s.author) })} · ${t('{n} en revisión', { n: np })} · ${t('{n} cap.', { n: s.chapters.length })}${s.mature ? ' · +18' : ''}${first ? ' · ' + t('Historia nueva') : ''}</div></div></summary>
+    <div class="book-body"><p class="story-meta">${esc(genreName(s.genre))} · ${esc(s.fandom)} · <a href="#/user/${encodeURIComponent(s.owner)}" style="text-decoration:underline">${t('ver perfil')}</a></p>${first ? `<p style="color:var(--soft);line-height:1.6;margin:8px 0">${esc(s.synopsis)}</p><div class="tags" style="margin-bottom:10px">${s.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ''}
     <ol class="mod-list">${s.chapters.map((c, i) => {
       const ok = s.chapters.slice(0, i).every(x => pubChapter(x)), pend = c.status === 'pending';      // N solo si N-1 ya está aprobado
-      return `<li class="mod-ch"><div class="mod-ch-head"><b>Cap. ${i + 1}</b><span>${esc(c.title)}</span><span class="pill st-${c.status}">${CH_STATUS[c.status]}</span></div>${pend ? `
-      <details style="margin-top:8px"><summary class="helper" style="cursor:pointer">Leer capítulo${c.live ? ' (versión editada)' : ''}</summary><div class="mod-text" style="margin-top:8px">${esc(c.text)}</div></details>${chHero(c, 'mod-cover')}${c.music ? `<p class="helper" style="margin-top:8px">🎵 Canción: ${musicEmbed(c.music) ? `<a href="${esc(c.music)}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline">${esc(c.music)}</a>` : esc(c.music) + ' (enlace no válido)'}</p>` : ''}
-      <textarea id="rej-${esc(s.id)}-${c.id}" class="textarea" style="min-height:64px;margin-top:10px" placeholder="Motivo del rechazo (obligatorio para rechazar)"></textarea>
-      <div class="mod-actions"><button class="button" data-act="approve" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}" ${ok ? '' : 'disabled'}>✓ Aprobar</button><button class="button danger" data-act="reject" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}">✕ Rechazar</button></div>
-      ${ok ? '' : `<p class="helper" style="margin-top:6px">Aprueba antes el capítulo ${i} para poder aprobar este.</p>`}` : c.status === 'rejected' && c.reason ? `<p class="helper" style="margin-top:6px">Motivo: ${esc(c.reason)}</p>` : ''}</li>`; }).join('')}</ol></div></details>`; }).join('') : empty('Nada por revisar', 'Cuando alguien envíe un capítulo, su libro aparecerá aquí.')}${reportsPanel()}</main>`;
+      return `<li class="mod-ch"><div class="mod-ch-head"><b>${t('Cap. {n}', { n: i + 1 })}</b><span>${esc(c.title)}</span><span class="pill st-${c.status}">${t(CH_STATUS[c.status])}</span></div>${pend ? `
+      <details style="margin-top:8px"><summary class="helper" style="cursor:pointer">${t('Leer capítulo')}${c.live ? ' (' + t('versión editada') + ')' : ''}</summary><div class="mod-text" style="margin-top:8px">${esc(c.text)}</div></details>${chHero(c, 'mod-cover')}${c.music ? `<p class="helper" style="margin-top:8px">🎵 ${t('Canción')}: ${musicEmbed(c.music) ? `<a href="${esc(c.music)}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline">${esc(c.music)}</a>` : esc(c.music) + ' (' + t('enlace no válido') + ')'}</p>` : ''}
+      <textarea id="rej-${esc(s.id)}-${c.id}" class="textarea" style="min-height:64px;margin-top:10px" placeholder="${esc(t('Motivo del rechazo (obligatorio para rechazar)'))}"></textarea>
+      <div class="mod-actions"><button class="button" data-act="approve" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}" ${ok ? '' : 'disabled'}>${t('✓ Aprobar')}</button><button class="button danger" data-act="reject" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}">${t('✕ Rechazar')}</button></div>
+      ${ok ? '' : `<p class="helper" style="margin-top:6px">${t('Aprueba antes el capítulo {n} para poder aprobar este.', { n: i })}</p>`}` : c.status === 'rejected' && c.reason ? `<p class="helper" style="margin-top:6px">${t('Motivo')}: ${esc(c.reason)}</p>` : ''}</li>`; }).join('')}</ol></div></details>`; }).join('') : empty('Nada por revisar', 'Cuando alguien envíe un capítulo, su libro aparecerá aquí.')}${reportsPanel()}</main>`;
 }
 
 /* --- Diálogos genéricos --- */
@@ -1339,12 +1339,12 @@ function showPrivacy() {
 }
 function openReport() {
   const m = document.createElement('div'); m.className = 'modal sheet';
-  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true" aria-label="Reportar un problema"><button class="icon-btn close-x" data-x aria-label="Cerrar">✕</button><h2>Reportar un problema</h2><p class="helper">Cuéntanos qué pasó o qué se puede mejorar. Lo verá el equipo de moderación.</p>
-  <textarea class="textarea" data-text maxlength="600" placeholder="Describe el problema…" style="margin-top:10px"></textarea><p class="error" data-err></p><button class="button" data-send style="width:100%;margin-top:6px">Enviar</button></div>`;
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true" aria-label="${esc(t('Reportar un problema'))}"><button class="icon-btn close-x" data-x aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Reportar un problema')}</h2><p class="helper">${t('Cuéntanos qué pasó o qué se puede mejorar. Lo verá el equipo de moderación.')}</p>
+  <textarea class="textarea" data-text maxlength="600" placeholder="${esc(t('Describe el problema…'))}" style="margin-top:10px"></textarea><p class="error" data-err></p><button class="button" data-send style="width:100%;margin-top:6px">${t('Enviar')}</button></div>`;
   m.querySelector('[data-x]').onclick = () => m.remove(); m.onclick = ev => { if (ev.target === m) m.remove(); };
   m.querySelector('[data-send]').onclick = () => {
-    const text = m.querySelector('[data-text]').value.trim(); if (!text) { m.querySelector('[data-err]').textContent = 'Escribe qué pasó.'; return; }
-    G.set('reports', [{ id: Date.now(), by: S.user, text, date: today() }, ...G.get('reports', [])]); m.remove(); toast('Gracias, recibimos tu reporte ✓');
+    const text = m.querySelector('[data-text]').value.trim(); if (!text) { m.querySelector('[data-err]').textContent = t('Escribe qué pasó.'); return; }
+    G.set('reports', [{ id: Date.now(), by: S.user, text, date: today() }, ...G.get('reports', [])]); m.remove(); toast(t('Gracias, recibimos tu reporte ✓'));
   };
   document.body.appendChild(m);
 }
@@ -1355,36 +1355,36 @@ const openReports = () => reportsAll().filter(r => (r.status || 'open') === 'ope
 function openReportFor(type, o) {
   const RS = type === 'user' ? REASONS_USER : REASONS, imgs = [];
   const m = document.createElement('div'); m.className = 'modal sheet';
-  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true" aria-label="Reportar"><button class="icon-btn close-x" data-x aria-label="Cerrar">✕</button><h2>Reportar ${esc(o.label)}</h2><p class="helper">Marca lo que incumple las normas y, si quieres, cuéntanos más. Lo revisará el equipo de moderación.</p>
-  <div class="rp-reasons">${RS.map((r, i) => `<label class="check"><input type="checkbox" value="${i}"><span>${esc(r)}</span></label>`).join('')}</div>
-  <textarea class="textarea" data-text maxlength="600" placeholder="Explica qué pasó (opcional si marcaste un motivo)…" style="margin-top:8px"></textarea><div class="ap-imgs" data-imgs></div><label class="button secondary sm" style="cursor:pointer;margin-top:8px">Adjuntar pruebas (fotos o capturas)<input type="file" accept="image/*" multiple data-file hidden></label><p class="helper" style="margin:6px 0 0">Hasta 4 imágenes. Solo las verá el equipo de moderación.</p><p class="error" data-err></p><button class="button" data-send style="width:100%;margin-top:6px">Enviar reporte</button></div>`;
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true" aria-label="${esc(t('Reportar'))}"><button class="icon-btn close-x" data-x aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Reportar {l}', { l: esc(o.label) })}</h2><p class="helper">${t('Marca lo que incumple las normas y, si quieres, cuéntanos más. Lo revisará el equipo de moderación.')}</p>
+  <div class="rp-reasons">${RS.map((r, i) => `<label class="check"><input type="checkbox" value="${i}"><span>${esc(t(r))}</span></label>`).join('')}</div>
+  <textarea class="textarea" data-text maxlength="600" placeholder="${esc(t('Explica qué pasó (opcional si marcaste un motivo)…'))}" style="margin-top:8px"></textarea><div class="ap-imgs" data-imgs></div><label class="button secondary sm" style="cursor:pointer;margin-top:8px">${t('Adjuntar pruebas (fotos o capturas)')}<input type="file" accept="image/*" multiple data-file hidden></label><p class="helper" style="margin:6px 0 0">${t('Hasta 4 imágenes. Solo las verá el equipo de moderación.')}</p><p class="error" data-err></p><button class="button" data-send style="width:100%;margin-top:6px">${t('Enviar reporte')}</button></div>`;
   m.querySelector('[data-x]').onclick = () => m.remove(); m.onclick = ev => { if (ev.target === m) m.remove(); };
-  const paintI = () => { m.querySelector('[data-imgs]').innerHTML = imgs.map((d, k) => `<span class="ap-th"><img src="${esc(d)}" alt="Prueba ${k + 1}"><button type="button" data-rm="${k}" aria-label="Quitar imagen">✕</button></span>`).join(''); };
+  const paintI = () => { m.querySelector('[data-imgs]').innerHTML = imgs.map((d, k) => `<span class="ap-th"><img src="${esc(d)}" alt="${esc(t('Prueba {n}', { n: k + 1 }))}"><button type="button" data-rm="${k}" aria-label="${esc(t('Quitar imagen'))}">✕</button></span>`).join(''); };
   m.querySelector('[data-file]').onchange = ev => { [...ev.target.files].slice(0, 4 - imgs.length).forEach(f => fitPhoto(f, 1000, 1000, d => { if (imgs.length < 4) { imgs.push(d); paintI(); } }, .7)); ev.target.value = ''; };
   m.addEventListener('click', ev => { const r = ev.target.closest('[data-rm]'); if (r) { imgs.splice(+r.dataset.rm, 1); paintI(); } });
   m.querySelector('[data-send]').onclick = () => {
     const reasons = [...m.querySelectorAll('input:checked')].map(i => RS[+i.value]), text = m.querySelector('[data-text]').value.trim();
-    if (!reasons.length && !text) { m.querySelector('[data-err]').textContent = 'Marca un motivo o escribe qué pasó.'; return; }
+    if (!reasons.length && !text) { m.querySelector('[data-err]').textContent = t('Marca un motivo o escribe qué pasó.'); return; }
     if (reportsAll().some(r => r.by === S.user && r.type === type && r.sid === o.sid && String(r.cid || '') === String(o.cid || '') && r.target === o.target && (r.status || 'open') === 'open')) { m.remove(); return toast('Ya reportaste esto: el equipo lo está revisando.'); }
-    if (!G.set('reports', [{ id: Date.now(), by: S.user, type, imgs, sid: o.sid || '', cid: o.cid || '', ci: o.ci, target: o.target || '', owner: o.owner || '', title: o.title || '', excerpt: String(o.excerpt || '').slice(0, 200), reasons, text, date: today(), status: 'open' }, ...reportsAll()])) { m.querySelector('[data-err]').textContent = 'No se pudo guardar el reporte (las imágenes pesan demasiado). Prueba con menos imágenes.'; return; }
-    staffFor(commOf(accOf(o) || S.user)).filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Nuevo reporte por revisar: ' + o.label, href: '#/moderation/reports' }));
-    m.remove(); toast('Gracias, recibimos tu reporte ✓');
+    if (!G.set('reports', [{ id: Date.now(), by: S.user, type, imgs, sid: o.sid || '', cid: o.cid || '', ci: o.ci, target: o.target || '', owner: o.owner || '', title: o.title || '', excerpt: String(o.excerpt || '').slice(0, 200), reasons, text, date: today(), status: 'open' }, ...reportsAll()])) { m.querySelector('[data-err]').textContent = t('No se pudo guardar el reporte (las imágenes pesan demasiado). Prueba con menos imágenes.'); return; }
+    staffFor(commOf(accOf(o) || S.user)).filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Nuevo reporte por revisar: {l}', xv: { l: o.label }, href: '#/moderation/reports' }));
+    m.remove(); toast(t('Gracias, recibimos tu reporte ✓'));
   };
   document.body.appendChild(m);
 }
 const accOf = r => r.type === 'user' ? r.target : r.owner;                       // la cuenta a la que se refiere el reporte
 const reportsAbout = e => reportsAll().filter(r => r.type !== 'problem' && r.type !== 'reclass' && accOf(r) === e);
-const repImgs = r => (r.imgs || []).length ? `<div class="ap-imgs">${r.imgs.map((d, k) => `<button type="button" class="ap-th" data-act="rp-img" data-id="${r.id}" data-i="${k}" aria-label="Ver prueba ${k + 1}"><img src="${esc(d)}" alt="Prueba ${k + 1}"></button>`).join('')}</div>` : '';
-const rStatus = r => ({ open: 'Abierto', resolved: 'Resuelto', dismissed: 'Descartado' })[r.status || 'open'];
-function showImg(d) { const m = document.createElement('div'); m.className = 'modal sheet'; m.innerHTML = `<div class="modal-box ap-view"><img src="${esc(d)}" alt="Prueba"><button class="button ghost" data-no>Cerrar</button></div>`; m.onclick = ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); }; document.body.appendChild(m); }
+const repImgs = r => (r.imgs || []).length ? `<div class="ap-imgs">${r.imgs.map((d, k) => `<button type="button" class="ap-th" data-act="rp-img" data-id="${r.id}" data-i="${k}" aria-label="${esc(t('Ver prueba {n}', { n: k + 1 }))}"><img src="${esc(d)}" alt="${esc(t('Prueba {n}', { n: k + 1 }))}"></button>`).join('')}</div>` : '';
+const rStatus = r => t(({ open: 'Abierto', resolved: 'Resuelto', dismissed: 'Descartado' })[r.status || 'open']);
+function showImg(d) { const m = document.createElement('div'); m.className = 'modal sheet'; m.innerHTML = `<div class="modal-box ap-view"><img src="${esc(d)}" alt="${esc(t('Prueba'))}"><button class="button ghost" data-no>${t('Cerrar')}</button></div>`; m.onclick = ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); }; document.body.appendChild(m); }
 function repHistory(e) {                                 // solo Moderación, Administración y Owner: cuántas veces fue reportada la cuenta y por qué
   if (!isStaff() || e === S.user) return ''; const l = reportsAbout(e), open = l.filter(r => (r.status || 'open') === 'open').length, by = new Set(l.map(r => r.by)).size;
-  return `<section class="panel rph" aria-label="Reportes recibidos"><div><strong>Reportes recibidos</strong><div class="helper">${l.length} en total · ${open} abierto${open === 1 ? '' : 's'} · ${by} persona${by === 1 ? '' : 's'} distinta${by === 1 ? '' : 's'}</div></div>
-  ${l.length ? l.map(r => `<details class="rph-item"><summary><span class="pill">${RTYPE[r.type]}</span><span class="helper">${esc(r.date)} · ${rStatus(r)}</span></summary><div class="rph-body">
-    ${(r.reasons || []).length ? `<div class="tags rp-why">${r.reasons.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}
+  return `<section class="panel rph" aria-label="${esc(t('Reportes recibidos'))}"><div><strong>${t('Reportes recibidos')}</strong><div class="helper">${t('{n} en total', { n: l.length })} · ${tn(open, '{n} abierto', '{n} abiertos')} · ${tn(by, '{n} persona distinta', '{n} personas distintas')}</div></div>
+  ${l.length ? l.map(r => `<details class="rph-item"><summary><span class="pill">${t(RTYPE[r.type])}</span><span class="helper">${esc(fmtDate(r.date) || r.date)} · ${rStatus(r)}</span></summary><div class="rph-body">
+    ${(r.reasons || []).length ? `<div class="tags rp-why">${r.reasons.map(x => `<span class="tag">${esc(t(x))}</span>`).join('')}</div>` : ''}
     ${r.title || r.excerpt ? `<p class="helper">${esc(r.title || '')}${r.excerpt ? ' “' + esc(r.excerpt) + '”' : ''}</p>` : ''}${r.text ? `<p class="rp-text">${esc(r.text)}</p>` : ''}${repImgs(r)}
-    <p class="helper">Reportó ${esc(uName(r.by))}${r.handledBy ? ` · atendido por ${esc(uName(r.handledBy))} el ${esc(r.handledDate || '')}` : ''}</p></div></details>`).join('') : '<p class="helper" style="margin:8px 0 0">Esta cuenta no tiene reportes.</p>'}
-  ${l.length ? `<button type="button" class="link-btn" data-act="acc-reports" data-id="${esc(e)}">Abrir en Reportes</button>` : ''}</section>`;
+    <p class="helper">${t('Reportó {n}', { n: esc(uName(r.by)) })}${r.handledBy ? ` · ${t('atendido por {n} el {d}', { n: esc(uName(r.handledBy)), d: esc(fmtDate(r.handledDate) || r.handledDate || '') })}` : ''}</p></div></details>`).join('') : '<p class="helper" style="margin:8px 0 0">' + t('Esta cuenta no tiene reportes.') + '</p>'}
+  ${l.length ? `<button type="button" class="link-btn" data-act="acc-reports" data-id="${esc(e)}">${t('Abrir en Reportes')}</button>` : ''}</section>`;
 }
 let RACC = null;
 function accRows() {
@@ -1394,12 +1394,12 @@ function accRows() {
 }
 function accountsView(tabs) {
   const l = accRows();
-  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">Cuentas reportadas</span><h2 style="margin-top:8px">${l.length} cuenta${l.length === 1 ? '' : 's'}</h2><p>Ordenadas por reportes abiertos. Abre una para ver las razones y decidir.</p></div></div>
-  ${l.length ? l.map(a => { const top = Object.entries(a.why).sort((x, y) => y[1] - x[1]).slice(0, 4), ban = activeBan(a.e), sk = strikesOf(a.e).length, rl = ROLE_LABEL[roleOf(a.e)];
-    return `<article class="panel rp acc"><div class="acc-head">${userAvatar(a.e)}<div class="acc-id"><b>${esc(uName(a.e))}</b><span class="helper">${rl ? esc(rl) + ' · ' : ''}${sk} strike${sk === 1 ? '' : 's'}${ban ? ' · suspendida' : ''}</span></div><span class="pill acc-n">${a.n} reporte${a.n === 1 ? '' : 's'}</span></div>
-    <p class="helper" style="margin:8px 0 0">${a.open} abierto${a.open === 1 ? '' : 's'} · ${a.by.size} persona${a.by.size === 1 ? '' : 's'} distinta${a.by.size === 1 ? '' : 's'} · último: ${esc(a.last)}</p>
-    ${top.length ? `<div class="tags rp-why">${top.map(([x, c]) => `<span class="tag">${esc(x)}${c > 1 ? ' ×' + c : ''}</span>`).join('')}</div>` : ''}
-    <div class="rp-acts"><a class="button ghost sm" href="#/user/${encodeURIComponent(a.e)}" data-dir="next">Ver perfil</a><button type="button" class="button secondary sm" data-act="acc-reports" data-id="${esc(a.e)}">Ver reportes</button></div></article>`; }).join('')
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('Cuentas reportadas')}</span><h2 style="margin-top:8px">${tn(l.length, '{n} cuenta', '{n} cuentas')}</h2><p>${t('Ordenadas por reportes abiertos. Abre una para ver las razones y decidir.')}</p></div></div>
+  ${l.length ? l.map(a => { const top = Object.entries(a.why).sort((x, y) => y[1] - x[1]).slice(0, 4), ban = activeBan(a.e), sk = strikesOf(a.e).length, rl = t(ROLE_LABEL[roleOf(a.e)]);
+    return `<article class="panel rp acc"><div class="acc-head">${userAvatar(a.e)}<div class="acc-id"><b>${esc(uName(a.e))}</b><span class="helper">${rl ? esc(rl) + ' · ' : ''}${tn(sk, '{n} strike', '{n} strikes')}${ban ? ' · ' + t('suspendida') : ''}</span></div><span class="pill acc-n">${tn(a.n, '{n} reporte', '{n} reportes')}</span></div>
+    <p class="helper" style="margin:8px 0 0">${tn(a.open, '{n} abierto', '{n} abiertos')} · ${tn(a.by.size, '{n} persona distinta', '{n} personas distintas')} · ${t('último: {d}', { d: esc(fmtDate(a.last) || a.last) })}</p>
+    ${top.length ? `<div class="tags rp-why">${top.map(([x, c]) => `<span class="tag">${esc(t(x))}${c > 1 ? ' ×' + c : ''}</span>`).join('')}</div>` : ''}
+    <div class="rp-acts"><a class="button ghost sm" href="#/user/${encodeURIComponent(a.e)}" data-dir="next">${t('Ver perfil')}</a><button type="button" class="button secondary sm" data-act="acc-reports" data-id="${esc(a.e)}">${t('Ver reportes')}</button></div></article>`; }).join('')
     : empty('Ninguna cuenta reportada', 'Cuando alguien reporte un perfil, una obra o un comentario, la cuenta aparecerá aquí con sus razones.')}</main>`;
 }
 let LOGF = 'all', LOGW = 'all';
@@ -1411,11 +1411,11 @@ const LOGT = { strike: ['Strike', 'strikes'], 'strike-annul': ['Strike anulado',
 const logInfo = t => LOGT[t] || (/^(invite|accept|test-role)/.test(t) ? ['Cambio de rol', 'roles'] : [t, 'otro']);
 function logView(tabs) {
   const F = [['all', 'Todo'], ['strikes', 'Strikes'], ['susp', 'Suspensiones'], ['rep', 'Reportes'], ['cont', 'Contenido'], ['pub', 'Publicaciones'], ['gifts', 'Regalos'], ['roles', 'Roles']], all = G.get('modlog', []).filter(x => modSel() === 'all' || !getUsers()[x.target] || commOf(x.target) === modSel()), who = [...new Set(all.map(x => x.by).filter(Boolean))], l = all.filter(x => (LOGF === 'all' || logInfo(x.type)[1] === LOGF) && (LOGW === 'all' || x.by === LOGW));
-  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">Registro</span><h2 style="margin-top:8px">Acciones del equipo (${l.length})</h2><p>Solo la Owner ve esta pantalla. Cada acción muestra quién la hizo, aunque haya ocultado su nombre al publicar. Se conservan las últimas 1000.</p></div></div>
-  <div class="filter-row">${F.map(([k, n]) => `<button class="chip ${LOGF === k ? 'active' : ''}" data-act="log-filter" data-id="${k}">${n}</button>`).join('')}</div>
-  <div class="filter-row" style="overflow-x:auto;flex-wrap:nowrap"><button class="chip ${LOGW === 'all' ? 'active' : ''}" data-act="log-who" data-id="all">Todas las personas</button>${who.map(e => `<button class="chip ${LOGW === e ? 'active' : ''}" data-act="log-who" data-id="${esc(e)}" style="flex:none">${e === 'sistema' ? 'Sistema' : esc(uName(e))}${ROLE_LABEL[roleOf(e)] ? ' · ' + esc(ROLE_LABEL[roleOf(e)]) : ''}</button>`).join('')}</div>
-  ${l.length ? `<div class="log-list">${l.map(x => { const t = getUsers()[x.target], d = new Date(x.date);
-    return `<div class="log-row"><div class="log-top"><b>${esc(logInfo(x.type)[0])}</b><time class="helper">${esc(d.toLocaleString(LOC(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</time></div><div class="helper">Por <b>${x.by === 'sistema' ? 'Sistema (automático)' : esc(uName(x.by))}</b>${ROLE_LABEL[roleOf(x.by)] ? ' (' + esc(ROLE_LABEL[roleOf(x.by)]) + ')' : ''}${t ? ` · sobre <a href="#/user/${encodeURIComponent(x.target)}" data-dir="next">${esc(t.name)}</a>` : ''}</div>${x.extra ? `<div class="log-extra">${esc(String(x.extra))}</div>` : ''}</div>`; }).join('')}</div>`
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('Registro')}</span><h2 style="margin-top:8px">${t('Acciones del equipo')} (${l.length})</h2><p>${t('Solo la Owner ve esta pantalla. Cada acción muestra quién la hizo, aunque haya ocultado su nombre al publicar. Se conservan las últimas 1000.')}</p></div></div>
+  <div class="filter-row">${F.map(([k, n]) => `<button class="chip ${LOGF === k ? 'active' : ''}" data-act="log-filter" data-id="${k}">${t(n)}</button>`).join('')}</div>
+  <div class="filter-row" style="overflow-x:auto;flex-wrap:nowrap"><button class="chip ${LOGW === 'all' ? 'active' : ''}" data-act="log-who" data-id="all">${t('Todas las personas')}</button>${who.map(e => `<button class="chip ${LOGW === e ? 'active' : ''}" data-act="log-who" data-id="${esc(e)}" style="flex:none">${e === 'sistema' ? t('Sistema') : esc(uName(e))}${ROLE_LABEL[roleOf(e)] ? ' · ' + esc(t(ROLE_LABEL[roleOf(e)])) : ''}</button>`).join('')}</div>
+  ${l.length ? `<div class="log-list">${l.map(x => { const tu = getUsers()[x.target], d = new Date(x.date);
+    return `<div class="log-row"><div class="log-top"><b>${esc(t(logInfo(x.type)[0]))}</b><time class="helper">${esc(d.toLocaleString(LOC(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</time></div><div class="helper">${t('Por')} <b>${x.by === 'sistema' ? t('Sistema (automático)') : esc(uName(x.by))}</b>${ROLE_LABEL[roleOf(x.by)] ? ' (' + esc(t(ROLE_LABEL[roleOf(x.by)])) + ')' : ''}${tu ? ` · ${t('sobre')} <a href="#/user/${encodeURIComponent(x.target)}" data-dir="next">${esc(tu.name)}</a>` : ''}</div>${x.extra ? `<div class="log-extra">${esc(t(String(x.extra)))}</div>` : ''}</div>`; }).join('')}</div>`
     : empty('Sin acciones registradas', 'Aquí aparecerán los strikes, suspensiones, reportes atendidos y revisiones de capítulos.')}</main>`;
 }
 let RFILT = 'open';
@@ -1427,27 +1427,27 @@ function rpSet(id, st) {
 }
 function reportCard(r) {
   const ty = r.type || 'problem', open = (r.status || 'open') === 'open', owner = r.owner || '', s = r.sid ? findStory(r.sid) : null, td = r.sid && takedown().includes(r.sid);
-  const ctx = ty === 'story' ? `<div class="rp-ctx"><b>${esc(r.title || (s && s.title) || 'Obra')}</b>${s ? ` · por ${esc(s.author || '')}${s.mature ? ' · +18' : ''}<div class="tags">${s.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ' · ya no está disponible'}${td ? '<div class="helper">🚩 Retirada de Descubrir</div>' : ''}</div>`
-    : ty === 'reclass' ? `<div class="rp-ctx"><b>${esc(r.title || (s && s.title) || 'Obra')}</b> · por ${esc(uName(owner))}<div class="helper">La autoría pide quitar la marca +18 de una obra publicada. ${s ? (s.mature ? 'Ahora está marcada +18.' : 'Ya no está marcada +18.') : 'La obra ya no está disponible.'}</div></div>`
-    : ty === 'comment' || ty === 'pcomment' ? `<div class="rp-ctx"><b>${esc(uName(owner))}</b> escribió: “${esc(r.excerpt || '')}”${ty === 'comment' && r.sid && !comments(r.sid).some(c => String(c.id) === String(r.cid)) ? '<div class="helper">Ese comentario ya no existe.</div>' : ''}</div>`
+  const ctx = ty === 'story' ? `<div class="rp-ctx"><b>${esc(r.title || (s && s.title) || t('Obra'))}</b>${s ? ` · ${t('por {a}', { a: esc(s.author || '') })}${s.mature ? ' · +18' : ''}<div class="tags">${s.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ' · ' + t('ya no está disponible')}${td ? '<div class="helper">' + t('🚩 Retirada de Descubrir') + '</div>' : ''}</div>`
+    : ty === 'reclass' ? `<div class="rp-ctx"><b>${esc(r.title || (s && s.title) || t('Obra'))}</b> · ${t('por {a}', { a: esc(uName(owner)) })}<div class="helper">${t('La autoría pide quitar la marca +18 de una obra publicada.')} ${s ? (s.mature ? t('Ahora está marcada +18.') : t('Ya no está marcada +18.')) : t('La obra ya no está disponible.')}</div></div>`
+    : ty === 'comment' || ty === 'pcomment' ? `<div class="rp-ctx">${t('{n} escribió: “{x}”', { n: '<b>' + esc(uName(owner)) + '</b>', x: esc(r.excerpt || '') })}${ty === 'comment' && r.sid && !comments(r.sid).some(c => String(c.id) === String(r.cid)) ? '<div class="helper">' + t('Ese comentario ya no existe.') + '</div>' : ''}</div>`
     : ty === 'user' ? `<div class="rp-ctx"><b>${esc(uName(r.target))}</b></div>` : '';
-  const link = (ty === 'story' || ty === 'reclass') && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}" data-dir="next">📖 Ir a la obra</a>` : ty === 'comment' && s ? `<button class="button secondary sm" data-act="rp-comments" data-id="${esc(r.sid)}">📖 Ir al comentario</button>` : ty === 'pcomment' && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}/${(+r.ci || 0) + 1}" data-dir="next">📖 Ir al párrafo</a>` : '';
+  const link = (ty === 'story' || ty === 'reclass') && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}" data-dir="next">${t('📖 Ir a la obra')}</a>` : ty === 'comment' && s ? `<button class="button secondary sm" data-act="rp-comments" data-id="${esc(r.sid)}">${t('📖 Ir al comentario')}</button>` : ty === 'pcomment' && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}/${(+r.ci || 0) + 1}" data-dir="next">${t('📖 Ir al párrafo')}</a>` : '';
   const who = ty === 'user' ? r.target : owner;
-  return `<article class="panel rp ${open ? '' : 'done'}"><div class="rp-head"><span class="pill">${RTYPE[ty]}</span><span class="helper">${esc(r.date)} · reporta ${esc(uName(r.by))}</span></div>${ctx}
-  ${(r.reasons || []).length ? `<div class="tags rp-why">${r.reasons.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}${r.text ? `<p class="rp-text">${esc(r.text)}</p>` : ''}${repImgs(r)}
-  <div class="rp-acts">${link}${who && getUsers()[who] ? `<a class="button ghost sm" href="#/user/${encodeURIComponent(who)}" data-dir="next">👤 Perfil</a>` : ''}
-  ${open ? `${ty === 'reclass' ? `<button class="button sm" data-act="rc-ok" data-id="${r.id}">Aprobar: quitar +18</button><button class="button secondary sm" data-act="rc-no" data-id="${r.id}">Mantener +18</button>` : ''}${ty === 'story' && s ? `<button class="button secondary sm" data-act="rc-set" data-id="${esc(r.sid)}" data-v="${s.mature ? 0 : 1}">${s.mature ? 'Quitar +18' : 'Marcar como +18'}</button>` : ''}${ty === 'story' && s ? (td ? `<button class="button secondary sm" data-act="td-off" data-id="${esc(r.sid)}">Restaurar</button>` : `<button class="button danger sm" data-act="td-on" data-id="${esc(r.sid)}">Retirar de Descubrir</button>`) : ''}${ty === 'comment' && r.sid && comments(r.sid).some(c => String(c.id) === String(r.cid)) ? `<button class="button danger sm" data-act="rp-delcomment" data-id="${esc(r.sid)}" data-cid="${esc(r.cid)}">Eliminar comentario</button>` : ''}${who && canAct(who) ? `<button class="button ghost sm" data-act="adm-strike" data-id="${esc(who)}">⚠️ Strike</button><button class="button ghost sm" data-act="adm-ban" data-id="${esc(who)}">🚫 Suspender</button>` : ''}
-  <button class="button sm" data-act="rp-done" data-id="${r.id}">✓ Resuelto</button><button class="button ghost sm" data-act="rp-dismiss" data-id="${r.id}">Descartar</button>`
-    : `<span class="helper">${r.status === 'dismissed' ? 'Descartado' : 'Resuelto'} por ${esc(uName(r.handledBy))} · ${esc(r.handledDate || '')}</span><button class="button ghost sm" data-act="rp-reopen" data-id="${r.id}">Reabrir</button>`}
-  ${ty === 'problem' && open ? `<button class="icon-btn" data-act="report-del" data-id="${r.id}" aria-label="Eliminar reporte">${TRASH}</button>` : ''}</div></article>`;
+  return `<article class="panel rp ${open ? '' : 'done'}"><div class="rp-head"><span class="pill">${t(RTYPE[ty])}</span><span class="helper">${esc(fmtDate(r.date) || r.date)} · ${t('reporta {n}', { n: esc(uName(r.by)) })}</span></div>${ctx}
+  ${(r.reasons || []).length ? `<div class="tags rp-why">${r.reasons.map(x => `<span class="tag">${esc(t(x))}</span>`).join('')}</div>` : ''}${r.text ? `<p class="rp-text">${esc(r.text)}</p>` : ''}${repImgs(r)}
+  <div class="rp-acts">${link}${who && getUsers()[who] ? `<a class="button ghost sm" href="#/user/${encodeURIComponent(who)}" data-dir="next">${t('👤 Perfil')}</a>` : ''}
+  ${open ? `${ty === 'reclass' ? `<button class="button sm" data-act="rc-ok" data-id="${r.id}">${t('Aprobar: quitar +18')}</button><button class="button secondary sm" data-act="rc-no" data-id="${r.id}">${t('Mantener +18')}</button>` : ''}${ty === 'story' && s ? `<button class="button secondary sm" data-act="rc-set" data-id="${esc(r.sid)}" data-v="${s.mature ? 0 : 1}">${s.mature ? t('Quitar +18') : t('Marcar como +18')}</button>` : ''}${ty === 'story' && s ? (td ? `<button class="button secondary sm" data-act="td-off" data-id="${esc(r.sid)}">${t('Restaurar')}</button>` : `<button class="button danger sm" data-act="td-on" data-id="${esc(r.sid)}">${t('Retirar de Descubrir')}</button>`) : ''}${ty === 'comment' && r.sid && comments(r.sid).some(c => String(c.id) === String(r.cid)) ? `<button class="button danger sm" data-act="rp-delcomment" data-id="${esc(r.sid)}" data-cid="${esc(r.cid)}">${t('Eliminar comentario')}</button>` : ''}${who && canAct(who) ? `<button class="button ghost sm" data-act="adm-strike" data-id="${esc(who)}">${t('⚠️ Strike')}</button><button class="button ghost sm" data-act="adm-ban" data-id="${esc(who)}">${t('🚫 Suspender')}</button>` : ''}
+  <button class="button sm" data-act="rp-done" data-id="${r.id}">${t('✓ Resuelto')}</button><button class="button ghost sm" data-act="rp-dismiss" data-id="${r.id}">${t('Descartar')}</button>`
+    : `<span class="helper">${t(r.status === 'dismissed' ? 'Descartado por {n} · {d}' : 'Resuelto por {n} · {d}', { n: esc(uName(r.handledBy)), d: esc(fmtDate(r.handledDate) || r.handledDate || '') })}</span><button class="button ghost sm" data-act="rp-reopen" data-id="${r.id}">${t('Reabrir')}</button>`}
+  ${ty === 'problem' && open ? `<button class="icon-btn" data-act="report-del" data-id="${r.id}" aria-label="${esc(t('Eliminar reporte'))}">${TRASH}</button>` : ''}</div></article>`;
 }
 function reportsView(tabs) {
   const all = reportsAll().filter(r => inScope(commOf(accOf(r) || r.by))).filter(r => !RACC || accOf(r) === RACC), l = all.filter(r => ((r.status || 'open') === 'open') === (RFILT === 'open'));
-  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">🚩 Reportes</span><h2 style="margin-top:8px">${RFILT === 'open' ? 'Por revisar' : 'Ya atendidos'} (${l.length})</h2><p>Abre la obra, analiza el caso y toma medidas. Todo queda en el registro.</p></div></div>
-  <div class="filter-row">${RACC ? `<button class="chip active" data-act="acc-clear">Cuenta: ${esc(uName(RACC))} ✕</button>` : ''}<button class="chip ${RFILT === 'open' ? 'active' : ''}" data-act="rp-filter" data-id="open">Abiertos (${openReports()})</button><button class="chip ${RFILT === 'done' ? 'active' : ''}" data-act="rp-filter" data-id="done">Atendidos</button></div>
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('🚩 Reportes')}</span><h2 style="margin-top:8px">${RFILT === 'open' ? t('Por revisar') : t('Ya atendidos')} (${l.length})</h2><p>${t('Abre la obra, analiza el caso y toma medidas. Todo queda en el registro.')}</p></div></div>
+  <div class="filter-row">${RACC ? `<button class="chip active" data-act="acc-clear">${t('Cuenta: {n}', { n: esc(uName(RACC)) })} ✕</button>` : ''}<button class="chip ${RFILT === 'open' ? 'active' : ''}" data-act="rp-filter" data-id="open">${t('Abiertos')} (${openReports()})</button><button class="chip ${RFILT === 'done' ? 'active' : ''}" data-act="rp-filter" data-id="done">${t('Atendidos')}</button></div>
   ${l.length ? l.map(reportCard).join('') : empty(RFILT === 'open' ? 'Sin reportes pendientes' : 'Nada atendido todavía', RFILT === 'open' ? 'Cuando alguien reporte una obra, un comentario o un perfil, aparecerá aquí.' : 'Los reportes resueltos o descartados se guardan aquí.')}</main>`;
 }
-const reportsPanel = () => { const l = G.get('reports', []).filter(r => inScope(commOf(accOf(r) || r.by))); return l.length ? `<section class="panel" style="margin-top:20px"><h2>📨 Reportes (${l.length})</h2>${l.map(r => `<div class="comment"><div style="flex:1;min-width:0"><strong>${esc(uName(r.by))}</strong> <span class="helper">${esc(r.date)}</span><div style="overflow-wrap:anywhere">${esc(r.text)}</div></div><button class="icon-btn" data-act="report-del" data-id="${r.id}" aria-label="Eliminar reporte">${TRASH}</button></div>`).join('')}</section>` : ''; };
+const reportsPanel = () => { const l = G.get('reports', []).filter(r => inScope(commOf(accOf(r) || r.by))); return l.length ? `<section class="panel" style="margin-top:20px"><h2>📨 ${t('Reportes')} (${l.length})</h2>${l.map(r => `<div class="comment"><div style="flex:1;min-width:0"><strong>${esc(uName(r.by))}</strong> <span class="helper">${esc(fmtDate(r.date) || r.date)}</span><div style="overflow-wrap:anywhere">${esc(r.text)}</div></div><button class="icon-btn" data-act="report-del" data-id="${r.id}" aria-label="${esc(t('Eliminar reporte'))}">${TRASH}</button></div>`).join('')}</section>` : ''; };
 
 /* --- Datos: exportar / importar / borrar --- */
 function buildExport() {
@@ -1768,67 +1768,67 @@ function userView(e) {
 /* --- Strikes, suspensión y menú de administración --- */
 function strikeView(id) {
   const all = strikesOf(S.user), i = all.findIndex(s => s.id === id), s = all[i];
-  if (!s) return `<main class="page">${empty('Strike no encontrado', 'Este aviso ya no está disponible.', '<a class="button" href="#/">Volver</a>')}</main>`;
-  return `<main class="page story-layout"><div class="panel strike-card"><div class="end-emoji">⚠️</div><h2 class="serif" style="text-align:center;margin:0 0 4px">Has recibido un strike</h2><p class="helper" style="text-align:center">${esc(s.date.slice(0, 10))}</p>
-  <h3>Motivo indicado por la administración</h3><blockquote class="strike-reason">${esc(s.reason)}</blockquote>
-  <div class="strike-count"><b>${all.length}</b><span>${all.length === 1 ? 'strike acumulado' : 'strikes acumulados'}</span></div>
-  ${all.length > 1 ? `<h3>Historial</h3>${all.map((x, k) => `<p class="helper"><b>${k + 1}.</b> ${esc(x.date.slice(0, 10))} — ${esc(x.reason)}</p>`).join('')}` : ''}
-  <p class="helper">Si crees que es un error, puedes escribirle a la administración de Auri Studios.</p><a class="button" href="#/">Entendido</a></div></main>`;
+  if (!s) return `<main class="page">${empty('Strike no encontrado', 'Este aviso ya no está disponible.', '<a class="button" href="#/">' + t('Volver') + '</a>')}</main>`;
+  return `<main class="page story-layout"><div class="panel strike-card"><div class="end-emoji">⚠️</div><h2 class="serif" style="text-align:center;margin:0 0 4px">${t('Has recibido un strike')}</h2><p class="helper" style="text-align:center">${esc(fmtDate(s.date))}</p>
+  <h3>${t('Motivo indicado por la administración')}</h3><blockquote class="strike-reason">${esc(s.reason)}</blockquote>
+  <div class="strike-count"><b>${all.length}</b><span>${tn(all.length, 'strike acumulado', 'strikes acumulados')}</span></div>
+  ${all.length > 1 ? `<h3>${t('Historial')}</h3>${all.map((x, k) => `<p class="helper"><b>${k + 1}.</b> ${esc(fmtDate(x.date))} — ${esc(x.reason)}</p>`).join('')}` : ''}
+  <p class="helper">${t('Si crees que es un error, puedes escribirle a la administración de Auri Studios.')}</p><a class="button" href="#/">${t('Entendido')}</a></div></main>`;
 }
 function openAppealForm() {
   const imgs = [];
-  const m = formModal('Apelar la decisión', `<p class="helper">Explica qué ocurrió y por qué fue un malentendido. Se pueden adjuntar hasta 4 imágenes como prueba. Administración revisará el caso.</p><textarea class="textarea" data-text maxlength="1000" placeholder="Escribe tu explicación…"></textarea><div class="ap-imgs" data-imgs></div>
-    <label class="button secondary sm" style="cursor:pointer;margin-top:8px">Adjuntar imágenes<input type="file" accept="image/*" multiple data-file hidden></label>`, 'Enviar apelación',
+  const m = formModal('Apelar la decisión', `<p class="helper">${t('Explica qué ocurrió y por qué fue un malentendido. Se pueden adjuntar hasta 4 imágenes como prueba. Administración revisará el caso.')}</p><textarea class="textarea" data-text maxlength="1000" placeholder="${esc(t('Escribe tu explicación…'))}"></textarea><div class="ap-imgs" data-imgs></div>
+    <label class="button secondary sm" style="cursor:pointer;margin-top:8px">${t('Adjuntar imágenes')}<input type="file" accept="image/*" multiple data-file hidden></label>`, 'Enviar apelación',
     mm => { const e = submitAppeal(mm.querySelector('[data-text]').value, imgs); if (!e) { toast('Apelación enviada'); KEEP = true; render(); } return e; });
-  const paint = () => { m.querySelector('[data-imgs]').innerHTML = imgs.map((d, k) => `<span class="ap-th"><img src="${esc(d)}" alt="Prueba ${k + 1}"><button type="button" data-rm="${k}" aria-label="Quitar imagen">✕</button></span>`).join(''); };
+  const paint = () => { m.querySelector('[data-imgs]').innerHTML = imgs.map((d, k) => `<span class="ap-th"><img src="${esc(d)}" alt="Prueba ${k + 1}"><button type="button" data-rm="${k}" aria-label="${esc(t('Quitar imagen'))}">✕</button></span>`).join(''); };
   m.querySelector('[data-file]').onchange = ev => { [...ev.target.files].slice(0, 4 - imgs.length).forEach(f => fitPhoto(f, 1000, 1000, d => { if (imgs.length < 4) { imgs.push(d); paint(); } }, .7)); ev.target.value = ''; };
   m.addEventListener('click', ev => { const r = ev.target.closest('[data-rm]'); if (r) { imgs.splice(+r.dataset.rm, 1); paint(); } });
 }
 function bannedView() {
   const b = activeBan(S.user), ap = myAppeal(b), perm = !b.until;
-  const box = ap ? (ap.status === 'open' ? `<p class="notice" style="margin-top:14px">Apelación enviada el ${esc(ap.date)}. Administración la está revisando.</p>` : `<p class="notice" style="margin-top:14px">Apelación rechazada${ap.note ? ': ' + esc(ap.note) : '.'}</p>`)
-    : `<button class="button" data-act="ap-open" style="margin-top:14px;width:100%">Apelar esta decisión</button>`;
-  return `<main class="qz-wrap"><div class="qz-card" style="justify-content:center;text-align:center"><div class="end-emoji">🚫</div><h1>${perm ? 'Cuenta bloqueada' : 'Cuenta suspendida'}</h1>
-  <p class="helper">${perm ? 'Tu cuenta está bloqueada de forma permanente.' : `Tu cuenta está suspendida hasta el ${esc(b.until.slice(0, 10))}.`}</p><blockquote class="strike-reason">${esc(b.reason)}</blockquote>${box}
-  <button class="button ghost" data-act="logout" style="margin-top:12px">Cerrar sesión</button></div></main>`;
+  const box = ap ? (ap.status === 'open' ? `<p class="notice" style="margin-top:14px">${t('Apelación enviada el {d}. Administración la está revisando.', { d: esc(fmtDate(ap.date) || ap.date) })}</p>` : `<p class="notice" style="margin-top:14px">${t('Apelación rechazada')}${ap.note ? ': ' + esc(ap.note) : '.'}</p>`)
+    : `<button class="button" data-act="ap-open" style="margin-top:14px;width:100%">${t('Apelar esta decisión')}</button>`;
+  return `<main class="qz-wrap"><div class="qz-card" style="justify-content:center;text-align:center"><div class="end-emoji">🚫</div><h1>${perm ? t('Cuenta bloqueada') : t('Cuenta suspendida')}</h1>
+  <p class="helper">${perm ? t('Tu cuenta está bloqueada de forma permanente.') : t('Tu cuenta está suspendida hasta el {d}.', { d: esc(fmtDate(b.until)) })}</p><blockquote class="strike-reason">${esc(b.reason)}</blockquote>${box}
+  <button class="button ghost" data-act="logout" style="margin-top:12px">${t('Cerrar sesión')}</button></div></main>`;
 }
 let AFILT = 'open';
 function appealCard(a) {
   const open = a.status === 'open', ex = getUsers()[a.user];
-  return `<article class="panel rp ${open ? '' : 'done'}"><div class="rp-head"><span class="pill">Apelación</span><span class="helper">${esc(a.date)} · ${esc(uName(a.user))}</span></div>
-  <div class="rp-ctx"><b>${esc(uName(a.user))}</b><div class="helper">Decisión: ${esc(a.ban.reason)}<br>Aplicada por ${esc(uName(a.ban.by))} · ${a.ban.until ? 'hasta el ' + esc(a.ban.until.slice(0, 10)) : 'permanente'}</div></div>
-  <p class="rp-text">${esc(a.text)}</p>${(a.imgs || []).length ? `<div class="ap-imgs">${a.imgs.map((d, k) => `<button type="button" class="ap-th" data-act="ap-img" data-id="${a.id}" data-i="${k}" aria-label="Ver prueba ${k + 1}"><img src="${esc(d)}" alt="Prueba ${k + 1}"></button>`).join('')}</div>` : ''}
-  <div class="rp-acts">${ex ? `<a class="button ghost sm" href="#/user/${encodeURIComponent(a.user)}" data-dir="next">Perfil</a>` : ''}
-  ${open ? `<button class="button sm" data-act="ap-release" data-id="${a.id}">Liberar cuenta</button><button class="button danger sm" data-act="ap-reject" data-id="${a.id}">Rechazar apelación</button>`
-    : `<span class="helper">${a.status === 'released' ? 'Cuenta liberada' : 'Apelación rechazada'} por ${esc(uName(a.handledBy))} · ${esc(a.handledDate || '')}${a.note && a.status === 'rejected' ? ' · ' + esc(a.note) : ''}</span>`}</div></article>`;
+  return `<article class="panel rp ${open ? '' : 'done'}"><div class="rp-head"><span class="pill">${t('Apelación')}</span><span class="helper">${esc(fmtDate(a.date) || a.date)} · ${esc(uName(a.user))}</span></div>
+  <div class="rp-ctx"><b>${esc(uName(a.user))}</b><div class="helper">${t('Decisión')}: ${esc(a.ban.reason)}<br>${t('Aplicada por {n}', { n: esc(uName(a.ban.by)) })} · ${a.ban.until ? t('hasta el {d}', { d: esc(fmtDate(a.ban.until)) }) : t('permanente')}</div></div>
+  <p class="rp-text">${esc(a.text)}</p>${(a.imgs || []).length ? `<div class="ap-imgs">${a.imgs.map((d, k) => `<button type="button" class="ap-th" data-act="ap-img" data-id="${a.id}" data-i="${k}" aria-label="${esc(t('Ver prueba {n}', { n: k + 1 }))}"><img src="${esc(d)}" alt="${esc(t('Prueba {n}', { n: k + 1 }))}"></button>`).join('')}</div>` : ''}
+  <div class="rp-acts">${ex ? `<a class="button ghost sm" href="#/user/${encodeURIComponent(a.user)}" data-dir="next">${t('Perfil')}</a>` : ''}
+  ${open ? `<button class="button sm" data-act="ap-release" data-id="${a.id}">${t('Liberar cuenta')}</button><button class="button danger sm" data-act="ap-reject" data-id="${a.id}">${t('Rechazar apelación')}</button>`
+    : `<span class="helper">${t(a.status === 'released' ? 'Cuenta liberada por {n} · {d}' : 'Apelación rechazada por {n} · {d}', { n: esc(uName(a.handledBy)), d: esc(fmtDate(a.handledDate) || a.handledDate || '') })}${a.note && a.status === 'rejected' ? ' · ' + esc(a.note) : ''}</span>`}</div></article>`;
 }
 function appealsView(tabs) {
   const all = appealsAll().filter(a => inScope(commOf(a.user))), l = all.filter(a => (a.status === 'open') === (AFILT === 'open'));
-  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">Apelaciones</span><h2 style="margin-top:8px">${AFILT === 'open' ? 'Por revisar' : 'Ya atendidas'} (${l.length})</h2><p>Lee la explicación y las pruebas. Puedes liberar la cuenta o rechazar la apelación con un motivo.</p></div></div>
-  <div class="filter-row"><button class="chip ${AFILT === 'open' ? 'active' : ''}" data-act="ap-filter" data-id="open">Abiertas (${openAppeals()})</button><button class="chip ${AFILT === 'done' ? 'active' : ''}" data-act="ap-filter" data-id="done">Atendidas</button></div>
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('Apelaciones')}</span><h2 style="margin-top:8px">${AFILT === 'open' ? t('Por revisar') : t('Ya atendidas')} (${l.length})</h2><p>${t('Lee la explicación y las pruebas. Puedes liberar la cuenta o rechazar la apelación con un motivo.')}</p></div></div>
+  <div class="filter-row"><button class="chip ${AFILT === 'open' ? 'active' : ''}" data-act="ap-filter" data-id="open">${t('Abiertas')} (${openAppeals()})</button><button class="chip ${AFILT === 'done' ? 'active' : ''}" data-act="ap-filter" data-id="done">${t('Atendidas')}</button></div>
   ${l.length ? l.map(appealCard).join('') : empty(AFILT === 'open' ? 'Sin apelaciones pendientes' : 'Nada atendido todavía', 'Cuando una cuenta suspendida apele, aparecerá aquí.')}</main>`;
 }
 /** Ventana con formulario: onYes(modal) devuelve un texto de error (se muestra dentro) o '' para cerrar */
 function formModal(title, body, yes, onYes, danger) {
   const m = document.createElement('div'); m.className = 'modal sheet';
-  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${esc(title)}</h2>${body}<p class="error-line" data-err role="alert"></p><div style="display:flex;gap:10px;margin-top:14px"><button class="button ghost" data-no style="flex:1">Cancelar</button><button class="button ${danger ? 'danger' : ''}" data-yes style="flex:1">${esc(yes)}</button></div></div>`;
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${esc(t(title))}</h2>${body}<p class="error-line" data-err role="alert"></p><div style="display:flex;gap:10px;margin-top:14px"><button class="button ghost" data-no style="flex:1">${t('Cancelar')}</button><button class="button ${danger ? 'danger' : ''}" data-yes style="flex:1">${esc(t(yes))}</button></div></div>`;
   m.querySelector('[data-no]').onclick = () => m.remove();
-  m.querySelector('[data-yes]').onclick = () => { const r = onYes(m); if (r) { m.querySelector('[data-err]').textContent = r; return; } m.remove(); };
+  m.querySelector('[data-yes]').onclick = () => { const r = onYes(m); if (r) { m.querySelector('[data-err]').textContent = t(r); return; } m.remove(); };
   document.body.appendChild(m); return m;
 }
-function openStrikeForm(t) {
-  if (!canAct(t)) return;
-  formModal('Dar strike a ' + uName(t), `<p class="helper">La persona recibirá una notificación y verá este motivo.</p><textarea class="textarea" data-reason maxlength="500" placeholder="Escribe el motivo del strike…"></textarea>`, 'Dar strike',
-    m => { const e = giveStrike(t, m.querySelector('[data-reason]').value); if (!e) { toast('Strike enviado'); KEEP = true; render(); } return e; }, true);
+function openStrikeForm(tg) {
+  if (!canAct(tg)) return;
+  formModal(t('Dar strike a {n}', { n: uName(tg) }), `<p class="helper">${t('La persona recibirá una notificación y verá este motivo.')}</p><textarea class="textarea" data-reason maxlength="500" placeholder="${esc(t('Escribe el motivo del strike…'))}"></textarea>`, 'Dar strike',
+    m => { const e = giveStrike(tg, m.querySelector('[data-reason]').value); if (!e) { toast('Strike enviado'); KEEP = true; render(); } return e; }, true);
 }
-function openBanForm(t) {
-  if (!canAct(t) || !canBan()) return;
-  const opts = [[1, '1 día'], [3, '3 días'], [7, '7 días'], [15, '15 días'], [30, '30 días'], [90, '90 días'], ['custom', 'Otro tiempo…'], [0, 'Permanente (bloqueo)']];
-  const m = formModal('Suspender o bloquear a ' + uName(t), `<div class="form-group"><label>Duración</label><select class="select" data-days>${opts.map(([v, l]) => `<option value="${v}" ${v === 7 ? 'selected' : ''}>${l}</option>`).join('')}</select><input class="field" data-custom type="number" min="1" max="3650" placeholder="Número de días" style="display:none;margin-top:8px"></div>
-    <div class="form-group" style="margin-top:10px"><label>Motivo (la persona lo verá)</label><textarea class="textarea" data-reason maxlength="500" placeholder="Escribe el motivo de la suspensión o el bloqueo…"></textarea></div><p class="helper">La persona podrá apelar: escribir su versión y enviar imágenes como prueba. Las apelaciones llegan a Administración.</p>`, 'Aplicar',
+function openBanForm(tg) {
+  if (!canAct(tg) || !canBan()) return;
+  const opts = [[1, t('1 día')], [3, t('3 días')], [7, t('7 días')], [15, t('15 días')], [30, t('30 días')], [90, t('90 días')], ['custom', t('Otro tiempo…')], [0, t('Permanente (bloqueo)')]];
+  const m = formModal(t('Suspender o bloquear a {n}', { n: uName(tg) }), `<div class="form-group"><label>${t('Duración')}</label><select class="select" data-days>${opts.map(([v, l]) => `<option value="${v}" ${v === 7 ? 'selected' : ''}>${l}</option>`).join('')}</select><input class="field" data-custom type="number" min="1" max="3650" placeholder="${esc(t('Número de días'))}" style="display:none;margin-top:8px"></div>
+    <div class="form-group" style="margin-top:10px"><label>${t('Motivo (la persona lo verá)')}</label><textarea class="textarea" data-reason maxlength="500" placeholder="${esc(t('Escribe el motivo de la suspensión o el bloqueo…'))}"></textarea></div><p class="helper">${t('La persona podrá apelar: escribir su versión y enviar imágenes como prueba. Las apelaciones llegan a Administración.')}</p>`, 'Aplicar',
     mm => { const sel = mm.querySelector('[data-days]'), d = sel.value === 'custom' ? Math.floor(+mm.querySelector('[data-custom]').value) : +sel.value;
-      if (sel.value === 'custom' && !(d >= 1 && d <= 3650)) return 'Escribe un número de días entre 1 y 3650.';
-      const e = applyBan(t, d, mm.querySelector('[data-reason]').value); if (!e) { toast(d > 0 ? 'Cuenta suspendida' : 'Cuenta bloqueada'); KEEP = true; render(); } return e; }, true);
+      if (sel.value === 'custom' && !(d >= 1 && d <= 3650)) return t('Escribe un número de días entre 1 y 3650.');
+      const e = applyBan(tg, d, mm.querySelector('[data-reason]').value); if (!e) { toast(d > 0 ? 'Cuenta suspendida' : 'Cuenta bloqueada'); KEEP = true; render(); } return e; }, true);
   m.querySelector('[data-days]').onchange = ev => { m.querySelector('[data-custom]').style.display = ev.target.value === 'custom' ? '' : 'none'; };
 }
 const TERMS_MOD = ['Usaré las herramientas de moderación solo para proteger a la comunidad, nunca por motivos personales.', 'Trataré con respeto y de forma imparcial a todas las personas, sin favoritismos.', 'Mantendré la confidencialidad de la información a la que acceda por mi rol.',
@@ -1838,8 +1838,8 @@ const TERMS_ADM = ['Usaré mis permisos de administración con responsabilidad y
 function openAcceptMod(nid) {
   const inv = myInvite(nid); if (!inv) return toast('Esta invitación ya no está disponible.');
   const adm = inv.role === 'ADMIN', list = adm ? TERMS_ADM : TERMS_MOD;
-  const m = formModal(adm ? 'Términos de Administración' : 'Términos de Moderación', `<ul class="terms">${list.map(t => `<li>${esc(t)}</li>`).join('')}</ul><label class="check-line"><input type="checkbox" data-ok> <span>${adm ? 'Acepto los Términos de Administración de Auri Studios' : 'Confirmo que soy mayor de edad (18+ años) y acepto los Términos de Moderación de Auri Studios'}</span></label>`, 'Confirmar',
-    mm => { if (!mm.querySelector('[data-ok]').checked) return 'Debes marcar la casilla para continuar.'; const e = acceptInvite(nid); if (!e) { KEEP = true; render(); showModOverlay(); } return e; });
+  const m = formModal(adm ? 'Términos de Administración' : 'Términos de Moderación', `<ul class="terms">${list.map(x => `<li>${esc(t(x))}</li>`).join('')}</ul><label class="check-line"><input type="checkbox" data-ok> <span>${adm ? t('Acepto los Términos de Administración de Auri Studios') : t('Confirmo que soy mayor de edad (18+ años) y acepto los Términos de Moderación de Auri Studios')}</span></label>`, 'Confirmar',
+    mm => { if (!mm.querySelector('[data-ok]').checked) return t('Debes marcar la casilla para continuar.'); const e = acceptInvite(nid); if (!e) { KEEP = true; render(); showModOverlay(); } return e; });
   const b = m.querySelector('[data-yes]'), c = m.querySelector('[data-ok]'); b.disabled = true; c.onchange = () => { b.disabled = !c.checked; };
 }
 let MODOV = null;
@@ -1847,103 +1847,103 @@ let MODOV = null;
 function showModOverlay() {
   const role = roleOf(S.user), adm = role === 'ADMIN'; if (MODOV || (role !== 'MODERATOR' && !adm) || (getUsers()[S.user] || {}).frameWorn) return;
   const o = MODOV = document.createElement('div'); o.className = 'mod-ov'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true');
-  o.innerHTML = `<div class="mod-ov-box"><div class="end-emoji">🎉</div><h1>¡Felicidades!</h1><p>${adm ? 'Ya eres parte de la administración de <b>Auri Studios</b>' : 'Ya eres moderador en <b>Auri Studios</b>'}</p><div class="mod-ov-av"><span class="fr xl ${adm ? 'adm' : 'mod'}">${userAvatar(S.user, 'xl')}${frameImg(adm ? FRAME_ADM : FRAME_MOD, 'off')}</span></div><p class="helper">Este marco es parte de tu rol: es obligatorio y no se puede quitar.</p><button class="button" data-wear>Ponerme el marco</button></div>`;
+  o.innerHTML = `<div class="mod-ov-box"><div class="end-emoji">🎉</div><h1>${t('¡Felicidades!')}</h1><p>${adm ? t('Ya eres parte de la administración de {a}', { a: '<b>Auri Studios</b>' }) : t('Ya eres moderador en {a}', { a: '<b>Auri Studios</b>' })}</p><div class="mod-ov-av"><span class="fr xl ${adm ? 'adm' : 'mod'}">${userAvatar(S.user, 'xl')}${frameImg(adm ? FRAME_ADM : FRAME_MOD, 'off')}</span></div><p class="helper">${t('Este marco es parte de tu rol: es obligatorio y no se puede quitar.')}</p><button class="button" data-wear>${t('Ponerme el marco')}</button></div>`;
   const btn = o.querySelector('[data-wear]'), img = o.querySelector('.fr-img');
   img.addEventListener('error', () => { img.style.display = 'none'; o.querySelector('.fr').classList.add('fr-fallback'); });
   btn.onclick = () => {
-    btn.disabled = true; img.classList.remove('off'); o.classList.add('worn'); btn.textContent = '¡Listo!';
+    btn.disabled = true; img.classList.remove('off'); o.classList.add('worn'); btn.textContent = t('¡Listo!');
     const us = getUsers(); if (us[S.user]) { us[S.user].frameWorn = true; G.set('users', us); }
     setTimeout(() => { o.classList.add('bye'); setTimeout(() => { o.remove(); MODOV = null; KEEP = true; render(); }, 380); }, 1300);
   };
   document.body.appendChild(o);
 }
 /** Menú de Administración (solo se dibuja si quien mira tiene permiso sobre esa cuenta) */
-function admMenu(t) {
-  if (!canAct(t)) return '';
-  const st = strikesOf(t).length, ban = activeBan(t), r = roleOf(t), up = isOwner();
+function admMenu(tg) {
+  if (!canAct(tg)) return '';
+  const st = strikesOf(tg).length, ban = activeBan(tg), r = roleOf(tg), up = isOwner();
   const canDown = (up && (r === 'MODERATOR' || r === 'ADMIN')) || (isAdm() && r === 'MODERATOR');
-  const tst = isOwner() && (getUsers()[t] || {}).test ? `<div class="adm-test"><b>🧪 Cuenta de prueba</b>${r !== 'MODERATOR' ? '<button class="adm-item" data-act="test-role" data-id="' + esc(t) + '" data-role="MODERATOR">🛡 Poner como moderadora (directo)</button>' : ''}${r !== 'ADMIN' ? '<button class="adm-item" data-act="test-role" data-id="' + esc(t) + '" data-role="ADMIN">⭐ Poner como administración (directo)</button>' : ''}${r !== 'USER' ? '<button class="adm-item" data-act="test-role" data-id="' + esc(t) + '" data-role="USER">👤 Volver a usuaria normal</button>' : ''}<small class="helper">Para verla como esa persona: cierra sesión y entra con ${esc(TEST_EMAIL)} / ${esc(TEST_PASS)}.</small></div>` : '';
-  return `<section class="panel adm" aria-label="Administración"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>🛡 Administración</strong><div class="helper">${st} strike${st === 1 ? '' : 's'} · ${ban ? 'suspendida' : 'cuenta activa'}${r === 'MODERATOR' ? ' · moderación' : r === 'ADMIN' ? ' · administración' : ''}</div></div><button class="button secondary sm" data-act="adm-toggle" aria-expanded="false">Opciones ▾</button></div>
-  <div class="adm-list" hidden><button class="adm-item" data-act="adm-strike" data-id="${esc(t)}">⚠️ Dar strike</button>
-  ${!canBan() ? '' : ban ? `<button class="adm-item" data-act="adm-unban" data-id="${esc(t)}">✅ Levantar suspensión</button>` : `<button class="adm-item danger" data-act="adm-ban" data-id="${esc(t)}">🚫 Suspender o bloquear cuenta</button>`}
-  ${canBan() && strikesOf(t).length ? `<div class="adm-strikes"><b>Strikes activos</b>${strikesOf(t).map(x => `<div class="adm-strike"><span>${esc(x.date.slice(0, 10))} · ${esc(x.reason)}</span><button type="button" class="link-btn" data-act="adm-unstrike" data-id="${esc(t)}" data-sid="${esc(x.id)}">Anular</button></div>`).join('')}</div>` : ''}
-  ${up && (r === 'MODERATOR' || r === 'ADMIN') ? `<button class="adm-item" data-act="adm-scope" data-id="${esc(t)}">🌐 Comunidades que modera: ${staffScope(t).map(c => COMMS[c]).join(' y ')}</button>` : ''}
-  ${up ? `<button class="adm-item" data-act="gift-profile" data-id="${esc(t)}">🎁 Regalar marco Top 50 (quedan ${giftLeft()})</button>` : ''}
-  ${up && r === 'USER' ? `<button class="adm-item" data-act="adm-mod" data-id="${esc(t)}">🛡 Hacer moderador</button>` : ''}
-  ${up && r === 'MODERATOR' ? `<button class="adm-item" data-act="adm-admin" data-id="${esc(t)}">⭐ Ascender a administración</button>` : ''}
-  ${tst}${canDown ? `<button class="adm-item" data-act="adm-revoke" data-id="${esc(t)}">${r === 'ADMIN' ? '↩️ Quitar administración (vuelve a moderación)' : '↩️ Quitar moderación'}</button>` : ''}</div></section>`;
+  const tst = isOwner() && (getUsers()[tg] || {}).test ? `<div class="adm-test"><b>${t('🧪 Cuenta de prueba')}</b>${r !== 'MODERATOR' ? '<button class="adm-item" data-act="test-role" data-id="' + esc(tg) + '" data-role="MODERATOR">' + t('🛡 Poner como moderadora (directo)') + '</button>' : ''}${r !== 'ADMIN' ? '<button class="adm-item" data-act="test-role" data-id="' + esc(tg) + '" data-role="ADMIN">' + t('⭐ Poner como administración (directo)') + '</button>' : ''}${r !== 'USER' ? '<button class="adm-item" data-act="test-role" data-id="' + esc(tg) + '" data-role="USER">' + t('👤 Volver a usuaria normal') + '</button>' : ''}<small class="helper">${t('Para verla como esa persona: cierra sesión y entra con {e} / {p}.', { e: esc(TEST_EMAIL), p: esc(TEST_PASS) })}</small></div>` : '';
+  return `<section class="panel adm" aria-label="${esc(t('Administración'))}"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>${t('🛡 Administración')}</strong><div class="helper">${tn(st, '{n} strike', '{n} strikes')} · ${ban ? t('suspendida') : t('cuenta activa')}${r === 'MODERATOR' ? ' · ' + t('moderación') : r === 'ADMIN' ? ' · ' + t('administración') : ''}</div></div><button class="button secondary sm" data-act="adm-toggle" aria-expanded="false">${t('Opciones ▾')}</button></div>
+  <div class="adm-list" hidden><button class="adm-item" data-act="adm-strike" data-id="${esc(tg)}">${t('⚠️ Dar strike')}</button>
+  ${!canBan() ? '' : ban ? `<button class="adm-item" data-act="adm-unban" data-id="${esc(tg)}">${t('✅ Levantar suspensión')}</button>` : `<button class="adm-item danger" data-act="adm-ban" data-id="${esc(tg)}">${t('🚫 Suspender o bloquear cuenta')}</button>`}
+  ${canBan() && strikesOf(tg).length ? `<div class="adm-strikes"><b>${t('Strikes activos')}</b>${strikesOf(tg).map(x => `<div class="adm-strike"><span>${esc(fmtDate(x.date))} · ${esc(x.reason)}</span><button type="button" class="link-btn" data-act="adm-unstrike" data-id="${esc(tg)}" data-sid="${esc(x.id)}">${t('Anular')}</button></div>`).join('')}</div>` : ''}
+  ${up && (r === 'MODERATOR' || r === 'ADMIN') ? `<button class="adm-item" data-act="adm-scope" data-id="${esc(tg)}">🌐 ${t('Comunidades que modera: {c}', { c: staffScope(tg).map(c => COMMS[c]).join(' / ') })}</button>` : ''}
+  ${up ? `<button class="adm-item" data-act="gift-profile" data-id="${esc(tg)}">🎁 ${t('Regalar marco Top 50 (quedan {n})', { n: giftLeft() })}</button>` : ''}
+  ${up && r === 'USER' ? `<button class="adm-item" data-act="adm-mod" data-id="${esc(tg)}">${t('🛡 Hacer moderador')}</button>` : ''}
+  ${up && r === 'MODERATOR' ? `<button class="adm-item" data-act="adm-admin" data-id="${esc(tg)}">${t('⭐ Ascender a administración')}</button>` : ''}
+  ${tst}${canDown ? `<button class="adm-item" data-act="adm-revoke" data-id="${esc(tg)}">${r === 'ADMIN' ? t('↩️ Quitar administración (vuelve a moderación)') : t('↩️ Quitar moderación')}</button>` : ''}</div></section>`;
 }
 
 /* --- Noticias (solo la cuenta dueña publica) --- */
 function openBookPicker() {
   const m = document.createElement('div'); m.className = 'modal sheet'; let tab = 'home', q = '';
-  m.innerHTML = `<div class="modal-box bp-box" role="dialog" aria-modal="true" aria-label="Recomendar un libro"><button class="icon-btn close-x" data-x aria-label="Cerrar">✕</button><h2>Recomendar un libro</h2><p class="helper">Toca un libro y aparece en el banner de Inicio.${isMod() ? ' Pasará primero por la aprobación de Administración y Owner.' : ''}</p><label class="check" style="margin:4px 0 8px"><input type="checkbox" data-anon> <span>Ocultar mi nombre (se muestra solo mi rol)</span></label>
-  <div class="bp-tabs"><button type="button" class="chip active" data-t="home">🏠 Inicio</button><button type="button" class="chip" data-t="favs">♥ Mis favoritos</button><button type="button" class="chip" data-t="lib">📚 Mi biblioteca</button></div>
-  <input class="field bp-q" type="search" placeholder="Buscar por título o autoría…" aria-label="Buscar libro"><div class="bp-list"></div></div>`;
+  m.innerHTML = `<div class="modal-box bp-box" role="dialog" aria-modal="true" aria-label="${esc(t('Recomendar un libro'))}"><button class="icon-btn close-x" data-x aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Recomendar un libro')}</h2><p class="helper">${t('Toca un libro y aparece en el banner de Inicio.')}${isMod() ? ' ' + t('Pasará primero por la aprobación de Administración y Owner.') : ''}</p><label class="check" style="margin:4px 0 8px"><input type="checkbox" data-anon> <span>${t('Ocultar mi nombre (se muestra solo mi rol)')}</span></label>
+  <div class="bp-tabs"><button type="button" class="chip active" data-t="home">${t('🏠 Inicio')}</button><button type="button" class="chip" data-t="favs">${t('♥ Mis favoritos')}</button><button type="button" class="chip" data-t="lib">${t('📚 Mi biblioteca')}</button></div>
+  <input class="field bp-q" type="search" placeholder="${esc(t('Buscar por título o autoría…'))}" aria-label="${esc(t('Buscar libro'))}"><div class="bp-list"></div></div>`;
   const list = m.querySelector('.bp-list');
   const src = () => { const all = publishedStories().filter(matureOK); return (tab === 'favs' ? all.filter(x => S.favs.includes(x.id)) : tab === 'lib' ? all.filter(x => S.lib.includes(x.id)) : all).filter(x => !q || `${x.title} ${x.author}`.toLowerCase().includes(q)); };
   const paint = () => { const on = new Set(crAll().filter(b => b.kind === 'book').map(b => b.storyId)), l = src();
-    list.innerHTML = l.length ? l.map((x, i) => `<button type="button" class="bp-item" data-id="${esc(x.id)}"><span class="bp-cv">${coverHTML(x, i)}</span><span class="bp-t"><b>${esc(x.title)}</b><small>${t('por {a}', { a: esc(x.author || '') })}</small></span>${on.has(x.id) ? '<span class="pill">En el banner ✓</span>' : '<span class="bp-add">＋</span>'}</button>`).join('')
-      : `<p class="helper" style="text-align:center;margin:18px 0">${tab === 'favs' ? 'Aún no tienes libros favoritos.' : tab === 'lib' ? 'Tu biblioteca está vacía.' : 'No hay libros publicados.'}</p>`; };
+    list.innerHTML = l.length ? l.map((x, i) => `<button type="button" class="bp-item" data-id="${esc(x.id)}"><span class="bp-cv">${coverHTML(x, i)}</span><span class="bp-t"><b>${esc(x.title)}</b><small>${t('por {a}', { a: esc(x.author || '') })}</small></span>${on.has(x.id) ? '<span class="pill">' + t('En el banner ✓') + '</span>' : '<span class="bp-add">＋</span>'}</button>`).join('')
+      : `<p class="helper" style="text-align:center;margin:18px 0">${tab === 'favs' ? t('Aún no tienes libros favoritos.') : tab === 'lib' ? t('Tu biblioteca está vacía.') : t('No hay libros publicados.')}</p>`; };
   m.querySelector('[data-x]').onclick = () => m.remove(); m.onclick = ev => { if (ev.target === m) m.remove(); };
   m.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; m.querySelectorAll('[data-t]').forEach(x => x.classList.toggle('active', x === b)); paint(); });
   m.querySelector('.bp-q').oninput = ev => { q = ev.target.value.trim().toLowerCase(); paint(); };
   list.onclick = ev => { const it = ev.target.closest('.bp-item'); if (!it || !canNews()) return; const sid = it.dataset.id, L = crAll();
     if (L.some(b => b.kind === 'book' && b.storyId === sid)) return toast('Ese libro ya está en el banner.');
-    if (L.length >= 6) return toast('Máximo 6 tarjetas manuales: elimina alguna.');
+    if (L.length >= 6) return toast(t('Máximo 6 tarjetas manuales: elimina alguna.'));
     G.set('banners', [...L, { id: Date.now(), kind: 'book', by: S.user, date: today(), storyId: sid, title: '', text: '', btn: 'Leer ahora', ...postMeta((m.querySelector('[data-anon]') || {}).checked, 'cr-comm') }]); logAction('banner-add', S.user, ((findStory(sid) || {}).title || '') + (isMod() ? ' (en revisión)' : '')); if (isMod()) notifyApprovers('Nueva recomendación de libro por aprobar'); m.remove(); toast(isMod() ? 'Enviado a revisión: lo verá Administración u Owner' : 'Añadido al banner ✓'); KEEP = true; render(); };
   paint(); document.body.appendChild(m);
 }
 function commPick(id) {                                // dónde se ve la publicación (si el equipo cubre una sola comunidad, va fija)
   const sc = staffScope(S.user); if (sc.length < 2) return `<input type="hidden" id="${id}" value="${esc(sc[0] || 'es')}">`;
-  return `<div class="form-group"><label for="${id}">Comunidad</label><select id="${id}" class="select"><option value="all">Ambas comunidades</option><option value="es">Español</option><option value="en">English</option></select></div>`;
+  return `<div class="form-group"><label for="${id}">${t('Comunidad')}</label><select id="${id}" class="select"><option value="all">${t('Ambas comunidades')}</option><option value="es">${t('Español')}</option><option value="en">${t('English')}</option></select></div>`;
 }
 function crPanel() {
   const L = crAll(), pubs = publishedStories(), nw = news();
-  return `<section class="panel" style="margin-bottom:20px"><h2>🎠 Banner de Inicio</h2><p class="helper" style="margin:4px 0 12px">Las noticias salen solas en el carrusel. Aquí añades tarjetas manuales (aparecen primero).${isOwner() ? '' : ' Solo puedes editar y eliminar las tuyas.'}${isMod() ? ' Lo que envíes pasa primero por la aprobación de Administración y Owner.' : ''}</p>
-  ${L.length ? L.map((b, i) => { const mine = ownsPost(b); return `<div class="cr-row"><span class="cr-rt">${b.kind === 'book' ? '📚' : '🎉'} <b>${esc(b.title || (findStory(b.storyId) || {}).title || 'Libro eliminado')}</b><small class="helper">· ${esc(byline(b))}</small>${b.status === 'pending' ? ' <span class="pill">En revisión</span>' : b.status === 'rejected' ? ` <span class="pill">Rechazada${b.reason ? ': ' + esc(b.reason) : ''}</span>` : ''}</span><span class="cr-rb">${mine ? `${isMod() ? '' : `<button class="icon-btn sm" data-act="cr-up" data-id="${b.id}" ${i ? '' : 'disabled'} aria-label="Subir">↑</button><button class="icon-btn sm" data-act="cr-down" data-id="${b.id}" ${i < L.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button>`}${canEditPost(b) ? `<button class="link-btn" data-act="cr-edit" data-id="${b.id}">Editar</button>` : ''}<button class="link-btn danger-link" data-act="cr-del" data-id="${b.id}">Eliminar</button>` : '<small class="helper">de otra persona</small>'}</span></div>`; }).join('') : '<p class="helper">Aún no hay tarjetas manuales.</p>'}
+  return `<section class="panel" style="margin-bottom:20px"><h2>${t('🎠 Banner de Inicio')}</h2><p class="helper" style="margin:4px 0 12px">${t('Las noticias salen solas en el carrusel. Aquí añades tarjetas manuales (aparecen primero).')}${isOwner() ? '' : ' ' + t('Solo puedes editar y eliminar las tuyas.')}${isMod() ? ' ' + t('Lo que envíes pasa primero por la aprobación de Administración y Owner.') : ''}</p>
+  ${L.length ? L.map((b, i) => { const mine = ownsPost(b); return `<div class="cr-row"><span class="cr-rt">${b.kind === 'book' ? '📚' : '🎉'} <b>${esc(b.title || (findStory(b.storyId) || {}).title || t('Libro eliminado'))}</b><small class="helper">· ${esc(byline(b))}</small>${b.status === 'pending' ? ' <span class="pill">' + t('En revisión') + '</span>' : b.status === 'rejected' ? ` <span class="pill">${t('Rechazada')}${b.reason ? ': ' + esc(b.reason) : ''}</span>` : ''}</span><span class="cr-rb">${mine ? `${isMod() ? '' : `<button class="icon-btn sm" data-act="cr-up" data-id="${b.id}" ${i ? '' : 'disabled'} aria-label="${esc(t('Subir'))}">↑</button><button class="icon-btn sm" data-act="cr-down" data-id="${b.id}" ${i < L.length - 1 ? '' : 'disabled'} aria-label="${esc(t('Bajar'))}">↓</button>`}${canEditPost(b) ? `<button class="link-btn" data-act="cr-edit" data-id="${b.id}">${t('Editar')}</button>` : ''}<button class="link-btn danger-link" data-act="cr-del" data-id="${b.id}">${t('Eliminar')}</button>` : '<small class="helper">' + t('de otra persona') + '</small>'}</span></div>`; }).join('') : '<p class="helper">' + t('Aún no hay tarjetas manuales.') + '</p>'}
  ${commPick('cr-comm')}
- <button type="button" class="button secondary" data-act="cr-pick-open" style="margin:8px 0">＋ Recomendar un libro</button>
-  <details class="cr-add" hidden><summary>＋ Recomendar un libro</summary><form data-form="cr-book" class="form-grid" style="grid-template-columns:1fr;margin-top:10px">
-    <div class="form-group"><label for="cb-story">Libro</label><select id="cb-story" class="select">${pubs.length ? pubs.map(x => `<option value="${esc(x.id)}">${esc(x.title)}</option>`).join('') : '<option value="">No hay libros publicados</option>'}</select></div>
-    <div class="form-group"><label for="cb-title">Título (opcional)</label><input id="cb-title" class="field" maxlength="70" placeholder="Si lo dejas vacío usa el del libro (el título del libro siempre se muestra)"></div>
-    <div class="form-group"><label for="cb-text">Texto (opcional)</label><textarea id="cb-text" class="textarea" maxlength="160" placeholder="Por qué lo recomiendas… (si lo dejas vacío usa la sinopsis)"></textarea></div>
-    <div class="form-group"><label for="cb-btn">Texto del botón</label><input id="cb-btn" class="field" maxlength="24" value="Leer ahora"></div><label class="check"><input type="checkbox" id="cb-anon"> <span>Ocultar mi nombre (se muestra solo mi rol)</span></label><button class="button" type="submit">Añadir al banner</button></form></details>
-  <details class="cr-add"><summary>＋ Anunciar un evento</summary><form data-form="cr-event" class="form-grid" style="grid-template-columns:1fr;margin-top:10px">
-    <div class="form-group"><label for="ce-title">Título</label><input id="ce-title" class="field" maxlength="70" placeholder="Ej: Evento Fundador"></div>
-    <div class="form-group"><label for="ce-text">Descripción corta (la tarjeta del banner)</label><textarea id="ce-text" class="textarea" maxlength="160"></textarea></div>
-    <div class="form-group"><label>Imagen (opcional, cualquier tamaño)</label><div id="ce-prev" class="ce-prev"></div><label class="button secondary sm" style="cursor:pointer;width:fit-content">🖼 Elegir imagen<input id="ce-file" type="file" accept="image/*" hidden></label></div>
-    <div class="form-group"><label for="ce-post">Publicación completa (se abre al tocar el botón)</label><textarea id="ce-post" class="textarea" maxlength="4000" placeholder="Escribe el post completo. Si lo dejas vacío usa la descripción corta. Puedes editarlo después en Noticias."></textarea></div>
-    <div class="form-group"><label for="ce-btn">Texto del botón</label><input id="ce-btn" class="field" maxlength="24" value="Ver más"></div>
-    <label class="check"><input type="checkbox" id="ce-anon"> <span>Ocultar mi nombre (se muestra solo mi rol)</span></label><div class="form-group"><label for="ce-news">El botón lleva a…</label><select id="ce-news" class="select"><option value="">Una publicación nueva (la creo con estos datos)</option>${nw.map(n => `<option value="${n.id}">Noticia existente: ${esc(clip(n.title, 40))}</option>`).join('')}</select></div><button class="button" type="submit">Añadir al banner</button></form></details></section>`;
+ <button type="button" class="button secondary" data-act="cr-pick-open" style="margin:8px 0">${t('＋ Recomendar un libro')}</button>
+  <details class="cr-add" hidden><summary>${t('＋ Recomendar un libro')}</summary><form data-form="cr-book" class="form-grid" style="grid-template-columns:1fr;margin-top:10px">
+    <div class="form-group"><label for="cb-story">${t('Libro')}</label><select id="cb-story" class="select">${pubs.length ? pubs.map(x => `<option value="${esc(x.id)}">${esc(x.title)}</option>`).join('') : '<option value="">' + t('No hay libros publicados') + '</option>'}</select></div>
+    <div class="form-group"><label for="cb-title">${t('Título (opcional)')}</label><input id="cb-title" class="field" maxlength="70" placeholder="${esc(t('Si lo dejas vacío usa el del libro (el título del libro siempre se muestra)'))}"></div>
+    <div class="form-group"><label for="cb-text">${t('Texto (opcional)')}</label><textarea id="cb-text" class="textarea" maxlength="160" placeholder="${esc(t('Por qué lo recomiendas… (si lo dejas vacío usa la sinopsis)'))}"></textarea></div>
+    <div class="form-group"><label for="cb-btn">${t('Texto del botón')}</label><input id="cb-btn" class="field" maxlength="24" value="${esc(t('Leer ahora'))}"></div><label class="check"><input type="checkbox" id="cb-anon"> <span>${t('Ocultar mi nombre (se muestra solo mi rol)')}</span></label><button class="button" type="submit">${t('Añadir al banner')}</button></form></details>
+  <details class="cr-add"><summary>${t('＋ Anunciar un evento')}</summary><form data-form="cr-event" class="form-grid" style="grid-template-columns:1fr;margin-top:10px">
+    <div class="form-group"><label for="ce-title">${t('Título')}</label><input id="ce-title" class="field" maxlength="70" placeholder="${esc(t('Ej: Evento Fundador'))}"></div>
+    <div class="form-group"><label for="ce-text">${t('Descripción corta (la tarjeta del banner)')}</label><textarea id="ce-text" class="textarea" maxlength="160"></textarea></div>
+    <div class="form-group"><label>${t('Imagen (opcional, cualquier tamaño)')}</label><div id="ce-prev" class="ce-prev"></div><label class="button secondary sm" style="cursor:pointer;width:fit-content">🖼 ${t('Elegir imagen')}<input id="ce-file" type="file" accept="image/*" hidden></label></div>
+    <div class="form-group"><label for="ce-post">${t('Publicación completa (se abre al tocar el botón)')}</label><textarea id="ce-post" class="textarea" maxlength="4000" placeholder="${esc(t('Escribe el post completo. Si lo dejas vacío usa la descripción corta. Puedes editarlo después en Noticias.'))}"></textarea></div>
+    <div class="form-group"><label for="ce-btn">${t('Texto del botón')}</label><input id="ce-btn" class="field" maxlength="24" value="${esc(t('Ver más'))}"></div>
+    <label class="check"><input type="checkbox" id="ce-anon"> <span>${t('Ocultar mi nombre (se muestra solo mi rol)')}</span></label><div class="form-group"><label for="ce-news">${t('El botón lleva a…')}</label><select id="ce-news" class="select"><option value="">${t('Una publicación nueva (la creo con estos datos)')}</option>${nw.map(n => `<option value="${n.id}">${t('Noticia existente: {t}', { t: esc(clip(n.title, 40)) })}</option>`).join('')}</select></div><button class="button" type="submit">${t('Añadir al banner')}</button></form></details></section>`;
 }
 /* Compositor de noticias (Owner): cada párrafo puede llevar una imagen de cualquier tamaño */
 function subsPanel() {                                 // Moderación: sus envíos que aún no están publicados
   const l = news().filter(n => !pubOK(n) && ownsPost(n)); if (!l.length) return '';
-  return `<section class="panel" style="margin-bottom:20px"><h2>Mis envíos en revisión</h2>${l.map(n => `<div class="cr-row"><span class="cr-rt"><b>${esc(n.title)}</b> ${n.status === 'pending' ? '<span class="pill">En revisión</span>' : `<span class="pill">Rechazada${n.reason ? ': ' + esc(n.reason) : ''}</span>`}</span><span class="cr-rb"><button class="link-btn" data-act="news-edit" data-id="${n.id}">Editar y reenviar</button><button class="link-btn danger-link" data-act="news-del" data-id="${n.id}">Eliminar</button></span></div>`).join('')}</section>`;
+  return `<section class="panel" style="margin-bottom:20px"><h2>${t('Mis envíos en revisión')}</h2>${l.map(n => `<div class="cr-row"><span class="cr-rt"><b>${esc(n.title)}</b> ${n.status === 'pending' ? '<span class="pill">' + t('En revisión') + '</span>' : `<span class="pill">${t('Rechazada')}${n.reason ? ': ' + esc(n.reason) : ''}</span>`}</span><span class="cr-rb"><button class="link-btn" data-act="news-edit" data-id="${n.id}">${t('Editar y reenviar')}</button><button class="link-btn danger-link" data-act="news-del" data-id="${n.id}">${t('Eliminar')}</button></span></div>`).join('')}</section>`;
 }
 function pendingPosts() {
   const cards = crAll().filter(b => b.status === 'pending' && inScope(postComm(b))), linked = new Set(cards.map(b => String(b.newsId || '')).filter(Boolean));
   return [...cards.map(o => ({ kind: 'card', o })), ...news().filter(n => n.status === 'pending' && inScope(postComm(n)) && !linked.has(String(n.id))).map(o => ({ kind: 'news', o }))].sort((a, b) => b.o.id - a.o.id);
 }
 function resolvePost(kind, id, ok, reason) {
-  if (!canBan()) return 'Solo Administración y Owner pueden aprobar publicaciones.';
-  const key = kind === 'card' ? 'banners' : 'news', L = G.get(key, []), i = L.findIndex(x => String(x.id) === String(id)); if (i < 0) return 'Esa publicación ya no existe.';
-  reason = String(reason || '').trim(); if (!ok && reason.length < 3) return 'Escribe el motivo del rechazo.';
+  if (!canBan()) return t('Solo Administración y Owner pueden aprobar publicaciones.');
+  const key = kind === 'card' ? 'banners' : 'news', L = G.get(key, []), i = L.findIndex(x => String(x.id) === String(id)); if (i < 0) return t('Esa publicación ya no existe.');
+  reason = String(reason || '').trim(); if (!ok && reason.length < 3) return t('Escribe el motivo del rechazo.');
   const o = L[i], patch = ok ? { status: 'published', date: today(), reason: '', handledBy: S.user, handledDate: today() } : { status: 'rejected', reason: reason.slice(0, 300), handledBy: S.user, handledDate: today() };
   L[i] = { ...o, ...patch }; G.set(key, L);
   if (kind === 'card' && o.newsId) { const N = news(), j = N.findIndex(x => String(x.id) === String(o.newsId) && x.status === 'pending'); if (j >= 0) { N[j] = { ...N[j], ...patch }; G.set('news', N); } }
-  const ttl = o.title || (findStory(o.storyId) || {}).title || 'tu publicación';
-  pushNotif(o.by, { type: 'sys', extra: ok ? 'Tu publicación «' + ttl + '» fue aprobada y ya se ve en Auri.' : 'Tu publicación «' + ttl + '» fue rechazada: ' + reason.slice(0, 120), href: '#/news' });
+  const ttl = o.title || (findStory(o.storyId) || {}).title || t('tu publicación');
+  pushNotif(o.by, { type: 'sys', extra: ok ? 'Tu publicación «{ttl}» fue aprobada y ya se ve en Auri.' : 'Tu publicación «{ttl}» fue rechazada: {r}', xv: { ttl, r: reason.slice(0, 120) }, href: '#/news' });
   logAction(ok ? 'post-approve' : 'post-reject', o.by || OWNER_EMAIL, ttl.slice(0, 60) + (ok ? '' : ': ' + reason.slice(0, 80)) + (o.anon ? ' · nombre oculto' : '')); return '';
 }
 function postsView(tabs) {
   const l = pendingPosts();
-  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">Publicaciones</span><h2 style="margin-top:8px">Por aprobar (${l.length})</h2><p>Anuncios, eventos y recomendaciones enviados por Moderación. Al aprobarlos se publican con la fecha de hoy.</p></div></div>
-  ${l.length ? l.map(({ kind, o }) => { const st = o.kind === 'book' ? findStory(o.storyId) : null, label = kind === 'news' ? (o.type || 'Anuncio') : o.kind === 'book' ? 'Recomendación de libro' : 'Evento en el banner', ttl = o.title || (st && st.title) || 'Sin título', txt = o.text || (st && st.synopsis) || '',
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('Publicaciones')}</span><h2 style="margin-top:8px">${t('Por aprobar')} (${l.length})</h2><p>${t('Anuncios, eventos y recomendaciones enviados por Moderación. Al aprobarlos se publican con la fecha de hoy.')}</p></div></div>
+  ${l.length ? l.map(({ kind, o }) => { const st = o.kind === 'book' ? findStory(o.storyId) : null, label = kind === 'news' ? t(o.type || 'Anuncio') : o.kind === 'book' ? t('Recomendación de libro') : t('Evento en el banner'), ttl = o.title || (st && st.title) || t('Sin título'), txt = o.text || (st && st.synopsis) || '',
       href = kind === 'news' ? '#/news/' + o.id : o.kind === 'book' && st ? '#/story/' + esc(st.id) : o.newsId ? '#/news/' + o.newsId : '';
-    return `<article class="panel rp"><div class="rp-head"><span class="pill">${esc(label)}</span><span class="helper">${esc(o.date || '')}</span></div><div class="rp-ctx"><b>${esc(ttl)}</b><div class="helper">Por ${esc(byline(o))}</div></div><p class="rp-text">${esc(clip(txt, 220))}</p>
-    <div class="rp-acts">${href ? `<a class="button ghost sm" href="${href}" data-dir="next">Ver</a>` : ''}<button class="button sm" data-act="post-approve" data-k="${kind}" data-id="${o.id}">Aprobar</button><button class="button danger sm" data-act="post-reject" data-k="${kind}" data-id="${o.id}">Rechazar</button></div></article>`; }).join('')
+    return `<article class="panel rp"><div class="rp-head"><span class="pill">${esc(label)}</span><span class="helper">${esc(fmtDate(o.date) || o.date || '')}</span></div><div class="rp-ctx"><b>${esc(ttl)}</b><div class="helper">${t('Por {n}', { n: esc(byline(o)) })}</div></div><p class="rp-text">${esc(clip(txt, 220))}</p>
+    <div class="rp-acts">${href ? `<a class="button ghost sm" href="${href}" data-dir="next">${t('Ver')}</a>` : ''}<button class="button sm" data-act="post-approve" data-k="${kind}" data-id="${o.id}">${t('Aprobar')}</button><button class="button danger sm" data-act="post-reject" data-k="${kind}" data-id="${o.id}">${t('Rechazar')}</button></div></article>`; }).join('')
     : empty('Nada por aprobar', 'Cuando alguien de Moderación envíe un anuncio, un evento o una recomendación, aparecerá aquí.')}</main>`;
 }
 const ownsPost = o => !!o && canNews() && (isOwner() || (o.by || OWNER_EMAIL) === S.user);   // Owner: todo; Administración: solo lo suyo (lo antiguo sin firma es de la Owner)
@@ -1962,13 +1962,13 @@ function nbDraftSave(silent) {
 }
 let NBFRESH = false;                                   // true = el formulario se acaba de vaciar a propósito (no volver a guardarlo como borrador)
 function nbReset() { NB = [{ t: '', img: '' }]; NBM = { type: 'Actualización', title: '' }; NBID = ''; NBEDIT = ''; NBFRESH = true; }
-const ndPanel = () => { const L = ndAll(); return L.length ? `<section class="panel" style="margin-bottom:20px"><h2>📝 Borradores (${L.length})</h2><p class="helper" style="margin:4px 0 10px">Lo que no terminas de escribir se guarda aquí. Solo tú lo ves.</p>
-  ${L.map(d => `<div class="cr-row"><span class="cr-rt">📝 <b>${esc(d.title || 'Sin título')}</b> <small class="helper">${esc(d.updated.slice(0, 10))}${d.id === NBID ? ' · editando' : ''}</small></span><span class="cr-rb"><button class="button secondary sm" data-act="nd-open" data-id="${esc(d.id)}">Continuar</button><button class="button danger sm" data-act="nd-del" data-id="${esc(d.id)}">Eliminar</button></span></div>`).join('')}</section>` : ''; };
+const ndPanel = () => { const L = ndAll(); return L.length ? `<section class="panel" style="margin-bottom:20px"><h2>📝 ${t('Borradores')} (${L.length})</h2><p class="helper" style="margin:4px 0 10px">${t('Lo que no terminas de escribir se guarda aquí. Solo tú lo ves.')}</p>
+  ${L.map(d => `<div class="cr-row"><span class="cr-rt">📝 <b>${esc(d.title || t('Sin título'))}</b> <small class="helper">${esc(fmtDate(d.updated))}${d.id === NBID ? ' · ' + t('editando') : ''}</small></span><span class="cr-rb"><button class="button secondary sm" data-act="nd-open" data-id="${esc(d.id)}">${t('Continuar')}</button><button class="button danger sm" data-act="nd-del" data-id="${esc(d.id)}">${t('Eliminar')}</button></span></div>`).join('')}</section>` : ''; };
 function nbCollect() { document.querySelectorAll('.nb-t').forEach(x => { const i = +x.dataset.i; if (NB[i]) NB[i].t = x.value; }); const ty = $('#n-type'), ti = $('#n-title'); if (ty) NBM.type = ty.value; if (ti) NBM.title = ti.value; }
-const nbRow = (b, i) => `<div class="nb-row"><div class="nb-head"><b>Párrafo ${i + 1}</b>${NB.length > 1 ? `<button type="button" class="link-btn danger-link" data-act="nb-del" data-i="${i}">Quitar</button>` : ''}</div>
-  <textarea class="textarea nb-t" data-i="${i}" maxlength="3000" placeholder="${i ? 'Escribe el siguiente párrafo…' : 'Escribe el mensaje…'}" aria-label="Párrafo ${i + 1}">${esc(b.t)}</textarea>
-  ${safeImg(b.img) ? `<div class="nb-prev"><img src="${esc(b.img)}" alt=""><button type="button" class="button ghost sm" data-act="nb-img-clear" data-i="${i}">Quitar imagen</button></div>`
-    : `<label class="button secondary sm nb-pick">🖼 Añadir imagen<input type="file" accept="image/*" class="nb-file" data-i="${i}" hidden></label>`}</div>`;
+const nbRow = (b, i) => `<div class="nb-row"><div class="nb-head"><b>${t('Párrafo {n}', { n: i + 1 })}</b>${NB.length > 1 ? `<button type="button" class="link-btn danger-link" data-act="nb-del" data-i="${i}">${t('Quitar')}</button>` : ''}</div>
+  <textarea class="textarea nb-t" data-i="${i}" maxlength="3000" placeholder="${esc(i ? t('Escribe el siguiente párrafo…') : t('Escribe el mensaje…'))}" aria-label="${esc(t('Párrafo {n}', { n: i + 1 }))}">${esc(b.t)}</textarea>
+  ${safeImg(b.img) ? `<div class="nb-prev"><img src="${esc(b.img)}" alt=""><button type="button" class="button ghost sm" data-act="nb-img-clear" data-i="${i}">${t('Quitar imagen')}</button></div>`
+    : `<label class="button secondary sm nb-pick">🖼 ${t('Añadir imagen')}<input type="file" accept="image/*" class="nb-file" data-i="${i}" hidden></label>`}</div>`;
 const newsBody = n => newsBlocks(n).map(b => `${b.t ? `<p>${esc(b.t)}</p>` : ''}${safeImg(b.img) ? `<figure class="news-fig"><img src="${esc(b.img)}" alt="" loading="lazy"></figure>` : ''}`).join('');
 function newsView(nid) {
   if (nid) {                                           // publicación completa (al tocar «Leer noticia» en el banner)
@@ -1980,7 +1980,7 @@ function newsView(nid) {
   ${pub ? crPanel() : ''}
   ${pub ? ndPanel() : ''}
   ${isMod() ? subsPanel() : ''}
-  ${pub ? `<form class="panel" data-form="news" style="margin-bottom:20px"><h2>${NBEDIT ? '✏️ Editar anuncio publicado' : 'Publicar anuncio'}</h2><div class="form-grid" style="grid-template-columns:1fr">
+  ${pub ? `<form class="panel" data-form="news" style="margin-bottom:20px"><h2>${NBEDIT ? t('✏️ Editar anuncio publicado') : t('Publicar anuncio')}</h2><div class="form-grid" style="grid-template-columns:1fr">
   ${commPick('n-comm')}
   <div class="form-group"><label for="n-type">${t('Tipo')}</label><select id="n-type" class="select">${['Actualización', 'Evento', 'Aviso'].map(o => `<option value="${o}" ${NBM.type === o ? 'selected' : ''}>${t(o)}</option>`).join('')}</select></div>
   <div class="form-group"><label for="n-title">${t('Título')}</label><input id="n-title" class="field" maxlength="80" value="${esc(NBM.title)}"></div>
@@ -2005,7 +2005,7 @@ function sysNotif(n) {
   if (n.type === 'strike') return `<a class="${cls}" href="#/strike/${esc(n.extra)}"><span class="sys-ic">⚠️</span><div><strong>${t('¡Has recibido un strike!')}</strong> ${t('Toca para ver más información')}${d}</div></a>`;
   if (n.type === 'modinvite') return `<div class="${cls}"><span class="sys-ic">🛡</span><div>${n.role === 'ADMIN' ? '<strong>' + t('¡Felicidades!') + '</strong> ' + t('La Owner te ha invitado a formar parte de la administración de Auri Studios') : '<strong>' + t('¡Inspirador!') + '</strong> ' + t('La Owner te ha invitado a formar parte del equipo de moderación de Auri Studios')}${d}
     ${n.done ? `<div class="helper"><b>${n.done === 'accepted' ? t('✓ Aceptaste la invitación') : t('Rechazaste la invitación')}</b></div>` : `<div class="inv-btns"><button class="button sm" data-act="inv-accept" data-nid="${esc(n.id)}">${tx('Aceptar', 'inv')}</button><button class="button ghost sm" data-act="inv-decline" data-nid="${esc(n.id)}">${tx('Rechazar', 'inv')}</button></div>`}</div></div>`;
-  return n.href ? `<a class="${cls}" href="${esc(n.href)}"><span class="sys-ic">🛡</span><div>${esc(t(n.extra))}${d}</div></a>` : `<div class="${cls}"><span class="sys-ic">🛡</span><div>${esc(t(n.extra))}${d}</div></div>`;
+  return n.href ? `<a class="${cls}" href="${esc(n.href)}"><span class="sys-ic">🛡</span><div>${esc(t(n.extra, n.xv))}${d}</div></a>` : `<div class="${cls}"><span class="sys-ic">🛡</span><div>${esc(t(n.extra, n.xv))}${d}</div></div>`;
 }
 const notifItem = n => SYS_T.includes(n.type) ? sysNotif(n) : `<a class="notif ${n.read ? '' : 'new'}" href="${esc(notifHref(n))}">${userAvatar(n.from)}<div><strong>${esc(['approved', 'rejected'].includes(n.type) ? t('Moderación') : uName(n.from))}</strong> ${notifWhat(n)}<div class="helper">${esc(fmtDate(n.date))}</div></div></a>`;
 /** Ventanita superpuesta (no cambia de pantalla) con botón X; al abrirla se marcan como leídas */
@@ -2286,19 +2286,19 @@ document.addEventListener('click', e => {
     },
     'adm-toggle': () => { const l = el.parentNode.parentNode.querySelector('.adm-list'); if (!l) return; l.hidden = !l.hidden; el.setAttribute('aria-expanded', String(!l.hidden)); },
     'adm-strike': () => openStrikeForm(id), 'adm-ban': () => openBanForm(id),
-    'adm-unban': () => { const r = liftBan(id); if (r) return toast(r); toast('Suspensión levantada'); KEEP = true; render(); },
-    'test-role': () => { testRole(id, el.dataset.role); toast('Rol de prueba actualizado ✓'); KEEP = true; render(); },
+    'adm-unban': () => { const r = liftBan(id); if (r) return toast(r); toast(t('Suspensión levantada')); KEEP = true; render(); },
+    'test-role': () => { testRole(id, el.dataset.role); toast(t('Rol de prueba actualizado ✓')); KEEP = true; render(); },
     'mod-comm': () => { if (!isStaff()) return; MODC = ['es', 'en'].includes(id) ? id : 'all'; KEEP = true; render(); },
-    'adm-scope': () => { if (!isOwner()) return; const us = getUsers(), cur = staffScope(id), nx = cur.length > 1 ? ['es'] : cur[0] === 'es' ? ['en'] : ['es', 'en']; if (!us[id]) return; us[id].scope = nx; G.set('users', us); logAction('scope-set', id, 'Modera: ' + nx.map(c => COMMS[c]).join(' y ')); toast('Ahora modera: ' + nx.map(c => COMMS[c]).join(' y ')); KEEP = true; render(); },
-    'gift-send': () => { const inp = $('#g-to'), r = giftSend(inp ? inp.value : ''), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast('Regalo enviado: tiene 24 h para reclamarlo'); KEEP = true; render(); },
-    'gift-profile': () => { if (!isOwner() || !canAct(id)) return; dialog('¿Regalar el marco Top 50 a ' + uName(id) + '?', 'Tendrá 24 h para reclamarlo. Si no lo hace, el regalo se cancela y el cupo vuelve a ti. Quedan ' + giftLeft() + ' de ' + GIFT_TOTAL + '.', 'Regalar', 'Cancelar', () => { const r = giftSend(id); toast(r || 'Regalo enviado ✓'); KEEP = true; render(); }); },
-    'gift-claim': () => { const r = giftClaim(id), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast('¡Marco reclamado!'); KEEP = true; render(); },
-    'gift-cancel': () => { if (!isOwner()) return; const g = giftsAll().find(x => x.id === id); if (!g) return; dialog(g.status === 'claimed' ? '¿Quitar el marco a ' + uName(g.to) + '?' : '¿Cancelar el regalo para ' + uName(g.to) + '?', 'El cupo volverá a ti.', 'Sí, continuar', 'No', () => { giftCancel(id); KEEP = true; render(); }, true); },
-    'adm-mod': () => { if (!isOwner() || !canAct(id)) return; dialog('¿Invitar a ' + uName(id) + ' a la moderación?', 'Recibirá una invitación y deberá aceptarla y confirmar que es mayor de edad.', 'Enviar invitación', 'Cancelar', () => { const r = inviteMod(id); toast(r || 'Invitación enviada ✓'); }); },
-    'adm-admin': () => { if (!isOwner() || !canAct(id)) return; dialog('¿Ascender a ' + uName(id) + ' a administración?', 'Recibirá una invitación que puede aceptar o rechazar. Si acepta, podrá publicar anuncios, revisar capítulos y descender moderadores, pero no ascender a nadie.', 'Enviar invitación', 'Cancelar', () => { const r = inviteRole(id, 'ADMIN'); toast(r || 'Invitación enviada ✓'); }); },
-    'adm-revoke': () => { const r0 = roleOf(id); dialog(r0 === 'ADMIN' ? '¿Quitar la administración a ' + uName(id) + '?' : '¿Quitar la moderación a ' + uName(id) + '?', r0 === 'ADMIN' ? 'Perderá sus permisos de administración y su marco, y seguirá como moderador/a.' : 'Perderá los permisos y el marco de moderación.', 'Quitar', 'Cancelar', () => { const r = revokeMod(id); toast(r || 'Rol retirado'); KEEP = true; render(); }, true); },
+    'adm-scope': () => { if (!isOwner()) return; const us = getUsers(), cur = staffScope(id), nx = cur.length > 1 ? ['es'] : cur[0] === 'es' ? ['en'] : ['es', 'en']; if (!us[id]) return; us[id].scope = nx; G.set('users', us); logAction('scope-set', id, 'Modera: ' + nx.map(c => COMMS[c]).join(' y ')); toast(t('Ahora modera: {c}', { c: nx.map(c => COMMS[c]).join(' / ') })); KEEP = true; render(); },
+    'gift-send': () => { const inp = $('#g-to'), r = giftSend(inp ? inp.value : ''), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('Regalo enviado: tiene 24 h para reclamarlo')); KEEP = true; render(); },
+    'gift-profile': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Regalar el marco Top 50 a {n}?', { n: uName(id) }), t('Tendrá 24 h para reclamarlo. Si no lo hace, el regalo se cancela y el cupo vuelve a ti. Quedan {a} de {b}.', { a: giftLeft(), b: GIFT_TOTAL }), t('Regalar'), t('Cancelar'), () => { const r = giftSend(id); toast(r || t('Regalo enviado ✓')); KEEP = true; render(); }); },
+    'gift-claim': () => { const r = giftClaim(id), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('¡Marco reclamado!')); KEEP = true; render(); },
+    'gift-cancel': () => { if (!isOwner()) return; const g = giftsAll().find(x => x.id === id); if (!g) return; dialog(g.status === 'claimed' ? t('¿Quitar el marco a {n}?', { n: uName(g.to) }) : t('¿Cancelar el regalo para {n}?', { n: uName(g.to) }), t('El cupo volverá a ti.'), t('Sí, continuar'), t('No'), () => { giftCancel(id); KEEP = true; render(); }, true); },
+    'adm-mod': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Invitar a {n} a la moderación?', { n: uName(id) }), t('Recibirá una invitación y deberá aceptarla y confirmar que es mayor de edad.'), t('Enviar invitación'), t('Cancelar'), () => { const r = inviteMod(id); toast(r || t('Invitación enviada ✓')); }); },
+    'adm-admin': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Ascender a {n} a administración?', { n: uName(id) }), t('Recibirá una invitación que puede aceptar o rechazar. Si acepta, podrá publicar anuncios, revisar capítulos y descender moderadores, pero no ascender a nadie.'), t('Enviar invitación'), t('Cancelar'), () => { const r = inviteRole(id, 'ADMIN'); toast(r || t('Invitación enviada ✓')); }); },
+    'adm-revoke': () => { const r0 = roleOf(id); dialog(r0 === 'ADMIN' ? t('¿Quitar la administración a {n}?', { n: uName(id) }) : t('¿Quitar la moderación a {n}?', { n: uName(id) }), r0 === 'ADMIN' ? t('Perderá sus permisos de administración y su marco, y seguirá como moderador/a.') : t('Perderá los permisos y el marco de moderación.'), t('Quitar'), t('Cancelar'), () => { const r = revokeMod(id); toast(r || t('Rol retirado')); KEEP = true; render(); }, true); },
     'inv-accept': () => openAcceptMod(el.dataset.nid),
-    'inv-decline': () => { declineInvite(el.dataset.nid); toast('Invitación rechazada'); KEEP = true; render(); },
+    'inv-decline': () => { declineInvite(el.dataset.nid); toast(t('Invitación rechazada')); KEEP = true; render(); },
     'owner-frame': () => { if (!isOwner()) return; const us = getUsers(); us[S.user].frameOn = us[S.user].frameOn === false; G.set('users', us); KEEP = true; render(); },
     'ch-go': () => { autosave(); go(`/write/${W.id}/ch/${el.dataset.cid}`); },
     'ch-list': () => { autosave(); go(`/write/${W.id}/chapters`); },
@@ -2313,31 +2313,31 @@ document.addEventListener('click', e => {
       W.mature = !W.mature; el.setAttribute('aria-checked', W.mature); },
     'rp-img': () => { const r = reportsAll().find(x => String(x.id) === id), d = r && (r.imgs || [])[+el.dataset.i]; if (d) showImg(d); },
     'acc-reports': () => { if (!isStaff()) return; RACC = id; RFILT = 'open'; go('/moderation/reports'); }, 'acc-clear': () => { RACC = null; KEEP = true; render(); }, 'log-filter': () => { LOGF = id; KEEP = true; render(); }, 'log-who': () => { LOGW = id; KEEP = true; render(); },
-    'post-approve': () => { const e = resolvePost(el.dataset.k, id, true); if (e) return toast(e); toast('Publicación aprobada'); KEEP = true; render(); },
-    'post-reject': () => { if (!canBan()) return; const k = el.dataset.k; formModal('Rechazar la publicación', '<p class="helper">Quien la envió verá este motivo y podrá corregirla y reenviarla.</p><textarea class="textarea" data-reason maxlength="300" placeholder="Motivo del rechazo…"></textarea>', 'Rechazar',
-      m => { const e = resolvePost(k, id, false, m.querySelector('[data-reason]').value); if (!e) { toast('Publicación rechazada'); KEEP = true; render(); } return e; }, true); },
-    'adm-unstrike': () => { if (!canBan()) return; const sid = el.dataset.sid; formModal('Anular strike', '<p class="helper">El strike deja de contar y la persona recibe un aviso con este motivo. Queda en el registro.</p><textarea class="textarea" data-reason maxlength="300" placeholder="Motivo de la anulación…"></textarea>', 'Anular strike',
-      m => { const e = annulStrike(id, sid, m.querySelector('[data-reason]').value); if (!e) { toast('Strike anulado'); KEEP = true; render(); } return e; }); },
+    'post-approve': () => { const e = resolvePost(el.dataset.k, id, true); if (e) return toast(e); toast(t('Publicación aprobada')); KEEP = true; render(); },
+    'post-reject': () => { if (!canBan()) return; const k = el.dataset.k; formModal('Rechazar la publicación', '<p class="helper">' + esc(t('Quien la envió verá este motivo y podrá corregirla y reenviarla.')) + '</p><textarea class="textarea" data-reason maxlength="300" placeholder="' + esc(t('Motivo del rechazo…')) + '"></textarea>', tx('Rechazar', 'mod'),
+      m => { const e = resolvePost(k, id, false, m.querySelector('[data-reason]').value); if (!e) { toast(t('Publicación rechazada')); KEEP = true; render(); } return e; }, true); },
+    'adm-unstrike': () => { if (!canBan()) return; const sid = el.dataset.sid; formModal('Anular strike', '<p class="helper">' + esc(t('El strike deja de contar y la persona recibe un aviso con este motivo. Queda en el registro.')) + '</p><textarea class="textarea" data-reason maxlength="300" placeholder="' + esc(t('Motivo de la anulación…')) + '"></textarea>', 'Anular strike',
+      m => { const e = annulStrike(id, sid, m.querySelector('[data-reason]').value); if (!e) { toast(t('Strike anulado')); KEEP = true; render(); } return e; }); },
     'ap-open': () => openAppealForm(), 'ap-filter': () => { AFILT = id; KEEP = true; render(); },
-    'ap-img': () => { const a = appealsAll().find(x => String(x.id) === id), d = a && (a.imgs || [])[+el.dataset.i]; if (!d) return; const m = document.createElement('div'); m.className = 'modal sheet'; m.innerHTML = `<div class="modal-box ap-view"><img src="${esc(d)}" alt="Prueba"><button class="button ghost" data-no>Cerrar</button></div>`; m.onclick = ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); }; document.body.appendChild(m); },
+    'ap-img': () => { const a = appealsAll().find(x => String(x.id) === id), d = a && (a.imgs || [])[+el.dataset.i]; if (!d) return; const m = document.createElement('div'); m.className = 'modal sheet'; m.innerHTML = `<div class="modal-box ap-view"><img src="${esc(d)}" alt="${esc(t('Prueba'))}"><button class="button ghost" data-no>${t('Cerrar')}</button></div>`; m.onclick = ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); }; document.body.appendChild(m); },
     'ap-release': () => { if (!canBan()) return; const a = appealsAll().find(x => String(x.id) === id); if (!a) return; const e = liftBan(a.user); if (e) return toast(e);
-      logAction('appeal-release', a.user, id); pushNotif(a.user, { type: 'sys', extra: 'Tu apelación fue aceptada y tu cuenta fue liberada.' }); toast('Cuenta liberada'); KEEP = true; render(); },
+      logAction('appeal-release', a.user, id); pushNotif(a.user, { type: 'sys', extra: 'Tu apelación fue aceptada y tu cuenta fue liberada.' }); toast(t('Cuenta liberada')); KEEP = true; render(); },
     'ap-reject': () => { if (!canBan()) return; const a = appealsAll().find(x => String(x.id) === id); if (!a) return;
-      formModal('Rechazar la apelación de ' + uName(a.user), '<p class="helper">La persona verá este motivo.</p><textarea class="textarea" data-note maxlength="400" placeholder="Explica por qué se mantiene la decisión…"></textarea>', 'Rechazar apelación', m => {
+      formModal(t('Rechazar la apelación de {n}', { n: uName(a.user) }), '<p class="helper">' + esc(t('La persona verá este motivo.')) + '</p><textarea class="textarea" data-note maxlength="400" placeholder="' + esc(t('Explica por qué se mantiene la decisión…')) + '"></textarea>', 'Rechazar apelación', m => {
         const note = m.querySelector('[data-note]').value.trim(); if (note.length < 3) return 'Escribe el motivo del rechazo.';
         G.set('appeals', appealsAll().map(x => String(x.id) === id ? { ...x, status: 'rejected', handledBy: S.user, handledDate: today(), note } : x)); logAction('appeal-reject', a.user, note.slice(0, 100));
-        pushNotif(a.user, { type: 'sys', extra: 'Tu apelación fue rechazada: ' + note }); toast('Apelación rechazada'); KEEP = true; render(); return ''; }, true); },
+        pushNotif(a.user, { type: 'sys', extra: 'Tu apelación fue rechazada: {n}', xv: { n: note } }); toast(t('Apelación rechazada')); KEEP = true; render(); return ''; }, true); },
     'rc-ok': () => { if (!isStaff()) return; const r = reportsAll().find(x => String(x.id) === String(id)); if (!r) return; const st = staffSetMature(r.sid, false); logAction('unmature', r.owner, r.sid);
-      if (st) pushNotif(r.owner, { type: 'sys', extra: 'Moderación aprobó quitar la marca +18 de «' + st.title + '».' }); rpSet(id, 'resolved'); },
+      if (st) pushNotif(r.owner, { type: 'sys', extra: 'Moderación aprobó quitar la marca +18 de «{n}».', xv: { n: st.title } }); rpSet(id, 'resolved'); },
     'rc-no': () => { if (!isStaff()) return; const r = reportsAll().find(x => String(x.id) === String(id)); if (!r) return;
-      pushNotif(r.owner, { type: 'sys', extra: 'Moderación mantuvo la marca +18 en «' + (r.title || 'tu obra') + '». Si crees que fue un error, escribe a la administración.' }); rpSet(id, 'dismissed'); },
-    'rc-set': () => { if (!isStaff()) return; const v = el.dataset.v === '1', st = staffSetMature(id, v); if (!st) return toast('La obra ya no existe.'); logAction(v ? 'mark18' : 'unmature', st.owner, id);
-      pushNotif(st.owner, { type: 'sys', extra: v ? 'Moderación marcó «' + st.title + '» como +18.' : 'Moderación quitó la marca +18 de «' + st.title + '».' }); toast(v ? 'Marcada como +18' : 'Marca +18 quitada'); KEEP = true; render(); },
+      pushNotif(r.owner, { type: 'sys', extra: 'Moderación mantuvo la marca +18 en «{n}». Si crees que fue un error, escribe a la administración.', xv: { n: r.title || t('tu obra') } }); rpSet(id, 'dismissed'); },
+    'rc-set': () => { if (!isStaff()) return; const v = el.dataset.v === '1', st = staffSetMature(id, v); if (!st) return toast(t('La obra ya no existe.')); logAction(v ? 'mark18' : 'unmature', st.owner, id);
+      pushNotif(st.owner, { type: 'sys', extra: v ? 'Moderación marcó «{n}» como +18.' : 'Moderación quitó la marca +18 de «{n}».', xv: { n: st.title } }); toast(v ? t('Marcada como +18') : t('Marca +18 quitada')); KEEP = true; render(); },
     'lock-remove': () => { if (TAB === 'lib') libRemove(id); else if (TAB === 'col') { S.cols = S.cols.filter(x => x !== id); LS.set(uk('cols'), S.cols); } else if (TAB === 'fav') { S.favs = S.favs.filter(x => x !== id); LS.set(uk('favs'), S.favs); } else if (TAB === 'read') { delete S.progress[id]; LS.set(uk('progress'), S.progress); } KEEP = true; render(); },
     terms: showTerms, 'close-modal': () => el.closest('.modal').remove(),
     adult: () => { const u = getUsers(); if (isMinor(u[S.user])) return; u[S.user].adultDeclared = true; G.set('users', u); render(); },
     approve: () => { if (!isStaff()) return; const bk = allStories().find(x => x.id === id), i = bk ? bk.chapters.findIndex(c => c.id === +el.dataset.cid) : -1;
-      if (i < 0) return; if (!bk.chapters.slice(0, i).every(c => pubChapter(c))) return toast('Aprueba primero los capítulos anteriores.');
+      if (i < 0) return; if (!bk.chapters.slice(0, i).every(c => pubChapter(c))) return toast(t('Aprueba primero los capítulos anteriores.'));
       setChapterStatus(id, el.dataset.owner, +el.dataset.cid, 'approved'); toast('Capítulo aprobado'); render(); },
     reject: () => { if (!isStaff()) return; const r = (($('#rej-' + id + '-' + el.dataset.cid) || {}).value || '').trim(); if (!r) return toast('Escribe el motivo del rechazo.'); setChapterStatus(id, el.dataset.owner, +el.dataset.cid, 'rejected', r); toast('Capítulo rechazado'); render(); },
     'char-sel': () => { setActive(+el.dataset.cid); KEEP = true; render(); },
@@ -2347,19 +2347,19 @@ document.addEventListener('click', e => {
       confirmBox(t('¿Seguro que quieres eliminar a «{n}»?', { n: x.name }), () => { S.chars = S.chars.filter(k => k.id !== cid); setActive(S.activeId === cid ? undefined : S.activeId); KEEP = true; render(); }); },
     'cr-pick-open': () => { if (canNews()) openBookPicker(); },
     'report-story': () => { const s0 = findStory(id); if (s0) openReportFor('story', { sid: id, target: id, owner: s0.owner, title: s0.title, label: '«' + s0.title + '»' }); },
-    'report-comment': () => { const c = comments(id).find(x => String(x.id) === el.dataset.cid); if (c) openReportFor('comment', { sid: id, cid: c.id, target: c.by, owner: c.by, excerpt: c.text, label: 'un comentario de ' + uName(c.by) }); },
-    'report-pc': () => { const c = PCS && pcList(PCS.sid, PCS.ci, PCS.pi).find(x => String(x.id) === el.dataset.cid); if (c) openReportFor('pcomment', { sid: PCS.sid, ci: PCS.ci, target: c.by, owner: c.by, excerpt: c.text, label: 'un comentario de párrafo de ' + uName(c.by) }); },
-    'report-user': () => openReportFor('user', { target: id, owner: id, label: 'a ' + uName(id) }),
+    'report-comment': () => { const c = comments(id).find(x => String(x.id) === el.dataset.cid); if (c) openReportFor('comment', { sid: id, cid: c.id, target: c.by, owner: c.by, excerpt: c.text, label: t('un comentario de {n}', { n: uName(c.by) }) }); },
+    'report-pc': () => { const c = PCS && pcList(PCS.sid, PCS.ci, PCS.pi).find(x => String(x.id) === el.dataset.cid); if (c) openReportFor('pcomment', { sid: PCS.sid, ci: PCS.ci, target: c.by, owner: c.by, excerpt: c.text, label: t('un comentario de párrafo de {n}', { n: uName(c.by) }) }); },
+    'report-user': () => openReportFor('user', { target: id, owner: id, label: t('a {n}', { n: uName(id) }) }),
     'rp-filter': () => { RFILT = id; KEEP = true; render(); },
     'rp-done': () => rpSet(id, 'resolved'), 'rp-dismiss': () => rpSet(id, 'dismissed'), 'rp-reopen': () => rpSet(id, 'open'),
     'rp-comments': () => { go('/story/' + id); setTimeout(() => { SHOWC = true; KEEP = true; render(); }, 60); },
-    'rp-delcomment': () => { if (!isStaff()) return; confirmBox('¿Eliminar este comentario por incumplir las normas?', () => { updateComments(id, l => l.filter(c => String(c.id) !== el.dataset.cid && String(c.parent) !== el.dataset.cid)); logAction('del-comment', id, el.dataset.cid); KEEP = true; render(); }); },
-    'td-on': () => { if (!isStaff()) return; dialog('¿Retirar esta obra de Descubrir?', 'Nadie más podrá encontrarla ni leerla hasta que se restaure. Se avisará a su autoría.', 'Retirar', 'Cancelar', () => { const s0 = findStory(id); G.set('takedown', [...takedown().filter(x => x !== id), id]); logAction('takedown', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «' + s0.title + '» fue retirada de Descubrir por moderación. Si crees que fue un error, escribe a la administración.' }); toast('Obra retirada de Descubrir'); KEEP = true; render(); }, true); },
-    'td-off': () => { if (!isStaff()) return; G.set('takedown', takedown().filter(x => x !== id)); const s0 = findStory(id); logAction('restore', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «' + s0.title + '» volvió a estar visible en Descubrir.' }); toast('Obra restaurada ✓'); KEEP = true; render(); },
-    mute: () => { setBM('muted', id, true); toast('Silenciada: no verás sus comentarios ni recibirás avisos suyos.'); KEEP = true; render(); },
-    unmute: () => { setBM('muted', id, false); toast('Dejaste de silenciar a esta persona.'); KEEP = true; render(); },
-    block: () => dialog(t('¿Bloquear a {n}?', { n: uName(id) }), 'No verás sus comentarios ni sus obras, dejarán de seguirse y no habrá avisos entre ustedes. Puedes desbloquearla en Ajustes.', 'Bloquear', 'Cancelar', () => { blockUser(id); toast('Cuenta bloqueada'); KEEP = true; render(); }, true),
-    unblock: () => { setBM('blocked', id, false); toast('Desbloqueada ✓'); KEEP = true; render(); },
+    'rp-delcomment': () => { if (!isStaff()) return; confirmBox(t('¿Eliminar este comentario por incumplir las normas?'), () => { updateComments(id, l => l.filter(c => String(c.id) !== el.dataset.cid && String(c.parent) !== el.dataset.cid)); logAction('del-comment', id, el.dataset.cid); KEEP = true; render(); }); },
+    'td-on': () => { if (!isStaff()) return; dialog(t('¿Retirar esta obra de Descubrir?'), t('Nadie más podrá encontrarla ni leerla hasta que se restaure. Se avisará a su autoría.'), t('Retirar'), t('Cancelar'), () => { const s0 = findStory(id); G.set('takedown', [...takedown().filter(x => x !== id), id]); logAction('takedown', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «{n}» fue retirada de Descubrir por moderación. Si crees que fue un error, escribe a la administración.', xv: { n: s0.title } }); toast(t('Obra retirada de Descubrir')); KEEP = true; render(); }, true); },
+    'td-off': () => { if (!isStaff()) return; G.set('takedown', takedown().filter(x => x !== id)); const s0 = findStory(id); logAction('restore', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «{n}» volvió a estar visible en Descubrir.', xv: { n: s0.title } }); toast(t('Obra restaurada ✓')); KEEP = true; render(); },
+    mute: () => { setBM('muted', id, true); toast(t('Silenciada: no verás sus comentarios ni recibirás avisos suyos.')); KEEP = true; render(); },
+    unmute: () => { setBM('muted', id, false); toast(t('Dejaste de silenciar a esta persona.')); KEEP = true; render(); },
+    block: () => dialog(t('¿Bloquear a {n}?', { n: uName(id) }), t('No verás sus comentarios ni sus obras, dejarán de seguirse y no habrá avisos entre ustedes. Puedes desbloquearla en Ajustes.'), t('Bloquear'), t('Cancelar'), () => { blockUser(id); toast(t('Cuenta bloqueada')); KEEP = true; render(); }, true),
+    unblock: () => { setBM('blocked', id, false); toast(t('Desbloqueada ✓')); KEEP = true; render(); },
     'c-more': () => { const c = +el.dataset.cid; MENUC = MENUC === c ? null : c; KEEP = true; render(); },
     'c-like': () => { const cid = +el.dataset.cid; let added = false, target = ''; updateComments(id, l => l.map(c => { if (c.id !== cid) return c; const lk = c.lk || []; added = !lk.includes(S.user); target = c.by; return { ...c, lk: added ? [...lk, S.user] : lk.filter(x => x !== S.user) }; })); if (added && target) notify(target, 'clike', id, ''); KEEP = true; render(); const hb = document.querySelector(`.c-heart[data-cid="${cid}"]`); if (hb && added) { hb.classList.add('pulse'); setTimeout(() => hb.classList.remove('pulse'), 500); } },
     'c-reply': () => { REPLYTO = +el.dataset.top; REPLYPRE = el.dataset.pre || ''; REPOPEN.add(REPLYTO); KEEP = true; render(); const i = $('#c-reply-text'); if (i && i.focus) { i.focus(); if (i.setSelectionRange) i.setSelectionRange(i.value.length, i.value.length); } },
@@ -2369,7 +2369,7 @@ document.addEventListener('click', e => {
     'c-cancel': () => { EDITC = null; KEEP = true; render(); },
     'c-save': () => { const tx = ($('#c-edit-text').value || '').trim(), cid = +el.dataset.cid; if (!tx) return toast(t('El comentario no puede estar vacío.'));
       updateComments(id, l => l.map(c => c.id === cid && c.by === S.user ? { ...c, text: tx, edited: true } : c)); EDITC = null; KEEP = true; render(); },
-    'c-del': () => { const cid = +el.dataset.cid; confirmBox(t('¿Seguro que quieres eliminar este comentario?'), () => { updateComments(id, l => { const t = l.find(c => c.id === cid); return t && (t.by === S.user || isAdmin()) ? l.filter(c => c.id !== cid && c.parent !== cid) : l; }); KEEP = true; render(); }); },
+    'c-del': () => { const cid = +el.dataset.cid; confirmBox(t('¿Seguro que quieres eliminar este comentario?'), () => { updateComments(id, l => { const cm = l.find(c => c.id === cid); return cm && (cm.by === S.user || isAdmin()) ? l.filter(c => c.id !== cid && c.parent !== cid) : l; }); KEEP = true; render(); }); },
     music: () => { setCfg('musicLast', 'play'); playMusic(el.dataset.url, location.hash.split('/')[2]); }, 'music-close': () => { setCfg('musicLast', 'close'); closeMusic(); },
     'lib-toggle': () => { if (S.lib.includes(id)) { libRemove(id); toast(t('Quitado de tu biblioteca. Ya no recibirás avisos de esta obra.')); } else { libAdd(id); toast(t('Guardado en tu biblioteca. Te avisaremos cuando haya capítulos nuevos.')); } KEEP = true; render(); },
     'lib-del': () => { libRemove(id); toast(t('Quitado de tu biblioteca. Ya no recibirás avisos de esta obra.')); KEEP = true; render(); },
@@ -2381,22 +2381,22 @@ document.addEventListener('click', e => {
     'nd-save': () => { if (nbDraftSave(false)) { KEEP = true; render(); } },
     'nd-open': () => { if (!canNews()) return; const d = ndAll().find(x => x.id === id); if (!d) return; if (NBID !== d.id) nbDraftSave(true);
       NB = d.blocks && d.blocks.length ? d.blocks.map(b => ({ t: b.t || '', img: b.img || '' })) : [{ t: '', img: '' }]; NBM = { type: d.type || 'Actualización', title: d.title || '' }; NBID = d.id; KEEP = true; render(); const f = $('#n-title'); if (f && f.scrollIntoView) f.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
-    'nd-del': () => { if (!canNews()) return; confirmBox('¿Seguro que quieres eliminar este borrador?', () => { G.set('newsdrafts', ndAll().filter(x => x.id !== id)); if (id === NBID) nbReset(); KEEP = true; render(); }); },
-    'nb-add': () => { nbCollect(); if (NB.length >= 20) return toast('Máximo 20 párrafos por publicación.'); NB.push({ t: '', img: '' }); KEEP = true; render(); },
+    'nd-del': () => { if (!canNews()) return; confirmBox(t('¿Seguro que quieres eliminar este borrador?'), () => { G.set('newsdrafts', ndAll().filter(x => x.id !== id)); if (id === NBID) nbReset(); KEEP = true; render(); }); },
+    'nb-add': () => { nbCollect(); if (NB.length >= 20) return toast(t('Máximo 20 párrafos por publicación.')); NB.push({ t: '', img: '' }); KEEP = true; render(); },
     'nb-del': () => { nbCollect(); NB.splice(+el.dataset.i, 1); if (!NB.length) NB.push({ t: '', img: '' }); KEEP = true; render(); },
     'nb-img-clear': () => { nbCollect(); const b = NB[+el.dataset.i]; if (b) b.img = ''; KEEP = true; render(); },
     'cr-edit': () => { const b = crAll().find(x => String(x.id) === id); if (!canEditPost(b)) return;
-      formModal('Editar tarjeta', `<div class="form-group"><label for="ed-t">Título</label><input id="ed-t" class="field" maxlength="70" value="${esc(b.title || '')}"></div><div class="form-group"><label for="ed-x">Texto</label><textarea id="ed-x" class="textarea" maxlength="160">${esc(b.text || '')}</textarea></div><div class="form-group"><label for="ed-b">Texto del botón</label><input id="ed-b" class="field" maxlength="24" value="${esc(b.btn || '')}"></div>`, 'Guardar',
-        m => { const t = m.querySelector('#ed-t').value.trim(), x = m.querySelector('#ed-x').value.trim(); if (b.kind === 'event' && (!t || !x)) return 'Escribe título y descripción.';
-          const L = crAll(), i = L.findIndex(y => String(y.id) === id); if (i < 0 || !canEditPost(L[i])) return 'Esa tarjeta ya no existe.';
-          L[i] = { ...L[i], title: t.slice(0, 70), text: x.slice(0, 160), btn: m.querySelector('#ed-b').value.trim().slice(0, 24), edited: today(), ...(isMod() ? { status: 'pending', reason: '' } : {}) }; logAction('banner-edit', S.user, t.slice(0, 60)); if (isMod()) notifyApprovers('Una tarjeta del banner se volvió a enviar para aprobación'); G.set('banners', L); KEEP = true; render(); toast('Tarjeta actualizada ✓'); }); },
+      formModal('Editar tarjeta', `<div class="form-group"><label for="ed-t">${t('Título')}</label><input id="ed-t" class="field" maxlength="70" value="${esc(b.title || '')}"></div><div class="form-group"><label for="ed-x">${t('Texto')}</label><textarea id="ed-x" class="textarea" maxlength="160">${esc(b.text || '')}</textarea></div><div class="form-group"><label for="ed-b">${t('Texto del botón')}</label><input id="ed-b" class="field" maxlength="24" value="${esc(b.btn || '')}"></div>`, 'Guardar',
+        m => { const tt = m.querySelector('#ed-t').value.trim(), x = m.querySelector('#ed-x').value.trim(); if (b.kind === 'event' && (!tt || !x)) return 'Escribe título y descripción.';
+          const L = crAll(), i = L.findIndex(y => String(y.id) === id); if (i < 0 || !canEditPost(L[i])) return t('Esa tarjeta ya no existe.');
+          L[i] = { ...L[i], title: tt.slice(0, 70), text: x.slice(0, 160), btn: m.querySelector('#ed-b').value.trim().slice(0, 24), edited: today(), ...(isMod() ? { status: 'pending', reason: '' } : {}) }; logAction('banner-edit', S.user, tt.slice(0, 60)); if (isMod()) notifyApprovers('Una tarjeta del banner se volvió a enviar para aprobación'); G.set('banners', L); KEEP = true; render(); toast(t('Tarjeta actualizada ✓')); }); },
     'news-edit': () => { const n = news().find(x => String(x.id) === id); if (!canEditPost(n)) return; if (!NBEDIT) nbDraftSave(true);
       NB = newsBlocks(n).map(b => ({ t: b.t || '', img: b.img || '' })); NBM = { type: n.type, title: n.title }; NBID = ''; NBEDIT = String(n.id); KEEP = true; render(); const f = $('#n-title'); if (f && f.scrollIntoView) f.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
-    'news-edit-cancel': () => { nbReset(); toast('Edición cancelada'); render(); },
-    'cr-del': () => { const b = crAll().find(x => String(x.id) === id); if (!ownsPost(b)) return; confirmBox('¿Quitar esta tarjeta del banner?', () => { G.set('banners', crAll().filter(b => String(b.id) !== id)); logAction('banner-del', b.by || OWNER_EMAIL, (b.title || '').slice(0, 60)); KEEP = true; render(); }); },
+    'news-edit-cancel': () => { nbReset(); toast(t('Edición cancelada')); render(); },
+    'cr-del': () => { const b = crAll().find(x => String(x.id) === id); if (!ownsPost(b)) return; confirmBox(t('¿Quitar esta tarjeta del banner?'), () => { G.set('banners', crAll().filter(b => String(b.id) !== id)); logAction('banner-del', b.by || OWNER_EMAIL, (b.title || '').slice(0, 60)); KEEP = true; render(); }); },
     'cr-up': () => { const L = crAll(), i = L.findIndex(b => String(b.id) === id); if (i < 0 || !ownsPost(L[i]) || isMod()) return; if (i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; G.set('banners', L); KEEP = true; render(); } },
     'cr-down': () => { const L = crAll(), i = L.findIndex(b => String(b.id) === id); if (i < 0 || !ownsPost(L[i]) || isMod()) return; if (i < L.length - 1) { [L[i + 1], L[i]] = [L[i], L[i + 1]]; G.set('banners', L); KEEP = true; render(); } },
-    'news-del': () => { const n0 = news().find(n => String(n.id) === id); if (ownsPost(n0)) confirmBox('¿Eliminar este anuncio?', () => { G.set('news', news().filter(n => String(n.id) !== id)); logAction('news-del', n0.by || OWNER_EMAIL, (n0.title || '').slice(0, 60)); if (NBEDIT === id) nbReset(); KEEP = true; render(); }); },
+    'news-del': () => { const n0 = news().find(n => String(n.id) === id); if (ownsPost(n0)) confirmBox(t('¿Eliminar este anuncio?'), () => { G.set('news', news().filter(n => String(n.id) !== id)); logAction('news-del', n0.by || OWNER_EMAIL, (n0.title || '').slice(0, 60)); if (NBEDIT === id) nbReset(); KEEP = true; render(); }); },
     'bn-clear': () => { const u = getUsers(); u[S.user].banner = ''; G.set('users', u); render(); },
     'chc-clear': () => { collect(); const cid = +$('#w-ch-text').dataset.cid; W.chapters = W.chapters.map(c => { if (c.id !== cid) return c; const { cover, ...rest } = c; return rest; }); persistDraft(); KEEP = true; render(); },
     'av-clear': () => { const u = getUsers(); u[S.user].avatar = ''; G.set('users', u); render(); },
@@ -2532,29 +2532,29 @@ document.addEventListener('submit', async e => {
   }
   if (kind === 'comment') { const t = $('#c-text').value.trim(); if (!t) return; addComment(findStory(form.dataset.id), t); KEEP = true; return render(); }
   if (kind === 'cr-book' || kind === 'cr-event') {
-    if (!canNews()) return; const L = crAll(); if (L.length >= 6) return toast('Máximo 6 tarjetas manuales: elimina alguna.');
-    if (kind === 'cr-book') { const sid = v('#cb-story'); if (!sid || !publishedStories().some(x => x.id === sid)) return toast('Elige un libro publicado.');
+    if (!canNews()) return; const L = crAll(); if (L.length >= 6) return toast(t('Máximo 6 tarjetas manuales: elimina alguna.'));
+    if (kind === 'cr-book') { const sid = v('#cb-story'); if (!sid || !publishedStories().some(x => x.id === sid)) return toast(t('Elige un libro publicado.'));
       G.set('banners', [...L, { id: Date.now(), kind: 'book', storyId: sid, by: S.user, date: today(), title: v('#cb-title').trim().slice(0, 70), text: v('#cb-text').trim().slice(0, 160), btn: v('#cb-btn').trim().slice(0, 24), ...postMeta($('#cb-anon') && $('#cb-anon').checked, 'cr-comm') }]); }
-    else { const anonE = !!($('#ce-anon') && $('#ce-anon').checked), t = v('#ce-title').trim(), m = v('#ce-text').trim(); if (!t || !m) return toast('Escribe título y descripción.');
+    else { const anonE = !!($('#ce-anon') && $('#ce-anon').checked), tt = v('#ce-title').trim(), m = v('#ce-text').trim(); if (!tt || !m) return toast(t('Escribe título y descripción.'));
       let nid = v('#ce-news');
       if (!nid) {                                      // el evento crea su publicación completa (firmada por la Owner) en Noticias
         const post = v('#ce-post').trim() || m; nid = String(Date.now() + 1);
-        if (!G.set('news', [{ id: +nid, type: 'Evento', title: t.slice(0, 80), text: post, blocks: [{ t: post, img: CEIMG }], by: S.user, date: today(), ...postMeta(anonE, 'cr-comm') }, ...news()])) return; }
-      G.set('banners', [...L, { id: Date.now(), kind: 'event', by: S.user, date: today(), title: t.slice(0, 70), text: m.slice(0, 160), btn: v('#ce-btn').trim().slice(0, 24), newsId: nid, ...postMeta(anonE, 'cr-comm') }]); CEIMG = ''; }
+        if (!G.set('news', [{ id: +nid, type: 'Evento', title: tt.slice(0, 80), text: post, blocks: [{ t: post, img: CEIMG }], by: S.user, date: today(), ...postMeta(anonE, 'cr-comm') }, ...news()])) return; }
+      G.set('banners', [...L, { id: Date.now(), kind: 'event', by: S.user, date: today(), title: tt.slice(0, 70), text: m.slice(0, 160), btn: v('#ce-btn').trim().slice(0, 24), newsId: nid, ...postMeta(anonE, 'cr-comm') }]); CEIMG = ''; }
     logAction('banner-add', S.user, (kind === 'cr-event' ? v('#ce-title') : '').slice(0, 60) + (isMod() ? ' (en revisión)' : '')); if (isMod()) notifyApprovers('Nueva tarjeta del banner por aprobar');
-    toast(isMod() ? 'Enviado a revisión: lo verá Administración u Owner' : 'Tarjeta añadida al banner'); return render();
+    toast(isMod() ? t('Enviado a revisión: lo verá Administración u Owner') : t('Tarjeta añadida al banner')); return render();
   }
   if (kind === 'news') {
-    if (!canNews()) return; nbCollect(); const t = NBM.title.trim(), blocks = NB.map(b => ({ t: b.t.trim(), img: b.img })).filter(b => b.t || b.img);
-    if (!t || !blocks.length) return toast('Escribe un título y al menos un párrafo o una imagen.');
-    if (NBEDIT) { const L = news(), i = L.findIndex(x => String(x.id) === NBEDIT); if (i < 0 || !canEditPost(L[i])) { nbReset(); toast('Esa noticia ya no existe.'); return render(); }
-      L[i] = { ...L[i], type: NBM.type, title: t, text: blocks.map(b => b.t).filter(Boolean).join('\n\n'), blocks, edited: today(), ...(isMod() ? { status: 'pending', reason: '' } : {}) }; if (!G.set('news', L)) return;
-      logAction('news-edit', S.user, t.slice(0, 60)); if (isMod()) notifyApprovers('Un anuncio se volvió a enviar para aprobación');
-      nbReset(); toast(isMod() ? 'Reenviado a revisión ✓' : 'Cambios guardados ✓'); return render(); }
-    if (!G.set('news', [{ id: Date.now(), type: NBM.type, title: t, text: blocks.map(b => b.t).filter(Boolean).join('\n\n'), blocks, by: S.user, date: today(), ...postMeta($('#n-anon') && $('#n-anon').checked, 'n-comm') }, ...news()])) return;
-    logAction('news-post', S.user, t.slice(0, 80) + (isMod() ? ' (en revisión)' : '')); if (isMod()) notifyApprovers('Nuevo anuncio por aprobar: ' + t.slice(0, 50));
+    if (!canNews()) return; nbCollect(); const ttl0 = NBM.title.trim(), blocks = NB.map(b => ({ t: b.t.trim(), img: b.img })).filter(b => b.t || b.img);
+    if (!ttl0 || !blocks.length) return toast(t('Escribe un título y al menos un párrafo o una imagen.'));
+    if (NBEDIT) { const L = news(), i = L.findIndex(x => String(x.id) === NBEDIT); if (i < 0 || !canEditPost(L[i])) { nbReset(); toast(t('Esa noticia ya no existe.')); return render(); }
+      L[i] = { ...L[i], type: NBM.type, title: ttl0, text: blocks.map(b => b.t).filter(Boolean).join('\n\n'), blocks, edited: today(), ...(isMod() ? { status: 'pending', reason: '' } : {}) }; if (!G.set('news', L)) return;
+      logAction('news-edit', S.user, ttl0.slice(0, 60)); if (isMod()) notifyApprovers('Un anuncio se volvió a enviar para aprobación');
+      nbReset(); toast(isMod() ? t('Reenviado a revisión ✓') : t('Cambios guardados ✓')); return render(); }
+    if (!G.set('news', [{ id: Date.now(), type: NBM.type, title: ttl0, text: blocks.map(b => b.t).filter(Boolean).join('\n\n'), blocks, by: S.user, date: today(), ...postMeta($('#n-anon') && $('#n-anon').checked, 'n-comm') }, ...news()])) return;
+    logAction('news-post', S.user, ttl0.slice(0, 80) + (isMod() ? ' (en revisión)' : '')); if (isMod()) notifyApprovers('Nuevo anuncio por aprobar: {t}', { t: ttl0.slice(0, 50) });
     if (NBID) G.set('newsdrafts', ndAll().filter(x => x.id !== NBID));
-    nbReset(); toast(isMod() ? 'Enviado a revisión: lo verá Administración u Owner' : 'Anuncio publicado'); return render();
+    nbReset(); toast(isMod() ? t('Enviado a revisión: lo verá Administración u Owner') : t('Anuncio publicado')); return render();
   }
   const data = { name: v('#a-name'), email: v('#a-email'), pass: v('#a-pass'), pass2: v('#a-pass2') };
   const sb = form.querySelector('button[type=submit]'); if (sb) { sb.classList.add('loading'); sb.dataset.t = sb.textContent; sb.innerHTML = LOADER('sm'); }
