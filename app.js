@@ -2491,7 +2491,7 @@ document.addEventListener('change', e => {
   const id = e.target.id, f = e.target.files && e.target.files[0];
   if (e.target.classList && e.target.classList.contains('set-lang')) { LS.set('auri.ui', e.target.value); uiReset(); KEEP = true; render(); return; }
   if (e.target.classList && e.target.classList.contains('nb-file') && canNews()) { const i = +e.target.dataset.i; nbCollect(); newsPhoto(f, d => { if (NB[i]) NB[i].img = d; KEEP = true; render(); }); return; }
-  if (id === 'ce-file' && canNews()) { newsPhoto(f, d => { CEIMG = d; const p = $('#ce-prev'); if (p) p.innerHTML = `<img src="${esc(d)}" alt="Vista previa de la imagen del evento">`; }); return; }
+  if (id === 'ce-file' && canNews()) { newsPhoto(f, d => { CEIMG = d; const p = $('#ce-prev'); if (p) p.innerHTML = `<img src="${esc(d)}" alt="${esc(t('Vista previa de la imagen del evento'))}">`; }); return; }
   if (id === 'cover-file') { loadCover(f); e.target.value = ''; }
   if (id === 'import-file') importFromFile(f);
   if (id === 'bn-file') cropPhoto(f, 960, 360, d => { const u = getUsers(); u[S.user].banner = d; G.set('users', u); render(); }, .78);       // portada del perfil

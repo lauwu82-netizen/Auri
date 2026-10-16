@@ -1312,5 +1312,7 @@ window.I18N = { en: {
  "Añadido al banner ✓": "Added to the banner ✓",
  "(comentario con spoiler en un párrafo)": "(comment with a spoiler on a paragraph)",
  "en un párrafo: ": "on a paragraph: ",
- "Capítulo 1": "Chapter 1"
+ "Capítulo 1": "Chapter 1",
+ /* fase 5 */
+ "Vista previa de la imagen del evento": "Event image preview"
 } };
