@@ -1993,7 +1993,7 @@ function newsView(nid) {
 
 const notifHref = n => n.type === 'chapter' ? '#/story/' + n.storyId + '/' + n.extra : n.type === 'follow' ? '#/user/' + encodeURIComponent(n.from) : n.type === 'review' ? '#/moderation' : n.type === 'rejected' ? '#/write/' + n.storyId + '/chapters' : '#/story/' + n.storyId;
 /* --- Notificaciones --- */
-const notifWhat = n => { const ti = esc((findStory(n.storyId) || {}).title || t('una obra eliminada')), x = esc(n.extra), c = esc(n.chap), V = { ti, x, c };
+const notifWhat = n => { const ti = esc((findStory(n.storyId) || {}).title || t('una obra eliminada')), x = esc(n.type === 'comment' ? (String(n.extra).startsWith('en un párrafo: ') ? t('en un párrafo: ') + String(n.extra).slice(15) : t(n.extra)) : n.extra), c = esc(n.chap), V = { ti, x, c };
   const chap = /^\d+ cap/.test(n.chap) ? t('{n} capítulos nuevos', { n: parseInt(n.chap, 10) }) : t('el capítulo «{c}»', V);
   return { follow: t('empezó a seguirte'), like: t('le dio like a tu obra «{ti}»', V), comment: t('comentó en «{ti}»: “{x}”', V), review: n.chap ? t('envió «{c}» de «{x}» a revisión', V) : t('envió «{x}» a revisión', V),
     chapter: t('publicó {chap} en «{ti}»', { ti, chap }),
