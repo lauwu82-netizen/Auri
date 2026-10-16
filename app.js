@@ -23,8 +23,8 @@ const GENRES = { Fantasy: 'Fantasía', Romance: 'Romance', 'Slice of life': 'Cos
 const genreName = g => t(GENRES[g] || g);
 let toastTimer;
 function toast(msg) {
-  const t = $('#toast'); t.textContent = msg; t.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 2600);
+  const el = $('#toast'); el.textContent = t(msg); el.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 2600);
 }
 
 /* 2. ALMACENAMIENTO ----------------------------------------------- */
@@ -147,6 +147,7 @@ const uiSetting = () => { const v = LS.get('auri.ui', 'auto'); return v === 'es'
 const uiLang = () => UILANG || (UILANG = uiSetting() === 'auto' ? myComm() : uiSetting());      // 'auto' sigue a la comunidad de la cuenta (o a la región si no hay sesión)
 const uiReset = () => { UILANG = null; document.documentElement.lang = uiLang(); };
 const t = (s, v) => { let r = uiLang() === 'en' && window.I18N && I18N.en[s] != null ? I18N.en[s] : s; return v ? r.replace(/\{(\w+)\}/g, (m, k) => k in v ? v[k] : m) : r; };
+const tx = (s, c, v) => uiLang() === 'en' && window.I18N && I18N.en[s + '@' + c] != null ? t(s + '@' + c, v) : t(s, v);   // misma frase en español, distinta traducción según el contexto
 const tn = (n, one, other, v) => t(n === 1 ? one : other, { n, ...v });
 const LOC = () => uiLang() === 'en' ? 'en' : 'es';                     // para toLocaleString y similares
 const YN = () => uiLang() === 'en' ? 'YN' : 'TN';                      // cómo se escribe «nombre del lector» en cada idioma
@@ -589,7 +590,7 @@ function shell(path, html) {
   </header>${html}${pop}
   <nav class="bottom-nav" aria-label="${esc(t('Navegación principal'))}">${item('#/', t('Inicio'), ICON.home, path === '/')}${item('#/library', t('Biblioteca'), ICON.books, path === '/library')}<a class="bn-plus ${path === '/write' ? 'active' : ''}" href="#/write" aria-label="${esc(t('Crear historia'))}">${ICON.plus}</a>${item('#/news', t('Noticias'), ICON.news, path === '/news')}${item('#/profile', t('Mi Perfil'), ICON.user, path === '/profile')}</nav></div>`;
 }
-const empty = (title, copy, action = '') => `<div class="empty">${mascot()}<h3>${esc(title)}</h3><p>${esc(copy)}</p>${action}</div>`;
+const empty = (title, copy, action = '') => `<div class="empty">${mascot()}<h3>${esc(t(title))}</h3><p>${esc(t(copy))}</p>${action}</div>`;
 const badgeText = s => { const st = storyState(s), p = s.chapters.filter(c => c.status === 'pending').length; return st !== 'published' ? t(STATUS[st]) : p ? t('{n} cap. en revisión', { n: p }) : ''; };
 const coverHTML = (s, i) => `<div class="cover c${(i % 5) + 1}">${s.cover ? `<img class="cover-img" src="${esc(s.cover)}" alt="${esc(t('Portada de {title}', { title: s.title }))}" loading="lazy">` : `<span class="cover-title">${esc(s.title || t('Sin título'))}</span>`}</div>`;
 
@@ -616,11 +617,11 @@ function authView(mode) {
 const ageGroup = e => { const u = getUsers()[e]; return u && isAdult(u) ? 'adult' : 'minor'; };      // 17 o menos (o edad sin confirmar) = menores · 18+ = mayores de edad
 const mutual = (a, b) => following(a).includes(b) && following(b).includes(a);
 function dmWhy(a, b) {                                  // '' = pueden escribirse; si no, la razón
-  if (!getUsers()[b]) return 'Esta persona no existe en este dispositivo.';
-  if (a === b) return 'No se puede enviar mensajes a la propia cuenta.';
-  if (bl(a, 'blocked').includes(b) || bl(b, 'blocked').includes(a)) return 'No se puede enviar mensajes a esta persona.';
-  if (!mutual(a, b)) return 'Para enviarse mensajes, ambas personas deben seguirse mutuamente.';
-  if (ageGroup(a) !== ageGroup(b)) return 'Los mensajes solo están disponibles entre personas del mismo rango de edad: menores de 18 con menores, y mayores de edad con mayores de edad.';
+  if (!getUsers()[b]) return t('Esta persona no existe en este dispositivo.');
+  if (a === b) return t('No se puede enviar mensajes a la propia cuenta.');
+  if (bl(a, 'blocked').includes(b) || bl(b, 'blocked').includes(a)) return t('No se puede enviar mensajes a esta persona.');
+  if (!mutual(a, b)) return t('Para enviarse mensajes, ambas personas deben seguirse mutuamente.');
+  if (ageGroup(a) !== ageGroup(b)) return t('Los mensajes solo están disponibles entre personas del mismo rango de edad: menores de 18 con menores, y mayores de edad con mayores de edad.');
   return '';
 }
 const dmKey = (a, b) => [a, b].sort().join('|');
@@ -634,7 +635,7 @@ function dmConvos() {
 }
 const dmUnread = () => { if (!S.user || isGuest()) return 0; const r = dmRead(); return dmConvos().filter(x => x.last.by !== S.user && x.last.id > (r[x.key] || 0)).length; };
 /** Filtro de chats de menores: teléfonos, correos, enlaces, usuarios y redes sociales, y frases para pedir datos o fotos */
-const DM_NET = ['facebook', 'instagram', 'tiktok', 'whatsapp', 'wasap', 'guasap', 'telegram', 'snapchat', 'discord', 'twitter', 'youtube', 'messenger', 'skype', 'onlyfans', 'twitch', 'omegle', 'pinterest', 'tumblr'];
+const DM_NET = ['kik', 'wechat', 'imessage', 'facebook', 'instagram', 'tiktok', 'whatsapp', 'wasap', 'guasap', 'telegram', 'snapchat', 'discord', 'twitter', 'youtube', 'messenger', 'skype', 'onlyfans', 'twitch', 'omegle', 'pinterest', 'tumblr'];
 const DM_NUM = { cero: 0, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9 };
 function dmUnsafe(text) {
   const raw = String(text).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -642,33 +643,33 @@ function dmUnsafe(text) {
   if (/(?:\d[\s().\-_*]*){7,}/.test(digits)) return 'números de teléfono';
   const leet = raw.replace(/0/g, 'o').replace(/1/g, 'i').replace(/3/g, 'e').replace(/4/g, 'a').replace(/5/g, 's').replace(/7/g, 't').replace(/\$/g, 's');
   if (DM_NET.some(n => new RegExp(n.split('').join('[^a-z]{0,3}') + '(?![a-z])').test(leet)) || /\b(ig|fb|insta|wpp|wsp|snap|tt|tg|whats|wats)\b/.test(leet)) return 'redes sociales';
-  if (/\S+@\S+\.\S+|\barroba\b|\b(gmail|hotmail|outlook|yahoo|icloud)\b/.test(raw) || /(^|\s)@\w{3,}/.test(raw)) return 'correos o usuarios';
+  if (/\S+@\S+\.\S+|\barroba\b|\b(gmail|hotmail|outlook|yahoo|icloud)\b/.test(raw) || /(^|\s)@\w{3,}/.test(raw) || /\w+\s*(\bat\b|\(at\))\s*\w+\s*(\bdot\b|\(dot\))\s*(com|net|org)\b/.test(raw)) return 'correos o usuarios';
   if (/https?:|www\.|\.(com|net|org|me|gg|tv|ly|io|link)\b|\bt\.me|\bwa\.me/.test(raw)) return 'enlaces';
-  if (/\b(mi|tu|su)\s+(numero|num|cel|celular|telefono|tel|correo|mail|direccion|insta|face|whats)\b/.test(raw) || /\b(pasa|pasame|dame|dime|manda|mandame|envia|enviame)\s+(tu\s+|su\s+)?(num|numero|cel|celular|telefono|whats|insta|face|tiktok|correo|mail|direccion|foto|fotos)\b/.test(raw) || /\b(donde vives|tu ubicacion|nudes?|sexting|desnud[ao]s?|pack de fotos)\b/.test(raw)) return 'datos personales o fotos';
+  if (/\b(mi|tu|su)\s+(numero|num|cel|celular|telefono|tel|correo|mail|direccion|insta|face|whats)\b/.test(raw) || /\b(pasa|pasame|dame|dime|manda|mandame|envia|enviame)\s+(tu\s+|su\s+)?(num|numero|cel|celular|telefono|whats|insta|face|tiktok|correo|mail|direccion|foto|fotos)\b/.test(raw) || /\b(donde vives|tu ubicacion|nudes?|sexting|desnud[ao]s?|pack de fotos)\b/.test(raw) || /\b(my|your|ur)\s+(number|num|phone|cell|email|e-mail|mail|address|insta|snap|whatsapp|discord|tiktok)\b/.test(raw) || /\b(send|give|gimme|text|dm)\s+(me\s+)?(your|ur|ya)\s+(num|number|phone|cell|insta|snap|socials?|email|address|pics?|pictures?|photos?|nudes?)\b/.test(raw) || /\b(where do you live|where u live|your location|naked|send pics|send nudes|pic of you)\b/.test(raw)) return 'datos personales o fotos';
   return '';
 }
 function dmSend(to, msg) {                              // devuelve '' si se envió; si no, el motivo
   const why = dmWhy(S.user, to); if (why) return why;
   const minor = ageGroup(S.user) === 'minor';
-  if (msg.img && minor) return 'El envío de fotos no está disponible en chats de menores.';
-  if (msg.text && minor) { const u = dmUnsafe(msg.text); if (u) return `Por seguridad, en chats de menores no se pueden compartir ${u}. El mensaje no se envió.`; }
-  if (msg.sid) { const st = publishedStories().find(x => x.id === msg.sid); if (!st) return 'Esa obra ya no está disponible.'; if (minor && st.mature) return 'Las obras +18 no se pueden enviar en chats de menores.'; }
+  if (msg.img && minor) return t('El envío de fotos no está disponible en chats de menores.');
+  if (msg.text && minor) { const u = dmUnsafe(msg.text); if (u) return t('Por seguridad, en chats de menores no se pueden compartir {u}. El mensaje no se envió.', { u: t(u) }); }
+  if (msg.sid) { const st = publishedStories().find(x => x.id === msg.sid); if (!st) return t('Esa obra ya no está disponible.'); if (minor && st.mature) return t('Las obras +18 no se pueden enviar en chats de menores.'); }
   const all = dmAll(), k = dmKey(S.user, to), l = all[k] = all[k] || [];
-  l.push({ id: Date.now(), by: S.user, ...msg }); all[k] = l.slice(-300); return G.set('dm', all) ? '' : 'No se pudo guardar el mensaje.';
+  l.push({ id: Date.now(), by: S.user, ...msg }); all[k] = l.slice(-300); return G.set('dm', all) ? '' : t('No se pudo guardar el mensaje.');
 }
 const hm = ts => new Date(ts).toLocaleTimeString(LOC(), { hour: '2-digit', minute: '2-digit' });
 const dayLab = ts => { const d = new Date(ts), now = new Date(), y = new Date(Date.now() - 864e5), same = (a, b) => a.toDateString() === b.toDateString(); return same(d, now) ? t('Hoy') : same(d, y) ? t('Ayer') : d.toLocaleDateString(LOC(), { day: 'numeric', month: 'long' }); };
 function dmBubble(m) {
   const mine = m.by === S.user; let body = '';
   if (m.sid) { const st = publishedStories().find(x => x.id === m.sid);
-    body = !st ? '<div class="dm-book gone">Esta obra ya no está disponible.</div>' : st.mature && !matureOK(st) ? '<div class="dm-book gone">Obra +18 oculta por la configuración de contenido.</div>'
-      : `<a class="dm-book" href="#/story/${esc(st.id)}" data-dir="next"><span class="dm-cv">${coverHTML(st, 0)}</span><span class="dm-bt"><small>Obra recomendada</small><b>${esc(st.title)}</b><em>por ${esc(st.author || '')}</em><span class="pill">Abrir</span></span></a>`; }
-  else if (m.img && safeImg(m.img)) body = `<img class="dm-img" src="${esc(m.img)}" alt="Foto enviada">`;
+    body = !st ? '<div class="dm-book gone">' + t('Esta obra ya no está disponible.') + '</div>' : st.mature && !matureOK(st) ? '<div class="dm-book gone">' + t('Obra +18 oculta por la configuración de contenido.') + '</div>'
+      : `<a class="dm-book" href="#/story/${esc(st.id)}" data-dir="next"><span class="dm-cv">${coverHTML(st, 0)}</span><span class="dm-bt"><small>${t('Obra recomendada')}</small><b>${esc(st.title)}</b><em>${t('por {a}', { a: esc(st.author || '') })}</em><span class="pill">${t('Abrir')}</span></span></a>`; }
+  else if (m.img && safeImg(m.img)) body = `<img class="dm-img" src="${esc(m.img)}" alt="${esc(t('Foto enviada'))}">`;
   else body = `<span class="dm-txt">${esc(m.text || '')}</span>`;
   return `<div class="dm-row ${mine ? 'me' : 'you'}"><div class="dm-b">${body}<time>${hm(m.id)}</time></div></div>`;
 }
 function dmMsgsHTML(to) {
-  const th = dmThread(to); if (!th.length) return '<p class="helper dm-empty">Aún no hay mensajes. Escribe el primero o recomienda una obra.</p>';
+  const th = dmThread(to); if (!th.length) return '<p class="helper dm-empty">' + t('Aún no hay mensajes. Escribe el primero o recomienda una obra.') + '</p>';
   let out = '', last = ''; th.forEach(m => { const d = dayLab(m.id); if (d !== last) { out += `<div class="dm-day">${esc(d)}</div>`; last = d; } out += dmBubble(m); }); return out;
 }
 function paintDm(to, force) {
@@ -680,33 +681,33 @@ function paintDm(to, force) {
 function dmAfter() { const m = location.hash.match(/^#\/messages\/(.+)$/); if (m && S.user && !isGuest()) paintDm(decodeURIComponent(m[1]), true); }
 function dmView(sub) {
   if (sub) {
-    const to = decodeURIComponent(sub), u = getUsers()[to]; if (!u || dmBlocked(to) && !dmThread(to).length) return `<main class="page">${empty('No se puede abrir esta conversación', 'La persona no existe o hay un bloqueo entre ambas cuentas.', '<a class="button" href="#/messages">Volver a mensajes</a>')}</main>`;
+    const to = decodeURIComponent(sub), u = getUsers()[to]; if (!u || dmBlocked(to) && !dmThread(to).length) return `<main class="page">${empty('No se puede abrir esta conversación', 'La persona no existe o hay un bloqueo entre ambas cuentas.', '<a class="button" href="#/messages">' + t('Volver a mensajes') + '</a>')}</main>`;
     const why = dmWhy(S.user, to), minor = ageGroup(S.user) === 'minor';
-    return `<main class="dm"><header class="dm-head"><a class="icon-btn" href="#/messages" data-dir="prev" aria-label="Volver a mensajes">‹</a><a class="dm-who" href="#/user/${encodeURIComponent(to)}" data-dir="next">${userAvatar(to)}<b>${esc(u.name)}</b></a>
-      <span class="dm-hacts"><button type="button" class="link-btn" data-act="report-user" data-id="${esc(to)}">Reportar</button><button type="button" class="link-btn danger-link" data-act="block" data-id="${esc(to)}">Bloquear</button></span></header>
-      ${minor ? '<p class="dm-safe">Chat de menores: no se permiten teléfonos, enlaces, redes sociales ni fotos.</p>' : ''}
+    return `<main class="dm"><header class="dm-head"><a class="icon-btn" href="#/messages" data-dir="prev" aria-label="${esc(t('Volver a mensajes'))}">‹</a><a class="dm-who" href="#/user/${encodeURIComponent(to)}" data-dir="next">${userAvatar(to)}<b>${esc(u.name)}</b></a>
+      <span class="dm-hacts"><button type="button" class="link-btn" data-act="report-user" data-id="${esc(to)}">${t('Reportar')}</button><button type="button" class="link-btn danger-link" data-act="block" data-id="${esc(to)}">${t('Bloquear')}</button></span></header>
+      ${minor ? '<p class="dm-safe">' + t('Chat de menores: no se permiten teléfonos, enlaces, redes sociales ni fotos.') + '</p>' : ''}
       <div id="dm-msgs" class="dm-msgs" aria-live="polite"></div>
-      ${why ? `<div class="notice dm-lock">${esc(why)}</div>` : `<div class="dm-compose"><div class="dm-tools"><button type="button" class="chip" data-act="dm-book" data-id="${esc(to)}">Enviar una obra para recomendar</button>${minor ? '' : `<label class="chip" style="cursor:pointer">Enviar una foto<input id="dm-img" type="file" accept="image/*" data-to="${esc(to)}" hidden></label>`}</div>
-      <form data-form="dm" data-to="${esc(to)}" class="c-compose"><div class="c-pill"><input id="dm-text" maxlength="500" placeholder="Escribe un mensaje…" aria-label="Escribe un mensaje" autocomplete="off"><button class="c-send" type="submit" aria-label="Enviar mensaje">${ICO_SEND}</button></div></form><p class="error" id="dm-err" role="alert"></p></div>`}</main>`;
+      ${why ? `<div class="notice dm-lock">${esc(why)}</div>` : `<div class="dm-compose"><div class="dm-tools"><button type="button" class="chip" data-act="dm-book" data-id="${esc(to)}">${t('Enviar una obra para recomendar')}</button>${minor ? '' : `<label class="chip" style="cursor:pointer">${t('Enviar una foto')}<input id="dm-img" type="file" accept="image/*" data-to="${esc(to)}" hidden></label>`}</div>
+      <form data-form="dm" data-to="${esc(to)}" class="c-compose"><div class="c-pill"><input id="dm-text" maxlength="500" placeholder="${esc(t('Escribe un mensaje…'))}" aria-label="${esc(t('Escribe un mensaje'))}" autocomplete="off"><button class="c-send" type="submit" aria-label="${esc(t('Enviar mensaje'))}">${ICO_SEND}</button></div></form><p class="error" id="dm-err" role="alert"></p></div>`}</main>`;
   }
   const cv = dmConvos(), r = dmRead(), have = new Set(cv.map(x => x.other)), cand = following(S.user).filter(e => !have.has(e) && dmWhy(S.user, e) === '');
   const row = (e, sub, right, href) => `<a class="dm-item" href="#/messages/${encodeURIComponent(e)}" data-dir="next">${userAvatar(e)}<span class="dm-it"><b>${esc(uName(e))}</b><small>${sub}</small></span>${right}</a>`;
-  const prev = m => m.sid ? 'Obra recomendada' : m.img ? 'Foto' : esc(clip(m.text, 60));
-  return `<main class="page story-layout"><div class="set-head"><a class="icon-btn" href="#/" data-dir="prev" aria-label="Volver">‹</a><h2>Mensajes</h2></div>
-  ${cv.length ? `<div class="set-list">${cv.map(x => { const un = x.last.by !== S.user && x.last.id > (r[x.key] || 0); return row(x.other, `${x.last.by === S.user ? 'Tú: ' : ''}${prev(x.last)}`, `<span class="dm-meta">${relSpan(x.last)}${un ? '<i class="dm-dot" aria-label="Sin leer"></i>' : ''}</span>`); }).join('')}</div>` : ''}
-  ${cand.length ? `<h3 class="set-group">Escribir a</h3><div class="set-list">${cand.map(e => row(e, 'Se siguen mutuamente', '<span class="dm-meta">›</span>')).join('')}</div>` : ''}
+  const prev = m => m.sid ? t('Obra recomendada') : m.img ? t('Foto') : esc(clip(m.text, 60));
+  return `<main class="page story-layout"><div class="set-head"><a class="icon-btn" href="#/" data-dir="prev" aria-label="${esc(t('Volver'))}">‹</a><h2>${t('Mensajes')}</h2></div>
+  ${cv.length ? `<div class="set-list">${cv.map(x => { const un = x.last.by !== S.user && x.last.id > (r[x.key] || 0); return row(x.other, `${x.last.by === S.user ? t('Tú: ') : ''}${prev(x.last)}`, `<span class="dm-meta">${relSpan(x.last)}${un ? '<i class="dm-dot" aria-label="' + esc(t('Sin leer')) + '"></i>' : ''}</span>`); }).join('')}</div>` : ''}
+  ${cand.length ? `<h3 class="set-group">${t('Escribir a')}</h3><div class="set-list">${cand.map(e => row(e, t('Se siguen mutuamente'), '<span class="dm-meta">›</span>')).join('')}</div>` : ''}
   ${!cv.length && !cand.length ? empty('Aún no hay conversaciones', 'Cuando dos personas se sigan mutuamente y estén en el mismo rango de edad, podrán escribirse desde aquí o desde el perfil.') : ''}
-  <section class="panel dm-rules"><h3>Quiénes pueden escribirse</h3><ul><li>Ambas personas deben seguirse mutuamente.</li><li>Menores de 18 solo hablan con menores de 18, y mayores de edad solo con mayores de edad.</li><li>Entre mayores de edad se pueden enviar fotos.</li><li>En chats de menores no hay fotos y se bloquean teléfonos, enlaces y redes sociales.</li><li>Cualquier persona puede enviar una obra para recomendar.</li></ul></section></main>`;
+  <section class="panel dm-rules"><h3>${t('Quiénes pueden escribirse')}</h3><ul><li>${t('Ambas personas deben seguirse mutuamente.')}</li><li>${t('Menores de 18 solo hablan con menores de 18, y mayores de edad solo con mayores de edad.')}</li><li>${t('Entre mayores de edad se pueden enviar fotos.')}</li><li>${t('En chats de menores no hay fotos y se bloquean teléfonos, enlaces y redes sociales.')}</li><li>${t('Cualquier persona puede enviar una obra para recomendar.')}</li></ul></section></main>`;
 }
 function openDmBookPicker(to) {
   const m = document.createElement('div'); m.className = 'modal sheet'; let tab = 'home', q = ''; const minor = ageGroup(S.user) === 'minor';
-  m.innerHTML = `<div class="modal-box bp-box" role="dialog" aria-modal="true" aria-label="Enviar una obra para recomendar"><button class="icon-btn close-x" data-x aria-label="Cerrar">✕</button><h2>Enviar una obra para recomendar</h2><p class="helper">Toca una obra y se envía en el chat.</p>
-  <div class="bp-tabs"><button type="button" class="chip active" data-t="home">Inicio</button><button type="button" class="chip" data-t="lib">Mis guardados</button><button type="button" class="chip" data-t="favs">Mis favoritos</button></div>
-  <input class="field bp-q" type="search" placeholder="Buscar por título o autoría…" aria-label="Buscar obra"><div class="bp-list"></div></div>`;
+  m.innerHTML = `<div class="modal-box bp-box" role="dialog" aria-modal="true" aria-label="${esc(t('Enviar una obra para recomendar'))}"><button class="icon-btn close-x" data-x aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Enviar una obra para recomendar')}</h2><p class="helper">${t('Toca una obra y se envía en el chat.')}</p>
+  <div class="bp-tabs"><button type="button" class="chip active" data-t="home">${t('Inicio')}</button><button type="button" class="chip" data-t="lib">${t('Mis guardados')}</button><button type="button" class="chip" data-t="favs">${t('Mis favoritos')}</button></div>
+  <input class="field bp-q" type="search" placeholder="${esc(t('Buscar por título o autoría…'))}" aria-label="${esc(t('Buscar obra'))}"><div class="bp-list"></div></div>`;
   const list = m.querySelector('.bp-list');
   const src = () => { const all = publishedStories().filter(matureOK).filter(x => !(minor && x.mature)); return (tab === 'favs' ? all.filter(x => S.favs.includes(x.id)) : tab === 'lib' ? all.filter(x => S.lib.includes(x.id)) : all).filter(x => !q || `${x.title} ${x.author}`.toLowerCase().includes(q)); };
-  const paint = () => { const l = src(); list.innerHTML = l.length ? l.map((x, i) => `<button type="button" class="bp-item" data-id="${esc(x.id)}"><span class="bp-cv">${coverHTML(x, i)}</span><span class="bp-t"><b>${esc(x.title)}</b><small>por ${esc(x.author || '')}</small></span><span class="bp-add">Enviar</span></button>`).join('')
-    : `<p class="helper" style="text-align:center;margin:18px 0">${tab === 'favs' ? 'Aún no hay obras favoritas.' : tab === 'lib' ? 'Aún no hay obras guardadas.' : 'No hay obras publicadas.'}</p>`; };
+  const paint = () => { const l = src(); list.innerHTML = l.length ? l.map((x, i) => `<button type="button" class="bp-item" data-id="${esc(x.id)}"><span class="bp-cv">${coverHTML(x, i)}</span><span class="bp-t"><b>${esc(x.title)}</b><small>${t('por {a}', { a: esc(x.author || '') })}</small></span><span class="bp-add">${t('Enviar')}</span></button>`).join('')
+    : `<p class="helper" style="text-align:center;margin:18px 0">${tab === 'favs' ? t('Aún no hay obras favoritas.') : tab === 'lib' ? t('Aún no hay obras guardadas.') : t('No hay obras publicadas.')}</p>`; };
   m.querySelector('[data-x]').onclick = () => m.remove(); m.onclick = ev => { if (ev.target === m) m.remove(); };
   m.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; m.querySelectorAll('[data-t]').forEach(x => x.classList.toggle('active', x === b)); paint(); });
   m.querySelector('.bp-q').oninput = ev => { q = ev.target.value.trim().toLowerCase(); paint(); };
@@ -1311,14 +1312,14 @@ function modView(sub) {
 /* --- Diálogos genéricos --- */
 function dialog(title, text, yes, no, onYes, danger) {
   const m = document.createElement('div'); m.className = 'modal';
-  m.innerHTML = `<div class="modal-box mini-box" role="alertdialog" aria-modal="true"><h2>${esc(title)}</h2><p class="helper">${esc(text)}</p><div style="display:flex;gap:10px;margin-top:16px"><button class="button ghost" data-no style="flex:1">${esc(no)}</button><button class="button ${danger ? 'danger' : ''}" data-yes style="flex:1">${esc(yes)}</button></div></div>`;
+  m.innerHTML = `<div class="modal-box mini-box" role="alertdialog" aria-modal="true"><h2>${esc(t(title))}</h2><p class="helper">${esc(t(text))}</p><div style="display:flex;gap:10px;margin-top:16px"><button class="button ghost" data-no style="flex:1">${esc(t(no))}</button><button class="button ${danger ? 'danger' : ''}" data-yes style="flex:1">${esc(t(yes))}</button></div></div>`;
   m.querySelector('[data-no]').onclick = () => m.remove(); m.querySelector('[data-yes]').onclick = () => { m.remove(); onYes(); };
   document.body.appendChild(m);
 }
 /** Doble confirmación: el botón solo se activa al escribir la palabra pedida */
 function typeConfirm(title, text, word, yes, onYes) {
   const m = document.createElement('div'); m.className = 'modal';
-  m.innerHTML = `<div class="modal-box mini-box" role="alertdialog" aria-modal="true"><h2>${esc(title)}</h2><p class="helper">${esc(text)}</p><input class="field" data-word autocomplete="off" placeholder="${esc(word)}" style="margin-top:12px"><div style="display:flex;gap:10px;margin-top:16px"><button class="button ghost" data-no style="flex:1">Cancelar</button><button class="button danger" data-yes style="flex:1">${esc(yes)}</button></div></div>`;
+  m.innerHTML = `<div class="modal-box mini-box" role="alertdialog" aria-modal="true"><h2>${esc(t(title))}</h2><p class="helper">${esc(t(text, { w: word }))}</p><input class="field" data-word autocomplete="off" placeholder="${esc(word)}" style="margin-top:12px"><div style="display:flex;gap:10px;margin-top:16px"><button class="button ghost" data-no style="flex:1">${t('Cancelar')}</button><button class="button danger" data-yes style="flex:1">${esc(t(yes))}</button></div></div>`;
   const inp = m.querySelector('[data-word]'), btn = m.querySelector('[data-yes]'); btn.disabled = true;
   inp.oninput = () => { btn.disabled = inp.value.trim().toUpperCase() !== word; };
   btn.onclick = () => { if (btn.disabled) return; m.remove(); onYes(); };
@@ -1489,7 +1490,7 @@ function applyImport(d) {
   const users = getUsers(), p = d.profile || {}, img = v => typeof v === 'string' && /^data:image\//.test(v);
   if (users[S.user]) { users[S.user] = { ...users[S.user], bio: String(p.bio || '').slice(0, 300), ...(img(p.avatar) ? { avatar: p.avatar } : {}), ...(img(p.banner) ? { banner: p.banner } : {}), ...(Array.isArray(p.interests) && p.interests.some(i => INTEREST_NAMES.includes(i)) ? { interests: p.interests.filter(i => INTEREST_NAMES.includes(i)) } : {}) }; G.set('users', users); }
   arr(x.lib).forEach(id => subscribe(id));
-  loadUser(); toast(skipped ? `Datos importados (${skipped} historia(s) omitidas: ya existen en otra cuenta)` : 'Datos importados ✓'); render();
+  loadUser(); toast(skipped ? t('Datos importados ({n} historia(s) omitidas: ya existen en otra cuenta)', { n: skipped }) : 'Datos importados ✓'); render();
 }
 function wipeDevice() {
   const ks = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('auri.')) ks.push(k); }
@@ -1540,8 +1541,8 @@ function deleteAccount() {
 }
 
 /* --- Pantalla de Ajustes --- */
-const seg = (k, opts, cur) => `<div class="seg" role="radiogroup">${opts.map(([v, l]) => `<button type="button" class="seg-b ${cur === v ? 'on' : ''}" role="radio" aria-checked="${cur === v}" data-act="cfg" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`;
-const sw = (k, on, label, help, locked) => `<div class="toggle-line"><div><strong>${label}</strong>${help ? `<div class="helper">${help}</div>` : ''}</div><button type="button" role="switch" class="switch" aria-checked="${on}" data-act="cfg-toggle" data-k="${k}" ${locked ? 'disabled' : ''} aria-label="${esc(label)}"></button></div>`;
+const seg = (k, opts, cur) => `<div class="seg" role="radiogroup">${opts.map(([v, l]) => `<button type="button" class="seg-b ${cur === v ? 'on' : ''}" role="radio" aria-checked="${cur === v}" data-act="cfg" data-k="${k}" data-v="${v}">${t(l)}</button>`).join('')}</div>`;
+const sw = (k, on, label, help, locked) => `<div class="toggle-line"><div><strong>${t(label)}</strong>${help ? `<div class="helper">${t(help)}</div>` : ''}</div><button type="button" role="switch" class="switch" aria-checked="${on}" data-act="cfg-toggle" data-k="${k}" ${locked ? 'disabled' : ''} aria-label="${esc(t(label))}"></button></div>`;
 /** Ajustes: una lista de botones (menú) y cada sección en su propia pantalla */
 const CHEV = '<svg class="set-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function settingsView(secId) {
@@ -1551,46 +1552,46 @@ function settingsView(secId) {
     apariencia: { ico: '🎨', c: '#8c5fc1', t: t('Apariencia'), sub: `${t('Tema')} ${t(({ light: 'claro', dark: 'oscuro', auto: 'automático' })[S.theme] || 'automático')} · ${uiLang() === 'en' ? 'English' : 'Español'}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tema')}</span>${seg('theme', [['light', '☀ ' + t('Claro')], ['dark', '🌙 ' + t('Oscuro')], ['auto', t('Automático')]], S.theme)}</div>
       <div class="set-row"><span>${t('Tu comunidad')}</span><b>${esc(COMMS[commOf(S.user)])}</b></div>
       <div class="set-row"><span>${t('Ver también la otra comunidad')}</span>${seg('otherComm', [['no', t('No')], ['yes', t('Sí')]], cfg('otherComm'))}</div>
-      <div class="set-row"><span>${t('Idioma')}</span><select class="select set-lang" aria-label="${esc(t('Idioma'))}"><option value="auto" ${uiSetting() === 'auto' ? 'selected' : ''}>${t('Automático')}</option><option value="es" ${uiSetting() === 'es' ? 'selected' : ''}>Español</option><option value="en" ${uiSetting() === 'en' ? 'selected' : ''}>English</option></select></div></section>` },
-    lectura: { ico: '📖', c: '#3e8fd0', t: 'Lectura', sub: `Letra ${({ sm: 'pequeña', md: 'normal', lg: 'grande' })[cfg('fontSize')]} · ${cfg('font') === 'serif' ? 'con serifa' : 'sin serifa'}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>Tamaño de letra</span>${seg('fontSize', [['sm', 'Pequeña'], ['md', 'Normal'], ['lg', 'Grande']], cfg('fontSize'))}</div>
-      <div class="set-row"><span>Tipografía</span>${seg('font', [['serif', 'Con serifa'], ['sans', 'Sin serifa']], cfg('font'))}</div>
-      <div class="set-row"><span>Interlineado</span>${seg('lh', [['compact', 'Compacto'], ['normal', 'Normal'], ['relaxed', 'Amplio']], cfg('lh'))}</div>
-      <div class="set-row"><span>Comentarios en párrafos</span>${seg('pcom', [['tap', 'Al tocar'], ['dots', 'Con contador'], ['off', 'Desactivados']], cfg('pcom'))}</div>
-      <p class="helper" style="margin:0 0 6px">«Al tocar» deja la lectura limpia: toca un párrafo y aparece «Comentar». «Con contador» muestra un número discreto en los párrafos que tienen comentarios.</p>
-      <div class="set-row"><span>Spoilers en comentarios</span>${seg('spoilers', [['hide', 'Difuminar'], ['show', 'Mostrar']], cfg('spoilers'))}</div>
-      <div class="read-prev"><p class="reader-text">Así se verá tu lectura. La luna asomó entre las nubes y el bosque guardó silencio.</p></div>
-      <div class="set-row"><span>Música de los capítulos</span>${seg('music', [['ask', 'Preguntar siempre'], ['remember', 'Recordar mi elección']], cfg('music'))}</div>
-      <p class="helper" style="margin:0 0 6px">«Recordar» abre sola la canción del capítulo si la última vez elegiste reproducirla (el navegador puede pedirte un toque antes).</p>
-      ${sw('skipReadAs', cfg('skipReadAs'), 'Saltar «Leer como…»', `Usa siempre tu personaje activo${act ? ` (${esc(act.name)})` : ''}. Si no tienes uno activo, se te preguntará.`)}</section>` },
-    contenido: { ico: '🔞', c: '#e0457b', t: 'Contenido +18', sub: isMinor(u) ? 'No disponible' : cfg('showMature') ? 'Visible' : 'Oculto', body: () => `<section class="panel set-sec">${sw('showMature', cfg('showMature'), 'Mostrar contenido +18', isMinor(u) ? 'No está disponible para cuentas menores de 18 años.' : 'Si lo apagas, las historias para adultos se ocultan en Inicio, búsquedas y bibliotecas. Tus propias obras siempre se ven.', isMinor(u))}</section>` },
-    intereses: { ico: '🏷️', c: '#e09a2b', t: 'Tus intereses', sub: `${(u.interests || []).length} tema${(u.interests || []).length === 1 ? '' : 's'}`, body: () => `<section class="panel set-sec"><p class="helper" style="margin:0 0 4px">Los temas que te gustan (mínimo uno).</p>${interestChips(u.interests || [], 'int-set')}</section>` },
-    bloqueos: { ico: '🚫', c: '#6b7280', t: 'Bloqueadas y silenciadas', sub: `${bl(S.user, 'blocked').length} bloqueadas · ${bl(S.user, 'muted').length} silenciadas`, body: () => {
-      const row = (e, act, lab) => `<div class="cr-row"><span class="cr-rt">${userAvatar(e)} <b>${esc(uName(e))}</b></span><span class="cr-rb"><button class="button secondary sm" data-act="${act}" data-id="${esc(e)}">${lab}</button></span></div>`, b = bl(S.user, 'blocked'), m = bl(S.user, 'muted');
-      return `<section class="panel set-sec"><h3>Bloqueadas</h3><p class="helper">No ves sus comentarios ni sus obras y no hay avisos entre ustedes.</p>${b.length ? b.map(e => row(e, 'unblock', 'Desbloquear')).join('') : '<p class="helper">No has bloqueado a nadie.</p>'}</section>
-      <section class="panel set-sec"><h3>Silenciadas</h3><p class="helper">No ves sus comentarios ni recibes sus avisos, pero siguen pudiendo ver tu perfil.</p>${m.length ? m.map(e => row(e, 'unmute', 'Dejar de silenciar')).join('') : '<p class="helper">No has silenciado a nadie.</p>'}</section>`; } },
-    notificaciones: { ico: '🔔', c: '#d9534f', t: 'Notificaciones', sub: `${nOn} de 4 activadas`, body: () => `<section class="panel set-sec">${sw('notif.chapter', n.chapter, 'Capítulos nuevos de mi biblioteca')}${sw('notif.like', n.like, 'Likes en mis obras')}${sw('notif.comment', n.comment, 'Comentarios en mis obras')}${sw('notif.follow', n.follow, 'Nuevos seguidores')}${sw('notif.mod', true, 'Avisos de moderación', 'Aprobado o rechazado, strikes e invitaciones: siempre activos.', true)}</section>` },
-    datos: { ico: '💾', c: '#2f9e7a', t: 'Tus datos', sub: 'Exportar, importar, borrar', body: () => `<section class="panel set-sec"><p class="helper" style="margin:0 0 10px">Hoy tus datos viven en este navegador. Haz una copia para llevarlos a otro dispositivo o editor.</p>
-      <div class="set-btns"><button class="button secondary" data-act="export-file">⬇ Exportar mis datos (archivo)</button><button class="button secondary" data-act="export-copy">📋 Copiar mis datos</button>
-      <label class="button secondary" style="cursor:pointer">⬆ Importar desde archivo<input id="import-file" type="file" accept="application/json,.json" hidden></label>
-      <button class="button danger" data-act="wipe-device">🗑 Borrar datos de este dispositivo</button></div></section>` },
-    cuenta: { ico: '👤', c: '#5b6ee1', t: 'Cuenta', sub: isGuest() ? 'Invitado · crear cuenta o iniciar sesión' : S.user, body: () => isGuest() ? guestCard() : `<section class="panel set-sec"><div class="form-grid" style="grid-template-columns:1fr"><div class="form-group"><label for="ac-name">Nombre de usuario</label><input id="ac-name" class="field" maxlength="30" value="${esc(u.name || '')}"></div>
-      <div class="form-group"><label for="ac-email">Correo</label><input id="ac-email" type="email" class="field" value="${esc(S.user)}"></div>
-      <div class="form-group"><label for="ac-pass">Contraseña actual</label><input id="ac-pass" type="password" class="field" autocomplete="current-password" placeholder="Solo para cambiar el correo"></div></div>
-      <button class="button" style="margin-top:12px;width:100%" data-act="acct-save">Guardar cambios de cuenta</button></section>
-      <section class="panel set-sec danger-zone"><h2>⚠️ Zona de peligro</h2><p class="helper" style="margin:8px 0 12px">Eliminar tu cuenta borra tus historias (publicadas, en revisión y borradores), biblioteca, personajes, comentarios, likes y seguidores. No se puede deshacer.</p><button class="button danger" data-act="acct-delete">Eliminar cuenta</button></section>` },
-    acerca: { ico: 'ℹ️', c: '#7a869a', t: 'Acerca de', sub: `Versión ${APP_VERSION}`, body: () => `<section class="panel set-sec"><div class="set-btns"><button class="button secondary" data-act="terms">Términos y condiciones</button><button class="button secondary" data-act="privacy">Política de privacidad</button><button class="button secondary" data-act="report">Reportar un problema</button></div><p class="helper" style="margin:14px 0 0;text-align:center">Auri · versión ${APP_VERSION}</p></section>` }
+      <div class="set-row"><span>${t('Idioma')}</span><select class="select set-lang" aria-label="${esc(t('Idioma'))}"><option value="auto" ${uiSetting() === 'auto' ? 'selected' : ''}>${t('Automático')}</option><option value="es" ${uiSetting() === 'es' ? 'selected' : ''}>${t('Español')}</option><option value="en" ${uiSetting() === 'en' ? 'selected' : ''}>${t('English')}</option></select></div></section>` },
+    lectura: { ico: '📖', c: '#3e8fd0', t: 'Lectura', sub: `${t('Letra ' + ({ sm: 'pequeña', md: 'normal', lg: 'grande' })[cfg('fontSize')])} · ${cfg('font') === 'serif' ? t('con serifa') : t('sin serifa')}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tamaño de letra')}</span>${seg('fontSize', [['sm', 'Pequeña'], ['md', 'Normal'], ['lg', 'Grande']], cfg('fontSize'))}</div>
+      <div class="set-row"><span>${t('Tipografía')}</span>${seg('font', [['serif', 'Con serifa'], ['sans', 'Sin serifa']], cfg('font'))}</div>
+      <div class="set-row"><span>${t('Interlineado')}</span>${seg('lh', [['compact', 'Compacto'], ['normal', 'Normal'], ['relaxed', 'Amplio']], cfg('lh'))}</div>
+      <div class="set-row"><span>${t('Comentarios en párrafos')}</span>${seg('pcom', [['tap', 'Al tocar'], ['dots', 'Con contador'], ['off', 'Desactivados']], cfg('pcom'))}</div>
+      <p class="helper" style="margin:0 0 6px">${t('«Al tocar» deja la lectura limpia: toca un párrafo y aparece «Comentar». «Con contador» muestra un número discreto en los párrafos que tienen comentarios.')}</p>
+      <div class="set-row"><span>${t('Spoilers en comentarios')}</span>${seg('spoilers', [['hide', 'Difuminar'], ['show', 'Mostrar']], cfg('spoilers'))}</div>
+      <div class="read-prev"><p class="reader-text">${t('Así se verá tu lectura. La luna asomó entre las nubes y el bosque guardó silencio.')}</p></div>
+      <div class="set-row"><span>${t('Música de los capítulos')}</span>${seg('music', [['ask', 'Preguntar siempre'], ['remember', 'Recordar mi elección']], cfg('music'))}</div>
+      <p class="helper" style="margin:0 0 6px">${t('«Recordar» abre sola la canción del capítulo si la última vez elegiste reproducirla (el navegador puede pedirte un toque antes).')}</p>
+      ${sw('skipReadAs', cfg('skipReadAs'), 'Saltar «Leer como…»', t('Usa siempre tu personaje activo{x}. Si no tienes uno activo, se te preguntará.', { x: act ? ` (${esc(act.name)})` : '' }))}</section>` },
+    contenido: { ico: '🔞', c: '#e0457b', t: 'Contenido +18', sub: isMinor(u) ? t('No disponible') : cfg('showMature') ? t('Visible') : t('Oculto'), body: () => `<section class="panel set-sec">${sw('showMature', cfg('showMature'), 'Mostrar contenido +18', isMinor(u) ? 'No está disponible para cuentas menores de 18 años.' : 'Si lo apagas, las historias para adultos se ocultan en Inicio, búsquedas y bibliotecas. Tus propias obras siempre se ven.', isMinor(u))}</section>` },
+    intereses: { ico: '🏷️', c: '#e09a2b', t: 'Tus intereses', sub: tn((u.interests || []).length, '{n} tema', '{n} temas'), body: () => `<section class="panel set-sec"><p class="helper" style="margin:0 0 4px">${t('Los temas que te gustan (mínimo uno).')}</p>${interestChips(u.interests || [], 'int-set')}</section>` },
+    bloqueos: { ico: '🚫', c: '#6b7280', t: 'Bloqueadas y silenciadas', sub: t('{a} bloqueadas · {b} silenciadas', { a: bl(S.user, 'blocked').length, b: bl(S.user, 'muted').length }), body: () => {
+      const row = (e, act, lab) => `<div class="cr-row"><span class="cr-rt">${userAvatar(e)} <b>${esc(uName(e))}</b></span><span class="cr-rb"><button class="button secondary sm" data-act="${act}" data-id="${esc(e)}">${t(lab)}</button></span></div>`, b = bl(S.user, 'blocked'), m = bl(S.user, 'muted');
+      return `<section class="panel set-sec"><h3>${t('Bloqueadas')}</h3><p class="helper">${t('No ves sus comentarios ni sus obras y no hay avisos entre ustedes.')}</p>${b.length ? b.map(e => row(e, 'unblock', 'Desbloquear')).join('') : '<p class="helper">' + t('No has bloqueado a nadie.') + '</p>'}</section>
+      <section class="panel set-sec"><h3>${t('Silenciadas')}</h3><p class="helper">${t('No ves sus comentarios ni recibes sus avisos, pero siguen pudiendo ver tu perfil.')}</p>${m.length ? m.map(e => row(e, 'unmute', 'Dejar de silenciar')).join('') : '<p class="helper">' + t('No has silenciado a nadie.') + '</p>'}</section>`; } },
+    notificaciones: { ico: '🔔', c: '#d9534f', t: 'Notificaciones', sub: t('{n} de 4 activadas', { n: nOn }), body: () => `<section class="panel set-sec">${sw('notif.chapter', n.chapter, 'Capítulos nuevos de mi biblioteca')}${sw('notif.like', n.like, 'Likes en mis obras')}${sw('notif.comment', n.comment, 'Comentarios en mis obras')}${sw('notif.follow', n.follow, 'Nuevos seguidores')}${sw('notif.mod', true, 'Avisos de moderación', 'Aprobado o rechazado, strikes e invitaciones: siempre activos.', true)}</section>` },
+    datos: { ico: '💾', c: '#2f9e7a', t: 'Tus datos', sub: t('Exportar, importar, borrar'), body: () => `<section class="panel set-sec"><p class="helper" style="margin:0 0 10px">${t('Hoy tus datos viven en este navegador. Haz una copia para llevarlos a otro dispositivo o editor.')}</p>
+      <div class="set-btns"><button class="button secondary" data-act="export-file">${t('⬇ Exportar mis datos (archivo)')}</button><button class="button secondary" data-act="export-copy">${t('📋 Copiar mis datos')}</button>
+      <label class="button secondary" style="cursor:pointer">${t('⬆ Importar desde archivo')}<input id="import-file" type="file" accept="application/json,.json" hidden></label>
+      <button class="button danger" data-act="wipe-device">${t('🗑 Borrar datos de este dispositivo')}</button></div></section>` },
+    cuenta: { ico: '👤', c: '#5b6ee1', t: 'Cuenta', sub: isGuest() ? t('Invitado · crear cuenta o iniciar sesión') : S.user, body: () => isGuest() ? guestCard() : `<section class="panel set-sec"><div class="form-grid" style="grid-template-columns:1fr"><div class="form-group"><label for="ac-name">${t('Nombre de usuario')}</label><input id="ac-name" class="field" maxlength="30" value="${esc(u.name || '')}"></div>
+      <div class="form-group"><label for="ac-email">${t('Correo')}</label><input id="ac-email" type="email" class="field" value="${esc(S.user)}"></div>
+      <div class="form-group"><label for="ac-pass">${t('Contraseña actual')}</label><input id="ac-pass" type="password" class="field" autocomplete="current-password" placeholder="${esc(t('Solo para cambiar el correo'))}"></div></div>
+      <button class="button" style="margin-top:12px;width:100%" data-act="acct-save">${t('Guardar cambios de cuenta')}</button></section>
+      <section class="panel set-sec danger-zone"><h2>${t('⚠️ Zona de peligro')}</h2><p class="helper" style="margin:8px 0 12px">${t('Eliminar tu cuenta borra tus historias (publicadas, en revisión y borradores), biblioteca, personajes, comentarios, likes y seguidores. No se puede deshacer.')}</p><button class="button danger" data-act="acct-delete">${t('Eliminar cuenta')}</button></section>` },
+    acerca: { ico: 'ℹ️', c: '#7a869a', t: 'Acerca de', sub: t('Versión {v}', { v: APP_VERSION }), body: () => `<section class="panel set-sec"><div class="set-btns"><button class="button secondary" data-act="terms">${t('Términos y condiciones')}</button><button class="button secondary" data-act="privacy">${t('Política de privacidad')}</button><button class="button secondary" data-act="report">${t('Reportar un problema')}</button></div><p class="helper" style="margin:14px 0 0;text-align:center">${t('Auri · versión {v}', { v: APP_VERSION })}</p></section>` }
   };
   if (secId && SECS[secId]) {                                    // pantalla de una sección
     const x = SECS[secId];
-    return `<main class="page story-layout settings"><div class="set-head"><button class="icon-btn" data-act="set-back" aria-label="Volver a Ajustes">‹</button><h2><span class="set-ico" style="--c:${x.c}">${x.ico}</span>${x.t}</h2></div>${x.body()}</main>`;
+    return `<main class="page story-layout settings"><div class="set-head"><button class="icon-btn" data-act="set-back" aria-label="${esc(t('Volver a Ajustes'))}">‹</button><h2><span class="set-ico" style="--c:${x.c}">${x.ico}</span>${t(x.t)}</h2></div>${x.body()}</main>`;
   }
-  const item = id => { const x = SECS[id]; return `<a class="set-item" href="#/settings/${id}" data-dir="next"><span class="set-ico" style="--c:${x.c}">${x.ico}</span><span class="set-txt"><b>${x.t}</b><small>${esc(x.sub)}</small></span>${CHEV}</a>`; };
-  const group = (t, ids) => `<h3 class="set-group">${t}</h3><div class="set-list">${ids.map(item).join('')}</div>`;
-  const role = ROLE_LABEL[roleOf(S.user)];
-  return `<main class="page story-layout settings"><div class="set-head"><button class="icon-btn" data-act="settings-back" aria-label="Volver">‹</button><h2>Ajustes</h2></div>
-  <a class="set-me" style="${isGuest() ? 'display:none' : ''}" href="#/profile" data-dir="next">${userAvatar(S.user, 'big')}<span class="set-txt"><b>${esc(u.name || 'Mi cuenta')}</b><small>${esc(S.user)}</small>${role ? `<em class="role-tag ${roleOf(S.user).toLowerCase()}">🛡 ${role}</em>` : ''}</span>${CHEV}</a>
+  const item = id => { const x = SECS[id]; return `<a class="set-item" href="#/settings/${id}" data-dir="next"><span class="set-ico" style="--c:${x.c}">${x.ico}</span><span class="set-txt"><b>${t(x.t)}</b><small>${esc(x.sub)}</small></span>${CHEV}</a>`; };
+  const group = (g, ids) => `<h3 class="set-group">${t(g)}</h3><div class="set-list">${ids.map(item).join('')}</div>`;
+  const role = t(ROLE_LABEL[roleOf(S.user)]);
+  return `<main class="page story-layout settings"><div class="set-head"><button class="icon-btn" data-act="settings-back" aria-label="${esc(t('Volver'))}">‹</button><h2>${t('Ajustes')}</h2></div>
+  <a class="set-me" style="${isGuest() ? 'display:none' : ''}" href="#/profile" data-dir="next">${userAvatar(S.user, 'big')}<span class="set-txt"><b>${esc(u.name || t('Mi cuenta'))}</b><small>${esc(S.user)}</small>${role ? `<em class="role-tag ${roleOf(S.user).toLowerCase()}">🛡 ${role}</em>` : ''}</span>${CHEV}</a>
   ${isGuest() ? group('Cuenta', ['cuenta']) + group('Preferencias', ['apariencia', 'lectura']) + group('Ayuda', ['acerca']) : group('Cuenta', ['cuenta', 'intereses', 'bloqueos']) + group('Preferencias', ['apariencia', 'lectura', 'contenido', 'notificaciones']) + group('Datos y ayuda', ['datos', 'acerca'])}
-  <button class="button danger set-logout" data-act="logout">${isGuest() ? 'Salir del modo invitado' : 'Cerrar sesión'}</button></main>`;
+  <button class="button danger set-logout" data-act="logout">${isGuest() ? t('Salir del modo invitado') : t('Cerrar sesión')}</button></main>`;
 }
 
 /* --- Biblioteca --- */
@@ -1649,14 +1650,14 @@ function sagaBox() {                              // solo existe si la persona y
 }
 function libRow(s, i) {                           // fila de la biblioteca / colecciones con barra de progreso
   const p = bookProgress(s), ph = s.phase || 'ongoing', id = esc(s.id);
-  const acts = TAB === 'col' ? `<button class="button ghost sm" data-act="col-del" data-id="${id}">Quitar de colecciones</button>`
-    : p.finished ? `<button class="button secondary sm" data-act="lib-del" data-id="${id}">🗑️ Borrar de la biblioteca</button><button class="button sm" data-act="col-add" data-id="${id}">⭐ Guardar en colecciones</button>`
-    : `<button class="icon-btn" data-act="lib-del" data-id="${id}" aria-label="Quitar de la biblioteca" title="Quitar de la biblioteca">🗑</button>`;
+  const acts = TAB === 'col' ? `<button class="button ghost sm" data-act="col-del" data-id="${id}">${t('Quitar de colecciones')}</button>`
+    : p.finished ? `<button class="button secondary sm" data-act="lib-del" data-id="${id}">${t('🗑️ Borrar de la biblioteca')}</button><button class="button sm" data-act="col-add" data-id="${id}">${t('⭐ Guardar en colecciones')}</button>`
+    : `<button class="icon-btn" data-act="lib-del" data-id="${id}" aria-label="${esc(t('Quitar de la biblioteca'))}" title="${esc(t('Quitar de la biblioteca'))}">🗑</button>`;
   return `<article class="row-card">${coverHTML(s, i)}<div class="row-info"><a href="#/story/${id}"><strong class="serif">${esc(s.title)}</strong></a>
     <div class="story-meta">${esc(s.author || '')} · <span class="pill ph-${ph}">${t(PHASE[ph])}</span></div><div class="pbar"><i data-key="b-${esc(s.id)}" data-w="${p.pct}" style="width:${p.pct}%"></i></div>
-    <div class="story-meta"><b class="plabel ${p.finished ? 'done' : p.caught ? 'caught' : ''}">${p.label}</b>${!p.caught && p.done ? ` · ${p.left} por leer` : ''} · ${p.done}/${p.total} cap.</div>
+    <div class="story-meta"><b class="plabel ${p.finished ? 'done' : p.caught ? 'caught' : ''}">${t(p.label)}</b>${!p.caught && p.done ? ` · ${t('{n} por leer', { n: p.left })}` : ''} · ${t('{d}/{n} cap.', { d: p.done, n: p.total })}</div>
     ${p.caught && !p.finished && TAB === 'lib' ? `<p class="notice">${esc(moreNotice(s, true))}</p>` : ''}
-    <div class="card-footer" style="justify-content:flex-start;flex-wrap:wrap"><a class="button secondary sm" href="#/story/${id}">Abrir</a>${acts}</div></div></article>`;
+    <div class="card-footer" style="justify-content:flex-start;flex-wrap:wrap"><a class="button secondary sm" href="#/story/${id}">${t('Abrir')}</a>${acts}</div></div></article>`;
 }
 let TAB = 'lib';
 function libraryView() {
@@ -1665,13 +1666,13 @@ function libraryView() {
   const l = lists[TAB], tabs = [['lib', 'Mi biblioteca'], ['col', 'Colecciones'], ['fav', 'Favoritos'], ['read', 'Progreso de lectura'], ['draft', 'Borradores y revisión']];
   const ids = { lib: S.lib, col: S.cols, fav: S.favs, read: Object.keys(S.progress || {}) }, minor = isMinor(getUsers()[S.user]);
   const lockedL = ids[TAB] ? publishedStories().filter(x => x.mature && !matureOK(x) && ids[TAB].includes(x.id)) : [];
-  const lockCard = x => `<article class="row-card locked"><div class="lock-cv">+18</div><div class="row-info"><strong class="serif">Obra no disponible</strong><p class="helper" style="margin:2px 0 8px">${minor ? 'Esta obra cambió de clasificación y ya no está disponible.' : 'Obra +18 oculta por la configuración de contenido.'}</p><button type="button" class="button ghost sm" data-act="lock-remove" data-id="${esc(x.id)}">Quitar de aquí</button></div></article>`;
-  const body = !l.length && !lockedL.length ? empty(TAB === 'draft' ? 'Aún no tienes borradores' : 'Este estante está vacío', 'Cuando guardes historias aparecerán aquí.', `<a class="button secondary" href="${TAB === 'draft' ? '#/write' : '#/'}">${TAB === 'draft' ? 'Escribir una historia' : 'Buscar una historia'}</a>`)
-    : `<div class="story-grid">${l.map((s, i) => TAB === 'draft' ? `<article class="row-card">${coverHTML(s, i)}<div class="row-info"><a href="#/write/${esc(s.id)}/chapters"><strong class="serif">${esc(s.title || 'Sin título')}</strong></a>
-      <div class="story-meta">${STATUS[storyState(s)]} · ${s.chapters.length} cap. · actualizado el ${esc(s.updatedAt)} ${s.mature ? '<span class="dot18" style="display:inline-grid;vertical-align:middle">+18</span>' : ''}</div>${statusNote(s) ? `<p class="notice">${esc(statusNote(s))}</p>` : ''}
-      <div class="card-footer" style="justify-content:flex-start"><a class="button secondary sm" href="#/write/${esc(s.id)}/chapters">Seguir escribiendo</a>${storyState(s) !== 'published' ? `<button class="icon-btn" data-act="delete" data-id="${esc(s.id)}" aria-label="Eliminar">🗑</button>` : ''}</div></div></article>` : TAB === 'lib' || TAB === 'col' ? libRow(s, i) : storyCard(s, i)).join('')}${lockedL.map(lockCard).join('')}</div>`;
-  return `<main class="page"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">Tus estantes</span><h2 style="margin-top:8px">Un lugar para lo que te gusta</h2></div><a class="button" href="#/write">Empezar a escribir</a></div>
-  <div class="tabs" role="tablist">${tabs.map(([k, n]) => `<button class="tab ${TAB === k ? 'active' : ''}" data-act="tab" data-id="${k}">${n}</button>`).join('')}</div>${body}</main>`;
+  const lockCard = x => `<article class="row-card locked"><div class="lock-cv">+18</div><div class="row-info"><strong class="serif">${t('Obra no disponible')}</strong><p class="helper" style="margin:2px 0 8px">${minor ? t('Esta obra cambió de clasificación y ya no está disponible.') : t('Obra +18 oculta por la configuración de contenido.')}</p><button type="button" class="button ghost sm" data-act="lock-remove" data-id="${esc(x.id)}">${t('Quitar de aquí')}</button></div></article>`;
+  const body = !l.length && !lockedL.length ? empty(TAB === 'draft' ? 'Aún no tienes borradores' : 'Este estante está vacío', 'Cuando guardes historias aparecerán aquí.', `<a class="button secondary" href="${TAB === 'draft' ? '#/write' : '#/'}">${TAB === 'draft' ? t('Escribir una historia') : t('Buscar una historia')}</a>`)
+    : `<div class="story-grid">${l.map((s, i) => TAB === 'draft' ? `<article class="row-card">${coverHTML(s, i)}<div class="row-info"><a href="#/write/${esc(s.id)}/chapters"><strong class="serif">${esc(s.title || t('Sin título'))}</strong></a>
+      <div class="story-meta">${t(STATUS[storyState(s)])} · ${t('{n} cap.', { n: s.chapters.length })} · ${t('actualizado el {d}', { d: esc(s.updatedAt) })} ${s.mature ? '<span class="dot18" style="display:inline-grid;vertical-align:middle">+18</span>' : ''}</div>${statusNote(s) ? `<p class="notice">${esc(statusNote(s))}</p>` : ''}
+      <div class="card-footer" style="justify-content:flex-start"><a class="button secondary sm" href="#/write/${esc(s.id)}/chapters">${t('Seguir escribiendo')}</a>${storyState(s) !== 'published' ? `<button class="icon-btn" data-act="delete" data-id="${esc(s.id)}" aria-label="${esc(t('Eliminar'))}">🗑</button>` : ''}</div></div></article>` : TAB === 'lib' || TAB === 'col' ? libRow(s, i) : storyCard(s, i)).join('')}${lockedL.map(lockCard).join('')}</div>`;
+  return `<main class="page"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('Tus estantes')}</span><h2 style="margin-top:8px">${t('Un lugar para lo que te gusta')}</h2></div><a class="button" href="#/write">${t('Empezar a escribir')}</a></div>
+  <div class="tabs" role="tablist">${tabs.map(([k, n]) => `<button class="tab ${TAB === k ? 'active' : ''}" data-act="tab" data-id="${k}">${t(n)}</button>`).join('')}</div>${body}</main>`;
 }
 
 /* --- Comentarios --- */
@@ -1710,12 +1711,12 @@ function profileHero(e, own) {
   const u = getUsers()[e] || {}, pubs = publishedStories().filter(s => s.owner === e), has = typeof u.banner === 'string' && /^data:image\//.test(u.banner);
   const stat = (n, l) => `<span class="pf-stat"><b>${n}</b><small>${l}</small></span>`;
   return `<section class="pf-hero"><div class="pf-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>
-    ${own ? `<div class="pf-bn-btns"><label class="button secondary sm" style="cursor:pointer">🖼 ${has ? 'Cambiar portada' : 'Añadir portada'}<input id="bn-file" type="file" accept="image/*" hidden></label>${has ? '<button class="button ghost sm" data-act="bn-clear">Quitar</button>' : ''}</div>` : ''}
+    ${own ? `<div class="pf-bn-btns"><label class="button secondary sm" style="cursor:pointer">🖼 ${has ? t('Cambiar portada') : t('Añadir portada')}<input id="bn-file" type="file" accept="image/*" hidden></label>${has ? '<button class="button ghost sm" data-act="bn-clear">' + t('Quitar') + '</button>' : ''}</div>` : ''}
     <div class="pf-fade"></div>
-    <div class="pf-stats4">${stat(followers(e).length, 'Seguidores')}${stat(likesReceived(e), 'Likes')}${stat(pubs.length, 'Libros')}${stat(following(e).length, 'Siguiendo')}</div></div></section>`;
+    <div class="pf-stats4">${stat(followers(e).length, t('Seguidores'))}${stat(likesReceived(e), t('Likes'))}${stat(pubs.length, t('Libros'))}${stat(following(e).length, t('Siguiendo'))}</div></div></section>`;
 }
-const worksGrid = list => list.length ? `<div class="story-grid">${list.map(storyCard).join('')}</div>` : empty('Aún no hay obras publicadas', 'Cuando se publique una historia aparecerá aquí.', '<a class="button secondary" href="#/write">Escribir una historia</a>');
-const profileExtras = () => isStaff() ? `<section class="panel" style="margin-top:22px"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>🛡 Moderación</strong><div class="helper">Capítulos por revisar${pendingBooks().length ? ` (${pendingBooks().length} libro(s))` : ''}. Reportes abiertos: ${openReports()}.</div></div><a class="button secondary" href="#/moderation${openReports() && !pendingBooks().length ? '/reports' : ''}">Abrir</a></div></section>` : '';
+const worksGrid = list => list.length ? `<div class="story-grid">${list.map(storyCard).join('')}</div>` : empty('Aún no hay obras publicadas', 'Cuando se publique una historia aparecerá aquí.', '<a class="button secondary" href="#/write">' + t('Escribir una historia') + '</a>');
+const profileExtras = () => isStaff() ? `<section class="panel" style="margin-top:22px"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>${t('🛡 Moderación')}</strong><div class="helper">${t('Capítulos por revisar')}${pendingBooks().length ? ' (' + tn(pendingBooks().length, '{n} libro', '{n} libros') + ')' : ''}. ${t('Reportes abiertos: {n}.', { n: openReports() })}</div></div><a class="button secondary" href="#/moderation${openReports() && !pendingBooks().length ? '/reports' : ''}">${t('Abrir')}</a></div></section>` : '';
 function readersOf(sid, owner) {
   const us = LS.get('auri.users', {}), out = [];
   for (const e in us) { if (e === owner) continue; const p = LS.get('auri.u.' + e + '.progress', {})[sid], r = Array.isArray(p) ? p : p ? [0] : [];
@@ -1723,45 +1724,45 @@ function readersOf(sid, owner) {
   return out;
 }
 function statsView() {
-  const back = '<a class="button ghost sm" href="#/profile" data-dir="prev">‹ Mi perfil</a>';
+  const back = '<a class="button ghost sm" href="#/profile" data-dir="prev">' + t('‹ Mi perfil') + '</a>';
   const books = S.stories.map(s => ({ s, ps: publicPrefix(s.chapters) })).filter(x => x.ps.length).map(({ s, ps }) => {
     const R = readersOf(s.id, S.user), rd = R.filter(x => x.r.length), n = ps.length, per = ps.map((_, i) => rd.filter(x => x.r.includes(i)).length);
     let worst = -1, drop = 0; for (let i = 1; i < n; i++) if (per[i - 1] - per[i] > drop) { drop = per[i - 1] - per[i]; worst = i; }
     return { s, n, rd, per, fin: rd.filter(x => x.r.includes(n - 1)).length, libs: R.filter(x => x.lib).length, favs: R.filter(x => x.fav).length, lk: likes(s.id).length, cm: comments(s.id).length, worst, drop, ps };
   });
-  if (!books.length) return `<main class="page story-layout">${back}${empty('Aún no hay estadísticas', 'Cuando tengas una obra aprobada, aquí verás quién la lee, hasta dónde llegan y qué les gusta.', '<a class="button" href="#/write">Escribir una historia</a>')}</main>`;
+  if (!books.length) return `<main class="page story-layout">${back}${empty('Aún no hay estadísticas', 'Cuando tengas una obra aprobada, aquí verás quién la lee, hasta dónde llegan y qué les gusta.', '<a class="button" href="#/write">' + t('Escribir una historia') + '</a>')}</main>`;
   const uniq = new Set(); books.forEach(b => b.rd.forEach(x => uniq.add(x.e)));
   const sum = k => books.reduce((a, b) => a + b[k], 0), card = (n, l) => `<div class="st-card"><b>${n}</b><span>${l}</span></div>`;
-  return `<main class="page story-layout">${back}<div class="section-head"><div><span class="eyebrow">📊 Estadísticas</span><h2 style="margin-top:8px">Tus lectores</h2><p>Qué pasa con tus obras publicadas.</p></div></div>
-  <div class="st-cards">${card(uniq.size, 'lectores')}${card(sum('lk'), 'likes')}${card(sum('cm'), 'comentarios')}${card(sum('libs'), 'en bibliotecas')}</div>
+  return `<main class="page story-layout">${back}<div class="section-head"><div><span class="eyebrow">${t('📊 Estadísticas')}</span><h2 style="margin-top:8px">${t('Tus lectores')}</h2><p>${t('Qué pasa con tus obras publicadas.')}</p></div></div>
+  <div class="st-cards">${card(uniq.size, t('lectores'))}${card(sum('lk'), t('likes'))}${card(sum('cm'), t('comentarios'))}${card(sum('libs'), t('en bibliotecas'))}</div>
   ${books.map(b => { const mx = Math.max(1, ...b.per); return `<section class="panel st-book"><h3 class="serif">${esc(b.s.title)}</h3>
-    <div class="st-mini"><span>👀 ${b.rd.length} lector${b.rd.length === 1 ? '' : 'es'}</span><span>🏁 ${b.fin} terminaron</span><span>📚 ${b.libs} en biblioteca</span><span>♥ ${b.favs} favoritos</span><span class="hrt-i">${HEART} ${b.lk}</span><span>💬 ${b.cm}</span></div>
-    <h4>Lectores por capítulo</h4>${b.ps.map((c, i) => `<div class="st-row"><span class="st-l">Cap. ${i + 1}</span><span class="st-bar"><i style="width:${Math.round(b.per[i] / mx * 100)}%"></i></span><span class="st-n">${b.per[i]}</span></div>`).join('')}
-    ${b.worst > 0 && b.drop > 0 ? `<p class="helper">La mayor caída es entre el capítulo ${b.worst} y el ${b.worst + 1}: ${b.drop} lector${b.drop === 1 ? '' : 'es'} menos. Quizá valga la pena revisar ese tramo.</p>` : ''}</section>`; }).join('')}
-  <p class="notice">Por ahora se cuentan solo las cuentas de este dispositivo. Con el servidor se sumarán todas las lecturas.</p></main>`;
+    <div class="st-mini"><span>👀 ${tn(b.rd.length, '{n} lector', '{n} lectores')}</span><span>🏁 ${t('{n} terminaron', { n: b.fin })}</span><span>📚 ${t('{n} en biblioteca', { n: b.libs })}</span><span>♥ ${t('{n} favoritos', { n: b.favs })}</span><span class="hrt-i">${HEART} ${b.lk}</span><span>💬 ${b.cm}</span></div>
+    <h4>${t('Lectores por capítulo')}</h4>${b.ps.map((c, i) => `<div class="st-row"><span class="st-l">${t('Cap. {n}', { n: i + 1 })}</span><span class="st-bar"><i style="width:${Math.round(b.per[i] / mx * 100)}%"></i></span><span class="st-n">${b.per[i]}</span></div>`).join('')}
+    ${b.worst > 0 && b.drop > 0 ? `<p class="helper">${tn(b.drop, 'La mayor caída es entre el capítulo {a} y el {b}: {n} lector menos. Quizá valga la pena revisar ese tramo.', 'La mayor caída es entre el capítulo {a} y el {b}: {n} lectores menos. Quizá valga la pena revisar ese tramo.', { a: b.worst, b: b.worst + 1 })}</p>` : ''}</section>`; }).join('')}
+  <p class="notice">${t('Por ahora se cuentan solo las cuentas de este dispositivo. Con el servidor se sumarán todas las lecturas.')}</p></main>`;
 }
 function profileView() {
   const u = getUsers()[S.user] || {}, works = S.stories.filter(s => storyState(s) !== 'draft').map(s => ({ ...s, owner: S.user, author: u.name }));
-  const sk = strikesOf(S.user), role = ROLE_LABEL[roleOf(S.user)];
-  return `<main class="page">${profileHero(S.user, true)}${sk.length ? `<a class="strike-line" href="#/strike/${esc(sk[sk.length - 1].id)}">⚠️ Tienes ${sk.length} strike${sk.length === 1 ? '' : 's'} · ver detalle</a>` : ''}<div class="panel pf-edit"><div class="pf-top"><div class="pf-photo">${frWrap(S.user, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}</div>
-  <div class="pf-title"><h2 class="serif">${esc(u.name || 'Mi perfil')}</h2>${role ? `<span class="role-tag ${roleOf(S.user).toLowerCase()}">🛡 ${role}</span>` : ''}
-  <div class="pf-btns"><label class="button secondary sm" style="cursor:pointer">📷 ${u.avatar ? 'Cambiar foto' : 'Añadir foto'}<input id="av-file" type="file" accept="image/*" hidden></label>${u.avatar ? '<button class="button ghost sm" data-act="av-clear">Quitar foto</button>' : ''}${isOwner() ? `<button class="button ghost sm" data-act="owner-frame">${u.frameOn === false ? 'Ponerme el marco' : 'Quitar marco'}</button>` : ''}</div></div></div>
-  <form data-form="myprofile" class="pf-form"><div class="form-group"><label for="pf-name">Usuario</label><input id="pf-name" class="field" maxlength="30" value="${esc(u.name)}"></div>
-  <div class="form-group"><label for="pf-bio">Biografía</label><textarea id="pf-bio" class="textarea" maxlength="300" placeholder="Cuéntales algo sobre ti…">${esc(u.bio || '')}</textarea></div>
-  <button class="button" type="submit">Guardar perfil</button></form></div>
-  <div class="section-head"><h2>Mis obras</h2><span style="display:flex;gap:8px"><a class="button ghost sm" href="#/stats" data-dir="next">📊 Estadísticas</a><a class="button sm" href="#/write">＋ Nueva</a></span></div>${worksGrid(works)}
+  const sk = strikesOf(S.user), role = t(ROLE_LABEL[roleOf(S.user)]);
+  return `<main class="page">${profileHero(S.user, true)}${sk.length ? `<a class="strike-line" href="#/strike/${esc(sk[sk.length - 1].id)}">⚠️ ${tn(sk.length, 'Tienes {n} strike', 'Tienes {n} strikes')} · ${t('ver detalle')}</a>` : ''}<div class="panel pf-edit"><div class="pf-top"><div class="pf-photo">${frWrap(S.user, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}</div>
+  <div class="pf-title"><h2 class="serif">${esc(u.name || t('Mi perfil'))}</h2>${role ? `<span class="role-tag ${roleOf(S.user).toLowerCase()}">🛡 ${role}</span>` : ''}
+  <div class="pf-btns"><label class="button secondary sm" style="cursor:pointer">📷 ${u.avatar ? t('Cambiar foto') : t('Añadir foto')}<input id="av-file" type="file" accept="image/*" hidden></label>${u.avatar ? '<button class="button ghost sm" data-act="av-clear">' + t('Quitar foto') + '</button>' : ''}${isOwner() ? `<button class="button ghost sm" data-act="owner-frame">${u.frameOn === false ? t('Ponerme el marco') : t('Quitar marco')}</button>` : ''}</div></div></div>
+  <form data-form="myprofile" class="pf-form"><div class="form-group"><label for="pf-name">${t('Usuario')}</label><input id="pf-name" class="field" maxlength="30" value="${esc(u.name)}"></div>
+  <div class="form-group"><label for="pf-bio">${t('Biografía')}</label><textarea id="pf-bio" class="textarea" maxlength="300" placeholder="${esc(t('Cuéntales algo sobre ti…'))}">${esc(u.bio || '')}</textarea></div>
+  <button class="button" type="submit">${t('Guardar perfil')}</button></form></div>
+  <div class="section-head"><h2>${t('Mis obras')}</h2><span style="display:flex;gap:8px"><a class="button ghost sm" href="#/stats" data-dir="next">${t('📊 Estadísticas')}</a><a class="button sm" href="#/write">${t('＋ Nueva')}</a></span></div>${worksGrid(works)}
   ${charsSection()}${profileExtras()}</main>`;
 }
 function userView(e) {
   const u = getUsers()[e];
-  if (!u) return `<main class="page">${empty('Perfil no encontrado', 'Esta persona no existe en este dispositivo.', '<a class="button" href="#/">Volver</a>')}</main>`;
+  if (!u) return `<main class="page">${empty('Perfil no encontrado', 'Esta persona no existe en este dispositivo.', '<a class="button" href="#/">' + t('Volver') + '</a>')}</main>`;
   const works = publishedStories().filter(s => s.owner === e && matureOK(s)), fl = following(S.user).includes(e);
   return `<main class="page">${profileHero(e, false)}<div class="profile-head panel"><div class="pf-avatar">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}</div>
-  <div class="pf-form"><h2 class="serif" style="font-size:27px;margin:0">${esc(u.name)}</h2>${ROLE_LABEL[roleOf(e)] ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${ROLE_LABEL[roleOf(e)]}</span>` : ''}<p style="color:var(--soft);line-height:1.6;margin:0">${esc(u.bio || 'Esta persona aún no escribió su biografía.')}</p>
-  <button class="button ${fl ? 'secondary' : ''}" data-act="follow" data-id="${esc(e)}">${fl ? 'Siguiendo ✓' : '＋ Seguir'}</button>
-  ${dmWhy(S.user, e) === '' ? `<a class="button secondary" href="#/messages/${encodeURIComponent(e)}" data-dir="next">Mensaje</a>` : `<button type="button" class="button ghost" data-act="dm-why" data-id="${esc(e)}">Mensaje</button>`}
-  <div class="pf-more"><button class="button ghost sm" data-act="${iMute(e) ? 'unmute' : 'mute'}" data-id="${esc(e)}">${iMute(e) ? '🔔 Dejar de silenciar' : '🔇 Silenciar'}</button><button class="button ghost sm" data-act="${iBlock(e) ? 'unblock' : 'block'}" data-id="${esc(e)}">${iBlock(e) ? '✅ Desbloquear' : '🚫 Bloquear'}</button><button class="button ghost sm" data-act="report-user" data-id="${esc(e)}">Reportar</button></div></div></div>
-  ${repHistory(e)}${admMenu(e)}<div class="section-head"><h2>Obras de ${esc(u.name)}</h2></div>${worksGrid(works)}</main>`;
+  <div class="pf-form"><h2 class="serif" style="font-size:27px;margin:0">${esc(u.name)}</h2>${ROLE_LABEL[roleOf(e)] ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(ROLE_LABEL[roleOf(e)])}</span>` : ''}<p style="color:var(--soft);line-height:1.6;margin:0">${esc(u.bio || t('Esta persona aún no escribió su biografía.'))}</p>
+  <button class="button ${fl ? 'secondary' : ''}" data-act="follow" data-id="${esc(e)}">${fl ? t('Siguiendo ✓') : t('＋ Seguir')}</button>
+  ${dmWhy(S.user, e) === '' ? `<a class="button secondary" href="#/messages/${encodeURIComponent(e)}" data-dir="next">${t('Mensaje')}</a>` : `<button type="button" class="button ghost" data-act="dm-why" data-id="${esc(e)}">${t('Mensaje')}</button>`}
+  <div class="pf-more"><button class="button ghost sm" data-act="${iMute(e) ? 'unmute' : 'mute'}" data-id="${esc(e)}">${iMute(e) ? t('🔔 Dejar de silenciar') : t('🔇 Silenciar')}</button><button class="button ghost sm" data-act="${iBlock(e) ? 'unblock' : 'block'}" data-id="${esc(e)}">${iBlock(e) ? t('✅ Desbloquear') : t('🚫 Bloquear')}</button><button class="button ghost sm" data-act="report-user" data-id="${esc(e)}">${t('Reportar')}</button></div></div></div>
+  ${repHistory(e)}${admMenu(e)}<div class="section-head"><h2>${t('Obras de {n}', { n: esc(u.name) })}</h2></div>${worksGrid(works)}</main>`;
 }
 
 /* --- Strikes, suspensión y menú de administración --- */
@@ -1882,7 +1883,7 @@ function openBookPicker() {
   const list = m.querySelector('.bp-list');
   const src = () => { const all = publishedStories().filter(matureOK); return (tab === 'favs' ? all.filter(x => S.favs.includes(x.id)) : tab === 'lib' ? all.filter(x => S.lib.includes(x.id)) : all).filter(x => !q || `${x.title} ${x.author}`.toLowerCase().includes(q)); };
   const paint = () => { const on = new Set(crAll().filter(b => b.kind === 'book').map(b => b.storyId)), l = src();
-    list.innerHTML = l.length ? l.map((x, i) => `<button type="button" class="bp-item" data-id="${esc(x.id)}"><span class="bp-cv">${coverHTML(x, i)}</span><span class="bp-t"><b>${esc(x.title)}</b><small>por ${esc(x.author || '')}</small></span>${on.has(x.id) ? '<span class="pill">En el banner ✓</span>' : '<span class="bp-add">＋</span>'}</button>`).join('')
+    list.innerHTML = l.length ? l.map((x, i) => `<button type="button" class="bp-item" data-id="${esc(x.id)}"><span class="bp-cv">${coverHTML(x, i)}</span><span class="bp-t"><b>${esc(x.title)}</b><small>${t('por {a}', { a: esc(x.author || '') })}</small></span>${on.has(x.id) ? '<span class="pill">En el banner ✓</span>' : '<span class="bp-add">＋</span>'}</button>`).join('')
       : `<p class="helper" style="text-align:center;margin:18px 0">${tab === 'favs' ? 'Aún no tienes libros favoritos.' : tab === 'lib' ? 'Tu biblioteca está vacía.' : 'No hay libros publicados.'}</p>`; };
   m.querySelector('[data-x]').onclick = () => m.remove(); m.onclick = ev => { if (ev.target === m) m.remove(); };
   m.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; m.querySelectorAll('[data-t]').forEach(x => x.classList.toggle('active', x === b)); paint(); });
@@ -1972,50 +1973,52 @@ const newsBody = n => newsBlocks(n).map(b => `${b.t ? `<p>${esc(b.t)}</p>` : ''}
 function newsView(nid) {
   if (nid) {                                           // publicación completa (al tocar «Leer noticia» en el banner)
     let n = news().find(x => String(x.id) === String(decodeURIComponent(nid))); if (n && !pubOK(n) && !(canBan() || ownsPost(n))) n = null;
-    return `<main class="page story-layout"><a class="button ghost sm" href="#/news" data-dir="prev">‹ Todas las noticias</a>${n ? `<article class="panel news-item news-full" style="margin-top:14px"><span class="tag">${esc(n.type)}</span> <span class="helper">${esc(n.date)}${n.edited ? ' · editado' : ''}</span><h2 class="serif" style="margin:10px 0 14px">${esc(n.title)}</h2>${newsBody(n)}<div class="news-by">${n.anon && !isOwner() ? '' : userAvatar(n.by || OWNER_EMAIL)}<span>Publicado por <b>${esc(byline(n))}</b>${!pubOK(n) ? ` · ${n.status === 'pending' ? 'en revisión' : 'rechazada'}` : ''}</span></div></article>` : empty('Noticia no encontrada', 'Puede que se haya eliminado.', '<a class="button" href="#/news">Ver noticias</a>')}</main>`;
+    return `<main class="page story-layout"><a class="button ghost sm" href="#/news" data-dir="prev">${t('‹ Todas las noticias')}</a>${n ? `<article class="panel news-item news-full" style="margin-top:14px"><span class="tag">${esc(t(n.type))}</span> <span class="helper">${esc(fmtDate(n.date) || n.date)}${n.edited ? ' · ' + t('editado') : ''}</span><h2 class="serif" style="margin:10px 0 14px">${esc(n.title)}</h2>${newsBody(n)}<div class="news-by">${n.anon && !isOwner() ? '' : userAvatar(n.by || OWNER_EMAIL)}<span>${t('Publicado por')} <b>${esc(byline(n))}</b>${!pubOK(n) ? ` · ${n.status === 'pending' ? t('en revisión') : t('rechazada')}` : ''}</span></div></article>` : empty('Noticia no encontrada', 'Puede que se haya eliminado.', '<a class="button" href="#/news">' + t('Ver noticias') + '</a>')}</main>`;
   }
   const list = newsPub(), pub = canNews();
-  return `<main class="page story-layout"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">📣 Noticias de Auri</span><h2 style="margin-top:8px">Novedades y eventos</h2></div></div>
+  return `<main class="page story-layout"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('📣 Noticias de Auri')}</span><h2 style="margin-top:8px">${t('Novedades y eventos')}</h2></div></div>
   ${pub ? crPanel() : ''}
   ${pub ? ndPanel() : ''}
   ${isMod() ? subsPanel() : ''}
   ${pub ? `<form class="panel" data-form="news" style="margin-bottom:20px"><h2>${NBEDIT ? '✏️ Editar anuncio publicado' : 'Publicar anuncio'}</h2><div class="form-grid" style="grid-template-columns:1fr">
   ${commPick('n-comm')}
-  <div class="form-group"><label for="n-type">Tipo</label><select id="n-type" class="select">${['Actualización', 'Evento', 'Aviso'].map(t => `<option ${NBM.type === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-  <div class="form-group"><label for="n-title">Título</label><input id="n-title" class="field" maxlength="80" value="${esc(NBM.title)}"></div>
+  <div class="form-group"><label for="n-type">${t('Tipo')}</label><select id="n-type" class="select">${['Actualización', 'Evento', 'Aviso'].map(o => `<option value="${o}" ${NBM.type === o ? 'selected' : ''}>${t(o)}</option>`).join('')}</select></div>
+  <div class="form-group"><label for="n-title">${t('Título')}</label><input id="n-title" class="field" maxlength="80" value="${esc(NBM.title)}"></div>
   <div id="nb-list">${NB.map(nbRow).join('')}</div>
-  <button type="button" class="button ghost sm" data-act="nb-add" style="width:fit-content">＋ Añadir párrafo</button>${NBEDIT ? '' : `<label class="check"><input type="checkbox" id="n-anon"> <span>Ocultar mi nombre (se muestra solo mi rol)</span></label>`}${isMod() ? '<p class="helper">Lo que publiques pasa primero por la aprobación de Administración y Owner.</p>' : ''}</div><div class="nb-btns">${NBEDIT ? '<button type="button" class="button ghost" data-act="news-edit-cancel">Cancelar</button><button class="button" type="submit">Guardar cambios</button>' : '<button type="button" class="button ghost" data-act="nd-save">💾 Guardar borrador</button><button class="button" type="submit">Publicar</button>'}</div></form>` : ''}
-  ${list.length ? list.map(n => { const cv = newsCover(n); return `<article id="news-${n.id}" class="panel news-item news-card ${cv ? 'has-img' : ''}"><div class="news-cardtxt"><span class="tag">${esc(n.type)}</span> <span class="helper">${esc(n.date)}${n.edited ? ' · editado' : ''}</span><div class="helper">Por ${esc(byline(n))}</div><h3>${esc(n.title)}</h3><p>${esc(clip(n.text, 150))}</p>
-    <div class="news-acts"><a class="button secondary sm" href="#/news/${n.id}" data-dir="next">Leer publicación</a>${ownsPost(n) ? `${canEditPost(n) ? `<button class="button secondary sm" data-act="news-edit" data-id="${n.id}">Editar</button>` : ''}<button class="button danger sm" data-act="news-del" data-id="${n.id}">Eliminar</button>` : ''}</div></div>${cv ? `<img class="news-thumb" src="${esc(cv)}" alt="" loading="lazy">` : ''}</article>`; }).join('') : empty('Aún no hay noticias', pub ? 'Publica tu primer anuncio arriba.' : 'Aquí aparecerán las actualizaciones y eventos de Auri.')}</main>`;
+  <button type="button" class="button ghost sm" data-act="nb-add" style="width:fit-content">${t('＋ Añadir párrafo')}</button>${NBEDIT ? '' : `<label class="check"><input type="checkbox" id="n-anon"> <span>${t('Ocultar mi nombre (se muestra solo mi rol)')}</span></label>`}${isMod() ? '<p class="helper">' + t('Lo que publiques pasa primero por la aprobación de Administración y Owner.') + '</p>' : ''}</div><div class="nb-btns">${NBEDIT ? '<button type="button" class="button ghost" data-act="news-edit-cancel">' + t('Cancelar') + '</button><button class="button" type="submit">' + t('Guardar cambios') + '</button>' : '<button type="button" class="button ghost" data-act="nd-save">' + t('💾 Guardar borrador') + '</button><button class="button" type="submit">' + t('Publicar') + '</button>'}</div></form>` : ''}
+  ${list.length ? list.map(n => { const cv = newsCover(n); return `<article id="news-${n.id}" class="panel news-item news-card ${cv ? 'has-img' : ''}"><div class="news-cardtxt"><span class="tag">${esc(t(n.type))}</span> <span class="helper">${esc(fmtDate(n.date) || n.date)}${n.edited ? ' · ' + t('editado') : ''}</span><div class="helper">${t('Por {n}', { n: esc(byline(n)) })}</div><h3>${esc(n.title)}</h3><p>${esc(clip(n.text, 150))}</p>
+    <div class="news-acts"><a class="button secondary sm" href="#/news/${n.id}" data-dir="next">${t('Leer publicación')}</a>${ownsPost(n) ? `${canEditPost(n) ? `<button class="button secondary sm" data-act="news-edit" data-id="${n.id}">${t('Editar')}</button>` : ''}<button class="button danger sm" data-act="news-del" data-id="${n.id}">${t('Eliminar')}</button>` : ''}</div></div>${cv ? `<img class="news-thumb" src="${esc(cv)}" alt="" loading="lazy">` : ''}</article>`; }).join('') : empty('Aún no hay noticias', pub ? 'Publica tu primer anuncio arriba.' : 'Aquí aparecerán las actualizaciones y eventos de Auri.')}</main>`;
 }
 
 const notifHref = n => n.type === 'chapter' ? '#/story/' + n.storyId + '/' + n.extra : n.type === 'follow' ? '#/user/' + encodeURIComponent(n.from) : n.type === 'review' ? '#/moderation' : n.type === 'rejected' ? '#/write/' + n.storyId + '/chapters' : '#/story/' + n.storyId;
 /* --- Notificaciones --- */
-const notifWhat = n => { const t = esc((findStory(n.storyId) || {}).title || 'una obra eliminada');
-  return { follow: 'empezó a seguirte', like: `le dio like a tu obra «${t}»`, comment: `comentó en «${t}»: “${esc(n.extra)}”`, review: `envió ${n.chap ? `«${esc(n.chap)}» de ` : ''}«${esc(n.extra)}» a revisión`,
-    chapter: `publicó ${/^\d+ cap/.test(n.chap) ? esc(n.chap) : `el capítulo «${esc(n.chap)}»`} en «${t}»`,
-    reply: `respondió tu comentario en «${t}»: “${esc(n.extra)}”`, clike: `le dio like a tu comentario en «${t}»`,
-    approved: `aprobó ${n.chap ? `el capítulo «${esc(n.chap)}» de ` : 'tu obra '}«${t}»: ya se ve en la app 🎉`, rejected: `rechazó ${n.chap ? `el capítulo «${esc(n.chap)}» de ` : 'tu obra '}«${t}». Motivo: ${esc(n.extra)}` }[n.type] || ''; };
+const notifWhat = n => { const ti = esc((findStory(n.storyId) || {}).title || t('una obra eliminada')), x = esc(n.extra), c = esc(n.chap), V = { ti, x, c };
+  const chap = /^\d+ cap/.test(n.chap) ? t('{n} capítulos nuevos', { n: parseInt(n.chap, 10) }) : t('el capítulo «{c}»', V);
+  return { follow: t('empezó a seguirte'), like: t('le dio like a tu obra «{ti}»', V), comment: t('comentó en «{ti}»: “{x}”', V), review: n.chap ? t('envió «{c}» de «{x}» a revisión', V) : t('envió «{x}» a revisión', V),
+    chapter: t('publicó {chap} en «{ti}»', { ti, chap }),
+    reply: t('respondió tu comentario en «{ti}»: “{x}”', V), clike: t('le dio like a tu comentario en «{ti}»', V),
+    approved: n.chap ? t('aprobó el capítulo «{c}» de «{ti}»: ya se ve en la app 🎉', V) : t('aprobó tu obra «{ti}»: ya se ve en la app 🎉', V),
+    rejected: n.chap ? t('rechazó el capítulo «{c}» de «{ti}». Motivo: {x}', V) : t('rechazó tu obra «{ti}». Motivo: {x}', V) }[n.type] || ''; };
 const SYS_T = ['strike', 'modinvite', 'sys'];
 function sysNotif(n) {
-  const d = `<div class="helper">${esc(n.date.slice(0, 10))}</div>`, cls = `notif sys ${n.read ? '' : 'new'}`;
-  if (n.type === 'strike') return `<a class="${cls}" href="#/strike/${esc(n.extra)}"><span class="sys-ic">⚠️</span><div><strong>¡Has recibido un strike!</strong> Toca para ver más información${d}</div></a>`;
-  if (n.type === 'modinvite') return `<div class="${cls}"><span class="sys-ic">🛡</span><div>${n.role === 'ADMIN' ? '<strong>¡Felicidades!</strong> La Owner te ha invitado a formar parte de la administración de Auri Studios' : '<strong>¡Inspirador!</strong> La Owner te ha invitado a formar parte del equipo de moderación de Auri Studios'}${d}
-    ${n.done ? `<div class="helper"><b>${n.done === 'accepted' ? '✓ Aceptaste la invitación' : 'Rechazaste la invitación'}</b></div>` : `<div class="inv-btns"><button class="button sm" data-act="inv-accept" data-nid="${esc(n.id)}">Aceptar</button><button class="button ghost sm" data-act="inv-decline" data-nid="${esc(n.id)}">Rechazar</button></div>`}</div></div>`;
-  return n.href ? `<a class="${cls}" href="${esc(n.href)}"><span class="sys-ic">🛡</span><div>${esc(n.extra)}${d}</div></a>` : `<div class="${cls}"><span class="sys-ic">🛡</span><div>${esc(n.extra)}${d}</div></div>`;
+  const d = `<div class="helper">${esc(fmtDate(n.date))}</div>`, cls = `notif sys ${n.read ? '' : 'new'}`;
+  if (n.type === 'strike') return `<a class="${cls}" href="#/strike/${esc(n.extra)}"><span class="sys-ic">⚠️</span><div><strong>${t('¡Has recibido un strike!')}</strong> ${t('Toca para ver más información')}${d}</div></a>`;
+  if (n.type === 'modinvite') return `<div class="${cls}"><span class="sys-ic">🛡</span><div>${n.role === 'ADMIN' ? '<strong>' + t('¡Felicidades!') + '</strong> ' + t('La Owner te ha invitado a formar parte de la administración de Auri Studios') : '<strong>' + t('¡Inspirador!') + '</strong> ' + t('La Owner te ha invitado a formar parte del equipo de moderación de Auri Studios')}${d}
+    ${n.done ? `<div class="helper"><b>${n.done === 'accepted' ? t('✓ Aceptaste la invitación') : t('Rechazaste la invitación')}</b></div>` : `<div class="inv-btns"><button class="button sm" data-act="inv-accept" data-nid="${esc(n.id)}">${tx('Aceptar', 'inv')}</button><button class="button ghost sm" data-act="inv-decline" data-nid="${esc(n.id)}">${tx('Rechazar', 'inv')}</button></div>`}</div></div>`;
+  return n.href ? `<a class="${cls}" href="${esc(n.href)}"><span class="sys-ic">🛡</span><div>${esc(t(n.extra))}${d}</div></a>` : `<div class="${cls}"><span class="sys-ic">🛡</span><div>${esc(t(n.extra))}${d}</div></div>`;
 }
-const notifItem = n => SYS_T.includes(n.type) ? sysNotif(n) : `<a class="notif ${n.read ? '' : 'new'}" href="${esc(notifHref(n))}">${userAvatar(n.from)}<div><strong>${esc(['approved', 'rejected'].includes(n.type) ? 'Moderación' : uName(n.from))}</strong> ${notifWhat(n)}<div class="helper">${esc(n.date.slice(0, 10))}</div></div></a>`;
+const notifItem = n => SYS_T.includes(n.type) ? sysNotif(n) : `<a class="notif ${n.read ? '' : 'new'}" href="${esc(notifHref(n))}">${userAvatar(n.from)}<div><strong>${esc(['approved', 'rejected'].includes(n.type) ? t('Moderación') : uName(n.from))}</strong> ${notifWhat(n)}<div class="helper">${esc(fmtDate(n.date))}</div></div></a>`;
 /** Ventanita superpuesta (no cambia de pantalla) con botón X; al abrirla se marcan como leídas */
 function notifPop() {
   const k = 'auri.notifs.' + S.user, list = LS.get(k, []);
-  const html = `<div class="pop-back" data-act="notif-toggle"></div><section class="pop" role="dialog" aria-label="Notificaciones"><header class="pop-head"><strong>🔔 Notificaciones</strong><button class="icon-btn" data-act="notif-toggle" aria-label="Cerrar notificaciones">✕</button></header>
-  <div class="pop-body">${list.length ? list.map(notifItem).join('') : '<p class="helper pop-empty">Todavía no tienes notificaciones. Te avisaremos cuando alguien te siga, le dé like o comente tus obras, y cuando haya capítulos nuevos.</p>'}</div></section>`;
+  const html = `<div class="pop-back" data-act="notif-toggle"></div><section class="pop" role="dialog" aria-label="${esc(t('Notificaciones'))}"><header class="pop-head"><strong>${t('🔔 Notificaciones')}</strong><button class="icon-btn" data-act="notif-toggle" aria-label="${esc(t('Cerrar notificaciones'))}">✕</button></header>
+  <div class="pop-body">${list.length ? list.map(notifItem).join('') : '<p class="helper pop-empty">' + t('Todavía no tienes notificaciones. Te avisaremos cuando alguien te siga, le dé like o comente tus obras, y cuando haya capítulos nuevos.') + '</p>'}</div></section>`;
   LS.set(k, list.map(n => ({ ...n, read: true })));
   return html;
 }
 function notifView() {                                   // (pantalla completa, solo si se abre la dirección #/notifications)
   const list = LS.get('auri.notifs.' + S.user, []);
-  const html = `<main class="page story-layout"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">🔔 Notificaciones</span><h2 style="margin-top:8px">Lo que pasa con tus obras</h2></div></div>
+  const html = `<main class="page story-layout"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('🔔 Notificaciones')}</span><h2 style="margin-top:8px">${t('Lo que pasa con tus obras')}</h2></div></div>
   ${list.length ? list.map(notifItem).join('') : empty('Sin notificaciones', 'Te avisaremos cuando alguien te siga, le dé like o comente una de tus obras.')}</main>`;
   LS.set('auri.notifs.' + S.user, list.map(n => ({ ...n, read: true })));
   return html;
@@ -2024,29 +2027,29 @@ function notifView() {                                   // (pantalla completa, 
 /* --- Mis Personajes: reemplazan [TN] en las historias que lo permiten --- */
 function charsSection() {
   const act = S.chars.find(c => c.id === S.activeId);
-  return `<section class="chars-sec"><div class="section-head"><div><h2>Mis Personajes</h2><p>Su nombre reemplaza a [TN] en las historias que lo permiten.</p></div></div>
-  ${act ? `<p class="reading-as">Leyendo como <b>${esc(act.name)}</b></p>` : ''}
-  <div class="char-grid"><button type="button" class="char-tile add" data-act="char-add" aria-label="Crear personaje"><span class="plus">＋</span><span>Crear personaje</span></button>${S.chars.map(c => {
+  return `<section class="chars-sec"><div class="section-head"><div><h2>${t('Mis Personajes')}</h2><p>${t('Su nombre reemplaza a [TN] en las historias que lo permiten.')}</p></div></div>
+  ${act ? `<p class="reading-as">${t('Leyendo como')} <b>${esc(act.name)}</b></p>` : ''}
+  <div class="char-grid"><button type="button" class="char-tile add" data-act="char-add" aria-label="${esc(t('Crear personaje'))}"><span class="plus">＋</span><span>${t('Crear personaje')}</span></button>${S.chars.map(c => {
     const on = c.id === S.activeId;
-    return `<div class="char-tile ${on ? 'active' : ''}"><button type="button" class="char-pick" data-act="char-sel" data-cid="${c.id}" aria-pressed="${on}"><span class="ct-img">${c.photo ? `<img src="${esc(c.photo)}" alt="">` : `<b>${esc([...c.name][0].toUpperCase())}</b>`}</span><strong>${esc(c.name)}</strong>${on ? `<em>Leyendo como ${esc(c.name)}</em>` : '<em>Toca para usar</em>'}</button>
-      <div class="tile-acts"><button type="button" class="icon-btn" data-act="char-edit" data-cid="${c.id}" aria-label="Editar ${esc(c.name)}">✎</button><button type="button" class="icon-btn" data-act="char-del" data-cid="${c.id}" aria-label="Eliminar ${esc(c.name)}">${TRASH}</button></div></div>`;
+    return `<div class="char-tile ${on ? 'active' : ''}"><button type="button" class="char-pick" data-act="char-sel" data-cid="${c.id}" aria-pressed="${on}"><span class="ct-img">${c.photo ? `<img src="${esc(c.photo)}" alt="">` : `<b>${esc([...c.name][0].toUpperCase())}</b>`}</span><strong>${esc(c.name)}</strong>${on ? `<em>${t('Leyendo como {n}', { n: esc(c.name) })}</em>` : '<em>' + t('Toca para usar') + '</em>'}</button>
+      <div class="tile-acts"><button type="button" class="icon-btn" data-act="char-edit" data-cid="${c.id}" aria-label="${esc(t('Editar {n}', { n: c.name }))}">✎</button><button type="button" class="icon-btn" data-act="char-del" data-cid="${c.id}" aria-label="${esc(t('Eliminar {n}', { n: c.name }))}">${TRASH}</button></div></div>`;
   }).join('')}</div></section>`;
 }
 /** Hoja inferior para crear / editar un personaje: nombre + foto opcional. after(id) se llama al guardar un personaje NUEVO */
 function openCharForm(id, after) {
   const cur = id ? S.chars.find(c => c.id === id) : null; let photo = cur ? cur.photo || '' : '';
-  if (!cur && S.chars.length >= MAX_CHARS) return toast(`Puedes guardar hasta ${MAX_CHARS} personajes.`);
+  if (!cur && S.chars.length >= MAX_CHARS) return toast(t('Puedes guardar hasta {n} personajes.', { n: MAX_CHARS }));
   const m = document.createElement('div'); m.className = 'modal sheet';
-  m.innerHTML = `<div class="modal-box char-form" role="dialog" aria-modal="true" aria-label="${cur ? 'Editar personaje' : 'Crear personaje'}"><button class="icon-btn close-x" data-x aria-label="Cerrar">✕</button><h2>${cur ? 'Editar personaje' : 'Nuevo personaje'}</h2>
-  <div class="cf-photo"><span class="cf-prev" data-prev>${photo ? `<img src="${esc(photo)}" alt="">` : '🐱'}</span><div class="cover-fields"><label class="button secondary sm" style="cursor:pointer">📷 Subir foto (opcional)<input type="file" accept="image/*" hidden data-file></label><button type="button" class="button ghost sm" data-nophoto ${photo ? '' : 'hidden'}>Quitar foto</button></div></div>
-  <div class="form-group"><label>Nombre del personaje</label><input class="field" data-name maxlength="30" placeholder="Ej: Aiko" value="${esc(cur ? cur.name : '')}"></div>
-  <p class="error" data-err></p><div class="cf-btns"><button class="button ghost" data-cancel>Cancelar</button><button class="button" data-save>Guardar</button></div></div>`;
+  m.innerHTML = `<div class="modal-box char-form" role="dialog" aria-modal="true" aria-label="${cur ? t('Editar personaje') : t('Crear personaje')}"><button class="icon-btn close-x" data-x aria-label="${esc(t('Cerrar'))}">✕</button><h2>${cur ? t('Editar personaje') : t('Nuevo personaje')}</h2>
+  <div class="cf-photo"><span class="cf-prev" data-prev>${photo ? `<img src="${esc(photo)}" alt="">` : '🐱'}</span><div class="cover-fields"><label class="button secondary sm" style="cursor:pointer">${t('📷 Subir foto (opcional)')}<input type="file" accept="image/*" hidden data-file></label><button type="button" class="button ghost sm" data-nophoto ${photo ? '' : 'hidden'}>${t('Quitar foto')}</button></div></div>
+  <div class="form-group"><label>${t('Nombre del personaje')}</label><input class="field" data-name maxlength="30" placeholder="${esc(t('Ej: Aiko'))}" value="${esc(cur ? cur.name : '')}"></div>
+  <p class="error" data-err></p><div class="cf-btns"><button class="button ghost" data-cancel>${t('Cancelar')}</button><button class="button" data-save>${t('Guardar')}</button></div></div>`;
   const q = sel => m.querySelector(sel), close = () => m.remove(), setPrev = () => { q('[data-prev]').innerHTML = photo ? `<img src="${esc(photo)}" alt="">` : '🐱'; q('[data-nophoto]').hidden = !photo; };
   q('[data-x]').onclick = close; q('[data-cancel]').onclick = close; m.onclick = ev => { if (ev.target === m) close(); };
   q('[data-file]').onchange = () => fitPhoto(q('[data-file]').files[0], 600, 800, d => { photo = d; setPrev(); });
   q('[data-nophoto]').onclick = () => { photo = ''; setPrev(); };
   q('[data-save]').onclick = () => {
-    const name = q('[data-name]').value.trim(); if (!name) { q('[data-err]').textContent = 'Escribe un nombre para tu personaje.'; return; }
+    const name = q('[data-name]').value.trim(); if (!name) { q('[data-err]').textContent = t('Escribe un nombre para tu personaje.'); return; }
     if (cur) { S.chars = S.chars.map(c => c.id === cur.id ? { ...c, name, photo } : c); if (cur.id === S.activeId) setActive(cur.id); saveChars(); close(); toast('Personaje actualizado'); return render(); }
     let nid; do { nid = chapId(); } while (S.chars.some(c => c.id === nid));
     S.chars = [...S.chars, { id: nid, ...emptyChar(), name, photo }];
@@ -2341,7 +2344,7 @@ document.addEventListener('click', e => {
     'char-add': () => openCharForm(null),
     'char-edit': () => openCharForm(+el.dataset.cid),
     'char-del': () => { const cid = +el.dataset.cid, x = S.chars.find(k => k.id === cid); if (!x) return;
-      confirmBox(`¿Seguro que quieres eliminar a «${x.name}»?`, () => { S.chars = S.chars.filter(k => k.id !== cid); setActive(S.activeId === cid ? undefined : S.activeId); KEEP = true; render(); }); },
+      confirmBox(t('¿Seguro que quieres eliminar a «{n}»?', { n: x.name }), () => { S.chars = S.chars.filter(k => k.id !== cid); setActive(S.activeId === cid ? undefined : S.activeId); KEEP = true; render(); }); },
     'cr-pick-open': () => { if (canNews()) openBookPicker(); },
     'report-story': () => { const s0 = findStory(id); if (s0) openReportFor('story', { sid: id, target: id, owner: s0.owner, title: s0.title, label: '«' + s0.title + '»' }); },
     'report-comment': () => { const c = comments(id).find(x => String(x.id) === el.dataset.cid); if (c) openReportFor('comment', { sid: id, cid: c.id, target: c.by, owner: c.by, excerpt: c.text, label: 'un comentario de ' + uName(c.by) }); },
@@ -2355,7 +2358,7 @@ document.addEventListener('click', e => {
     'td-off': () => { if (!isStaff()) return; G.set('takedown', takedown().filter(x => x !== id)); const s0 = findStory(id); logAction('restore', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «' + s0.title + '» volvió a estar visible en Descubrir.' }); toast('Obra restaurada ✓'); KEEP = true; render(); },
     mute: () => { setBM('muted', id, true); toast('Silenciada: no verás sus comentarios ni recibirás avisos suyos.'); KEEP = true; render(); },
     unmute: () => { setBM('muted', id, false); toast('Dejaste de silenciar a esta persona.'); KEEP = true; render(); },
-    block: () => dialog('¿Bloquear a ' + uName(id) + '?', 'No verás sus comentarios ni sus obras, dejarán de seguirse y no habrá avisos entre ustedes. Puedes desbloquearla en Ajustes.', 'Bloquear', 'Cancelar', () => { blockUser(id); toast('Cuenta bloqueada'); KEEP = true; render(); }, true),
+    block: () => dialog(t('¿Bloquear a {n}?', { n: uName(id) }), 'No verás sus comentarios ni sus obras, dejarán de seguirse y no habrá avisos entre ustedes. Puedes desbloquearla en Ajustes.', 'Bloquear', 'Cancelar', () => { blockUser(id); toast('Cuenta bloqueada'); KEEP = true; render(); }, true),
     unblock: () => { setBM('blocked', id, false); toast('Desbloqueada ✓'); KEEP = true; render(); },
     'c-more': () => { const c = +el.dataset.cid; MENUC = MENUC === c ? null : c; KEEP = true; render(); },
     'c-like': () => { const cid = +el.dataset.cid; let added = false, target = ''; updateComments(id, l => l.map(c => { if (c.id !== cid) return c; const lk = c.lk || []; added = !lk.includes(S.user); target = c.by; return { ...c, lk: added ? [...lk, S.user] : lk.filter(x => x !== S.user) }; })); if (added && target) notify(target, 'clike', id, ''); KEEP = true; render(); const hb = document.querySelector(`.c-heart[data-cid="${cid}"]`); if (hb && added) { hb.classList.add('pulse'); setTimeout(() => hb.classList.remove('pulse'), 500); } },
@@ -2423,10 +2426,10 @@ document.addEventListener('click', e => {
       } else setCfg(k, !cfg(k));
       KEEP = true; render(); },
     'export-file': exportFile, 'export-copy': exportCopy,
-    'wipe-device': () => typeConfirm('Borrar datos de este dispositivo', 'Se borra TODO lo guardado de Auri en este navegador: todas las cuentas, historias, bibliotecas y ajustes. No se puede deshacer. Haz una copia antes si la quieres. Escribe BORRAR para confirmar.', 'BORRAR', 'Borrar todo', wipeDevice),
+    'wipe-device': () => typeConfirm('Borrar datos de este dispositivo', 'Se borra TODO lo guardado de Auri en este navegador: todas las cuentas, historias, bibliotecas y ajustes. No se puede deshacer. Haz una copia antes si la quieres. Escribe {w} para confirmar.', t('BORRAR'), 'Borrar todo', wipeDevice),
     'acct-save': saveAccount,
     'acct-delete': () => { if (isOwner()) return toast('La cuenta Owner no se puede eliminar desde aquí.');
-      typeConfirm('Eliminar cuenta', 'Se borrarán tu cuenta, tus historias, biblioteca, personajes, comentarios, likes y seguidores. No se puede deshacer. Escribe ELIMINAR para confirmar.', 'ELIMINAR', 'Eliminar mi cuenta', deleteAccount); },
+      typeConfirm('Eliminar cuenta', 'Se borrarán tu cuenta, tus historias, biblioteca, personajes, comentarios, likes y seguidores. No se puede deshacer. Escribe {w} para confirmar.', t('ELIMINAR'), 'Eliminar mi cuenta', deleteAccount); },
     privacy: showPrivacy, report: openReport,
     'report-del': () => { G.set('reports', G.get('reports', []).filter(r => String(r.id) !== id)); KEEP = true; render(); },
     'qz-back': () => { const b = $('#qz-birth'); if (b && QZ) QZ.birth = b.value; if (QZ.step > 1) { QZ.step--; render(); } else go('/register'); },
@@ -2457,7 +2460,7 @@ document.addEventListener('click', e => {
     genre: () => { GEN = id; render(); }, clear: () => { Q = ''; GEN = 'All'; render(); },
     'tag-search': () => { Q = Q.trim().toLowerCase() === '#' + id.toLowerCase() ? '' : '#' + id; GEN = 'All'; const i = $('#sq'); if (i) i.value = Q; if ((location.hash.slice(1) || '/') === '/') { render(); } else go('/'); },
     'tag-add': () => { const i = $('#w-tags'); if (!i) return; const cur = parseTags(i.value); if (!cur.some(t => t.toLowerCase() === id.toLowerCase())) cur.push(id); i.value = tagsText(cur); i.dispatchEvent(new Event('input', { bubbles: true })); }, tab: () => { TAB = id; render(); tabFx(); },
-    delete: () => { if (confirm('¿Eliminar este borrador? No se puede deshacer.')) { S.stories = S.stories.filter(s => s.id !== id); persist('stories', S.stories); render(); } },
+    delete: () => { if (confirm(t('¿Eliminar este borrador? No se puede deshacer.'))) { S.stories = S.stories.filter(s => s.id !== id); persist('stories', S.stories); render(); } },
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
     preview: () => { collect(); WPREVIEW = true; render(); }, 'back-edit': () => { WPREVIEW = false; render(); },
     'save-draft': () => saveStory(false), publish: () => saveStory(true),
