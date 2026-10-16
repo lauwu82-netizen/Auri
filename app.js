@@ -830,6 +830,7 @@ const storyState = s => publicPrefix(s.chapters).length ? 'published' : s.chapte
 const statusNote = s => { const p = s.chapters.filter(c => c.status === 'pending').length;
   return [p ? t('{n} capítulo(s) en revisión: aún no se ven en la app.', { n: p }) : '', ...s.chapters.filter(c => c.status === 'rejected').map(c => t('«{title}» fue rechazado{reason}. Edítalo y vuelve a enviarlo.', { title: c.title, reason: c.reason ? ': ' + c.reason : '' }))].filter(Boolean).join(' '); };
 // Borrador de términos: conviene que una persona con formación legal los revise antes de lanzar la app
+const trLegal = h => h.replace(/<li>([\s\S]*?)<\/li>/g, (m, x) => '<li>' + t(x) + '</li>');   // traduce cada punto legal por separado
 const TERMS = `<ol>
 <li><b>Etiqueta +18.</b> Marca tu historia como +18 si tiene contenido sexual sugerido, violencia intensa, drogas o temas delicados para menores. Si dudas, márcala.</li>
 <li><b>Nivel permitido.</b> El contenido +18 en Auri es solo escrito y de nivel «soft»: se permiten escenas sugerentes o románticas, sin descripciones sexuales explícitas.</li>
@@ -842,7 +843,7 @@ const TERMS = `<ol>
 <li><b>Autoría y fanfics.</b> Tus historias siguen siendo tuyas. En los fanfics respeta a quienes crearon el material original y no copies textos ajenos.</li></ol>`;
 function showTerms() {
   const m = document.createElement('div'); m.className = 'modal';
-  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${t('Términos y condiciones de contenido')}</h2><div class="terms">${TERMS}</div><button class="button" data-act="close-modal" style="width:100%;margin-top:14px">${t('Entendido')}</button></div>`;
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${t('Términos y condiciones de contenido')}</h2><div class="terms">${trLegal(TERMS)}</div><button class="button" data-act="close-modal" style="width:100%;margin-top:14px">${t('Entendido')}</button></div>`;
   document.body.appendChild(m);
 }
 let W = null, WPREVIEW = false, WCUR = 0;
@@ -1334,7 +1335,7 @@ const PRIVACY = `<ol><li><b>Dónde se guardan tus datos.</b> Por ahora Auri guar
 <li><b>Menores.</b> El contenido +18 es solo para personas adultas; por ahora se basa en una declaración.</li></ol>`;
 function showPrivacy() {
   const m = document.createElement('div'); m.className = 'modal';
-  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>Política de privacidad</h2><div class="terms">${PRIVACY}</div><button class="button" data-act="close-modal" style="width:100%;margin-top:14px">Entendido</button></div>`;
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${t('Política de privacidad')}</h2><div class="terms">${trLegal(PRIVACY)}</div><button class="button" data-act="close-modal" style="width:100%;margin-top:14px">${t('Entendido')}</button></div>`;
   document.body.appendChild(m);
 }
 function openReport() {
