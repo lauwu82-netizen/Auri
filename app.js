@@ -542,6 +542,7 @@ async function cloudSignup() {
     const c = sbCode(r.data), m = sbMsg(r.data);
     if (c === 'user_already_exists' || m.includes('already')) return { err: t('Ese correo ya tiene una cuenta.'), back: true };
     if (c === 'weak_password') return { err: t('La contraseña debe tener al menos 8 caracteres.'), back: true };
+    if (m.includes('database error')) return { err: t('Ese nombre de usuario ya está en uso.'), back: true };
     if (r.status === 429 || c.includes('rate')) return { err: t('Demasiados intentos. Espera un momento.') };
     return { err: t('No se pudo crear la cuenta. Inténtalo de nuevo.') };
   }
@@ -724,6 +725,7 @@ async function register({ name, email, pass, pass2 }) {      // paso 0: correo y
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return t('Ingresa un correo válido.');
   if (pass.length < 8) return t('La contraseña debe tener al menos 8 caracteres.');
   if (pass !== pass2) return t('Las contraseñas no coinciden.');
+  if (await nameTaken(name)) return t('Ese nombre de usuario ya está en uso.');
   if (!cloud() && users[email]) return t('Ese correo ya tiene una cuenta.');
   const salt = Math.random().toString(36).slice(2);
   PENDING = { name, email, salt, hash: cloud() ? '' : await sha(salt + pass), pass: cloud() ? pass : '' }; QZ = { step: 1, comm: detectComm(), birth: '', gender: '', interests: [], mature: false, blocked: false, terms: false };
@@ -850,7 +852,7 @@ function shell(path, html) {
         <button class="icon-btn bell" data-act="notif-toggle" aria-label="${esc(t('Notificaciones'))}" aria-expanded="${NOTIF_OPEN}">${ICON.bell}${n ? `<b class="badge">${n}</b>` : ''}</button>
         <a href="#/profile" aria-label="${esc(t('Mi perfil'))}">${userAvatar(S.user)}</a></div>
     </div>
-    <div class="search-bar ${SEARCH_OPEN ? 'open' : ''}"><input id="sq" class="field" type="search" placeholder="${esc(t('Buscar títulos, etiquetas o fandoms…'))}" aria-label="${esc(t('Buscar'))}" value="${esc(Q)}"><button class="icon-btn" data-act="search-close" aria-label="${esc(t('Cerrar búsqueda'))}">✕</button></div>
+    <div class="search-bar ${SEARCH_OPEN ? 'open' : ''}"><input id="sq" class="field" type="search" placeholder="${esc(SM === 'users' ? t('Buscar usuarios…') : t('Buscar títulos, etiquetas o fandoms…'))}" aria-label="${esc(t('Buscar'))}" value="${esc(Q)}"><button class="icon-btn" data-act="search-close" aria-label="${esc(t('Cerrar búsqueda'))}">✕</button></div>
   </header>${html}${pop}
   <nav class="bottom-nav" aria-label="${esc(t('Navegación principal'))}">${item('#/', t('Inicio'), ICON.home, path === '/')}${item('#/library', t('Biblioteca'), ICON.books, path === '/library')}<a class="bn-plus ${path === '/write' ? 'active' : ''}" href="#/write" aria-label="${esc(t('Crear historia'))}">${ICON.plus}</a>${item('#/news', t('Noticias'), ICON.news, path === '/news')}${item('#/profile', t('Mi Perfil'), ICON.user, path === '/profile')}</nav></div>`;
 }
@@ -1031,7 +1033,36 @@ function storyCard(s, i) {                       // portada limpia; título + fa
   <div class="mini-row"><a class="mini-title" href="#/story/${esc(s.id)}">${esc(s.title)}</a><button class="mini-fav" data-act="fav" data-id="${esc(s.id)}" aria-label="${esc(t('Favorito'))}" aria-pressed="${fav}">${fav ? '♥' : '♡'}</button></div>
   <div class="mini-meta">${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : `<span>${esc(userName())}</span>`}${s.mature ? `<span class="dot18" title="${esc(t('Contenido +18'))}">+18</span>` : ''}</div>${b ? `<div class="mini-pill">${esc(b)}</div>` : ''}</article>`;
 }
+/* --- Nombres de usuario únicos --- */
+const nameKey = n => String(n || '').replace(/\s+/g, ' ').trim().toLowerCase();
+async function nameTaken(name, except) {                 // ¿ya hay otra persona con ese usuario? (sin importar mayúsculas)
+  const k = nameKey(name); if (!k) return false;
+  if (cloud()) { const r = await sbFetch('/rest/v1/rpc/name_taken', { method: 'POST', token: await sbToken(), body: { n: String(name).replace(/\s+/g, ' ').trim() } }); if (r.ok && typeof r.data === 'boolean') return r.data; }
+  return Object.entries(getUsers()).some(([e, u]) => e !== except && e !== GUEST && nameKey(u.name) === k);
+}
+/* --- Buscar usuarios (Descubrir) --- */
+let SM = 'books', UF = 'all', SB_UQ;                     // SM: qué se busca (libros o usuarios); UF: filtro propio de usuarios
+function usersList() {
+  const qs = nameKey(String(Q).replace(/^@/, '')), owners = new Set(publishedStories().map(s => s.owner)), cnt = {}; publishedStories().forEach(s => { cnt[s.owner] = (cnt[s.owner] || 0) + 1; });
+  let l = Object.entries(getUsers()).filter(([e, u]) => e !== GUEST && u && u.name && commVisible(u.community === 'en' ? 'en' : 'es') && !hidesStory(e)
+    && (UF === 'authors' ? owners.has(e) : UF === 'team' ? roleOf(e) !== 'USER' : true) && (!qs || nameKey(u.name).includes(qs)));
+  l.sort((a, b) => { const A = nameKey(a[1].name), B = nameKey(b[1].name); return (qs ? (B.startsWith(qs) - A.startsWith(qs)) : 0) || A.localeCompare(B); });
+  if (!l.length) return empty(t('No encontramos usuarios'), qs ? t('Prueba con otro nombre.') : t('Aún no hay usuarios aquí.'), '');
+  return `<div class="user-list">${l.slice(0, 60).map(([e, u]) => `<a class="user-card panel" href="#/user/${encodeURIComponent(e)}" data-dir="next">${frWrap(e, 'sm', avatarHTML(u.avatar, u.name, 'sm'))}
+    <div class="uc-txt"><b>${esc(u.name)}</b>${ROLE_LABEL[roleOf(e)] ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(ROLE_LABEL[roleOf(e)])}</span>` : ''}<span class="helper">${cnt[e] ? tn(cnt[e], '{n} libro publicado', '{n} libros publicados') : t('Sin libros publicados')}</span></div></a>`).join('')}</div>`;
+}
+async function sbSearchUsers() {                         // trae de Supabase a las personas que coinciden (aunque no hayan publicado nada)
+  const qs = String(Q).replace(/^@/, '').trim(); if (!cloud() || SM !== 'users' || qs.length < 2) return;
+  const r = await sbApi('/rest/v1/profiles?select=*&name=ilike.' + encodeURIComponent('*' + qs.replace(/[*%_,()]/g, '') + '*') + '&limit=40'); if (!r.ok || !Array.isArray(r.data)) return;
+  const us = LS.get('auri.users', {}), me = sbSes() && sbSes().uid; let ch = false;
+  r.data.filter(p => p.id !== me).forEach(pr => { const key = remoteKey(pr.id), old = us[key];
+    const n = { ...(old || {}), uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
+      frameWorn: !!pr.frame_worn, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
+    if (JSON.stringify(old) !== JSON.stringify(n)) { us[key] = n; ch = true; } });
+  if (ch) { LS.set('auri.users', us); const l = $('#list'); if (l && SM === 'users') l.innerHTML = usersList(); }
+}
 function discoverList() {
+  if (SM === 'users') return usersList();
   const live = publishedStories().filter(matureOK).filter(storyVisible).filter(s => !hidesStory(s.owner));
   const qs = Q.trim().toLowerCase(), tq = qs.includes('#') ? parseTags(qs).map(x => x.toLowerCase()) : null;      // «#romance #au» busca por etiquetas
   const f = live.filter(s => (GEN === 'All' || s.genre === GEN) && (tq ? tq.every(t => s.tags.some(x => x.toLowerCase() === t || x.toLowerCase().includes(t))) : `${s.title} ${s.synopsis} ${s.fandom} ${s.tags.join(' ')}`.toLowerCase().includes(qs)));
@@ -1075,12 +1106,17 @@ function carInit() {                                   // se llama tras cada dib
 }
 function discoverView() {
   const gens = ['All', ...new Set(publishedStories().filter(storyVisible).map(s => s.genre))];
+  const modeRow = `<div class="filter-row mode-row" role="group" aria-label="${esc(t('Qué buscar'))}"><button class="chip ${SM === 'books' ? 'active' : ''}" data-act="sm" data-id="books" aria-pressed="${SM === 'books'}">${t('Libros')}</button><button class="chip ${SM === 'users' ? 'active' : ''}" data-act="sm" data-id="users" aria-pressed="${SM === 'users'}">${t('Usuarios')}</button></div>`;
   return `<main class="page">${carouselHTML() || `<section class="hero"><span class="eyebrow">${t('✦ Un pequeño hogar para grandes emociones')}</span>
   <h1>${t('Encuentra tu próxima emoción favorita.')}</h1><p>${t('Historias para leer a gusto, personajes que te acompañan y un rincón para crear algo propio.')}</p>
   <a class="button secondary" href="#/library">${t('Ir a mi biblioteca')}</a>${mascot('mascot')}</section>`}
+  ${modeRow}
+  ${SM === 'users' ? `<div class="section-head"><div><h2>${t('Personas en Auri')}</h2><p>${t('Busca por nombre de usuario.')}</p></div></div>
+  <div class="filter-row">${[['all', 'Todos'], ['authors', 'Con libros publicados'], ['team', 'Equipo']].map(([k, n]) => `<button class="chip ${UF === k ? 'active' : ''}" data-act="uf" data-id="${k}">${t(n)}</button>`).join('')}</div>` : `
   <div class="section-head"><div><h2>${t('Historias que te roban el sueño')}</h2><p>${t('Libros creados por personas usuarias.')}</p></div></div>
   ${popTags().length ? `<div class="tag-row" aria-label="${esc(t('Etiquetas populares'))}"><span class="helper">${t('Etiquetas:')}</span>${popTags().map(x => `<button type="button" class="tag tag-link ${Q.trim().toLowerCase() === '#' + x.toLowerCase() ? 'on' : ''}" data-act="tag-search" data-id="${esc(x)}">#${esc(x)}</button>`).join('')}</div>` : ''}
   <div class="filter-row">${gens.map(g => `<button class="chip ${GEN === g ? 'active' : ''}" data-act="genre" data-id="${esc(g)}">${g === 'All' ? t('Todos') : esc(genreName(g))}</button>`).join('')}</div>
+  `}
   <div id="list">${discoverList()}</div>
   <p class="notice" style="margin-top:24px">${t('En esta versión las historias se guardan en este navegador y solo las ven las cuentas de este dispositivo.')}</p></main>`;
 }
@@ -1782,6 +1818,7 @@ async function saveAccountCloud() {
   const users = getUsers(), u = users[S.user]; if (!u) return;
   const name = $('#ac-name').value.trim(), email = $('#ac-email').value.trim().toLowerCase(), pass = $('#ac-pass').value;
   if (!name) return toast('Escribe un nombre de usuario.');
+  if (nameKey(name) !== nameKey(u.name) && await nameTaken(name, S.user)) return toast(t('Ese nombre de usuario ya está en uso.'));
   if (email !== S.user) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('Ingresa un correo válido.');
     if (!pass) return toast('Escribe tu contraseña actual para cambiar el correo.');
@@ -1799,6 +1836,7 @@ async function saveAccount() {
   const users = getUsers(), u = users[S.user]; if (!u) return;
   const name = $('#ac-name').value.trim(), email = $('#ac-email').value.trim().toLowerCase(), pass = $('#ac-pass').value;
   if (!name) return toast('Escribe un nombre de usuario.');
+  if (nameKey(name) !== nameKey(u.name) && await nameTaken(name, S.user)) return toast(t('Ese nombre de usuario ya está en uso.'));
   if (email !== S.user) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('Ingresa un correo válido.');
     if (users[email]) return toast(t('Ese correo ya tiene una cuenta.'));
@@ -2741,6 +2779,8 @@ document.addEventListener('click', e => {
     fav: () => { S.favs = S.favs.includes(id) ? S.favs.filter(x => x !== id) : [...S.favs, id]; persist('favs', S.favs); render(); },
     read: () => { const sv = findStory(id); if (sv) BARS['b-' + id] = bookProgress(sv).pct; const n = +el.dataset.n, cur = readList(id).slice(); if (!cur.includes(n)) cur.push(n); S.progress[id] = cur; persist('progress', S.progress);
       const s = findStory(id), nx = s && s.chapters[s.chapters.findIndex(c => c.idx === n) + 1]; if (nx) { savePos(id, nx.idx, 0); NAVDIR = 'next'; goReplace(`/story/${id}/${nx.idx + 1}`); } else { NAVDIR = 'next'; goReplace(`/story/${id}/fin`); } },
+    sm: () => { SM = id === 'users' ? 'users' : 'books'; GEN = 'All'; render(); const i = $('#sq'); if (i) i.placeholder = SM === 'users' ? t('Buscar usuarios…') : t('Buscar títulos, etiquetas o fandoms…'); sbSearchUsers(); },
+    uf: () => { UF = id; render(); sbSearchUsers(); },
     genre: () => { GEN = id; render(); }, clear: () => { Q = ''; GEN = 'All'; render(); },
     'tag-search': () => { Q = Q.trim().toLowerCase() === '#' + id.toLowerCase() ? '' : '#' + id; GEN = 'All'; const i = $('#sq'); if (i) i.value = Q; if ((location.hash.slice(1) || '/') === '/') { render(); } else go('/'); },
     'tag-add': () => { const i = $('#w-tags'); if (!i) return; const cur = parseTags(i.value); if (!cur.some(t => t.toLowerCase() === id.toLowerCase())) cur.push(id); i.value = tagsText(cur); i.dispatchEvent(new Event('input', { bubbles: true })); }, tab: () => { TAB = id; render(); tabFx(); },
@@ -2762,7 +2802,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'w-tags') { const pv = $('#w-tags-prev'); if (pv) pv.innerHTML = parseTags(e.target.value).map(t => `<span class="tag">#${esc(t)}</span>`).join(''); }
   if (e.target.id === 'sq') {                           // la búsqueda de la cabecera filtra Descubrir (si estás en otra pantalla, te lleva allí)
     Q = e.target.value;
-    if ((location.hash.slice(1) || '/') === '/') { const l = $('#list'); if (l) l.innerHTML = discoverList(); }
+    if ((location.hash.slice(1) || '/') === '/') { const l = $('#list'); if (l) l.innerHTML = discoverList(); clearTimeout(SB_UQ); SB_UQ = setTimeout(sbSearchUsers, 350); }
     else { go('/'); setTimeout(() => { const i = $('#sq'); if (i && i.focus) { i.focus(); if (i.setSelectionRange) i.setSelectionRange(Q.length, Q.length); } }, 0); }
   }
   if (e.target.id === 'cover-url') {
@@ -2800,6 +2840,7 @@ document.addEventListener('submit', async e => {
     const r = dmSend(to, { text: t.slice(0, 500) }); if (er) er.textContent = r; if (r) return; inp.value = ''; paintDm(to, true); return; }
   if (kind === 'myprofile') {
     const name = $('#pf-name').value.trim(); if (!name) return toast('El usuario no puede estar vacío.');
+    if (nameKey(name) !== nameKey((getUsers()[S.user] || {}).name) && await nameTaken(name, S.user)) return toast(t('Ese nombre de usuario ya está en uso.'));
     const u = getUsers(); u[S.user].name = name; u[S.user].bio = $('#pf-bio').value.trim(); G.set('users', u); toast('Perfil guardado'); return render();
   }
   if (kind === 'pcreply') {

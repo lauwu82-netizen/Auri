@@ -1326,5 +1326,20 @@ window.I18N = { en: {
  "Te enviamos un enlace al correo nuevo para confirmar el cambio.": "We sent a link to your new email to confirm the change.",
  "No se pudo eliminar la cuenta. Inténtalo de nuevo.": "Couldn't delete the account. Please try again.",
  "Aprueba antes los capítulos anteriores.": "Approve the previous chapters first.",
- "No se pudo guardar el cambio. Inténtalo de nuevo.": "Couldn't save the change. Please try again."
+ "No se pudo guardar el cambio. Inténtalo de nuevo.": "Couldn't save the change. Please try again.",
+ /* buscar usuarios */
+ "Ese nombre de usuario ya está en uso.": "That username is already taken.",
+ "Buscar usuarios…": "Search users…",
+ "No encontramos usuarios": "We couldn't find any users",
+ "Prueba con otro nombre.": "Try another name.",
+ "Aún no hay usuarios aquí.": "There are no users here yet.",
+ "Sin libros publicados": "No published books",
+ "Qué buscar": "What to search",
+ "Usuarios": "Users",
+ "Personas en Auri": "People on Auri",
+ "Busca por nombre de usuario.": "Search by username.",
+ "Con libros publicados": "With published books",
+ "Equipo": "Team",
+ "{n} libro publicado": "{n} published book",
+ "{n} libros publicados": "{n} published books"
 } };

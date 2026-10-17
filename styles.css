@@ -955,3 +955,11 @@ a.icon-btn.bell{position:relative}
 .like-btn.pulse .heart{animation:heartPulse .45s ease-in-out}
 @media (hover:hover){.like-btn:hover .heart{transform:scale(1.12)}}
 .like-btn:active .heart{transform:scale(.9)}
+
+/* Buscar usuarios */
+.fr.sm{--a:48px}.avatar.sm{width:48px;height:48px;font-size:20px}
+.mode-row{margin-bottom:14px}
+.user-list{display:grid;gap:10px}
+.user-card{display:flex;align-items:center;gap:14px;padding:12px 14px;text-decoration:none;color:inherit;transition:transform .15s ease,box-shadow .2s ease}
+.user-card:active{transform:scale(.97)}
+.uc-txt{display:flex;flex-direction:column;min-width:0}.uc-txt b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.uc-txt .role-tag{margin:3px 0}
