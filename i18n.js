@@ -1314,5 +1314,15 @@ window.I18N = { en: {
  "en un párrafo: ": "on a paragraph: ",
  "Capítulo 1": "Chapter 1",
  /* fase 5 */
- "Vista previa de la imagen del evento": "Event image preview"
+ "Vista previa de la imagen del evento": "Event image preview",
+ /* nube */
+ "No hay conexión con el servidor. Inténtalo de nuevo.": "Can't reach the server. Please try again.",
+ "Confirma tu correo: te enviamos un enlace.": "Confirm your email: we sent you a link.",
+ "Demasiados intentos. Espera un momento.": "Too many attempts. Please wait a moment.",
+ "No se pudo cargar tu perfil. Inténtalo de nuevo.": "Couldn't load your profile. Please try again.",
+ "No se pudo crear la cuenta. Inténtalo de nuevo.": "Couldn't create the account. Please try again.",
+ "Te enviamos un correo para confirmar tu cuenta. Después inicia sesión.": "We sent you an email to confirm your account. Then log in.",
+ "No se pudo cambiar el correo. Inténtalo de nuevo.": "Couldn't change the email. Please try again.",
+ "Te enviamos un enlace al correo nuevo para confirmar el cambio.": "We sent a link to your new email to confirm the change.",
+ "No se pudo eliminar la cuenta. Inténtalo de nuevo.": "Couldn't delete the account. Please try again."
 } };
