@@ -30,7 +30,7 @@ function toast(msg) {
 /* 2. ALMACENAMIENTO ----------------------------------------------- */
 const LS = {
   get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch { return f; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { toast('No se pudo guardar: almacenamiento lleno'); return false; } }
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); if (S.user && k === `auri.u.${S.user}.stories`) sbStoriesSoon(); return true; } catch { toast('No se pudo guardar: almacenamiento lleno'); return false; } }
 };
 const S = { user: LS.get('auri.session', null), theme: LS.get('auri.themeSet', false) ? LS.get('auri.theme', 'auto') : 'auto', stories: [], favs: [], progress: {}, character: {} };
 const uk = n => `auri.u.${S.user}.${n}`;           // datos separados por cuenta
@@ -555,6 +555,167 @@ async function sbBoot() {                                // al abrir la app: ren
   if (!sbSes() || !(await sbToken())) return out();
   if (await sbMirror()) { loadUser(); render(); }
 }
+/* ---------- NUBE · historias y capítulos ----------
+   Cada historia/capítulo local se guarda en Supabase con un id (uuid) que contiene el id local, así que no hay que cambiar nada en la app:
+   - tus obras: lo local manda, y se sube; el estado de revisión (aprobado/rechazado) lo decide la nube.
+   - obras de otras personas: se descargan a una copia local (cuenta «u-<id>@cloud.auri») y el resto de la app las lee como siempre. */
+const hx = (n, d) => Number(n).toString(16).padStart(d, '0');
+const sNum = id => { const m = /^story-(\d{1,15})$/.exec(String(id)); const n = m ? +m[1] : NaN; return Number.isSafeInteger(n) && n < 2 ** 48 ? n : null; };
+const sUuid = id => { const n = sNum(id); return n == null ? null : '00000000-0000-0000-0000-' + hx(n, 12); };
+const sBack = u => 'story-' + parseInt(String(u).replace(/-/g, '').slice(20), 16);
+const cUuid = (sid, cid) => { const n = sNum(sid); if (n == null || !Number.isSafeInteger(cid) || cid < 0 || cid >= 2 ** 52) return null; const a = hx(n, 12), c = hx(cid, 16); return `${a.slice(0, 8)}-${a.slice(8)}-${c.slice(0, 4)}-${c.slice(4, 8)}-0000${c.slice(8)}`; };
+const cBack = u => { const h = String(u).replace(/-/g, ''); return parseInt(h.slice(12, 20) + h.slice(24), 16); };
+const remoteKey = uid => 'u-' + uid + '@cloud.auri';
+const hsh = s => { s = String(s); let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h + ':' + s.length; };
+const PHASES = ['ongoing', 'paused', 'finished'], CH_ST = ['draft', 'pending', 'rejected', 'approved'];
+const infoSig = l => hsh(JSON.stringify([l.title || '', l.synopsis || '', l.genre || '', l.fandom || '', l.tags || [], l.cover || '', !!l.mature, l.phase || 'ongoing', l.prev || '', l.useReaderCharacter !== false]));
+const contSig = c => hsh([c.title || '', c.text || '', c.cover || '', c.music || ''].join('\u0001'));
+const sameCont = (c, r) => (c.title || '') === (r.title || '') && (c.text || '') === (r.text || '') && (c.cover || '') === (r.cover || '') && (c.music || '') === (r.music || '');
+const infoFromRow = r => ({ title: r.title, synopsis: r.synopsis || '', genre: r.genre || '', fandom: r.fandom || '', tags: r.tags || [], cover: r.cover || '', mature: !!r.mature, phase: r.phase || 'ongoing', prev: r.prev ? sBack(r.prev) : '', useReaderCharacter: r.use_reader_character !== false });
+const day = v => String(v || '').slice(0, 10);
+let SB_BUSY = false, SB_AGAIN = false, SB_ST, SB_QUIET = false;
+function sbStoriesSoon() { if (!cloud() || !sbSes() || SB_QUIET) return; clearTimeout(SB_ST); SB_ST = setTimeout(sbRefresh, 1500); }
+async function sbRefresh() {                              // sube lo tuyo, trae lo de todas las personas y dibuja de nuevo si algo cambió
+  if (!cloud()) return; if (SB_BUSY) { SB_AGAIN = true; return; } SB_BUSY = true;
+  try {
+    let ch = false;
+    if (sbSes() && S.user && !isGuest()) ch = await sbSyncOwn();
+    ch = (await sbPullPublic()) || ch;
+    if (ch && !W && !/^#\/(write|story\/[^/]+\/\d)/.test(location.hash)) render();
+  } catch (e) { console.warn('sync', e); }
+  finally { SB_BUSY = false; if (SB_AGAIN) { SB_AGAIN = false; sbStoriesSoon(); } }
+}
+async function sbSyncOwn() {
+  const ses = sbSes(), me = ses && String(ses.email || '').toLowerCase(); if (!ses || !S.user || S.user !== me) return false;
+  const uid = ses.uid, K = uk('cloudsync'), st = LS.get(K, {}), stS = new Set(st.s || []), stC = new Set(st.c || []), sigS = st.si || {}, sigC = st.ci || {};
+  const [rs, rc, rp] = await Promise.all([
+    sbApi('/rest/v1/stories?owner=eq.' + uid + '&select=*&limit=2000'),
+    sbApi('/rest/v1/chapters?select=*,stories!inner(owner)&stories.owner=eq.' + uid + '&order=position&limit=10000'),
+    sbApi('/rest/v1/chapter_published?select=*,stories!inner(owner)&stories.owner=eq.' + uid + '&limit=10000')]);
+  if (!rs.ok || !rc.ok || !Array.isArray(rs.data) || !Array.isArray(rc.data)) return false;      // sin conexión: no se toca nada
+  const cs = new Map(rs.data.map(r => [r.id, r])), cc = new Map(rc.data.map(r => [r.id, r])), pub = new Map(((rp.ok && Array.isArray(rp.data)) ? rp.data : []).map(r => [r.chapter_id, r]));
+  const comm = (getUsers()[S.user] || {}).community === 'en' ? 'en' : 'es';
+  const local = LS.get(K.replace('cloudsync', 'stories'), []).map(norm); let changed = false;
+  const putS = [], patchS = [], putC = [], patchC = [], delC = [], delS = [], newS = new Set(), newC = new Set(), nSigS = {}, nSigC = {};
+  const liveOf = u => { const p = pub.get(u); return p ? { title: p.title, text: p.text, music: p.music || '', cover: p.cover || '' } : undefined; };
+  const fromCloudCh = r => { const c = { id: cBack(r.id), title: r.title, text: r.text, status: r.status, ...(r.cover ? { cover: r.cover } : {}), ...(r.music ? { music: r.music } : {}) }; if (r.status === 'rejected' && r.reason) c.reason = r.reason; if (r.status !== 'approved') { const lv = liveOf(r.id); if (lv) c.live = lv; } return c; };
+  const out = [];
+  for (const l0 of local) {
+    const l = { ...l0, chapters: l0.chapters.map(c => ({ ...c })) }, su = sUuid(l.id);
+    if (!su) { out.push(l); continue; }                                       // ids que no son de la nube (pruebas): se quedan solo aquí
+    const R = cs.get(su);
+    if (!R && stS.has(su)) { changed = true; continue; }                      // la borraste en otro lugar
+    const row = { id: su, owner: uid, community: comm, title: l.title || '', synopsis: l.synopsis || '', genre: l.genre || '', fandom: l.fandom || '', tags: l.tags || [], cover: l.cover || '', mature: !!l.mature,
+      phase: PHASES.includes(l.phase) ? l.phase : 'ongoing', prev: l.prev && sUuid(l.prev) ? sUuid(l.prev) : null, use_reader_character: l.useReaderCharacter !== false, terms: false };
+    if (!R) putS.push(row);
+    else if (sigS[su] === infoSig(l)) { const ni = infoFromRow(R); if (infoSig({ ...l, ...ni }) !== infoSig(l)) { Object.assign(l, ni); changed = true; } }   // no la tocaste: manda la nube (p. ej. cambio de moderación)
+    else { const same = ['title', 'synopsis', 'genre', 'fandom', 'cover', 'phase'].every(k => (R[k] || '') === (row[k] || '')) && !!R.mature === row.mature && JSON.stringify(R.tags || []) === JSON.stringify(row.tags) && (R.prev || null) === row.prev && (R.use_reader_character !== false) === row.use_reader_character; if (!same) patchS.push(row); }
+    nSigS[su] = infoSig(l);
+    // capítulos
+    const mine = new Set();
+    l.chapters.forEach((c, i) => {
+      const cu = cUuid(l.id, c.id); if (!cu) return; mine.add(cu);
+      const C = cc.get(cu), rowC = () => ({ id: cu, story_id: su, position: i, title: c.title || '', text: c.text || '', cover: c.cover || '', music: c.music || '', status: CH_ST.includes(c.status) ? c.status : 'draft', reason: c.reason || '' });
+      if (!C) { putC.push(rowC()); newC.add(cu); return; }
+      const edited = sigC[cu] !== undefined ? sigC[cu] !== contSig(c) : !sameCont(c, C);
+      if (edited && !sameCont(c, C)) { patchC.push({ ...rowC(), _pos: C.position }); }
+      else {
+        if (!sameCont(c, C)) { Object.assign(c, fromCloudCh(C)); changed = true; }     // la editaste en otro lugar: manda la nube
+        else if (C.status === 'approved' || C.status === 'rejected' || c.status === 'approved' || c.status === 'rejected') {
+          if (c.status !== C.status || (c.reason || '') !== (C.reason || '')) {
+            c.status = C.status; if (C.status === 'approved') { delete c.live; delete c.reason; } else if (C.status === 'rejected') c.reason = C.reason || ''; else { delete c.reason; }
+            changed = true;
+          }
+        } else if (c.status !== C.status) patchC.push({ ...rowC(), _pos: C.position });
+        if (C.position !== i && !patchC.some(p => p.id === cu)) patchC.push({ ...rowC(), _pos: C.position, _only: 1 });
+      }
+    });
+    for (const [cu, C] of cc) if (C.story_id === su && !mine.has(cu)) {          // capítulo que está en la nube y no aquí
+      if (stC.has(cu)) delC.push(cu);                                               // lo borraste: se borra allá
+      else { l.chapters.splice(Math.min(C.position, l.chapters.length), 0, fromCloudCh(C)); changed = true; }
+    }
+    l.chapters.forEach(c => { const cu = cUuid(l.id, c.id); if (cu) nSigC[cu] = contSig(c); });
+    if (l.chapters.some(c => c.status === 'approved') && !l.publishedAt) { const p = [...pub.values()].filter(x => x.story_id === su).map(x => day(x.published_at)).sort()[0]; l.publishedAt = p || today(); changed = true; }
+    out.push(l);
+  }
+  for (const [su, R] of cs) if (!local.some(x => sUuid(x.id) === su)) {               // historias de la nube que este dispositivo no tiene
+    if (stS.has(su)) { delS.push(su); continue; }                                   // las borraste aquí
+    const chs = [...cc.values()].filter(c => c.story_id === su).sort((a, b) => a.position - b.position).map(fromCloudCh);
+    const id = sBack(su), p = [...pub.values()].filter(x => x.story_id === su).map(x => day(x.published_at)).sort()[0];
+    out.push({ id, ...infoFromRow(R), chapters: chs, updatedAt: day(R.updated_at) || today(), ...(p ? { publishedAt: p } : {}) }); changed = true;
+    nSigS[su] = infoSig(infoFromRow(R)); chs.forEach(c => { const cu = cUuid(id, c.id); if (cu) nSigC[cu] = contSig(c); });
+  }
+  // --- subir ---
+  const bad = []; const wr = async (p, o) => { const r = await sbApi(p, o); if (!r.ok) bad.push(p + ' ' + r.status); return r; };
+  const MIN = { Prefer: 'return=minimal' };
+  if (delC.length) await wr('/rest/v1/chapters?id=in.(' + delC.join(',') + ')', { method: 'DELETE', headers: MIN });
+  if (delS.length) await wr('/rest/v1/stories?id=in.(' + delS.join(',') + ')', { method: 'DELETE', headers: MIN });
+  if (putS.length) await wr('/rest/v1/stories', { method: 'POST', headers: { ...MIN, Prefer: 'return=minimal,resolution=merge-duplicates' }, body: putS });
+  for (const r of patchS) { const { id, owner, community, ...rest } = r; await wr('/rest/v1/stories?id=eq.' + id, { method: 'PATCH', headers: MIN, body: rest }); }
+  const moves = patchC.filter(p => p._pos !== p.position);                           // cambios de orden: primero se apartan para no chocar
+  for (const p of moves) await wr('/rest/v1/chapters?id=eq.' + p.id, { method: 'PATCH', headers: MIN, body: { position: 100000 + p.position } });
+  for (const p of patchC) { const { id, story_id, _pos, _only, ...rest } = p; await wr('/rest/v1/chapters?id=eq.' + id, { method: 'PATCH', headers: MIN, body: _only ? { position: rest.position } : rest }); }
+  if (putC.length) await wr('/rest/v1/chapters', { method: 'POST', headers: MIN, body: putC });
+  if (bad.length) { console.warn('sync', bad); if (changed) { SB_QUIET = true; try { LS.set(K.replace('cloudsync', 'stories'), out); S.stories = out.map(norm); } finally { SB_QUIET = false; } } return changed; }   // reintenta más tarde
+  const sIds = out.map(x => sUuid(x.id)).filter(Boolean), cIds = []; out.forEach(x => x.chapters.forEach(c => { const cu = cUuid(x.id, c.id); if (cu) cIds.push(cu); }));
+  LS.set(K, { s: sIds, c: cIds, si: Object.fromEntries(sIds.map(u => [u, nSigS[u] || sigS[u]])), ci: Object.fromEntries(cIds.map(u => [u, nSigC[u] || sigC[u]])) });
+  if (changed) { SB_QUIET = true; try { LS.set(K.replace('cloudsync', 'stories'), out); S.stories = out.map(norm); } finally { SB_QUIET = false; } }
+  return changed;
+}
+async function sbPullPublic() {                           // trae las obras de otras personas (y la cola de revisión si eres del equipo)
+  const ses = sbSes(), uid = ses && ses.uid, staff = !!S.user && !isGuest() && !!ses && roleOf(S.user) !== 'USER';
+  const [rs, rp, rt, rc] = await Promise.all([
+    sbApi('/rest/v1/stories?select=*&order=updated_at.desc&limit=2000'),
+    sbApi('/rest/v1/chapter_published?select=*&order=position&limit=10000'),
+    sbApi('/rest/v1/takedowns?select=story_id&limit=2000'),
+    staff ? sbApi('/rest/v1/chapters?select=*&status=in.(pending,rejected)&limit=2000') : Promise.resolve(null)]);
+  if (!rs.ok || !rp.ok || !Array.isArray(rs.data) || !Array.isArray(rp.data)) return false;
+  const stories = rs.data.filter(r => r.owner !== uid), sIds = new Set(stories.map(r => r.id));
+  const pubBy = new Map(), wkBy = new Map();
+  rp.data.forEach(p => { if (sIds.has(p.story_id)) (pubBy.get(p.story_id) || pubBy.set(p.story_id, []).get(p.story_id)).push(p); });
+  if (rc && rc.ok && Array.isArray(rc.data)) rc.data.forEach(c => { if (sIds.has(c.story_id)) (wkBy.get(c.story_id) || wkBy.set(c.story_id, []).get(c.story_id)).push(c); });
+  const owners = [...new Set(stories.filter(r => (pubBy.get(r.id) || wkBy.get(r.id) || []).length).map(r => r.owner))];
+  let prof = [];
+  if (owners.length) { const rpf = await sbApi('/rest/v1/profiles?select=*&id=in.(' + owners.join(',') + ')'); if (!rpf.ok || !Array.isArray(rpf.data)) return false; prof = rpf.data; }
+  const us = LS.get('auri.users', {}); let blob = '';
+  const prevOwners = LS.get('auri.cloudowners', []);
+  for (const o of owners) {
+    const pr = prof.find(x => x.id === o); if (!pr) continue; const key = remoteKey(o), old = us[key] || {};
+    us[key] = { ...old, uid: o, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
+      frameWorn: !!pr.frame_worn, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+    const list = [];
+    for (const r of stories.filter(x => x.owner === o)) {
+      const pubs = (pubBy.get(r.id) || []), wk = (wkBy.get(r.id) || []), cmap = new Map();
+      pubs.forEach(p => cmap.set(p.chapter_id, { pos: p.position, c: { id: cBack(p.chapter_id), title: p.title, text: p.text, status: 'approved', ...(p.cover ? { cover: p.cover } : {}), ...(p.music ? { music: p.music } : {}) } }));
+      wk.forEach(w => { const p = pubs.find(x => x.chapter_id === w.id); cmap.set(w.id, { pos: w.position, c: { id: cBack(w.id), title: w.title, text: w.text, status: w.status, ...(w.status === 'rejected' && w.reason ? { reason: w.reason } : {}), ...(w.cover ? { cover: w.cover } : {}), ...(w.music ? { music: w.music } : {}),
+        ...(p ? { live: { title: p.title, text: p.text, music: p.music || '', cover: p.cover || '' } } : {}) } }); });
+      const chs = [...cmap.values()].sort((a, b) => a.pos - b.pos).map(x => x.c); if (!chs.length) continue;
+      const first = pubs.map(p => day(p.published_at)).sort()[0];
+      list.push({ id: sBack(r.id), ...infoFromRow(r), chapters: chs, updatedAt: day(r.updated_at) || today(), ...(first ? { publishedAt: first } : {}) });
+    }
+    blob += key + JSON.stringify(list); LS.set(`auri.u.${key}.stories`, list);
+  }
+  prevOwners.filter(k => !owners.some(o => remoteKey(o) === k)).forEach(k => localStorage.removeItem(`auri.u.${k}.stories`));
+  const td = rt.ok && Array.isArray(rt.data) ? rt.data.map(x => sBack(x.story_id)) : null; if (td) blob += JSON.stringify(td);
+  const usBlob = JSON.stringify(Object.fromEntries(Object.entries(us).filter(([k]) => k.endsWith('@cloud.auri'))));
+  const hash = hsh(blob + usBlob), changed = hash !== LS.get('auri.cloudhash', '');
+  LS.set('auri.users', us); LS.set('auri.cloudowners', owners.map(remoteKey)); LS.set('auri.cloudhash', hash); if (td) LS.set('auri.takedown', td);
+  return changed;
+}
+function sbChapterStatus(id, cid, status, reason) {       // el equipo aprueba o rechaza: se guarda en la nube
+  if (!cloud() || !sbSes()) return; const cu = cUuid(id, cid); if (!cu) return;
+  sbApi('/rest/v1/chapters?id=eq.' + cu, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { status, reason: reason || '' } }).then(r => {
+    if (!r.ok) { const m = String((r.data && r.data.message) || ''); toast(/anteriores/i.test(m) ? t('Aprueba antes los capítulos anteriores.') : t('No se pudo guardar el cambio. Inténtalo de nuevo.')); }
+    sbRefresh();
+  });
+}
+function sbStoryPatch(id, body) { const su = sUuid(id); if (!cloud() || !sbSes() || !su) return; sbApi('/rest/v1/stories?id=eq.' + su, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body }).then(() => sbRefresh()); }
+function sbTakedown(id, on) {
+  const su = sUuid(id); if (!cloud() || !sbSes() || !su) return;
+  (on ? sbApi('/rest/v1/takedowns', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: { story_id: su, by: sbSes().uid } }) : sbApi('/rest/v1/takedowns?story_id=eq.' + su, { method: 'DELETE', headers: { Prefer: 'return=minimal' } })).then(() => sbRefresh());
+}
+setInterval(() => { if (document.visibilityState !== 'hidden') sbRefresh(); }, 90000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sbRefresh(); });
 let PENDING = null, QZ = null;                         // registro en curso: la cuenta SOLO se crea al terminar el cuestionario
 async function register({ name, email, pass, pass2 }) {      // paso 0: correo y contraseña
   email = email.trim().toLowerCase(); name = name.trim();
@@ -597,7 +758,7 @@ async function login({ email, pass }) {
   if (isGuest()) wipeGuest();                          // lo guardado como invitado se pierde: queda lo de esa cuenta
   startSession(email); return '';
 }
-function startSession(email) { S.user = email; UILANG = null; LS.set('auri.session', email); loadUser(); go('/'); }
+function startSession(email) { S.user = email; UILANG = null; LS.set('auri.session', email); loadUser(); go('/'); sbRefresh(); }
 function logout() { if (cloud() && sbSes()) { sbToken().then(tk => tk && sbFetch('/auth/v1/logout', { method: 'POST', token: tk })).catch(() => {}); } localStorage.removeItem('auri.sb'); S.user = null; UILANG = null; localStorage.removeItem('auri.session'); go('/start'); }
 const userName = () => (LS.get('auri.users', {})[S.user] || {}).name || '';
 /* --- Modo invitado: cuenta temporal local; no da likes ni comenta; al crear cuenta su progreso se conserva --- */
@@ -1089,7 +1250,7 @@ function requestUnmature(sid, title) {                  // la autoría pide quit
 }
 function staffSetMature(sid, v) {
   const st = allStories().find(x => x.id === sid); if (!st) return null;
-  const k = 'auri.u.' + st.owner + '.stories'; LS.set(k, LS.get(k, []).map(x => x.id === sid ? { ...x, mature: v } : x)); if (st.owner === S.user) S.stories = freshStories(); return st;
+  const k = 'auri.u.' + st.owner + '.stories'; LS.set(k, LS.get(k, []).map(x => x.id === sid ? { ...x, mature: v } : x)); if (st.owner === S.user) S.stories = freshStories(); else sbStoryPatch(sid, { mature: !!v }); return st;
 }
 function saveInfoOnly(silent) {
   if (!W) return false;
@@ -1364,6 +1525,7 @@ function chapterRead(s, N) {
 
 /* --- Moderación por capítulo (solo la cuenta dueña) --- */
 function setChapterStatus(id, owner, cid, status, reason = '') {
+  sbChapterStatus(id, cid, status, reason);
   const k = `auri.u.${owner}.stories`; let title = ''; const before = (allStories().find(x => x.id === id) ? publicPrefix(allStories().find(x => x.id === id).chapters).length : 0);
   const list = LS.get(k, []).map(s => {
     if (s.id !== id) return s;
@@ -2476,8 +2638,8 @@ document.addEventListener('click', e => {
     'rp-done': () => rpSet(id, 'resolved'), 'rp-dismiss': () => rpSet(id, 'dismissed'), 'rp-reopen': () => rpSet(id, 'open'),
     'rp-comments': () => { go('/story/' + id); setTimeout(() => { SHOWC = true; KEEP = true; render(); }, 60); },
     'rp-delcomment': () => { if (!isStaff()) return; confirmBox(t('¿Eliminar este comentario por incumplir las normas?'), () => { updateComments(id, l => l.filter(c => String(c.id) !== el.dataset.cid && String(c.parent) !== el.dataset.cid)); logAction('del-comment', id, el.dataset.cid); KEEP = true; render(); }); },
-    'td-on': () => { if (!isStaff()) return; dialog(t('¿Retirar esta obra de Descubrir?'), t('Nadie más podrá encontrarla ni leerla hasta que se restaure. Se avisará a su autoría.'), t('Retirar'), t('Cancelar'), () => { const s0 = findStory(id); G.set('takedown', [...takedown().filter(x => x !== id), id]); logAction('takedown', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «{n}» fue retirada de Descubrir por moderación. Si crees que fue un error, escribe a la administración.', xv: { n: s0.title } }); toast(t('Obra retirada de Descubrir')); KEEP = true; render(); }, true); },
-    'td-off': () => { if (!isStaff()) return; G.set('takedown', takedown().filter(x => x !== id)); const s0 = findStory(id); logAction('restore', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «{n}» volvió a estar visible en Descubrir.', xv: { n: s0.title } }); toast(t('Obra restaurada ✓')); KEEP = true; render(); },
+    'td-on': () => { if (!isStaff()) return; dialog(t('¿Retirar esta obra de Descubrir?'), t('Nadie más podrá encontrarla ni leerla hasta que se restaure. Se avisará a su autoría.'), t('Retirar'), t('Cancelar'), () => { const s0 = findStory(id); G.set('takedown', [...takedown().filter(x => x !== id), id]); sbTakedown(id, true); logAction('takedown', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «{n}» fue retirada de Descubrir por moderación. Si crees que fue un error, escribe a la administración.', xv: { n: s0.title } }); toast(t('Obra retirada de Descubrir')); KEEP = true; render(); }, true); },
+    'td-off': () => { if (!isStaff()) return; G.set('takedown', takedown().filter(x => x !== id)); sbTakedown(id, false); const s0 = findStory(id); logAction('restore', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «{n}» volvió a estar visible en Descubrir.', xv: { n: s0.title } }); toast(t('Obra restaurada ✓')); KEEP = true; render(); },
     mute: () => { setBM('muted', id, true); toast(t('Silenciada: no verás sus comentarios ni recibirás avisos suyos.')); KEEP = true; render(); },
     unmute: () => { setBM('muted', id, false); toast(t('Dejaste de silenciar a esta persona.')); KEEP = true; render(); },
     block: () => dialog(t('¿Bloquear a {n}?', { n: uName(id) }), t('No verás sus comentarios ni sus obras, dejarán de seguirse y no habrá avisos entre ustedes. Puedes desbloquearla en Ajustes.'), t('Bloquear'), t('Cancelar'), () => { blockUser(id); toast(t('Cuenta bloqueada')); KEEP = true; render(); }, true),
@@ -2722,7 +2884,7 @@ applyTheme(); applyReading();
 if (window.matchMedia) { const mq = window.matchMedia('(prefers-color-scheme: dark)'); if (mq && mq.addEventListener) mq.addEventListener('change', () => { if (S.theme === 'auto') applyTheme(); }); }
 if (S.user) loadUser();
 render();
-sbBoot();
+sbBoot().then(sbRefresh);
 seedTest();
 setInterval(() => document.querySelectorAll('.rel-t[data-ts]').forEach(t => { const r = relTime(t.dataset.ts); if (r && t.textContent !== r) t.textContent = r; }), 30000);
 (function splash() {                                   // pantalla de bienvenida corta con las orejitas de Auri

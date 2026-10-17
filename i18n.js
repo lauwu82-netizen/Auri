@@ -1324,5 +1324,7 @@ window.I18N = { en: {
  "Te enviamos un correo para confirmar tu cuenta. Después inicia sesión.": "We sent you an email to confirm your account. Then log in.",
  "No se pudo cambiar el correo. Inténtalo de nuevo.": "Couldn't change the email. Please try again.",
  "Te enviamos un enlace al correo nuevo para confirmar el cambio.": "We sent a link to your new email to confirm the change.",
- "No se pudo eliminar la cuenta. Inténtalo de nuevo.": "Couldn't delete the account. Please try again."
+ "No se pudo eliminar la cuenta. Inténtalo de nuevo.": "Couldn't delete the account. Please try again.",
+ "Aprueba antes los capítulos anteriores.": "Approve the previous chapters first.",
+ "No se pudo guardar el cambio. Inténtalo de nuevo.": "Couldn't save the change. Please try again."
 } };
