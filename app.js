@@ -83,9 +83,12 @@ const norm = s => {
   });
   return { cover: '', tags: [], mature: false, phase: 'ongoing', prev: '', ...r, chapters };
 };
+/** Con la nube activa, las cuentas que solo viven en este navegador (antiguas, de prueba o de otra persona que entró aquí) no cuentan:
+ *  solo se ve tu cuenta y la copia de las demás que viene de Supabase. Así no salen personas duplicadas. */
+const isLiveUser = (e, u) => { if (!cloud()) return true; if (!u) return false; if (e === S.user) return true; if (!u.remote) return false; const ss = sbSes(); return !(ss && u.uid === ss.uid); };
 function allStories() {                       // incluye historias de todas las cuentas del dispositivo
   const users = LS.get('auri.users', {}); let all = [];
-  for (const email in users) all = all.concat(LS.get(`auri.u.${email}.stories`, []).map(s => ({ ...norm(s), author: users[email].name, owner: email })));
+  for (const email in users) if (isLiveUser(email, users[email])) all = all.concat(LS.get(`auri.u.${email}.stories`, []).map(s => ({ ...norm(s), author: users[email].name, owner: email })));
   return all.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 /** Lo que ve el público: capítulos aprobados (o la última versión aprobada de uno que se está editando) */
@@ -506,11 +509,12 @@ async function sbMirror() {
   const pr = p.ok && Array.isArray(p.data) && p.data[0]; if (!pr) return false;
   const pv = (q.ok && Array.isArray(q.data) && q.data[0]) || {};
   const email = String(s.email || pv.email || '').toLowerCase(), us = LS.get('auri.users', {}), old = us[email] || {};
-  us[email] = { ...old, uid: s.uid, cloud: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '',
+  us[email] = { ...old, uid: s.uid, cloud: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || old.bio || '', avatar: pr.avatar || old.avatar || '', banner: pr.banner || old.banner || '',
     role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
     birth: pv.birth || old.birth || '', gender: pv.gender || old.gender || '', interests: pv.interests || old.interests || [], onboarded: true,
     termsAccepted: pr.terms_accepted || old.termsAccepted, created: String(pr.created_at || '').slice(0, 10) || old.created, strikes: old.strikes || [] };
   LS.set('auri.users', us);
+  if ((!pr.avatar && old.avatar) || (!pr.banner && old.banner) || (!pr.bio && old.bio)) sbProfileSoon();       // la nube estaba vacía: sube lo que ya tenías
   const pc = LS.get('auri.pendingcfg.' + email, null);
   if (pc) { if (!localStorage.getItem('auri.u.' + email + '.cfg')) LS.set('auri.u.' + email + '.cfg', pc); localStorage.removeItem('auri.pendingcfg.' + email); }
   return email;
@@ -1044,7 +1048,7 @@ async function nameTaken(name, except) {                 // ¿ya hay otra person
 let SM = 'books', UF = 'all', SB_UQ;                     // SM: qué se busca (libros o usuarios); UF: filtro propio de usuarios
 function usersList() {
   const qs = nameKey(String(Q).replace(/^@/, '')), owners = new Set(publishedStories().map(s => s.owner)), cnt = {}; publishedStories().forEach(s => { cnt[s.owner] = (cnt[s.owner] || 0) + 1; });
-  let l = Object.entries(getUsers()).filter(([e, u]) => e !== GUEST && u && u.name && commVisible(u.community === 'en' ? 'en' : 'es') && !hidesStory(e)
+  let l = Object.entries(getUsers()).filter(([e, u]) => e !== GUEST && u && u.name && isLiveUser(e, u) && commVisible(u.community === 'en' ? 'en' : 'es') && !hidesStory(e)
     && (UF === 'authors' ? owners.has(e) : UF === 'team' ? roleOf(e) !== 'USER' : true) && (!qs || nameKey(u.name).includes(qs)));
   l.sort((a, b) => { const A = nameKey(a[1].name), B = nameKey(b[1].name); return (qs ? (B.startsWith(qs) - A.startsWith(qs)) : 0) || A.localeCompare(B); });
   if (!l.length) return empty(t('No encontramos usuarios'), qs ? t('Prueba con otro nombre.') : t('Aún no hay usuarios aquí.'), '');
