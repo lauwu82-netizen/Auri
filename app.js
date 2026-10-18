@@ -30,7 +30,7 @@ function toast(msg) {
 /* 2. ALMACENAMIENTO ----------------------------------------------- */
 const LS = {
   get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch { return f; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); if (S.user && k === `auri.u.${S.user}.stories`) sbStoriesSoon(); return true; } catch { toast('No se pudo guardar: almacenamiento lleno'); return false; } }
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); if (S.user && k.startsWith('auri.')) { try { sbHook(k); } catch {} } return true; } catch { toast('No se pudo guardar: almacenamiento lleno'); return false; } }
 };
 const S = { user: LS.get('auri.session', null), theme: LS.get('auri.themeSet', false) ? LS.get('auri.theme', 'auto') : 'auto', stories: [], favs: [], progress: {}, character: {} };
 const uk = n => `auri.u.${S.user}.${n}`;           // datos separados por cuenta
@@ -578,17 +578,23 @@ const contSig = c => hsh([c.title || '', c.text || '', c.cover || '', c.music ||
 const sameCont = (c, r) => (c.title || '') === (r.title || '') && (c.text || '') === (r.text || '') && (c.cover || '') === (r.cover || '') && (c.music || '') === (r.music || '');
 const infoFromRow = r => ({ title: r.title, synopsis: r.synopsis || '', genre: r.genre || '', fandom: r.fandom || '', tags: r.tags || [], cover: r.cover || '', mature: !!r.mature, phase: r.phase || 'ongoing', prev: r.prev ? sBack(r.prev) : '', useReaderCharacter: r.use_reader_character !== false });
 const day = v => String(v || '').slice(0, 10);
-let SB_BUSY = false, SB_AGAIN = false, SB_ST, SB_QUIET = false;
-function sbStoriesSoon() { if (!cloud() || !sbSes() || SB_QUIET) return; clearTimeout(SB_ST); SB_ST = setTimeout(sbRefresh, 1500); }
-async function sbRefresh() {                              // sube lo tuyo, trae lo de todas las personas y dibuja de nuevo si algo cambió
-  if (!cloud()) return; if (SB_BUSY) { SB_AGAIN = true; return; } SB_BUSY = true;
+let SB_BUSY = false, SB_ST, SB_QUIET = false, SB_Q = { all: false, st: false, soc: new Set() };
+function sbStoriesSoon() { if (!cloud() || !sbSes() || SB_QUIET) return; SB_Q.st = true; clearTimeout(SB_ST); SB_ST = setTimeout(() => sbRefresh({ st: true }), 1500); }
+async function sbRefresh(only) {                          // sube lo tuyo, trae lo de todas las personas y dibuja de nuevo si algo cambió
+  if (!cloud()) return;
+  if (only === undefined) SB_Q.all = true; else { if (only.st) SB_Q.st = true; (only.soc || []).forEach(x => SB_Q.soc.add(x)); }
+  if (SB_BUSY) return; SB_BUSY = true;
   try {
-    let ch = false;
-    if (sbSes() && S.user && !isGuest()) ch = await sbSyncOwn();
-    ch = (await sbPullPublic()) || ch;
-    if (ch && !W && !/^#\/(write|story\/[^/]+\/\d)/.test(location.hash)) render();
+    while (SB_Q.all || SB_Q.st || SB_Q.soc.size) {
+      const q = SB_Q; SB_Q = { all: false, st: false, soc: new Set() }; let ch = false; const me = sbSes() && S.user && !isGuest();
+      if (me && (q.all || q.st)) ch = (await sbSyncOwn()) || ch;
+      if (q.all || q.st) ch = (await sbPullPublic()) || ch;
+      if (me && (q.all || q.soc.size)) { const set = new Set(q.soc); ['comments', 'comment_likes'].some(x => set.has(x)) && ['comments', 'comment_likes'].forEach(x => set.add(x)); ['pcom', 'pcom_likes'].some(x => set.has(x)) && ['pcom', 'pcom_likes'].forEach(x => set.add(x)); ch = (await sbSyncSocial(q.all ? null : [...set])) || ch; }
+      const ae = document.activeElement && document.activeElement.tagName;
+      if (ch && !W && ae !== 'INPUT' && ae !== 'TEXTAREA' && !/^#\/(write|story\/[^/]+\/\d)/.test(location.hash)) render();
+    }
   } catch (e) { console.warn('sync', e); }
-  finally { SB_BUSY = false; if (SB_AGAIN) { SB_AGAIN = false; sbStoriesSoon(); } }
+  finally { SB_BUSY = false; }
 }
 async function sbSyncOwn() {
   const ses = sbSes(), me = ses && String(ses.email || '').toLowerCase(); if (!ses || !S.user || S.user !== me) return false;
@@ -721,6 +727,154 @@ function sbTakedown(id, on) {
 }
 setInterval(() => { if (document.visibilityState !== 'hidden') sbRefresh(); }, 90000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sbRefresh(); });
+/* ---------- NUBE · seguir, me gusta, favoritos, biblioteca, comentarios y datos personales ----------
+   Cada tipo de dato se sincroniza igual: se compara lo de este dispositivo, lo de la nube y lo de la última vez.
+   - Lo que tú cambiaste se sube; lo que cambió otra persona se baja; lo que borraste se borra en la nube. */
+const myUid = () => (sbSes() || {}).uid || null;
+const strHex = s => [...String(s)].map(ch => (ch.charCodeAt(0) & 255).toString(16).padStart(2, '0')).join('').slice(0, 32).padEnd(32, '0');   // ids de hasta 16 caracteres
+const idUuid = s => { const h = strHex(s); return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`; };
+const uuidId = u => { const h = String(u).replace(/-/g, ''); let s = ''; for (let i = 0; i < 32; i += 2) { const c = parseInt(h.slice(i, i + 2), 16); if (!c) break; s += String.fromCharCode(c); } return s; };
+const idTime = s => { const n = parseInt(String(s).slice(0, 13), 10); return n > 1e12 ? new Date(n).toISOString() : new Date().toISOString(); };
+function sbIds(us) {                                        // correo/clave local ↔ id en la nube
+  const me = myUid(), fw = new Map([[S.user, me]]), bw = new Map([[me, S.user]]);
+  for (const k in us) { const u = us[k]; if (u && u.uid && u.remote) { fw.set(k, u.uid); bw.set(u.uid, k); } }
+  return { me, uid: k => fw.get(k) || null, key: u => bw.get(u) || null };
+}
+const SOC_KV = ['cols', 'progress', 'pos', 'cfg', 'chars'];
+const rowSets = {                                            // tablas de pares (persona, cosa)
+  follows: { path: '/rest/v1/follows?select=*&limit=50000', table: 'follows', id: r => r.follower + '>' + r.followee, mine: (r, c) => r.follower === c.me, del: r => `follower=eq.${r.follower}&followee=eq.${r.followee}` },
+  likes: { path: '/rest/v1/likes?select=*&limit=50000', table: 'likes', id: r => r.user_id + '|' + r.story_id, mine: (r, c) => r.user_id === c.me, del: r => `user_id=eq.${r.user_id}&story_id=eq.${r.story_id}` },
+  subscriptions: { path: '/rest/v1/subscriptions?select=*&limit=50000', table: 'subscriptions', id: r => r.user_id + '|' + r.story_id, mine: (r, c) => r.user_id === c.me, del: r => `user_id=eq.${r.user_id}&story_id=eq.${r.story_id}` },
+  favorites: { path: '/rest/v1/favorites?select=*&limit=50000', table: 'favorites', id: r => r.user_id + '|' + r.story_id, mine: () => true, del: r => `user_id=eq.${r.user_id}&story_id=eq.${r.story_id}` },
+  library: { path: '/rest/v1/library?select=*&limit=50000', table: 'library', id: r => r.user_id + '|' + r.story_id, mine: () => true, del: r => `user_id=eq.${r.user_id}&story_id=eq.${r.story_id}` },
+  blocks: { path: '/rest/v1/blocks?select=*&limit=50000', table: 'blocks', id: r => r.blocked + '|' + r.kind, mine: () => true, del: r => `blocker=eq.${r.blocker}&blocked=eq.${r.blocked}&kind=eq.${r.kind}` },
+  comment_likes: { path: '/rest/v1/comment_likes?select=*&limit=50000', table: 'comment_likes', id: r => r.comment_id + '|' + r.user_id, mine: (r, c) => r.user_id === c.me, del: r => `comment_id=eq.${r.comment_id}&user_id=eq.${r.user_id}` },
+  paragraph_comment_likes: { path: '/rest/v1/paragraph_comment_likes?select=*&limit=50000', table: 'paragraph_comment_likes', id: r => r.comment_id + '|' + r.user_id, mine: (r, c) => r.user_id === c.me, del: r => `comment_id=eq.${r.comment_id}&user_id=eq.${r.user_id}` }
+};
+const SOC_ORDER = ['follows', 'likes', 'subscriptions', 'favorites', 'library', 'blocks', 'comments', 'comment_likes', 'pcom', 'pcom_likes', 'user_data'];
+const SOC_TABLE = { pcom: 'paragraph_comments', pcom_likes: 'paragraph_comment_likes' };
+/* --- lo de este dispositivo, en el mismo formato que la nube --- */
+function socLocal(n, c) {
+  const L = new Map(), put = (row, id, m, v) => L.set(id, { id, m, v: v || '1', row }), me = c.me;
+  if (n === 'follows') { const f = G.get('follows', {}); for (const a in f) { const ua = c.uid(a); if (!ua) continue; for (const b of f[a] || []) { const ub = c.uid(b); if (ub && ua !== ub) { const r = { follower: ua, followee: ub }; put(r, rowSets.follows.id(r), ua === me); } } } }
+  else if (n === 'likes' || n === 'subscriptions') { const o = G.get(n === 'likes' ? 'likes' : 'subs', {}); for (const sid in o) { const su = sUuid(sid); if (!su) continue; for (const k of o[sid] || []) { const u = c.uid(k); if (u) { const r = { user_id: u, story_id: su }; put(r, rowSets[n].id(r), u === me); } } } }
+  else if (n === 'favorites' || n === 'library') { for (const sid of (n === 'favorites' ? S.favs : S.lib) || []) { const su = sUuid(sid); if (su) { const r = { user_id: me, story_id: su }; put(r, rowSets[n].id(r), true); } } }
+  else if (n === 'blocks') { for (const kind of ['block', 'mute']) for (const k of bl(S.user, kind === 'block' ? 'blocked' : 'muted')) { const u = c.uid(k); if (u) { const r = { blocker: me, blocked: u, kind }; put(r, rowSets.blocks.id(r), true); } } }
+  else if (n === 'comments' || n === 'comment_likes') {
+    const all = G.get('comments', {});
+    for (const sid in all) { const su = sUuid(sid); if (!su) continue; for (const cm of all[sid] || []) { const u = c.uid(cm.by); if (!u) continue; const cu = idUuid(cm.id);
+      if (n === 'comments') { const r = { id: cu, story_id: su, user_id: u, parent_id: cm.parent != null && cm.parent !== '' ? idUuid(cm.parent) : null, text: String(cm.text || '').slice(0, 2000) || '·', edited: !!cm.edited, created_at: idTime(cm.id) }; put(r, cu, u === me, r.text + '\u0001' + (r.edited ? 1 : 0)); }
+      else for (const k of cm.lk || []) { const lu = c.uid(k); if (lu) { const r = { comment_id: cu, user_id: lu }; put(r, rowSets.comment_likes.id(r), lu === me); } } } }
+  }
+  else if (n === 'pcom' || n === 'pcom_likes') {
+    const all = G.get('pcom', {});
+    for (const key in all) { const [sid, ci, pi] = key.split('|'), su = sUuid(sid); if (!su) continue; for (const cm of all[key] || []) { const u = c.uid(cm.by); if (!u) continue; const cu = idUuid(cm.id);
+      if (n === 'pcom') { const r = { id: cu, story_id: su, chapter_pos: +ci || 0, para_idx: +pi || 0, q: String(cm.q || ''), user_id: u, parent_id: cm.parent != null && cm.parent !== '' ? idUuid(cm.parent) : null, text: String(cm.text || '').slice(0, 1000) || '·', spoiler: !!cm.spoiler, created_at: idTime(cm.id) }; put(r, cu, u === me, r.text + '\u0001' + (r.spoiler ? 1 : 0)); }
+      else for (const k of cm.lk || []) { const lu = c.uid(k); if (lu) { const r = { comment_id: cu, user_id: lu }; put(r, rowSets.paragraph_comment_likes.id(r), lu === me); } } } }
+  }
+  else if (n === 'user_data') { for (const k of SOC_KV) { const raw = localStorage.getItem(uk(k)); if (raw == null) continue; let val; try { val = JSON.parse(raw); } catch { continue; } put({ user_id: me, key: k, value: val }, k, true, hsh(raw)); } }
+  return L;
+}
+function socCloud(n, rows, c) {
+  const C = new Map();
+  rows.forEach(r => {
+    if (n === 'comments') C.set(r.id, { id: r.id, m: r.user_id === c.me, v: r.text + '\u0001' + (r.edited ? 1 : 0), row: r });
+    else if (n === 'pcom') C.set(r.id, { id: r.id, m: r.user_id === c.me, v: r.text + '\u0001' + (r.spoiler ? 1 : 0), row: r });
+    else if (n === 'user_data') C.set(r.key, { id: r.key, m: true, v: hsh(JSON.stringify(r.value)), row: r });
+    else { const S0 = rowSets[SOC_TABLE[n] ? 'paragraph_comment_likes' : n]; C.set(S0.id(r), { id: S0.id(r), m: S0.mine(r, c), v: '1', row: r }); }
+  });
+  return C;
+}
+/* --- guarda en este dispositivo el resultado (devuelve true si algo cambió) --- */
+function socWrite(n, F, c, fin) {
+  const rows = [...F.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(e => e[1].row); let changed = false;
+  const store = (key, val, raw) => { const cur = localStorage.getItem(key); const nv = JSON.stringify(val); if (cur !== nv && !(cur == null && (Array.isArray(val) ? !val.length : val && typeof val === 'object' ? !Object.keys(val).length : false))) { localStorage.setItem(key, nv); changed = true; } };
+  if (n === 'follows') { const o = {}; rows.forEach(r => { const a = c.key(r.follower), b = c.key(r.followee); if (a && b) (o[a] = o[a] || []).push(b); }); store('auri.follows', o); }
+  else if (n === 'likes' || n === 'subscriptions') { const o = {}; rows.forEach(r => { const k = c.key(r.user_id); if (k) (o[sBack(r.story_id)] = o[sBack(r.story_id)] || []).push(k); }); store(n === 'likes' ? 'auri.likes' : 'auri.subs', o); }
+  else if (n === 'favorites') { S.favs = rows.map(r => sBack(r.story_id)); store(uk('favs'), S.favs); }
+  else if (n === 'library') { S.lib = rows.map(r => sBack(r.story_id)); store(uk('lib'), S.lib); }
+  else if (n === 'blocks') { for (const [kind, nm] of [['block', 'blocked'], ['mute', 'muted']]) { const keep = bl(S.user, nm).filter(k => !c.uid(k)); store('auri.u.' + S.user + '.' + nm, [...keep, ...rows.filter(r => r.kind === kind).map(r => c.key(r.blocked)).filter(Boolean)]); } }
+  else if (n === 'comments') {
+    const lk = {}; (fin.comment_likes ? [...fin.comment_likes.values()] : []).forEach(x => { const k = c.key(x.row.user_id); if (k) (lk[x.row.comment_id] = lk[x.row.comment_id] || []).push(k); });
+    const o = {}; rows.slice().sort((a, b) => uuidId(a.id).localeCompare(uuidId(b.id))).forEach(r => { const by = c.key(r.user_id); if (!by) return; const sid = sBack(r.story_id), id = Number(uuidId(r.id));
+      (o[sid] = o[sid] || []).push({ id, by, text: r.text, date: String(r.created_at || '').slice(0, 10), ...(r.parent_id ? { parent: Number(uuidId(r.parent_id)) } : {}), ...(r.edited ? { edited: true } : {}), ...(lk[r.id] ? { lk: lk[r.id] } : {}) }); });
+    store('auri.comments', o);
+  }
+  else if (n === 'pcom') {
+    const lk = {}; (fin.pcom_likes ? [...fin.pcom_likes.values()] : []).forEach(x => { const k = c.key(x.row.user_id); if (k) (lk[x.row.comment_id] = lk[x.row.comment_id] || []).push(k); });
+    const o = {}; rows.slice().sort((a, b) => uuidId(a.id).localeCompare(uuidId(b.id))).forEach(r => { const by = c.key(r.user_id); if (!by) return; const key = sBack(r.story_id) + '|' + r.chapter_pos + '|' + r.para_idx;
+      (o[key] = o[key] || []).push({ id: uuidId(r.id), by, text: r.text, date: String(r.created_at || '').slice(0, 10), spoiler: !!r.spoiler, q: r.q || '', ...(r.parent_id ? { parent: uuidId(r.parent_id) } : {}), ...(lk[r.id] ? { lk: lk[r.id] } : {}) }); });
+    store('auri.pcom', o);
+  }
+  else if (n === 'user_data') { rows.forEach(r => { const key = uk(r.key), nv = JSON.stringify(r.value); if (localStorage.getItem(key) !== nv) { localStorage.setItem(key, nv); changed = true; } });
+    if (changed) { S.cols = LS.get(uk('cols'), []); S.progress = LS.get(uk('progress'), {}); S.pos = LS.get(uk('pos'), {}); S.cfg = LS.get(uk('cfg'), {}); loadChars(); applyReading(); } }
+  return changed;
+}
+async function socBulk(table, rows) {                // inserta por lotes; si el lote falla, fila por fila. Devuelve {ok:Set, dead:Set(error permanente), retry:Set}
+  const out = { ok: new Set(), dead: new Set(), retry: new Set() }; if (!rows.length) return out;
+  const H = { Prefer: 'return=minimal,resolution=ignore-duplicates' }, p = '/rest/v1/' + table;
+  const r = await sbApi(p, { method: 'POST', headers: H, body: rows }); if (r.ok) { rows.forEach(x => out.ok.add(x._id)); return out; }
+  if (r.net || r.status >= 500) { rows.forEach(x => out.retry.add(x._id)); return out; }
+  for (const x of rows) { const { _id, ...b } = x; const q = await sbApi(p, { method: 'POST', headers: H, body: b }); (q.ok ? out.ok : (q.net || q.status >= 500) ? out.retry : out.dead).add(_id); }
+  return out;
+}
+let SOC_ONLY = null, SOC_BUSY = false;
+async function sbSyncSocial(only) {
+  const ses = sbSes(); if (!ses || !S.user || String(ses.email).toLowerCase() !== S.user || isGuest()) return false;
+  if (SOC_BUSY) { SOC_ONLY = null; return false; } SOC_BUSY = true;
+  try {
+    const names = SOC_ORDER.filter(n => !only || only.includes(n)), K = uk('cloudsoc'), B = LS.get(K, {}), me = ses.uid;
+    const paths = { comments: '/rest/v1/comments?select=*&order=created_at&limit=50000', pcom: '/rest/v1/paragraph_comments?select=*&order=created_at&limit=50000', pcom_likes: rowSets.paragraph_comment_likes.path, user_data: '/rest/v1/user_data?select=*&limit=1000' };
+    const res = await Promise.all(names.map(n => sbApi(paths[n] || rowSets[n].path)));
+    if (res.some(r => !r.ok || !Array.isArray(r.data))) return false;                  // sin conexión o sin permiso: no se toca nada
+    // personas que aparecen en la nube y aún no conocemos
+    let us = LS.get('auri.users', {}), ids = sbIds(us); const need = new Set();
+    res.forEach(r => r.data.forEach(x => ['user_id', 'follower', 'followee', 'blocked'].forEach(f => { if (x[f] && !ids.key(x[f])) need.add(x[f]); })));
+    if (need.size) { const list = [...need]; for (let i = 0; i < list.length; i += 80) { const pr = await sbApi('/rest/v1/profiles?select=*&id=in.(' + list.slice(i, i + 80).join(',') + ')'); if (pr.ok && Array.isArray(pr.data)) pr.data.forEach(p => { us[remoteKey(p.id)] = sbPseudo(p, us[remoteKey(p.id)]); }); } LS.set('auri.users', us); ids = sbIds(us); }
+    const c = { me, uid: ids.uid, key: ids.key }, fin = {}; let changed = false; const staff = isStaff();
+    for (let i = 0; i < names.length; i++) {
+      const n = names[i], C = socCloud(n, res[i].data, c), L = socLocal(n, c), b = B[n] || {}, F = new Map(), add = [], edit = [], del = [], settled = {};
+      for (const id of new Set([...L.keys(), ...C.keys()])) {
+        const l = L.get(id), cl = C.get(id), bv = b[id], mine = (l || cl).m;
+        if (!mine) { if (cl) F.set(id, cl); else if (l && staff && bv !== undefined && (n === 'comments' || n === 'pcom')) del.push(l); continue; }
+        if (l && !cl) { if (bv !== undefined) continue; add.push(l); F.set(id, l); }
+        else if (!l && cl) { if (bv !== undefined) del.push(cl); else F.set(id, cl); }
+        else if (bv !== undefined && l.v !== bv) { if (l.v !== cl.v) edit.push(l); F.set(id, l); }
+        else F.set(id, cl);
+      }
+      // subir
+      const table = SOC_TABLE[n] || (rowSets[n] ? rowSets[n].table : n), dead = new Set(), retry = new Set();
+      if (add.length) {
+        if (n === 'user_data') { const r = await sbApi('/rest/v1/user_data', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: add.map(x => ({ ...x.row, updated_at: new Date().toISOString() })) }); if (!r.ok) add.forEach(x => ((r.net || r.status >= 500) ? retry : dead).add(x.id)); }
+        else { const o = await socBulk(table, add.map(x => ({ ...x.row, _id: x.id }))); o.dead.forEach(id => dead.add(id)); o.retry.forEach(id => retry.add(id)); }
+      }
+      for (const l of edit) { const body = n === 'comments' ? { text: l.row.text, edited: true } : n === 'user_data' ? { value: l.row.value, updated_at: new Date().toISOString() } : null; if (!body) continue;
+        const r = await sbApi('/rest/v1/' + table + (n === 'user_data' ? '?user_id=eq.' + me + '&key=eq.' + l.id : '?id=eq.' + l.id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body }); if (!r.ok && (r.net || r.status >= 500)) retry.add(l.id); }
+      for (const x of del) { const q = n === 'comments' || n === 'pcom' ? 'id=eq.' + x.row.id : n === 'user_data' ? '' : rowSets[n].del(x.row); if (!q) continue; const r = await sbApi('/rest/v1/' + table + '?' + q, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); if (!r.ok && (r.net || r.status >= 500)) retry.add(x.id); }
+      dead.forEach(id => F.delete(id));                                                  // la nube lo rechazó (p. ej. obra no publicada): se quita de aquí
+      fin[n] = F; B[n] = Object.fromEntries([...F.entries()].filter(([id]) => !retry.has(id)).map(([id, x]) => [id, x.v]));
+    }
+    for (const n of names) { if (socWrite(n, fin[n], c, fin)) changed = true; }
+    LS.set(K, B);
+    return changed;
+  } finally { SOC_BUSY = false; }
+}
+function sbPseudo(pr, old) {                                   // copia local de la cuenta de otra persona (sin datos privados)
+  old = old || {};
+  return { ...old, uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
+    frameWorn: !!pr.frame_worn, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+}
+const SOC_G = { 'auri.likes': ['likes'], 'auri.follows': ['follows'], 'auri.comments': ['comments', 'comment_likes'], 'auri.pcom': ['pcom', 'pcom_likes'], 'auri.subs': ['subscriptions'] };
+let SB_SOC_T;
+function sbHook(k) {                                          // se llama cada vez que la app guarda algo: decide qué hay que sincronizar
+  if (!cloud() || !sbSes() || SB_QUIET || !S.user) return;
+  if (k === `auri.u.${S.user}.stories`) return sbStoriesSoon();
+  let n = SOC_G[k]; const pre = `auri.u.${S.user}.`;
+  if (!n && k.startsWith(pre)) { const s = k.slice(pre.length); n = { favs: ['favorites'], lib: ['library'], blocked: ['blocks'], muted: ['blocks'] }[s] || (SOC_KV.includes(s) ? ['user_data'] : null); }
+  if (!n) return;
+  const slow = k.endsWith('.pos') || k.endsWith('.progress'); SB_Q.soc.add(n[0]); n.forEach(x => SB_Q.soc.add(x));
+  clearTimeout(SB_SOC_T); SB_SOC_T = setTimeout(() => sbRefresh({ soc: [] }), slow ? 15000 : 1200);
+}
 let PENDING = null, QZ = null;                         // registro en curso: la cuenta SOLO se crea al terminar el cuestionario
 async function register({ name, email, pass, pass2 }) {      // paso 0: correo y contraseña
   email = email.trim().toLowerCase(); name = name.trim();
