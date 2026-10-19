@@ -739,7 +739,8 @@ const uuidId = u => { const h = String(u).replace(/-/g, ''); let s = ''; for (le
 const idTime = s => { const n = parseInt(String(s).slice(0, 13), 10); return n > 1e12 ? new Date(n).toISOString() : new Date().toISOString(); };
 function sbIds(us) {                                        // correo/clave local ↔ id en la nube
   const me = myUid(), fw = new Map([[S.user, me]]), bw = new Map([[me, S.user]]);
-  for (const k in us) { const u = us[k]; if (u && u.uid && u.remote) { fw.set(k, u.uid); bw.set(u.uid, k); } }
+  for (const k in us) { const u = us[k]; if (u && u.uid && !u.remote && k !== S.user && u.uid !== me) { fw.set(k, u.uid); bw.set(u.uid, k); } }   // otras cuentas reales de este mismo dispositivo
+  for (const k in us) { const u = us[k]; if (u && u.uid && u.remote) { fw.set(k, u.uid); if (u.uid !== me) bw.set(u.uid, k); } }   // si hubo otra sesión en este dispositivo, la copia de tu propia cuenta no debe reemplazar tu clave
   return { me, uid: k => fw.get(k) || null, key: u => bw.get(u) || null };
 }
 const SOC_KV = ['cols', 'progress', 'pos', 'cfg', 'chars', 'dmread'];
