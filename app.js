@@ -172,7 +172,7 @@ function canAct(tg) {
 const strikesOf = e => ((getUsers()[e] || {}).strikes || []).filter(x => !x.void);          // los anulados no cuentan
 const activeBan = e => { const b = (getUsers()[e] || {}).ban; if (!b) return null; if (b.until && Date.parse(b.until) <= Date.now()) return null; return b; };
 function logAction(type, target, extra, by) { const l = G.get('modlog', []); l.unshift({ id: Date.now() + Math.random().toString(36).slice(2, 5), type, by: by || S.user, target, extra: extra || '', date: new Date().toISOString() }); G.set('modlog', l.slice(0, 1000)); }
-function pushNotif(to, o) { const k = 'notifs.' + to, l = G.get(k, []); l.unshift({ id: Date.now() + Math.random().toString(36).slice(2, 6), from: '', storyId: '', extra: '', chap: '', date: new Date().toISOString(), read: false, ...o }); G.set(k, l.slice(0, 100)); }
+function pushNotif(to, o) { if (sbOut(to, o)) return; const k = 'notifs.' + to, l = G.get(k, []); l.unshift({ id: Date.now() + Math.random().toString(36).slice(2, 6), from: '', storyId: '', extra: '', chap: '', date: new Date().toISOString(), read: false, ...o }); G.set(k, l.slice(0, 100)); }
 /* Acciones con verificación de permisos (devuelven un texto de error o '' si todo salió bien) */
 function giveStrike(tg, reason) {
   reason = String(reason || '').trim(); if (!canAct(tg)) return t('No tienes permiso para esta acción.'); if (reason.length < 3) return t('Escribe el motivo del strike.');
@@ -378,6 +378,7 @@ function notify(to, type, storyId, extra = '', chap = '', from = S.user) {
   if (!to || (to === S.user && type !== 'chapter')) return;
   if (noPing(to, from)) return;                                  // bloqueada o silenciada: no llegan avisos
   if (['chapter', 'like', 'comment', 'follow'].includes(type) && ((LS.get('auri.u.' + to + '.cfg', {}).notif || {})[type] === false)) return;   // la persona apagó este tipo de aviso (los de moderación no se pueden apagar)
+  if (sbOut(to, { type, from, storyId, extra, chap })) return;   // con la nube activa, el aviso va directo a la otra persona
   const k = 'notifs.' + to, list = G.get(k, []);
   if ((type === 'like' || type === 'follow') && list.some(n => n.type === type && n.from === S.user && n.storyId === storyId)) return;
   list.unshift({ id: Date.now() + Math.random().toString(36).slice(2, 6), type, from, storyId, extra, chap, date: new Date().toISOString(), read: false });
@@ -589,7 +590,8 @@ async function sbRefresh(only) {                          // sube lo tuyo, trae 
       const q = SB_Q; SB_Q = { all: false, st: false, soc: new Set() }; let ch = false; const me = sbSes() && S.user && !isGuest();
       if (me && (q.all || q.st)) ch = (await sbSyncOwn()) || ch;
       if (q.all || q.st) ch = (await sbPullPublic()) || ch;
-      if (me && (q.all || q.soc.size)) { const set = new Set(q.soc); ['comments', 'comment_likes'].some(x => set.has(x)) && ['comments', 'comment_likes'].forEach(x => set.add(x)); ['pcom', 'pcom_likes'].some(x => set.has(x)) && ['pcom', 'pcom_likes'].forEach(x => set.add(x)); ch = (await sbSyncSocial(q.all ? null : [...set])) || ch; }
+      if (me && (q.all || q.soc.has('dm'))) ch = (await sbSyncMsgs()) || ch;
+      if (me && (q.all || [...q.soc].some(x => x !== 'dm'))) { const set = new Set(q.soc); ['comments', 'comment_likes'].some(x => set.has(x)) && ['comments', 'comment_likes'].forEach(x => set.add(x)); ['pcom', 'pcom_likes'].some(x => set.has(x)) && ['pcom', 'pcom_likes'].forEach(x => set.add(x)); ch = (await sbSyncSocial(q.all ? null : [...set])) || ch; }
       const ae = document.activeElement && document.activeElement.tagName;
       if (ch && !W && ae !== 'INPUT' && ae !== 'TEXTAREA' && !/^#\/(write|story\/[^/]+\/\d)/.test(location.hash)) render();
     }
@@ -740,7 +742,7 @@ function sbIds(us) {                                        // correo/clave loca
   for (const k in us) { const u = us[k]; if (u && u.uid && u.remote) { fw.set(k, u.uid); bw.set(u.uid, k); } }
   return { me, uid: k => fw.get(k) || null, key: u => bw.get(u) || null };
 }
-const SOC_KV = ['cols', 'progress', 'pos', 'cfg', 'chars'];
+const SOC_KV = ['cols', 'progress', 'pos', 'cfg', 'chars', 'dmread'];
 const rowSets = {                                            // tablas de pares (persona, cosa)
   follows: { path: '/rest/v1/follows?select=*&limit=50000', table: 'follows', id: r => r.follower + '>' + r.followee, mine: (r, c) => r.follower === c.me, del: r => `follower=eq.${r.follower}&followee=eq.${r.followee}` },
   likes: { path: '/rest/v1/likes?select=*&limit=50000', table: 'likes', id: r => r.user_id + '|' + r.story_id, mine: (r, c) => r.user_id === c.me, del: r => `user_id=eq.${r.user_id}&story_id=eq.${r.story_id}` },
@@ -869,12 +871,124 @@ let SB_SOC_T;
 function sbHook(k) {                                          // se llama cada vez que la app guarda algo: decide qué hay que sincronizar
   if (!cloud() || !sbSes() || SB_QUIET || !S.user) return;
   if (k === `auri.u.${S.user}.stories`) return sbStoriesSoon();
+  if (k === 'auri.dm' || k === 'auri.notifs.' + S.user) { clearTimeout(SB_MSG_T); SB_MSG_T = setTimeout(() => sbSyncMsgs().then(c => c && msgUi()), 500); return; }
   let n = SOC_G[k]; const pre = `auri.u.${S.user}.`;
   if (!n && k.startsWith(pre)) { const s = k.slice(pre.length); n = { favs: ['favorites'], lib: ['library'], blocked: ['blocks'], muted: ['blocks'] }[s] || (SOC_KV.includes(s) ? ['user_data'] : null); }
   if (!n) return;
   const slow = k.endsWith('.pos') || k.endsWith('.progress'); SB_Q.soc.add(n[0]); n.forEach(x => SB_Q.soc.add(x));
   clearTimeout(SB_SOC_T); SB_SOC_T = setTimeout(() => sbRefresh({ soc: [] }), slow ? 15000 : 1200);
 }
+/* ---------- NUBE · mensajes, solicitudes de mensaje y avisos ----------
+   Los mensajes no se editan: se suben los nuevos y se bajan los de la otra persona. Las solicitudes y los avisos se copian tal cual desde la nube. */
+const isUuid = x => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(x));
+let MSG_BUSY = false, MSG_AGAIN = false, MSG_LAST = 0, SB_MSG_T, DM_SHOWN = '';
+const stable = o => JSON.stringify(Object.entries(o).sort((a, b) => (a[0] < b[0] ? -1 : 1)));
+async function sbKnow(list) {                                 // trae los perfiles de personas que aún no conocemos
+  const us = LS.get('auri.users', {}); let ids = sbIds(us); const need = [...new Set(list.filter(u => u && !ids.key(u)))];
+  if (!need.length) return ids;
+  for (let i = 0; i < need.length; i += 80) { const pr = await sbApi('/rest/v1/profiles?select=*&id=in.(' + need.slice(i, i + 80).join(',') + ')'); if (pr.ok && Array.isArray(pr.data)) pr.data.forEach(p => { us[remoteKey(p.id)] = sbPseudo(p, us[remoteKey(p.id)]); }); }
+  LS.set('auri.users', us); return sbIds(us);
+}
+function dmFailText(r) {
+  const m = String((r.data && r.data.message) || '');
+  return /enlaces|correos|tel[eé]fono/i.test(m) ? t('La solicitud no puede incluir enlaces, correos ni números de teléfono.') : /Ya existe/i.test(m) ? t('Ya existe una solicitud de mensaje con esta persona.') : t('No se pudo enviar el mensaje.');
+}
+async function sbAdults() {                                  // ¿cada persona de la nube es mayor de edad? (solo un sí/no)
+  const us = LS.get('auri.users', {}), now = Date.now(), need = Object.values(us).filter(u => u && u.remote && u.uid && (!u.adultAt || now - u.adultAt > 3600e3)).map(u => u.uid); let ch = false;
+  for (let i = 0; i < need.length; i += 200) {
+    const r = await sbApi('/rest/v1/rpc/adult_flags', { method: 'POST', body: { ids: need.slice(i, i + 200) } }); if (!r.ok || !Array.isArray(r.data)) break;
+    const u2 = LS.get('auri.users', {}); r.data.forEach(x => { const k = remoteKey(x.id), u = u2[k]; if (!u) return; if (!u.adultAt || u.adultDeclared !== !!x.adult) ch = true; u2[k] = { ...u, adultDeclared: !!x.adult, adultAt: now }; }); localStorage.setItem('auri.users', JSON.stringify(u2));
+  }
+  return ch;
+}
+async function sbSyncMsgs() {
+  const ses = sbSes(); if (!cloud() || !ses || !S.user || isGuest() || String(ses.email || '').toLowerCase() !== S.user) return false;
+  if (MSG_BUSY) { MSG_AGAIN = true; return false; } MSG_BUSY = true; MSG_LAST = Date.now(); let changed = false;
+  try {
+    const me = ses.uid, CK = uk('dmcur'), cur = LS.get(CK, ''); let ids = sbIds(LS.get('auri.users', {}));
+    // 1) subir los mensajes nuevos, en orden
+    const out = []; const d0 = G.get('dm', {});
+    for (const k in d0) for (const m of d0[k]) if (m.by === S.user && !m.ok && !m.u) { const o = k.split('|').find(x => x !== S.user), ru = ids.uid(o); if (ru) out.push({ k, m, ru, o }); }
+    out.sort((a, b) => a.m.id - b.m.id);
+    for (const x of out) {
+      const su = x.m.sid ? sUuid(x.m.sid) : null;
+      const r = await sbApi('/rest/v1/messages', { method: 'POST', headers: { Prefer: 'return=representation' }, body: { sender: me, recipient: x.ru, text: x.m.text || '', story_id: su, img: x.m.img || '' } });
+      if (r.net || r.status >= 500) break;                                   // sin conexión: se intenta de nuevo luego
+      const all = G.get('dm', {}), l = all[x.k] || [], i = l.findIndex(z => z.id === x.m.id && z.by === S.user && !z.u); if (i < 0) continue;
+      if (r.ok && Array.isArray(r.data) && r.data[0]) { l[i] = { ...l[i], u: r.data[0].id, ok: 1, id: Date.parse(r.data[0].created_at) || l[i].id }; delete l[i].n; }
+      else if (l[i].n) {                                                      // la nube lo rechazó: se quita y se avisa
+        l.splice(i, 1); const rq = dmReq(), kk = S.user + '>' + x.o; if (rq[kk] === 'pending' && !l.some(z => z.by === S.user)) { delete rq[kk]; localStorage.setItem('auri.dmreq', JSON.stringify(rq)); }
+        toast(dmFailText(r));
+      } else l[i] = { ...l[i], ok: 2 };                                        // mensaje antiguo que no se puede subir: queda solo en este dispositivo
+      all[x.k] = l; localStorage.setItem('auri.dm', JSON.stringify(all)); changed = true;
+    }
+    // 2) bajar mensajes, solicitudes y avisos
+    const [rm, rr, rn] = await Promise.all([
+      sbApi('/rest/v1/messages?select=*&or=(sender.eq.' + me + ',recipient.eq.' + me + ')&order=created_at.asc&limit=2000' + (cur ? '&created_at=gt.' + encodeURIComponent(cur) : '')),
+      sbApi('/rest/v1/dm_requests?select=*&limit=2000'),
+      sbApi('/rest/v1/notifications?select=*&user_id=eq.' + me + '&order=created_at.desc&limit=100')]);
+    const ok = r => r.ok && Array.isArray(r.data), pool = [];
+    if (ok(rm)) rm.data.forEach(r => pool.push(r.sender, r.recipient)); if (ok(rr)) rr.data.forEach(r => pool.push(r.sender, r.recipient)); if (ok(rn)) rn.data.forEach(r => pool.push(r.from_user));
+    ids = await sbKnow(pool); if (await sbAdults()) changed = true;
+    if (ok(rm) && rm.data.length) {
+      const all = G.get('dm', {}); let ch = false;
+      for (const r of rm.data) { const a = ids.key(r.sender), b = ids.key(r.recipient); if (!a || !b) continue; const k = dmKey(a, b), l = all[k] = all[k] || [];
+        if (l.some(z => z.u === r.id)) continue;
+        l.push({ id: Date.parse(r.created_at) || Date.now(), by: a, text: r.text || '', ...(r.story_id ? { sid: sBack(r.story_id) } : {}), ...(r.img ? { img: r.img } : {}), u: r.id, ok: 1 }); ch = true; }
+      if (ch) { for (const k in all) all[k] = all[k].sort((x, y) => x.id - y.id).slice(-300); localStorage.setItem('auri.dm', JSON.stringify(all)); changed = true; }
+      LS.set(CK, rm.data.reduce((a, r) => (r.created_at > a ? r.created_at : a), cur));
+    }
+    if (ok(rr)) {
+      const rq = dmReq(), nq = {}, unpushed = (a, b) => (G.get('dm', {})[dmKey(a, b)] || []).some(m => m.by === a && !m.ok);
+      rr.data.forEach(r => { const a = ids.key(r.sender), b = ids.key(r.recipient); if (a && b) nq[a + '>' + b] = r.status; });
+      const res = {}; for (const k in rq) { const [a, b] = k.split('>'); if (ids.uid(a) && ids.uid(b) && (a === S.user || b === S.user) && !(k in nq) && !(a === S.user && unpushed(a, b))) continue; res[k] = rq[k]; }
+      Object.assign(res, nq);
+      if (stable(res) !== stable(rq)) { localStorage.setItem('auri.dmreq', JSON.stringify(res)); changed = true; }
+    }
+    if (ok(rn)) {
+      const nk = 'notifs.' + S.user, local = G.get(nk, []), CNK = uk('cloudnotif'), B = new Set(LS.get(CNK, [])), cfg = (LS.get(uk('cfg'), {}).notif) || {};
+      const rows = new Map(rn.data.map(r => [r.id, r])), localIds = new Set(local.map(n => n.id)), keep = [], del = [], rd = [];
+      for (const n of local) {
+        if (!isUuid(n.id)) { keep.push(n); continue; }
+        const r = rows.get(n.id); if (!r) { if (!B.has(n.id)) keep.push(n); continue; }
+        if (n.read && !r.read) rd.push(n.id); keep.push({ ...n, read: !!(n.read || r.read), ...(r.done ? { done: r.done } : {}) });
+      }
+      for (const r of rn.data) {
+        if (localIds.has(r.id)) continue;
+        if (B.has(r.id)) { del.push(r.id); continue; }                       // la borraste en este dispositivo
+        if (['chapter', 'like', 'comment', 'follow'].includes(r.type) && cfg[r.type] === false) continue;   // apagaste este tipo de aviso
+        keep.push({ id: r.id, type: r.type, from: r.type === 'sys' ? '' : ids.key(r.from_user) || '', storyId: r.story_id ? sBack(r.story_id) : '', extra: r.extra || '', chap: r.chap || '', date: r.created_at, read: !!r.read,
+          ...(r.xv ? { xv: r.xv } : {}), ...(r.href ? { href: r.href } : {}), ...(r.role ? { role: r.role } : {}), ...(r.done ? { done: r.done } : {}) });
+      }
+      keep.sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0));
+      const nl = keep.slice(0, 100);
+      if (JSON.stringify(nl) !== JSON.stringify(local)) { localStorage.setItem('auri.' + nk, JSON.stringify(nl)); changed = true; }
+      if (rd.length) await sbApi('/rest/v1/notifications?id=in.(' + rd.join(',') + ')', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { read: true } });
+      if (del.length) await sbApi('/rest/v1/notifications?id=in.(' + del.join(',') + ')', { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+      LS.set(CNK, rn.data.map(r => r.id).filter(id => !del.includes(id)));
+    }
+  } catch (e) { console.warn('msgs', e); }
+  finally { MSG_BUSY = false; if (MSG_AGAIN) { MSG_AGAIN = false; setTimeout(() => sbSyncMsgs().then(c => c && msgUi()), 300); } }
+  return changed;
+}
+/** Avisos para otras personas: van directo a la nube (cada quien los baja en su dispositivo) */
+function sbOut(to, o) {
+  if (!cloud() || !sbSes() || isGuest() || !S.user) return false;
+  const u = getUsers()[to]; if (!u || !u.remote || !u.uid) return false;
+  const fu = (isStaff() && o.from && (getUsers()[o.from] || {}).uid) || myUid();
+  const body = { user_id: u.uid, type: o.type, from_user: fu, story_id: o.storyId ? sUuid(o.storyId) : null, chap: String(o.chap || ''), extra: String(o.extra || ''), xv: o.xv || null, href: o.href || null, role: o.role || null };
+  sbApi('/rest/v1/notifications', { method: 'POST', headers: { Prefer: 'return=minimal' }, body }).then(r => {
+    if (!r.ok && !r.net && r.status < 500 && body.story_id) sbApi('/rest/v1/notifications', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: { ...body, story_id: null } });
+  });
+  return true;
+}
+/** Redibuja lo necesario cuando llegan mensajes o avisos nuevos */
+function msgUi() {
+  const m = location.hash.match(/^#\/messages\/(.+)$/), ae = document.activeElement && document.activeElement.tagName, typing = ae === 'INPUT' || ae === 'TEXTAREA';
+  if (m) { const to = decodeURIComponent(m[1]); if (DM_SHOWN !== to + ':' + dmMode(S.user, to) && !typing) { KEEP = true; return render(); } return paintDm(to); }
+  if (!typing && !W && !/^#\/(write|story\/[^/]+\/\d)/.test(location.hash)) { KEEP = true; render(); }
+}
+setInterval(() => { if (document.visibilityState === 'hidden' || !S.user || isGuest() || !cloud() || !sbSes()) return; const on = /^#\/messages/.test(location.hash); if (Date.now() - MSG_LAST > (on ? 4000 : 20000)) sbSyncMsgs().then(c => c && msgUi()); }, 2000);
 let PENDING = null, QZ = null;                         // registro en curso: la cuenta SOLO se crea al terminar el cuestionario
 async function register({ name, email, pass, pass2 }) {      // paso 0: correo y contraseña
   email = email.trim().toLowerCase(); name = name.trim();
@@ -1038,26 +1152,41 @@ function authView(mode) {
 }
 
 /* --- Mensajes: requisitos, filtro de seguridad y vistas --- */
-const ageGroup = e => { const u = getUsers()[e]; return u && isAdult(u) ? 'adult' : 'minor'; };      // 17 o menos (o edad sin confirmar) = menores · 18+ = mayores de edad
+const ageGroup = e => { const u = getUsers()[e]; if (u && u.remote && !u.adultAt && S.user && e !== S.user) return ageGroup(S.user); return u && isAdult(u) ? 'adult' : 'minor'; };   // de una cuenta de la nube aún sin comprobar se asume el mismo rango (la nube decide al enviar)      // 17 o menos (o edad sin confirmar) = menores · 18+ = mayores de edad
 const mutual = (a, b) => following(a).includes(b) && following(b).includes(a);
 function dmWhy(a, b) {                                  // '' = pueden escribirse; si no, la razón
   if (!getUsers()[b]) return t('Esta persona no existe en este dispositivo.');
   if (a === b) return t('No se puede enviar mensajes a la propia cuenta.');
   if (bl(a, 'blocked').includes(b) || bl(b, 'blocked').includes(a)) return t('No se puede enviar mensajes a esta persona.');
-  if (!mutual(a, b)) return t('Para enviarse mensajes, ambas personas deben seguirse mutuamente.');
   if (ageGroup(a) !== ageGroup(b)) return t('Los mensajes solo están disponibles entre personas del mismo rango de edad: menores de 18 con menores, y mayores de edad con mayores de edad.');
-  return '';
+  if (ageGroup(a) === 'minor' && !mutual(a, b)) return t('Para enviarse mensajes, ambas personas deben seguirse mutuamente.');
+  return '';                                              // mayores de edad: pueden escribir (o enviar una solicitud, ver dmMode)
 }
+/** Solicitudes de mensaje entre mayores de edad: 'A>B' → pending | accepted | rejected (rechazar no avisa a quien la envió) */
+const dmReq = () => G.get('dmreq', {});
+const dmSt = (a, b) => dmReq()[a + '>' + b] || '';
+/** ok = pueden chatear · new = puede enviar su solicitud · sent = esperando respuesta · incoming = tiene una solicitud para responder */
+function dmMode(a, b) {
+  if (ageGroup(a) === 'minor') return 'ok';
+  if (dmSt(a, b) === 'accepted' || dmSt(b, a) === 'accepted') return 'ok';
+  if (dmSt(b, a) === 'pending') return 'incoming';
+  if (dmSt(a, b) === 'pending' || dmSt(a, b) === 'rejected') return 'sent';
+  return 'new';
+}
+const REQ_MAX = 300;
 const dmKey = (a, b) => [a, b].sort().join('|');
 const dmAll = () => G.get('dm', {});
 const dmThread = e => dmAll()[dmKey(S.user, e)] || [];
+const dmHidden = e => dmSt(e, S.user) === 'rejected' && dmMode(S.user, e) === 'new';          // solicitud rechazada: no se vuelve a mostrar
+const dmIncoming = () => !S.user ? [] : Object.keys(dmReq()).filter(k => dmReq()[k] === 'pending' && k.split('>')[1] === S.user).map(k => k.split('>')[0])
+  .filter(e => getUsers()[e] && !dmBlocked(e) && dmThread(e).length).map(e => ({ other: e, last: dmThread(e)[dmThread(e).length - 1] })).sort((a, b) => b.last.id - a.last.id);
 const dmRead = () => LS.get(uk('dmread'), {});
 const dmBlocked = e => bl(S.user, 'blocked').includes(e) || bl(e, 'blocked').includes(S.user);
 function dmConvos() {
   if (!S.user) return []; const all = dmAll();
-  return Object.keys(all).filter(k => k.split('|').includes(S.user)).map(k => ({ key: k, other: k.split('|').find(x => x !== S.user), last: all[k][all[k].length - 1] })).filter(x => x.last && getUsers()[x.other] && !dmBlocked(x.other)).sort((a, b) => b.last.id - a.last.id);
+  return Object.keys(all).filter(k => k.split('|').includes(S.user)).map(k => ({ key: k, other: k.split('|').find(x => x !== S.user), last: all[k][all[k].length - 1] })).filter(x => x.last && getUsers()[x.other] && !dmBlocked(x.other) && dmMode(S.user, x.other) !== 'incoming' && !dmHidden(x.other)).sort((a, b) => b.last.id - a.last.id);
 }
-const dmUnread = () => { if (!S.user || isGuest()) return 0; const r = dmRead(); return dmConvos().filter(x => x.last.by !== S.user && x.last.id > (r[x.key] || 0)).length; };
+const dmUnread = () => { if (!S.user || isGuest()) return 0; const r = dmRead(); return dmConvos().filter(x => x.last.by !== S.user && x.last.id > (r[x.key] || 0)).length + dmIncoming().length; };
 /** Filtro de chats de menores: teléfonos, correos, enlaces, usuarios y redes sociales, y frases para pedir datos o fotos */
 const DM_NET = ['kik', 'wechat', 'imessage', 'facebook', 'instagram', 'tiktok', 'whatsapp', 'wasap', 'guasap', 'telegram', 'snapchat', 'discord', 'twitter', 'youtube', 'messenger', 'skype', 'onlyfans', 'twitch', 'omegle', 'pinterest', 'tumblr'];
 const DM_NUM = { cero: 0, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9 };
@@ -1074,12 +1203,20 @@ function dmUnsafe(text) {
 }
 function dmSend(to, msg) {                              // devuelve '' si se envió; si no, el motivo
   const why = dmWhy(S.user, to); if (why) return why;
-  const minor = ageGroup(S.user) === 'minor';
+  const minor = ageGroup(S.user) === 'minor', mode = dmMode(S.user, to);
+  if (mode === 'incoming') return t('Primero responde su solicitud de mensaje.');
+  if (mode === 'sent') return t('Tu solicitud ya fue enviada. Si la aceptan, podrán seguir escribiéndose.');
+  if (mode === 'new') {                                   // solicitud: UN mensaje escrito, sin fotos, obras, enlaces ni datos de contacto
+    const tx = String(msg.text || '').trim(); if (msg.img || msg.sid || !tx) return t('La solicitud solo puede ser un mensaje escrito.');
+    if (tx.length > REQ_MAX) return t('La solicitud puede tener hasta {n} caracteres.', { n: REQ_MAX });
+    const u = dmUnsafe(tx); if (u) return t('Por seguridad, la solicitud no puede incluir {u}. No se envió.', { u: t(u) });
+    const rq = dmReq(); rq[S.user + '>' + to] = 'pending'; G.set('dmreq', rq); msg = { text: tx };
+  }
   if (msg.img && minor) return t('El envío de fotos no está disponible en chats de menores.');
   if (msg.text && minor) { const u = dmUnsafe(msg.text); if (u) return t('Por seguridad, en chats de menores no se pueden compartir {u}. El mensaje no se envió.', { u: t(u) }); }
   if (msg.sid) { const st = publishedStories().find(x => x.id === msg.sid); if (!st) return t('Esa obra ya no está disponible.'); if (minor && st.mature) return t('Las obras +18 no se pueden enviar en chats de menores.'); }
   const all = dmAll(), k = dmKey(S.user, to), l = all[k] = all[k] || [];
-  l.push({ id: Date.now(), by: S.user, ...msg }); all[k] = l.slice(-300); return G.set('dm', all) ? '' : t('No se pudo guardar el mensaje.');
+  l.push({ id: Date.now(), by: S.user, ...msg, ...(cloud() ? { n: 1 } : {}) }); all[k] = l.slice(-300); return G.set('dm', all) ? '' : t('No se pudo guardar el mensaje.');
 }
 const hm = ts => new Date(ts).toLocaleTimeString(LOC(), { hour: '2-digit', minute: '2-digit' });
 const dayLab = ts => { const d = new Date(ts), now = new Date(), y = new Date(Date.now() - 864e5), same = (a, b) => a.toDateString() === b.toDateString(); return same(d, now) ? t('Hoy') : same(d, y) ? t('Ayer') : d.toLocaleDateString(LOC(), { day: 'numeric', month: 'long' }); };
@@ -1093,35 +1230,54 @@ function dmBubble(m) {
   return `<div class="dm-row ${mine ? 'me' : 'you'}"><div class="dm-b">${body}<time>${hm(m.id)}</time></div></div>`;
 }
 function dmMsgsHTML(to) {
-  const th = dmThread(to); if (!th.length) return '<p class="helper dm-empty">' + t('Aún no hay mensajes. Escribe el primero o recomienda una obra.') + '</p>';
+  const th = dmHidden(to) ? [] : dmThread(to); if (!th.length) return '<p class="helper dm-empty">' + t('Aún no hay mensajes. Escribe el primero o recomienda una obra.') + '</p>';
   let out = '', last = ''; th.forEach(m => { const d = dayLab(m.id); if (d !== last) { out += `<div class="dm-day">${esc(d)}</div>`; last = d; } out += dmBubble(m); }); return out;
 }
 function paintDm(to, force) {
-  const box = $('#dm-msgs'); if (!box) return; const th = dmThread(to), sig = th.length + ':' + ((th[th.length - 1] || {}).id || 0);
+  const box = $('#dm-msgs'); if (!box) return; const th = dmHidden(to) ? [] : dmThread(to), sig = th.length + ':' + ((th[th.length - 1] || {}).id || 0) + ':' + dmMode(S.user, to);
   if (!force && box.dataset.sig === sig) return;
   box.innerHTML = dmMsgsHTML(to); box.dataset.sig = sig; window.scrollTo(0, document.body.scrollHeight);
-  if (th.length) { const r = dmRead(); r[dmKey(S.user, to)] = th[th.length - 1].id; LS.set(uk('dmread'), r); }
+  if (th.length && dmMode(S.user, to) !== 'incoming') { const r = dmRead(); r[dmKey(S.user, to)] = th[th.length - 1].id; LS.set(uk('dmread'), r); }
 }
 function dmAfter() { const m = location.hash.match(/^#\/messages\/(.+)$/); if (m && S.user && !isGuest()) paintDm(decodeURIComponent(m[1]), true); }
 function dmView(sub) {
   if (sub) {
     const to = decodeURIComponent(sub), u = getUsers()[to]; if (!u || dmBlocked(to) && !dmThread(to).length) return `<main class="page">${empty('No se puede abrir esta conversación', 'La persona no existe o hay un bloqueo entre ambas cuentas.', '<a class="button" href="#/messages">' + t('Volver a mensajes') + '</a>')}</main>`;
-    const why = dmWhy(S.user, to), minor = ageGroup(S.user) === 'minor';
+    const why = dmWhy(S.user, to), minor = ageGroup(S.user) === 'minor', mode = why ? 'ok' : dmMode(S.user, to);
+    DM_SHOWN = to + ':' + mode;
+    const reqBox = mode === 'incoming' ? `<div class="notice dm-req"><b>${t('Solicitud de mensaje')}</b><p>${t('{n} quiere escribirte. Solo puede enviar este mensaje; tú decides si la aceptas.', { n: esc(u.name) })}</p><div class="row-btns"><button type="button" class="button sm" data-act="dmr-ok" data-id="${esc(to)}">${t('Aceptar')}</button><button type="button" class="button secondary sm" data-act="dmr-no" data-id="${esc(to)}">${t('Rechazar')}</button><button type="button" class="button danger sm" data-act="dmr-block" data-id="${esc(to)}">${t('Bloquear')}</button></div></div>`
+      : mode === 'sent' ? `<div class="notice dm-lock">${t('Solicitud enviada. Si la persona la acepta, podrán seguir escribiéndose.')}</div>` : '';
+    const reqForm = mode === 'new' ? `<div class="dm-compose"><p class="dm-safe">${t('Primero envía una solicitud: un solo mensaje escrito, sin fotos ni enlaces. La otra persona decide si la acepta.')}</p>
+      <form data-form="dm" data-to="${esc(to)}" class="c-compose"><div class="c-pill"><input id="dm-text" maxlength="${REQ_MAX}" placeholder="${esc(t('Escribe tu mensaje de solicitud…'))}" aria-label="${esc(t('Escribe un mensaje'))}" autocomplete="off"><button class="c-send" type="submit" aria-label="${esc(t('Enviar solicitud'))}">${ICO_SEND}</button></div></form><p class="error" id="dm-err" role="alert"></p></div>` : '';
     return `<main class="dm"><header class="dm-head"><a class="icon-btn" href="#/messages" data-dir="prev" aria-label="${esc(t('Volver a mensajes'))}">‹</a><a class="dm-who" href="#/user/${encodeURIComponent(to)}" data-dir="next">${userAvatar(to)}<b>${esc(u.name)}</b></a>
       <span class="dm-hacts"><button type="button" class="link-btn" data-act="report-user" data-id="${esc(to)}">${t('Reportar')}</button><button type="button" class="link-btn danger-link" data-act="block" data-id="${esc(to)}">${t('Bloquear')}</button></span></header>
       ${minor ? '<p class="dm-safe">' + t('Chat de menores: no se permiten teléfonos, enlaces, redes sociales ni fotos.') + '</p>' : ''}
       <div id="dm-msgs" class="dm-msgs" aria-live="polite"></div>
-      ${why ? `<div class="notice dm-lock">${esc(why)}</div>` : `<div class="dm-compose"><div class="dm-tools"><button type="button" class="chip" data-act="dm-book" data-id="${esc(to)}">${t('Enviar una obra para recomendar')}</button>${minor ? '' : `<label class="chip" style="cursor:pointer">${t('Enviar una foto')}<input id="dm-img" type="file" accept="image/*" data-to="${esc(to)}" hidden></label>`}</div>
+      ${why ? `<div class="notice dm-lock">${esc(why)}</div>` : mode !== 'ok' ? reqBox + reqForm : `<div class="dm-compose"><div class="dm-tools"><button type="button" class="chip" data-act="dm-book" data-id="${esc(to)}">${t('Enviar una obra para recomendar')}</button>${minor ? '' : `<label class="chip" style="cursor:pointer">${t('Enviar una foto')}<input id="dm-img" type="file" accept="image/*" data-to="${esc(to)}" hidden></label>`}</div>
       <form data-form="dm" data-to="${esc(to)}" class="c-compose"><div class="c-pill"><input id="dm-text" maxlength="500" placeholder="${esc(t('Escribe un mensaje…'))}" aria-label="${esc(t('Escribe un mensaje'))}" autocomplete="off"><button class="c-send" type="submit" aria-label="${esc(t('Enviar mensaje'))}">${ICO_SEND}</button></div></form><p class="error" id="dm-err" role="alert"></p></div>`}</main>`;
   }
-  const cv = dmConvos(), r = dmRead(), have = new Set(cv.map(x => x.other)), cand = following(S.user).filter(e => !have.has(e) && dmWhy(S.user, e) === '');
+  const cv = dmConvos(), r = dmRead(), have = new Set(cv.map(x => x.other)), inc = dmIncoming(), cand = following(S.user).filter(e => !have.has(e) && !inc.some(x => x.other === e) && dmWhy(S.user, e) === '' && dmMode(S.user, e) !== 'sent');
   const row = (e, sub, right, href) => `<a class="dm-item" href="#/messages/${encodeURIComponent(e)}" data-dir="next">${userAvatar(e)}<span class="dm-it"><b>${esc(uName(e))}</b><small>${sub}</small></span>${right}</a>`;
   const prev = m => m.sid ? t('Obra recomendada') : m.img ? t('Foto') : esc(clip(m.text, 60));
   return `<main class="page story-layout"><div class="set-head"><a class="icon-btn" href="#/" data-dir="prev" aria-label="${esc(t('Volver'))}">‹</a><h2>${t('Mensajes')}</h2></div>
+  ${inc.length ? `<h3 class="set-group">${t('Solicitudes de mensaje')}</h3><div class="set-list">${inc.map(x => row(x.other, esc(clip(x.last.text, 60)), `<span class="dm-meta"><i class="dm-dot" aria-label="${esc(t('Sin leer'))}"></i></span>`)).join('')}</div>` : ''}
   ${cv.length ? `<div class="set-list">${cv.map(x => { const un = x.last.by !== S.user && x.last.id > (r[x.key] || 0); return row(x.other, `${x.last.by === S.user ? t('Tú: ') : ''}${prev(x.last)}`, `<span class="dm-meta">${relSpan(x.last)}${un ? '<i class="dm-dot" aria-label="' + esc(t('Sin leer')) + '"></i>' : ''}</span>`); }).join('')}</div>` : ''}
-  ${cand.length ? `<h3 class="set-group">${t('Escribir a')}</h3><div class="set-list">${cand.map(e => row(e, t('Se siguen mutuamente'), '<span class="dm-meta">›</span>')).join('')}</div>` : ''}
-  ${!cv.length && !cand.length ? empty('Aún no hay conversaciones', 'Cuando dos personas se sigan mutuamente y estén en el mismo rango de edad, podrán escribirse desde aquí o desde el perfil.') : ''}
-  <section class="panel dm-rules"><h3>${t('Quiénes pueden escribirse')}</h3><ul><li>${t('Ambas personas deben seguirse mutuamente.')}</li><li>${t('Menores de 18 solo hablan con menores de 18, y mayores de edad solo con mayores de edad.')}</li><li>${t('Entre mayores de edad se pueden enviar fotos.')}</li><li>${t('En chats de menores no hay fotos y se bloquean teléfonos, enlaces y redes sociales.')}</li><li>${t('Cualquier persona puede enviar una obra para recomendar.')}</li></ul></section></main>`;
+  ${cand.length ? `<h3 class="set-group">${t('Escribir a')}</h3><div class="set-list">${cand.map(e => row(e, ageGroup(S.user) === 'minor' ? t('Se siguen mutuamente') : t('Enviar solicitud de mensaje'), '<span class="dm-meta">›</span>')).join('')}</div>` : ''}
+  ${!cv.length && !cand.length && !inc.length ? empty('Aún no hay conversaciones', ageGroup(S.user) === 'minor' ? 'Cuando dos personas se sigan mutuamente y estén en el mismo rango de edad, podrán escribirse desde aquí o desde el perfil.' : 'Entra al perfil de otra persona mayor de edad y envíale una solicitud de mensaje. Aquí verás las que te lleguen.') : ''}
+  <section class="panel dm-rules"><h3>${t('Quiénes pueden escribirse')}</h3><ul><li>${t('Menores de 18 solo hablan con menores de 18, y mayores de edad solo con mayores de edad.')}</li><li>${t('Menores de 18: ambas personas deben seguirse mutuamente.')}</li><li>${t('Mayores de edad: primero se envía una solicitud con un solo mensaje escrito, sin fotos ni enlaces. La otra persona puede aceptar, rechazar o bloquear.')}</li><li>${t('Con la solicitud aceptada, entre mayores de edad se pueden enviar fotos.')}</li><li>${t('En chats de menores no hay fotos y se bloquean teléfonos, enlaces y redes sociales.')}</li><li>${t('Una vez que pueden chatear, se pueden recomendar obras.')}</li></ul></section></main>`;
+}
+/** Aceptar, rechazar o bloquear una solicitud. Rechazar y bloquear NO avisan a quien la envió */
+async function dmAnswer(from, action) {
+  const me = S.user; if (dmSt(from, me) !== 'pending') return;
+  if (cloud() && sbSes() && !isGuest()) {
+    const fu = sbIds(LS.get('auri.users', {})).uid(from);
+    if (fu) { const r = await sbApi('/rest/v1/rpc/answer_dm_request', { method: 'POST', body: { from_user: fu, action } }); if (!r.ok) return toast(t('No se pudo guardar el cambio. Inténtalo de nuevo.')); }
+  }
+  const all = dmReq(); all[from + '>' + me] = action === 'accept' ? 'accepted' : 'rejected'; G.set('dmreq', all);
+  if (action === 'block') blockUser(from);
+  if (action === 'accept' && !(cloud() && sbSes())) pushNotif(from, { type: 'sys', extra: '{n} aceptó tu solicitud de mensaje.', xv: { n: uName(me) } });
+  if (action === 'accept') { toast(t('Solicitud aceptada')); KEEP = true; render(); return; }
+  toast(action === 'block' ? t('Cuenta bloqueada') : t('Solicitud rechazada')); go('/messages');
 }
 function openDmBookPicker(to) {
   const m = document.createElement('div'); m.className = 'modal sheet'; let tab = 'home', q = ''; const minor = ageGroup(S.user) === 'minor';
@@ -2754,6 +2910,8 @@ document.addEventListener('click', e => {
   if (isGuest() && GUEST_ACTS[act]) { e.preventDefault(); return guestGate(GUEST_ACTS[act]); }
   const persist = (k, v) => LS.set(uk(k), v);
   const actions = {
+    'dmr-ok': () => dmAnswer(id, 'accept'), 'dmr-no': () => dmAnswer(id, 'reject'),
+    'dmr-block': () => dialog(t('¿Bloquear a {n}?', { n: uName(id) }), t('No verás sus comentarios ni sus obras, dejarán de seguirse y no habrá avisos entre ustedes. Puedes desbloquearla en Ajustes.'), t('Bloquear'), t('Cancelar'), () => dmAnswer(id, 'block'), true),
     'dm-book': () => openDmBookPicker(id), 'dm-why': () => toast(dmWhy(S.user, id) || 'Ya pueden escribirse.'),
     'wl-next': () => { WLI = Math.min(WLI + 1, WL_SLIDES.length - 1); KEEP = true; render(); }, 'wl-prev': () => { WLI = Math.max(WLI - 1, 0); KEEP = true; render(); },
     'wl-go': () => { WLI = +el.dataset.i || 0; KEEP = true; render(); }, 'wl-done': () => { LS.set('auri.intro', true); WLI = 0; go('/start'); },
@@ -2994,8 +3152,8 @@ document.addEventListener('submit', async e => {
   e.preventDefault();
   const kind = form.dataset.form, v = id => ($(id) ? $(id).value : '');
   if (isGuest() && ['comment', 'reply', 'pcreply', 'myprofile', 'dm'].includes(kind)) return guestGate(kind === 'dm' ? 'enviar mensajes' : 'comentar');
-  if (kind === 'dm') { const to = form.dataset.to, inp = $('#dm-text'), er = $('#dm-err'), t = ((inp || {}).value || '').trim(); if (!t) return;
-    const r = dmSend(to, { text: t.slice(0, 500) }); if (er) er.textContent = r; if (r) return; inp.value = ''; paintDm(to, true); return; }
+  if (kind === 'dm') { const to = form.dataset.to, inp = $('#dm-text'), er = $('#dm-err'), tx0 = ((inp || {}).value || '').trim(); if (!tx0) return;
+    const m0 = dmMode(S.user, to), r = dmSend(to, { text: tx0.slice(0, m0 === 'new' ? REQ_MAX : 500) }); if (er) er.textContent = r; if (r) return; inp.value = ''; if (m0 === 'new') { toast(t('Solicitud enviada')); KEEP = true; render(); return; } paintDm(to, true); return; }
   if (kind === 'myprofile') {
     const name = $('#pf-name').value.trim(); if (!name) return toast('El usuario no puede estar vacío.');
     if (nameKey(name) !== nameKey((getUsers()[S.user] || {}).name) && await nameTaken(name, S.user)) return toast(t('Ese nombre de usuario ya está en uso.'));
