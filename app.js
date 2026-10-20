@@ -1625,7 +1625,7 @@ function carSlides() {                                 // primero las tarjetas m
   const pub = publishedStories().filter(matureOK).filter(storyVisible), out = [], dOf = (b, n) => b.date || (n && n.date) || (+b.id > 1e12 ? new Date(+b.id).toISOString().slice(0, 10) : '');
   crPub().forEach(b => {
     if (b.kind === 'book') { const st = pub.find(x => x.id === b.storyId); if (!st) return;
-      out.push({ k: 'book', by: byline(b), badge: '📚 ' + t('Recomendado'), title: b.title || st.title, text: b.text || st.synopsis, cover: st.cover, date: dOf(b), sub: `📖 ${st.title}${st.author ? ' · ' + st.author : ''}`, href: `#/story/${esc(st.id)}/${st.chapters[0].idx + 1}`, tn: st.useReaderCharacter ? st.id : '', btn: b.btn || t('Leer ahora') }); }
+      out.push({ k: 'book', by: byline(b), badge: '📚 ' + t('Recomendado'), title: b.title || st.title, text: b.text || st.synopsis, cover: st.cover, au: st.author || '', date: dOf(b), sub: `📖 ${st.title}${st.author ? ' · ' + st.author : ''}`, href: `#/story/${esc(st.id)}/${st.chapters[0].idx + 1}`, tn: st.useReaderCharacter ? st.id : '', btn: b.btn || t('Leer ahora') }); }
     else { const n = b.newsId ? news().find(x => String(x.id) === String(b.newsId)) : null;
       out.push({ k: 'event', by: byline(b), badge: '🎉 ' + t('Evento'), date: dOf(b, n), title: b.title, text: b.text, cover: newsCover(n), wide: true, href: n ? '#/news/' + n.id : '', btn: b.btn || t('Ver más') }); }
   });
@@ -1634,8 +1634,8 @@ function carSlides() {                                 // primero las tarjetas m
 }
 function carouselHTML() {
   const sl = carSlides(); if (!sl.length) return '';
-  const card = (x, i) => `<article class="cr-slide cr-${x.k}" role="group" aria-roledescription="${esc(t('diapositiva'))}" aria-label="${esc(t('{i} de {n}', { i: i + 1, n: sl.length }))}"><div class="cr-txt"><span class="eyebrow">${esc(x.badge)}</span>${x.date ? `<span class="cr-date">${t('Publicado el {d}', { d: esc(x.date) })}</span>` : ''}${x.by ? `<span class="cr-by">${t('Por {x}', { x: esc(x.by) })}</span>` : ''}<h2>${esc(clip(x.title, 70))}</h2>${x.sub && x.sub.indexOf(x.title) < 0 ? `<div class="cr-book">${esc(clip(x.sub, 60))}</div>` : ''}<p>${esc(clip(x.text, 130))}</p>
-    ${x.href ? `<a class="button secondary sm" href="${x.href}" data-dir="next" ${x.tn ? `data-readas="${esc(x.tn)}"` : ''}>${esc(x.btn)}</a>` : ''}</div>${safeImg(x.cover) ? `<img class="cr-cover ${x.wide ? 'wide' : ''}" src="${esc(x.cover)}" alt="">` : ''}</article>`;
+  const card = (x, i) => `<article class="cr-slide cr-${x.k}" role="group" aria-roledescription="${esc(t('diapositiva'))}" aria-label="${esc(t('{i} de {n}', { i: i + 1, n: sl.length }))}"><div class="cr-txt"><span class="eyebrow">${esc(x.badge)}</span>${x.date ? `<span class="cr-date">${t('Publicado el {d}', { d: esc(x.date) })}</span>` : ''}${x.by ? `<span class="cr-by">${t('Por {x}', { x: esc(x.by) })}</span>` : ''}<h2>${esc(clip(x.title, 70))}</h2>${x.sub && x.sub.indexOf(x.title) < 0 ? `<div class="cr-sub">${esc(clip(x.sub, 60))}</div>` : ''}<p>${esc(clip(x.text, 130))}</p>
+    ${x.href ? `<a class="button secondary sm" href="${x.href}" data-dir="next" ${x.tn ? `data-readas="${esc(x.tn)}"` : ''}>${esc(x.btn)}</a>` : ''}</div>${safeImg(x.cover) ? `<div class="cr-cv ${x.wide ? 'wide' : ''}"><img class="cr-cover ${x.wide ? 'wide' : ''}" src="${esc(x.cover)}" alt="">${x.au ? `<span class="cr-au">${t('Por: {x}', { x: esc(x.au) })}</span>` : ''}</div>` : ''}</article>`;
   return `<section class="carousel" aria-roledescription="${esc(t('carrusel'))}" aria-label="${esc(t('Novedades de Auri'))}"><div class="cr-track" id="cr-track">${sl.map(card).join('')}</div>
   ${sl.length > 1 ? `<div class="cr-dots">${sl.map((_, i) => `<button type="button" class="cr-dot ${i === CARI ? 'on' : ''}" data-act="car-go" data-i="${i}" aria-label="${esc(t('Ir a la tarjeta {i}', { i: i + 1 }))}"></button>`).join('')}</div>` : ''}</section>`;
 }

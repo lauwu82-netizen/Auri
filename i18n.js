@@ -1402,5 +1402,6 @@ window.I18N = { en: {
  "Tu cuenta no puede aceptar esta invitación": "Your account can't accept this invitation",
  "Ya se envió una apelación para esta decisión": "An appeal has already been sent for this decision",
  "Ya tiene una invitación pendiente": "This person already has a pending invitation",
- "Esta solicitud ya no está disponible": "This request is no longer available"
+ "Esta solicitud ya no está disponible": "This request is no longer available",
+ "Por: {x}": "By: {x}"
 } };
