@@ -1103,8 +1103,8 @@ const POSTS = {
     row: (o, c) => ({ id: pUuid('news', o.id), type: o.type || 'Anuncio', title: o.title || '', text: o.text || '', blocks: Array.isArray(o.blocks) ? o.blocks : [], ...postCommon(o, c) }),
     from: (r, c) => ({ id: pBack('news', r.id), type: r.type, title: r.title, text: r.text || '', blocks: Array.isArray(r.blocks) ? r.blocks : [], ...postBack(r, c) }) },
   banners: { path: '/rest/v1/banners?select=*&order=position,created_at&limit=500',
-    row: (o, c) => ({ id: pUuid('banners', o.id), kind: o.kind === 'book' ? 'book' : 'event', story_id: o.kind === 'book' ? sUuid(o.storyId) : null, news_id: o.newsId != null && o.newsId !== '' ? pUuid('news', o.newsId) : null, title: o.title || '', text: o.text || '', btn: o.btn || '', ...postCommon(o, c) }),
-    from: (r, c) => ({ id: pBack('banners', r.id), kind: r.kind, ...(r.story_id ? { storyId: sBack(r.story_id) } : {}), ...(r.news_id ? { newsId: pBack('news', r.news_id) } : {}), title: r.title || '', text: r.text || '', btn: r.btn || '', ...postBack(r, c) }) },
+    row: (o, c) => ({ id: pUuid('banners', o.id), kind: o.kind === 'book' ? 'book' : o.kind === 'poll' ? 'poll' : 'event', story_id: o.kind === 'book' ? sUuid(o.storyId) : null, ...(o.kind === 'poll' ? { poll: { options: (Array.isArray(o.options) ? o.options : []).slice(0, 6), ends: o.ends || null } } : {}), news_id: o.newsId != null && o.newsId !== '' ? pUuid('news', o.newsId) : null, title: o.title || '', text: o.text || '', btn: o.btn || '', ...postCommon(o, c) }),
+    from: (r, c) => ({ id: pBack('banners', r.id), kind: r.kind, ...(r.story_id ? { storyId: sBack(r.story_id) } : {}), ...(r.news_id ? { newsId: pBack('news', r.news_id) } : {}), ...(r.kind === 'poll' ? { options: r.poll && Array.isArray(r.poll.options) ? r.poll.options : [], ends: (r.poll && r.poll.ends) || '' } : {}), title: r.title || '', text: r.text || '', btn: r.btn || '', ...postBack(r, c) }) },
   newsdrafts: { path: '/rest/v1/news_drafts?select=*&order=updated_at.desc&limit=100',
     row: (o, c) => ({ id: pUuid('newsdrafts', o.id), user_id: c.me, type: o.type || 'Actualización', title: o.title || '', blocks: Array.isArray(o.blocks) ? o.blocks : [], updated_at: new Date(Date.parse(o.updated) || 0).toISOString() }),
     from: r => ({ id: pBack('newsdrafts', r.id), type: r.type, title: r.title || '', blocks: Array.isArray(r.blocks) ? r.blocks : [], updated: new Date(Date.parse(r.updated_at) || 0).toISOString() }) }
@@ -1171,6 +1171,7 @@ async function sbSyncPosts() {
       if (JSON.stringify(list) !== JSON.stringify(LS.get('auri.' + n, []))) { POST_QUIET = true; try { LS.set('auri.' + n, list); } finally { POST_QUIET = false; } changed = true; }
     }
     LS.set(K, { ...B, ...nbs });
+    if (await sbSyncPolls()) changed = true;
   } catch (e) { console.warn('posts', e); }
   finally { POST_BUSY = false; if (POST_AGAIN) { POST_AGAIN = false; setTimeout(() => sbSyncPosts().then(c => c && softRender()), 400); } }
   return changed;
@@ -1182,6 +1183,7 @@ async function sbPullPostsPublic() {                          // sin cuenta (inv
     const list = r.data.map(x => POSTS[n].from(x, { key: () => '' })); pSort(n, list);
     if (JSON.stringify(list) !== JSON.stringify(LS.get('auri.' + n, []))) { POST_QUIET = true; try { LS.set('auri.' + n, list); } finally { POST_QUIET = false; } changed = true; }
   }
+  if (await sbSyncPolls()) changed = true;
   return changed;
 }
 setInterval(() => { if (document.visibilityState === 'hidden' || !cloud() || !sbSes() || !S.user || isGuest()) return; const on = /^#\/(news|moderation|)$|^#\/(news|moderation)\//.test(location.hash) || location.hash === '#/' || !location.hash; if (Date.now() - POST_LAST > (on ? 15000 : 60000)) sbSyncPosts().then(c => c && softRender()); }, 4000);
@@ -1630,11 +1632,62 @@ const crAll = () => G.get('banners', []);
 const crPub = () => crAll().filter(pubOK).filter(b => commVisible(postComm(b)));
 const clip = (t, n) => { t = String(t || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t; };
 let CARI = 0, CARTIMER = null, CARHOLD = 0;            // tarjeta actual, temporizador y pausa tras tocar/deslizar
+/* --- Encuestas: tarjetas del banner con pregunta y de 2 a 6 opciones. Un voto por persona, no se cambia. Los resultados se ven tras votar, al cerrar o si eres del equipo --- */
+let PCACHE = null;
+const pollCache = () => PCACHE || (PCACHE = LS.get(uk('pollcache'), {}));
+const pollInfo = b => { const opts = (Array.isArray(b.options) ? b.options : []).map(x => String(x)).slice(0, 6), ends = b.ends || ''; return { opts, ends, closed: !!ends && ends < today() }; };
+function pollRes(b) {
+  const p = pollInfo(b), n = p.opts.length; let counts = Array(n).fill(0), mine = -1;
+  if (cloud()) { const c = pollCache()[pUuid('banners', b.id)]; if (c) { counts = counts.map((_, i) => (c.c && c.c[i]) || 0); mine = Number.isInteger(c.mine) ? c.mine : -1; } }
+  else { const v = G.get('pollvotes', {})[b.id] || {}; Object.values(v).forEach(i => { if (Number.isInteger(i) && i >= 0 && i < n) counts[i]++; }); const m = v[S.user]; mine = Number.isInteger(m) ? m : -1; }
+  return { ...p, counts, total: counts.reduce((a, x) => a + x, 0), mine, show: mine >= 0 || p.closed || (!isGuest() && isStaff()) };
+}
+async function sbSyncPolls() {                              // trae los conteos (el servidor solo los entrega a quien puede verlos)
+  if (!cloud()) return false;
+  const ids = crAll().filter(b => b.kind === 'poll' && pubOK(b)).map(b => pUuid('banners', b.id)).filter(Boolean); if (!ids.length) return false;
+  const r = await sbApi('/rest/v1/rpc/poll_counts', { method: 'POST', body: { bids: ids } }); if (!r.ok || !Array.isArray(r.data)) return false;
+  const next = {}; ids.forEach(u => { next[u] = { c: [], mine: -1 }; });
+  r.data.forEach(x => { const o = next[x.banner_id]; if (!o) return; if (x.opt === -1) o.mine = +x.n >= 0 ? +x.n : -1; else o.c[x.opt] = +x.n; });
+  const same = JSON.stringify(next) === JSON.stringify(pollCache()); PCACHE = next; LS.set(uk('pollcache'), next); return !same;
+}
+async function pollVote(b, i) {                             // devuelve '' si salió bien o el texto del error
+  if (isGuest()) return t('Inicia sesión para votar.');
+  const p = pollRes(b); if (p.closed) return t('Esa encuesta ya cerró.'); if (p.mine >= 0) return t('Ya votaste en esta encuesta.'); if (!(i >= 0 && i < p.opts.length)) return t('Elige una opción válida.');
+  if (cloud()) { const r = await sbApi('/rest/v1/rpc/vote_poll', { method: 'POST', body: { bid: pUuid('banners', b.id), option_idx: i } }); if (!r.ok) { await sbSyncPolls(); return modErr(r); } await sbSyncPolls(); return ''; }
+  const all = G.get('pollvotes', {}); all[b.id] = { ...(all[b.id] || {}), [S.user]: i }; G.set('pollvotes', all); return '';
+}
+function pollPaint(m, b) {
+  const p = pollRes(b), canVote = !isGuest() && !p.closed && p.mine < 0, res = p.show && (!canVote || m.dataset.res === '1');
+  const pct = i => p.total ? Math.round(p.counts[i] * 100 / p.total) : 0;
+  const body = res
+    ? `<div class="poll-list">${p.opts.map((o, i) => `<div class="poll-row ${p.mine === i ? 'mine' : ''}"><span class="poll-bar" style="width:${pct(i)}%"></span><span class="poll-t">${esc(o)}${p.mine === i ? ' ✓' : ''}</span><b>${pct(i)}%</b></div>`).join('')}</div><p class="helper" style="text-align:center">${t('{n} voto(s)', { n: p.total })}</p>`
+    : `<div class="poll-list">${p.opts.map((o, i) => `<button type="button" class="poll-opt" data-i="${i}" ${canVote ? '' : 'disabled'}>${esc(o)}</button>`).join('')}</div>`;
+  const note = isGuest() ? t('Inicia sesión para votar.') : p.closed ? t('Esta encuesta cerró.') : p.mine >= 0 ? t('Gracias por votar. Tu voto no se puede cambiar.') : p.ends ? t('Cierra el {d}', { d: esc(p.ends) }) : t('Elige una opción. Solo puedes votar una vez.');
+  m.innerHTML = `<div class="modal-box poll-box" role="dialog" aria-modal="true" aria-label="${esc(b.title)}"><button class="icon-btn close-x" data-x aria-label="${esc(t('Cerrar'))}">✕</button><span class="eyebrow">📊 ${t('Encuesta')}</span><h2>${esc(b.title)}</h2>${body}<p class="helper" id="poll-note" style="text-align:center">${note}</p>
+  ${canVote && p.show ? `<button type="button" class="button ghost sm" data-tog style="margin:0 auto;display:flex">${res ? t('Volver a votar') : t('Ver resultados')}</button>` : ''}</div>`;
+}
+function pollModal(id) {
+  const b = crAll().find(x => String(x.id) === String(id)); if (!b || b.kind !== 'poll') return;
+  const old = $('#poll-modal'); if (old) old.remove();
+  const m = document.createElement('div'); m.id = 'poll-modal'; m.className = 'modal'; m.dataset.res = '';
+  m.onclick = async e => {
+    if (e.target === m || e.target.closest('[data-x]')) return m.remove();
+    if (e.target.closest('[data-tog]')) { m.dataset.res = m.dataset.res === '1' ? '' : '1'; return pollPaint(m, b); }
+    const o = e.target.closest('.poll-opt'); if (!o || o.disabled) return;
+    m.querySelectorAll('.poll-opt').forEach(x => { x.disabled = true; });
+    const err = await pollVote(b, +o.dataset.i); pollPaint(m, b);
+    if (err) { const nt = $('#poll-note'); if (nt) nt.textContent = err; } else { m.dataset.res = '1'; pollPaint(m, b); softRender(); }
+  };
+  pollPaint(m, b); document.body.appendChild(m);
+  if (cloud()) sbSyncPolls().then(ch => { if (ch && document.body.contains(m)) pollPaint(m, b); });
+}
 function carSlides() {                                 // primero las tarjetas manuales (recomendaciones y eventos), luego las últimas noticias
   const pub = publishedStories().filter(matureOK).filter(storyVisible), out = [], dOf = (b, n) => b.date || (n && n.date) || (+b.id > 1e12 ? new Date(+b.id).toISOString().slice(0, 10) : '');
   crPub().forEach(b => {
     if (b.kind === 'book') { const st = pub.find(x => x.id === b.storyId); if (!st) return;
       out.push({ k: 'book', by: byline(b), badge: '📚 ' + t('Recomendado'), title: b.title || st.title, text: b.text || st.synopsis, cover: st.cover, au: st.author || '', date: dOf(b), sub: `📖 ${st.title}${st.author ? ' · ' + st.author : ''}`, href: `#/story/${esc(st.id)}/${st.chapters[0].idx + 1}`, tn: st.useReaderCharacter ? st.id : '', btn: b.btn || t('Leer ahora') }); }
+    else if (b.kind === 'poll') { const p = pollRes(b); if (p.opts.length < 2) return;
+      out.push({ k: 'poll', by: byline(b), badge: '📊 ' + t('Encuesta'), title: b.title, text: p.closed ? t('Esta encuesta cerró.') : p.mine >= 0 ? t('Ya votaste. Toca para ver los resultados.') : (p.ends ? t('Cierra el {d}', { d: p.ends }) + ' · ' : '') + t('{n} opciones', { n: p.opts.length }), date: dOf(b), act: 'poll-open', id: b.id, btn: p.closed || p.mine >= 0 ? t('Ver resultados') : t('Votar') }); }
     else { const n = b.newsId ? news().find(x => String(x.id) === String(b.newsId)) : null;
       out.push({ k: 'event', by: byline(b), badge: '🎉 ' + t('Evento'), date: dOf(b, n), title: b.title, text: b.text, cover: newsCover(n), wide: true, href: n ? '#/news/' + n.id : '', btn: b.btn || t('Ver más') }); }
   });
@@ -1644,7 +1697,7 @@ function carSlides() {                                 // primero las tarjetas m
 function carouselHTML() {
   const sl = carSlides(); if (!sl.length) return '';
   const card = (x, i) => `<article class="cr-slide cr-${x.k}" role="group" aria-roledescription="${esc(t('diapositiva'))}" aria-label="${esc(t('{i} de {n}', { i: i + 1, n: sl.length }))}"><div class="cr-txt"><span class="eyebrow">${esc(x.badge)}</span>${x.date ? `<span class="cr-date">${t('Publicado el {d}', { d: esc(x.date) })}</span>` : ''}${x.by ? `<span class="cr-by">${t('Por {x}', { x: esc(x.by) })}</span>` : ''}<h2>${esc(clip(x.title, 70))}</h2>${x.sub && x.sub.indexOf(x.title) < 0 ? `<div class="cr-sub">${esc(clip(x.sub, 60))}</div>` : ''}<p>${esc(clip(x.text, 130))}</p>
-    ${x.href ? `<a class="button secondary sm" href="${x.href}" data-dir="next" ${x.tn ? `data-readas="${esc(x.tn)}"` : ''}>${esc(x.btn)}</a>` : ''}</div>${safeImg(x.cover) ? `<div class="cr-cv ${x.wide ? 'wide' : ''}"><img class="cr-cover ${x.wide ? 'wide' : ''}" src="${esc(x.cover)}" alt="">${x.au ? `<span class="cr-au">${t('Por: {x}', { x: esc(x.au) })}</span>` : ''}</div>` : ''}</article>`;
+    ${x.act ? `<button type="button" class="button secondary sm" data-act="${x.act}" data-id="${esc(x.id)}">${esc(x.btn)}</button>` : x.href ? `<a class="button secondary sm" href="${x.href}" data-dir="next" ${x.tn ? `data-readas="${esc(x.tn)}"` : ''}>${esc(x.btn)}</a>` : ''}</div>${safeImg(x.cover) ? `<div class="cr-cv ${x.wide ? 'wide' : ''}"><img class="cr-cover ${x.wide ? 'wide' : ''}" src="${esc(x.cover)}" alt="">${x.au ? `<span class="cr-au">${t('Por: {x}', { x: esc(x.au) })}</span>` : ''}</div>` : ''}</article>`;
   return `<section class="carousel" aria-roledescription="${esc(t('carrusel'))}" aria-label="${esc(t('Novedades de Auri'))}"><div class="cr-track" id="cr-track">${sl.map(card).join('')}</div>
   ${sl.length > 1 ? `<div class="cr-dots">${sl.map((_, i) => `<button type="button" class="cr-dot ${i === CARI ? 'on' : ''}" data-act="car-go" data-i="${i}" aria-label="${esc(t('Ir a la tarjeta {i}', { i: i + 1 }))}"></button>`).join('')}</div>` : ''}</section>`;
 }
@@ -2785,7 +2838,7 @@ function commPick(id) {                                // dónde se ve la public
 function crPanel() {
   const L = crAll(), pubs = publishedStories(), nw = news();
   return `<section class="panel" style="margin-bottom:20px"><h2>${t('🎠 Banner de Inicio')}</h2><p class="helper" style="margin:4px 0 12px">${t('Las noticias salen solas en el carrusel. Aquí añades tarjetas manuales (aparecen primero).')}${isOwner() ? '' : ' ' + t('Solo puedes editar y eliminar las tuyas.')}${isMod() ? ' ' + t('Lo que envíes pasa primero por la aprobación de Administración y Owner.') : ''}</p>
-  ${L.length ? L.map((b, i) => { const mine = ownsPost(b); return `<div class="cr-row"><span class="cr-rt">${b.kind === 'book' ? '📚' : '🎉'} <b>${esc(b.title || (findStory(b.storyId) || {}).title || t('Libro eliminado'))}</b><small class="helper">· ${esc(byline(b))}</small>${b.status === 'pending' ? ' <span class="pill">' + t('En revisión') + '</span>' : b.status === 'rejected' ? ` <span class="pill">${t('Rechazada')}${b.reason ? ': ' + esc(b.reason) : ''}</span>` : ''}</span><span class="cr-rb">${mine ? `${isMod() ? '' : `<button class="icon-btn sm" data-act="cr-up" data-id="${b.id}" ${i ? '' : 'disabled'} aria-label="${esc(t('Subir'))}">↑</button><button class="icon-btn sm" data-act="cr-down" data-id="${b.id}" ${i < L.length - 1 ? '' : 'disabled'} aria-label="${esc(t('Bajar'))}">↓</button>`}${canEditPost(b) ? `<button class="link-btn" data-act="cr-edit" data-id="${b.id}">${t('Editar')}</button>` : ''}<button class="link-btn danger-link" data-act="cr-del" data-id="${b.id}">${t('Eliminar')}</button>` : '<small class="helper">' + t('de otra persona') + '</small>'}</span></div>`; }).join('') : '<p class="helper">' + t('Aún no hay tarjetas manuales.') + '</p>'}
+  ${L.length ? L.map((b, i) => { const mine = ownsPost(b); return `<div class="cr-row"><span class="cr-rt">${b.kind === 'book' ? '📚' : b.kind === 'poll' ? '📊' : '🎉'} <b>${esc(b.title || (findStory(b.storyId) || {}).title || t('Libro eliminado'))}</b><small class="helper">· ${esc(byline(b))}</small>${b.status === 'pending' ? ' <span class="pill">' + t('En revisión') + '</span>' : b.status === 'rejected' ? ` <span class="pill">${t('Rechazada')}${b.reason ? ': ' + esc(b.reason) : ''}</span>` : ''}</span><span class="cr-rb">${mine ? `${isMod() ? '' : `<button class="icon-btn sm" data-act="cr-up" data-id="${b.id}" ${i ? '' : 'disabled'} aria-label="${esc(t('Subir'))}">↑</button><button class="icon-btn sm" data-act="cr-down" data-id="${b.id}" ${i < L.length - 1 ? '' : 'disabled'} aria-label="${esc(t('Bajar'))}">↓</button>`}${canEditPost(b) && b.kind !== 'poll' ? `<button class="link-btn" data-act="cr-edit" data-id="${b.id}">${t('Editar')}</button>` : ''}<button class="link-btn danger-link" data-act="cr-del" data-id="${b.id}">${t('Eliminar')}</button>` : '<small class="helper">' + t('de otra persona') + '</small>'}</span></div>`; }).join('') : '<p class="helper">' + t('Aún no hay tarjetas manuales.') + '</p>'}
  ${commPick('cr-comm')}
  <button type="button" class="button secondary" data-act="cr-pick-open" style="margin:8px 0">${t('＋ Recomendar un libro')}</button>
   <details class="cr-add" hidden><summary>${t('＋ Recomendar un libro')}</summary><form data-form="cr-book" class="form-grid" style="grid-template-columns:1fr;margin-top:10px">
@@ -2793,6 +2846,11 @@ function crPanel() {
     <div class="form-group"><label for="cb-title">${t('Título (opcional)')}</label><input id="cb-title" class="field" maxlength="70" placeholder="${esc(t('Si lo dejas vacío usa el del libro (el título del libro siempre se muestra)'))}"></div>
     <div class="form-group"><label for="cb-text">${t('Texto (opcional)')}</label><textarea id="cb-text" class="textarea" maxlength="160" placeholder="${esc(t('Por qué lo recomiendas… (si lo dejas vacío usa la sinopsis)'))}"></textarea></div>
     <div class="form-group"><label for="cb-btn">${t('Texto del botón')}</label><input id="cb-btn" class="field" maxlength="24" value="${esc(t('Leer ahora'))}"></div><label class="check"><input type="checkbox" id="cb-anon"> <span>${t('Ocultar mi nombre (se muestra solo mi rol)')}</span></label><button class="button" type="submit">${t('Añadir al banner')}</button></form></details>
+  <details class="cr-add"><summary>${t('＋ Crear una encuesta')}</summary><form data-form="cr-poll" class="form-grid" style="grid-template-columns:1fr;margin-top:10px">
+    <div class="form-group"><label for="cp-q">${t('Pregunta')}</label><input id="cp-q" class="field" maxlength="120" placeholder="${esc(t('Ej: ¿Qué género quieres ver en el próximo evento?'))}"></div>
+    ${[0, 1, 2, 3, 4, 5].map(i => `<div class="form-group"><label for="cp-o${i}">${t('Opción {n}', { n: i + 1 })}${i > 1 ? ' ' + t('(opcional)') : ''}</label><input id="cp-o${i}" class="field cp-o" maxlength="60"></div>`).join('')}
+    <div class="form-group"><label for="cp-end">${t('Fecha de cierre (opcional)')}</label><input id="cp-end" class="field" type="date" min="${today()}"><span class="helper">${t('Al cerrar, todas las personas pueden ver los resultados.')}</span></div>
+    <label class="check"><input type="checkbox" id="cp-anon"> <span>${t('Ocultar mi nombre (se muestra solo mi rol)')}</span></label><button class="button" type="submit">${t('Publicar encuesta en el banner')}</button></form></details>
   <details class="cr-add"><summary>${t('＋ Anunciar un evento')}</summary><form data-form="cr-event" class="form-grid" style="grid-template-columns:1fr;margin-top:10px">
     <div class="form-group"><label for="ce-title">${t('Título')}</label><input id="ce-title" class="field" maxlength="70" placeholder="${esc(t('Ej: Evento Fundador'))}"></div>
     <div class="form-group"><label for="ce-text">${t('Descripción corta (la tarjeta del banner)')}</label><textarea id="ce-text" class="textarea" maxlength="160"></textarea></div>
@@ -2824,7 +2882,7 @@ function resolvePost(kind, id, ok, reason) {
 function postsView(tabs) {
   const l = pendingPosts();
   return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('Publicaciones')}</span><h2 style="margin-top:8px">${t('Por aprobar')} (${l.length})</h2><p>${t('Anuncios, eventos y recomendaciones enviados por Moderación. Al aprobarlos se publican con la fecha de hoy.')}</p></div></div>
-  ${l.length ? l.map(({ kind, o }) => { const st = o.kind === 'book' ? findStory(o.storyId) : null, label = kind === 'news' ? t(o.type || 'Anuncio') : o.kind === 'book' ? t('Recomendación de libro') : t('Evento en el banner'), ttl = o.title || (st && st.title) || t('Sin título'), txt = o.text || (st && st.synopsis) || '',
+  ${l.length ? l.map(({ kind, o }) => { const st = o.kind === 'book' ? findStory(o.storyId) : null, label = kind === 'news' ? t(o.type || 'Anuncio') : o.kind === 'book' ? t('Recomendación de libro') : o.kind === 'poll' ? t('Encuesta en el banner') : t('Evento en el banner'), ttl = o.title || (st && st.title) || t('Sin título'), txt = o.text || (st && st.synopsis) || (o.kind === 'poll' ? (o.options || []).join(' · ') : ''),
       href = kind === 'news' ? '#/news/' + o.id : o.kind === 'book' && st ? '#/story/' + esc(st.id) : o.newsId ? '#/news/' + o.newsId : '';
     return `<article class="panel rp"><div class="rp-head"><span class="pill">${esc(label)}</span><span class="helper">${esc(fmtDate(o.date) || o.date || '')}</span></div><div class="rp-ctx"><b>${esc(ttl)}</b><div class="helper">${t('Por {n}', { n: esc(byline(o)) })}</div></div><p class="rp-text">${esc(clip(txt, 220))}</p>
     <div class="rp-acts">${href ? `<a class="button ghost sm" href="${href}" data-dir="next">${t('Ver')}</a>` : ''}<button class="button sm" data-act="post-approve" data-k="${kind}" data-id="${o.id}">${t('Aprobar')}</button><button class="button danger sm" data-act="post-reject" data-k="${kind}" data-id="${o.id}">${t('Rechazar')}</button></div></article>`; }).join('')
@@ -3289,6 +3347,7 @@ document.addEventListener('click', e => {
     'cr-up': () => { const L = crAll(), i = L.findIndex(b => String(b.id) === id); if (i < 0 || !ownsPost(L[i]) || isMod()) return; if (i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; G.set('banners', L); KEEP = true; render(); } },
     'cr-down': () => { const L = crAll(), i = L.findIndex(b => String(b.id) === id); if (i < 0 || !ownsPost(L[i]) || isMod()) return; if (i < L.length - 1) { [L[i + 1], L[i]] = [L[i], L[i + 1]]; G.set('banners', L); KEEP = true; render(); } },
     'news-del': () => { const n0 = news().find(n => String(n.id) === id); if (ownsPost(n0)) confirmBox(t('¿Eliminar este anuncio?'), () => { G.set('news', news().filter(n => String(n.id) !== id)); logAction('news-del', n0.by || OWNER_EMAIL, (n0.title || '').slice(0, 60)); if (NBEDIT === id) nbReset(); KEEP = true; render(); }); },
+    'poll-open': () => pollModal(el.dataset.id),
     'bn-adjust': () => { const u = getUsers()[S.user]; if (u && u.banner) editPhoto(u.banner, 'banner'); }, 'av-adjust': () => { const u = getUsers()[S.user]; if (u && u.avatar) editPhoto(u.avatar, 'avatar'); },
     'bn-clear': () => { const u = getUsers(); u[S.user].banner = ''; G.set('users', u); render(); },
     'chc-clear': () => { collect(); const cid = +$('#w-ch-text').dataset.cid; W.chapters = W.chapters.map(c => { if (c.id !== cid) return c; const { cover, ...rest } = c; return rest; }); persistDraft(); KEEP = true; render(); },
@@ -3428,6 +3487,15 @@ document.addEventListener('submit', async e => {
     REPLYTO = null; REPLYPRE = ''; REPOPEN.add(top); KEEP = true; return render();
   }
   if (kind === 'comment') { const t = $('#c-text').value.trim(); if (!t) return; addComment(findStory(form.dataset.id), t); KEEP = true; return render(); }
+  if (kind === 'cr-poll') {
+    if (!canNews()) return; const L = crAll(); if (L.length >= 6) return toast(t('Máximo 6 tarjetas manuales: elimina alguna.'));
+    const q = v('#cp-q').trim(), opts = [...document.querySelectorAll('.cp-o')].map(x => x.value.trim()).filter(Boolean).slice(0, 6), ends = v('#cp-end');
+    if (!q) return toast(t('Escribe la pregunta.')); if (opts.length < 2) return toast(t('Escribe al menos 2 opciones.')); if (new Set(opts.map(x => x.toLowerCase())).size < opts.length) return toast(t('Las opciones no pueden repetirse.'));
+    if (ends && ends < today()) return toast(t('La fecha de cierre ya pasó.'));
+    G.set('banners', [...L, { id: Date.now(), kind: 'poll', by: S.user, date: today(), title: q.slice(0, 120), text: '', btn: '', options: opts, ends: ends || '', ...postMeta($('#cp-anon') && $('#cp-anon').checked, 'cr-comm') }]);
+    logAction('banner-add', S.user, q.slice(0, 60) + (isMod() ? ' (en revisión)' : '')); if (isMod()) notifyApprovers('Nueva tarjeta del banner por aprobar');
+    toast(isMod() ? t('Enviado a revisión: lo verá Administración u Owner') : t('Encuesta publicada en el banner')); return render();
+  }
   if (kind === 'cr-book' || kind === 'cr-event') {
     if (!canNews()) return; const L = crAll(); if (L.length >= 6) return toast(t('Máximo 6 tarjetas manuales: elimina alguna.'));
     if (kind === 'cr-book') { const sid = v('#cb-story'); if (!sid || !publishedStories().some(x => x.id === sid)) return toast(t('Elige un libro publicado.'));

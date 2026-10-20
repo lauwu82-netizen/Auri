@@ -969,3 +969,18 @@ a.icon-btn.bell{position:relative}
 .user-card{display:flex;align-items:center;gap:14px;padding:12px 14px;text-decoration:none;color:inherit;transition:transform .15s ease,box-shadow .2s ease}
 .user-card:active{transform:scale(.97)}
 .uc-txt{display:flex;flex-direction:column;min-width:0}.uc-txt b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.uc-txt .role-tag{margin:3px 0}
+
+/* 31. ENCUESTAS --------------------------------------------------------- */
+.poll-box{max-width:420px;position:relative}
+.poll-box h2{margin:8px 0 14px;padding-right:36px;overflow-wrap:anywhere}
+.poll-list{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+.poll-opt{width:100%;text-align:left;padding:13px 16px;border:1.5px solid hsl(var(--border));border-radius:16px;background:hsl(var(--card));font-weight:600;font-size:15px;color:var(--title);overflow-wrap:anywhere;transition:transform .15s ease,border-color .2s,background-color .2s}
+.poll-opt:not(:disabled):hover{border-color:#af8bd5;background:hsl(var(--accent)/.5)}
+.poll-opt:not(:disabled):active{transform:scale(.98)}
+.poll-opt:disabled{opacity:.7;cursor:default}
+.poll-row{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;border:1.5px solid hsl(var(--border));border-radius:16px;background:hsl(var(--card));overflow:hidden;font-size:15px}
+.poll-row.mine{border-color:#8c5fc1}
+.poll-bar{position:absolute;left:0;top:0;bottom:0;background:hsl(var(--accent));transition:width .5s ease;z-index:0}
+.poll-row.mine .poll-bar{background:hsl(var(--primary)/.25)}
+.poll-t,.poll-row b{position:relative;z-index:1}
+.poll-t{font-weight:600;color:var(--title);overflow-wrap:anywhere}
