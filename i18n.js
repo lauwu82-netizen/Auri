@@ -1403,5 +1403,15 @@ window.I18N = { en: {
  "Ya se envió una apelación para esta decisión": "An appeal has already been sent for this decision",
  "Ya tiene una invitación pendiente": "This person already has a pending invitation",
  "Esta solicitud ya no está disponible": "This request is no longer available",
- "Por: {x}": "By: {x}"
+ "Por: {x}": "By: {x}",
+ "Ajusta tu foto": "Adjust your photo",
+ "Se ve en círculo.": "It is shown as a circle.",
+ "Se guardará a 256×256 px.": "It will be saved at 256×256 px.",
+ "Ajusta tu portada de perfil": "Adjust your profile cover",
+ "Se guarda en proporción 8:3.": "It is saved in 8:3 proportion.",
+ "Se guardará a 960×360 px.": "It will be saved at 960×360 px.",
+ "Ajustar": "Adjust",
+ "Arrastra la imagen para moverla y usa el zoom.": "Drag the image to move it and use the zoom.",
+ "Se guarda en proporción 2:3.": "It is saved in a 2:3 ratio.",
+ "Cada capítulo tiene su propio enlace: la música se detiene al pasar al siguiente capítulo.": "Each chapter has its own link: the music stops when you move on to the next chapter."
 } };

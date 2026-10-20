@@ -461,6 +461,15 @@ function fitPhoto(file, maxW, maxH, cb, q = .85) {
   r.readAsDataURL(file);
 }
 const squarePhoto = (file, size, cb) => cropPhoto(file, size, size, cb);
+/** Foto de perfil (círculo) y portada del perfil: se abre el editor para mover y hacer zoom antes de guardar. src = enlace o dato de la imagen ya puesta */
+const PH = { avatar: { w: 256, h: 256, q: .85, round: true, title: () => t('Ajusta tu foto'), ratio: () => t('Se ve en círculo.'), info: () => t('Se guardará a 256×256 px.'), key: 'avatar' },
+  banner: { w: 960, h: 360, q: .78, wide: true, title: () => t('Ajusta tu portada de perfil'), ratio: () => t('Se guarda en proporción 8:3.'), info: () => t('Se guardará a 960×360 px.'), key: 'banner' } };
+function editPhoto(fileOrSrc, kind) {
+  const c = PH[kind], open = src => coverEditor(src, d => { const u = getUsers(); u[S.user][c.key] = d; G.set('users', u); render(); }, 0, 0, { w: c.w, h: c.h, q: c.q, round: c.round, wide: c.wide, title: c.title(), ratio: c.ratio(), info: c.info() });
+  if (typeof fileOrSrc === 'string') return open(fileOrSrc);
+  const f = fileOrSrc; if (!f || !f.type.startsWith('image/')) return toast(t('Elige un archivo de imagen.'));
+  const r = new FileReader(); r.onload = () => open(r.result); r.readAsDataURL(f);
+}
 
 /* 3. AUTENTICACIÓN LOCAL ------------------------------------------
    Demostración: los datos viven solo en este navegador. Para producción
@@ -1815,7 +1824,7 @@ function chapterView(cid) {
   ${chCoverBox(ch)}
   <input id="w-ch-title" class="wf-title" data-cid="${ch.id}" value="${esc(ch.title)}" placeholder="${esc(t('Título del capítulo'))}">
   <textarea id="w-ch-text" class="wf-text" data-cid="${ch.id}" placeholder="${esc(t('Érase una vez…'))}">${esc(ch.text)}</textarea>
-  <footer class="wf-bottom"><details class="wf-music" ${ch.music ? 'open' : ''}><summary class="helper" style="cursor:pointer">🎵 ${t('Canción del capítulo (opcional)')}</summary><input id="w-ch-music" class="field" style="margin-top:8px" value="${esc(ch.music || '')}" placeholder="${esc(t('Enlace de YouTube, Spotify o un .mp3'))}"><span class="helper">${t('Quien lee decide si la reproduce. Se revisa junto con el capítulo.')}</span></details>
+  <footer class="wf-bottom"><details class="wf-music" ${ch.music ? 'open' : ''}><summary class="helper" style="cursor:pointer">🎵 ${t('Canción del capítulo (opcional)')}</summary><input id="w-ch-music" class="field" style="margin-top:8px" value="${esc(ch.music || '')}" placeholder="${esc(t('Enlace de YouTube, Spotify o un .mp3'))}"><span class="helper">${t('Quien lee decide si la reproduce. Se revisa junto con el capítulo.')} ${t('Cada capítulo tiene su propio enlace: la música se detiene al pasar al siguiente capítulo.')}</span></details>
   <div class="wf-actions"><span class="helper" id="w-count">${wc(ch.text)}</span><span class="wf-btns">${before ? `<button type="button" class="button ghost sm" data-act="ch-go" data-cid="${before.id}">‹ ${t('Cap. {n}', { n: i })}</button>` : ''}<button class="button secondary sm" data-act="save-draft">💾 ${t('Guardar borrador')}</button>${after ? `<button type="button" class="button sm" data-act="ch-go" data-cid="${after.id}">${t('Cap. {n}', { n: i + 2 })} ›</button>` : `<button type="button" class="button sm" data-act="ch-add">＋ ${t('Cap. {n}', { n: n + 1 })}</button>`}</span></div></footer></div>`;
 }
 /** Lee las historias tal como están guardadas AHORA (moderación puede haber cambiado estados mientras tenías la pantalla abierta) */
@@ -1923,18 +1932,19 @@ function loadCover(file) {
   r.readAsDataURL(file);
 }
 function applyCover(d) { W.cover = d; const p = $('#cover-prev'); if (p) p.innerHTML = coverPrev(); const u = $('#cover-url'); if (u) u.value = ''; }
-function coverEditor(src, done, ow, oh) {
+function coverEditor(src, done, ow, oh, o = {}) {
+  const OW = o.w || 480, OH = o.h || 720, asp = OH / OW;
   const img = new Image(); if (/^https?:/i.test(src)) img.crossOrigin = 'anonymous';
   img.onload = () => {
-    const iw = img.naturalWidth, ih = img.naturalHeight, FW = Math.max(160, Math.min(260, Math.round((window.innerWidth || 390) * .6))), FH = Math.round(FW * 1.5);
+    const iw = img.naturalWidth, ih = img.naturalHeight, FW = o.wide ? Math.max(200, Math.min(340, (window.innerWidth || 390) - 90)) : Math.max(160, Math.min(260, Math.round((window.innerWidth || 390) * (asp > 1 ? .6 : .7)))), FH = Math.round(FW * asp);
     const kc = Math.max(FW / iw, FH / ih), kf = Math.min(FW / iw, FH / ih), zmin = Math.min(1, kf / kc);
     let z = 1, ox = (FW - iw * kc) / 2, oy = (FH - ih * kc) / 2;
     const m = document.createElement('div'); m.className = 'modal';
-    m.innerHTML = `<div class="modal-box cv-box" role="dialog" aria-modal="true" aria-label="${esc(t('Ajustar portada'))}"><h2>${t('Ajusta tu portada')}</h2><p class="helper" style="margin:0 0 10px">${t('Arrastra la imagen para moverla y usa el zoom. Se guarda en proporción 2:3.')}</p>
-    <div class="cv-frame" style="width:${FW}px;height:${FH}px"><img class="cv-img" alt="" draggable="false" src="${esc(src)}"></div>
+    m.innerHTML = `<div class="modal-box cv-box" role="dialog" aria-modal="true" aria-label="${esc(o.title || t('Ajustar portada'))}"><h2>${o.title || t('Ajusta tu portada')}</h2><p class="helper" style="margin:0 0 10px">${t('Arrastra la imagen para moverla y usa el zoom.')} ${o.ratio || t('Se guarda en proporción 2:3.')}</p>
+    <div class="cv-frame ${o.round ? 'cv-round' : ''}" style="width:${FW}px;height:${FH}px"><img class="cv-img" alt="" draggable="false" src="${esc(src)}"></div>
     <label class="cv-zoom"><span>Zoom</span><input type="range" min="${zmin}" max="3" step="0.01" value="1" aria-label="Zoom"></label>
     <div class="cv-quick"><button type="button" class="button ghost sm" data-q="fill">${t('Rellenar')}</button><button type="button" class="button ghost sm" data-q="fit">${t('Ver completa')}</button><button type="button" class="button ghost sm" data-q="center">${t('Centrar')}</button></div>
-    <p class="helper cv-info">${ow && oh ? t('Original: {w}×{h} px.', { w: ow, h: oh }) + ' ' : ''}${t('Se guardará a 480×720 px, el tamaño ideal para portadas (las imágenes grandes se reducen solas).')}</p>
+    <p class="helper cv-info">${ow && oh ? t('Original: {w}×{h} px.', { w: ow, h: oh }) + ' ' : ''}${o.info || t('Se guardará a 480×720 px, el tamaño ideal para portadas (las imágenes grandes se reducen solas).')}</p>
     <div style="display:flex;gap:10px;margin-top:12px"><button class="button ghost" data-no style="flex:1">${t('Cancelar')}</button><button class="button" data-yes style="flex:1">${t('Aplicar')}</button></div></div>`;
     const el = m.querySelector('.cv-img'), fr = m.querySelector('.cv-frame'), rg = m.querySelector('input[type=range]');
     const paint = () => {
@@ -1951,13 +1961,13 @@ function coverEditor(src, done, ow, oh) {
     ['pointerup', 'pointercancel'].forEach(t => fr.addEventListener(t, () => { drag = null; }));
     m.querySelector('[data-no]').onclick = () => m.remove();
     m.querySelector('[data-yes]').onclick = () => {
-      const OW = 480, OH = 720, k = OW / FW, c = document.createElement('canvas'); c.width = OW; c.height = OH; const x = c.getContext('2d');
+      const k = OW / FW, c = document.createElement('canvas'); c.width = OW; c.height = OH; const x = c.getContext('2d');
       const w = iw * kc * z, h = ih * kc * z;
       if (w < FW - 1 || h < FH - 1) {                    // si la imagen no llena el marco, el fondo es la misma imagen difuminada
         const kb = Math.max(OW / iw, OH / ih); x.fillStyle = '#e8dcf5'; x.fillRect(0, 0, OW, OH);
         try { x.filter = 'blur(18px)'; x.drawImage(img, (OW - iw * kb) / 2, (OH - ih * kb) / 2, iw * kb, ih * kb); x.filter = 'none'; } catch (e) { /* sin filtro: queda el color liso */ }
       }
-      x.drawImage(img, ox * k, oy * k, w * k, h * k); m.remove(); done(c.toDataURL('image/jpeg', .85));
+      x.drawImage(img, ox * k, oy * k, w * k, h * k); m.remove(); done(c.toDataURL('image/jpeg', o.q || .85));
     };
     document.body.appendChild(m); paint();
   };
@@ -1982,12 +1992,12 @@ function autoMusic(a, b, c) {
   if (cfg('music') !== 'remember' || cfg('musicLast') !== 'play' || a !== 'story' || !c || c === 'fin') return;
   const s = findStory(b), ch = s && s.chapters.find(x => x.idx === +c - 1);
   if (!ch || !ch.music || !musicEmbed(ch.music) || (MUSIC && MUSIC.url === ch.music && MUSIC.sid === b)) return;
-  playMusic(ch.music, b);
+  playMusic(ch.music, b, c);
 }
 function closeMusic() { const d = $('#music-dock'); if (d) d.remove(); MUSIC = null; }
-function playMusic(url, sid) {                    // solo se abre cuando la persona lectora lo pide
+function playMusic(url, sid, ch) {                    // solo se abre cuando la persona lectora lo pide
   const m = musicEmbed(url); if (!m) return toast(t('No se pudo abrir esa canción.'));
-  closeMusic(); MUSIC = { url, sid };
+  closeMusic(); MUSIC = { url, sid, ch: String(ch || '') };
   const d = document.createElement('div'); d.id = 'music-dock'; d.className = 'music-dock';
   d.innerHTML = `<div class="music-top"><span>🎵 ${t('Música del capítulo')}</span><button class="icon-btn" data-act="music-close" aria-label="${esc(t('Cerrar música'))}">✕</button></div>${m.audio ? `<audio controls autoplay src="${esc(m.src)}"></audio>` : `<iframe src="${esc(m.src)}" height="${m.h}" allow="autoplay; encrypted-media" title="${esc(t('Reproductor de música'))}"></iframe>`}`;
   document.body.appendChild(d);
@@ -2583,7 +2593,7 @@ function profileHero(e, own) {
   const u = getUsers()[e] || {}, pubs = publishedStories().filter(s => s.owner === e), has = safeImg(u.banner);
   const stat = (n, l) => `<span class="pf-stat"><b>${n}</b><small>${l}</small></span>`;
   return `<section class="pf-hero"><div class="pf-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>
-    ${own ? `<div class="pf-bn-btns"><label class="button secondary sm" style="cursor:pointer">🖼 ${has ? t('Cambiar portada') : t('Añadir portada')}<input id="bn-file" type="file" accept="image/*" hidden></label>${has ? '<button class="button ghost sm" data-act="bn-clear">' + t('Quitar') + '</button>' : ''}</div>` : ''}
+    ${own ? `<div class="pf-bn-btns"><label class="button secondary sm" style="cursor:pointer">🖼 ${has ? t('Cambiar portada') : t('Añadir portada')}<input id="bn-file" type="file" accept="image/*" hidden></label>${has ? '<button class="button ghost sm" data-act="bn-adjust">' + t('Ajustar') + '</button><button class="button ghost sm" data-act="bn-clear">' + t('Quitar') + '</button>' : ''}</div>` : ''}
     <div class="pf-fade"></div>
     <div class="pf-stats4">${stat(followers(e).length, t('Seguidores'))}${stat(likesReceived(e), t('Likes'))}${stat(pubs.length, t('Libros'))}${stat(following(e).length, t('Siguiendo'))}</div></div></section>`;
 }
@@ -2618,7 +2628,7 @@ function profileView() {
   const sk = strikesOf(S.user), role = t(ROLE_LABEL[roleOf(S.user)]);
   return `<main class="page">${profileHero(S.user, true)}${sk.length ? `<a class="strike-line" href="#/strike/${esc(sk[sk.length - 1].id)}">⚠️ ${tn(sk.length, 'Tienes {n} strike', 'Tienes {n} strikes')} · ${t('ver detalle')}</a>` : ''}<div class="panel pf-edit"><div class="pf-top"><div class="pf-photo">${frWrap(S.user, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}</div>
   <div class="pf-title"><h2 class="serif">${esc(u.name || t('Mi perfil'))}</h2>${role ? `<span class="role-tag ${roleOf(S.user).toLowerCase()}">🛡 ${role}</span>` : ''}
-  <div class="pf-btns"><label class="button secondary sm" style="cursor:pointer">📷 ${u.avatar ? t('Cambiar foto') : t('Añadir foto')}<input id="av-file" type="file" accept="image/*" hidden></label>${u.avatar ? '<button class="button ghost sm" data-act="av-clear">' + t('Quitar foto') + '</button>' : ''}${isOwner() ? `<button class="button ghost sm" data-act="owner-frame">${u.frameOn === false ? t('Ponerme el marco') : t('Quitar marco')}</button>` : ''}</div></div></div>
+  <div class="pf-btns"><label class="button secondary sm" style="cursor:pointer">📷 ${u.avatar ? t('Cambiar foto') : t('Añadir foto')}<input id="av-file" type="file" accept="image/*" hidden></label>${u.avatar ? '<button class="button ghost sm" data-act="av-adjust">' + t('Ajustar') + '</button><button class="button ghost sm" data-act="av-clear">' + t('Quitar foto') + '</button>' : ''}${isOwner() ? `<button class="button ghost sm" data-act="owner-frame">${u.frameOn === false ? t('Ponerme el marco') : t('Quitar marco')}</button>` : ''}</div></div></div>
   <form data-form="myprofile" class="pf-form"><div class="form-group"><label for="pf-name">${t('Usuario')}</label><input id="pf-name" class="field" maxlength="30" value="${esc(u.name)}"></div>
   <div class="form-group"><label for="pf-bio">${t('Biografía')}</label><textarea id="pf-bio" class="textarea" maxlength="300" placeholder="${esc(t('Cuéntales algo sobre ti…'))}">${esc(u.bio || '')}</textarea></div>
   <button class="button" type="submit">${t('Guardar perfil')}</button></form></div>
@@ -3063,7 +3073,10 @@ function render() {
   else app.innerHTML = shell('/', discoverView());
   if (a !== 'write') { W = null; WPREVIEW = false; }
   if (a !== 'story') EDITC = null;
-  if (a !== 'story' || (MUSIC && b !== MUSIC.sid)) closeMusic();
+  if (a !== 'story') closeMusic();
+  else if (MUSIC && (b !== MUSIC.sid || String(c || '') !== MUSIC.ch)) {   // la música es de cada capítulo: al pasar a otro se detiene (si el siguiente usa el mismo enlace, sigue sonando)
+    const st = findStory(b), nx = st && c && c !== 'fin' ? st.chapters.find(x => x.idx === +c - 1) : null;
+    if (nx && b === MUSIC.sid && nx.music && nx.music === MUSIC.url) MUSIC.ch = String(c); else closeMusic(); }
   if (!KEEP) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); }
   KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
@@ -3249,7 +3262,7 @@ document.addEventListener('click', e => {
     'c-save': () => { const tx = ($('#c-edit-text').value || '').trim(), cid = +el.dataset.cid; if (!tx) return toast(t('El comentario no puede estar vacío.'));
       updateComments(id, l => l.map(c => c.id === cid && c.by === S.user ? { ...c, text: tx, edited: true } : c)); EDITC = null; KEEP = true; render(); },
     'c-del': () => { const cid = +el.dataset.cid; confirmBox(t('¿Seguro que quieres eliminar este comentario?'), () => { updateComments(id, l => { const cm = l.find(c => c.id === cid); return cm && (cm.by === S.user || isAdmin()) ? l.filter(c => c.id !== cid && c.parent !== cid) : l; }); KEEP = true; render(); }); },
-    music: () => { setCfg('musicLast', 'play'); playMusic(el.dataset.url, location.hash.split('/')[2]); }, 'music-close': () => { setCfg('musicLast', 'close'); closeMusic(); },
+    music: () => { setCfg('musicLast', 'play'); const hp = location.hash.split('/'); playMusic(el.dataset.url, hp[2], hp[3]); }, 'music-close': () => { setCfg('musicLast', 'close'); closeMusic(); },
     'lib-toggle': () => { if (S.lib.includes(id)) { libRemove(id); toast(t('Quitado de tu biblioteca. Ya no recibirás avisos de esta obra.')); } else { libAdd(id); toast(t('Guardado en tu biblioteca. Te avisaremos cuando haya capítulos nuevos.')); } KEEP = true; render(); },
     'lib-del': () => { libRemove(id); toast(t('Quitado de tu biblioteca. Ya no recibirás avisos de esta obra.')); KEEP = true; render(); },
     'col-add': () => { colAdd(id); toast(t('Guardado en tus colecciones ⭐')); KEEP = true; render(); },
@@ -3276,6 +3289,7 @@ document.addEventListener('click', e => {
     'cr-up': () => { const L = crAll(), i = L.findIndex(b => String(b.id) === id); if (i < 0 || !ownsPost(L[i]) || isMod()) return; if (i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; G.set('banners', L); KEEP = true; render(); } },
     'cr-down': () => { const L = crAll(), i = L.findIndex(b => String(b.id) === id); if (i < 0 || !ownsPost(L[i]) || isMod()) return; if (i < L.length - 1) { [L[i + 1], L[i]] = [L[i], L[i + 1]]; G.set('banners', L); KEEP = true; render(); } },
     'news-del': () => { const n0 = news().find(n => String(n.id) === id); if (ownsPost(n0)) confirmBox(t('¿Eliminar este anuncio?'), () => { G.set('news', news().filter(n => String(n.id) !== id)); logAction('news-del', n0.by || OWNER_EMAIL, (n0.title || '').slice(0, 60)); if (NBEDIT === id) nbReset(); KEEP = true; render(); }); },
+    'bn-adjust': () => { const u = getUsers()[S.user]; if (u && u.banner) editPhoto(u.banner, 'banner'); }, 'av-adjust': () => { const u = getUsers()[S.user]; if (u && u.avatar) editPhoto(u.avatar, 'avatar'); },
     'bn-clear': () => { const u = getUsers(); u[S.user].banner = ''; G.set('users', u); render(); },
     'chc-clear': () => { collect(); const cid = +$('#w-ch-text').dataset.cid; W.chapters = W.chapters.map(c => { if (c.id !== cid) return c; const { cover, ...rest } = c; return rest; }); persistDraft(); KEEP = true; render(); },
     'av-clear': () => { const u = getUsers(); u[S.user].avatar = ''; G.set('users', u); render(); },
@@ -3375,13 +3389,13 @@ document.addEventListener('change', e => {
   if (id === 'ce-file' && canNews()) { newsPhoto(f, d => { CEIMG = d; const p = $('#ce-prev'); if (p) p.innerHTML = `<img src="${esc(d)}" alt="${esc(t('Vista previa de la imagen del evento'))}">`; }); return; }
   if (id === 'cover-file') { loadCover(f); e.target.value = ''; }
   if (id === 'import-file') importFromFile(f);
-  if (id === 'bn-file') cropPhoto(f, 960, 360, d => { const u = getUsers(); u[S.user].banner = d; G.set('users', u); render(); }, .78);       // portada del perfil
+  if (id === 'bn-file') { editPhoto(f, 'banner'); e.target.value = ''; }       // portada del perfil
   if (id === 'chc-file') cropPhoto(f, 720, 405, d => {                                                                                    // portada de un capítulo (opcional)
     collect(); const cid = +$('#w-ch-text').dataset.cid; W.chapters = W.chapters.map(c => c.id === cid ? { ...c, cover: d } : c); persistDraft(); KEEP = true; render(); }, .72);
   if (id === 'char-sel') { setActive(+e.target.value); KEEP = true; render(); }
   if (id === 'ch-sel') NAVDIR = +e.target.value > +location.hash.split('/')[3] ? 'next' : 'prev';
   if (id === 'ch-sel') goReplace('/story/' + location.hash.split('/')[2] + '/' + e.target.value);
-  if (id === 'av-file') squarePhoto(f, 256, d => { const u = getUsers(); u[S.user].avatar = d; G.set('users', u); render(); });
+  if (id === 'av-file') { editPhoto(f, 'avatar'); e.target.value = ''; }
 });
 document.addEventListener('error', e => { if (e.target.classList && e.target.classList.contains('cover-img')) e.target.style.display = 'none'; if (e.target.classList && e.target.classList.contains('fr-img')) { e.target.style.display = 'none'; if (e.target.parentNode) e.target.parentNode.classList.add('fr-fallback'); } }, true);
 document.addEventListener('click', e => { if (MENUC !== null && !e.target.closest('.c-more-wrap')) { MENUC = null; KEEP = true; if (PCS) paintPcList(); if (!e.target.closest('[data-act]')) render(); } }, true);

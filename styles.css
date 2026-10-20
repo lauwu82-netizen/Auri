@@ -641,6 +641,7 @@ img{max-width:100%}
 .cv-box h2{align-self:flex-start}
 .cv-frame{position:relative;overflow:hidden;border-radius:12px;background:repeating-conic-gradient(#e8dcf5 0 25%,#f6f0fb 0 50%) 0 0/16px 16px;touch-action:none;cursor:grab;box-shadow:0 0 0 2px #af8bd5,0 8px 22px rgba(60,30,100,.25);flex:none}
 .cv-frame:active{cursor:grabbing}
+.cv-frame.cv-round{border-radius:50%}
 .cv-img{position:absolute;max-width:none;user-select:none;-webkit-user-select:none;pointer-events:none}
 .cv-zoom{display:flex;align-items:center;gap:10px;width:100%;margin-top:14px;font-weight:600;font-size:14px}
 .cv-zoom input{flex:1;accent-color:#8c5fc1}
