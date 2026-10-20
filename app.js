@@ -383,7 +383,7 @@ function byline(o) {                                    // quién publicó: siem
   return o.anon ? (isOwner() ? `${role} · ${real} ${t('(nombre oculto al público)')}` : role) : `${real} · ${role}`;
 }
 const postMeta = (anon, cid) => ({ byRole: roleOf(S.user), anon: !!anon, comm: (($('#' + cid) || {}).value) || (staffScope(S.user).length > 1 ? 'all' : staffScope(S.user)[0] || 'es'), ...(isMod() ? { status: 'pending' } : {}) });
-const notifyApprovers = (what, xv) => [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) === 'ADMIN' && staffScope(e).some(c => staffScope(S.user).includes(c)))])].filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: what, xv, href: '#/moderation/posts' }));
+const notifyApprovers = (what, xv) => modCloud() ? 0 : [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) === 'ADMIN' && staffScope(e).some(c => staffScope(S.user).includes(c)))])].filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: what, xv, href: '#/moderation/posts' }));
 /** Una noticia son bloques: cada párrafo puede llevar su propia imagen (cualquier proporción). Las noticias antiguas (solo texto) se convierten al vuelo */
 const newsBlocks = n => Array.isArray(n.blocks) && n.blocks.length ? n.blocks : String(n.text || '').split(/\n\s*\n/).filter(Boolean).map(t => ({ t, img: '' }));
 const newsCover = n => { const b = n && newsBlocks(n).find(x => /^data:image\//.test(x.img || '')); return b ? b.img : ''; };
@@ -606,6 +606,7 @@ async function sbRefresh(only) {                          // sube lo tuyo, trae 
       if (q.all || q.st) ch = (await sbPullPublic()) || ch;
       if (me && (q.all || q.soc.has('dm'))) ch = (await sbSyncMsgs()) || ch;
       if (me && q.all) ch = (await sbSyncMod()) || ch;
+      if (me && q.all) ch = (await sbSyncPosts()) || ch; else if (!me && q.all) ch = (await sbPullPostsPublic()) || ch;
       if (me && (q.all || [...q.soc].some(x => x !== 'dm'))) { const set = new Set(q.soc); ['comments', 'comment_likes'].some(x => set.has(x)) && ['comments', 'comment_likes'].forEach(x => set.add(x)); ['pcom', 'pcom_likes'].some(x => set.has(x)) && ['pcom', 'pcom_likes'].forEach(x => set.add(x)); ch = (await sbSyncSocial(q.all ? null : [...set])) || ch; }
       const ae = document.activeElement && document.activeElement.tagName;
       if (ch && !W && ae !== 'INPUT' && ae !== 'TEXTAREA' && !/^#\/(write|story\/[^/]+\/\d)/.test(location.hash)) render();
@@ -887,6 +888,7 @@ let SB_SOC_T;
 function sbHook(k) {                                          // se llama cada vez que la app guarda algo: decide qué hay que sincronizar
   if (!cloud() || !sbSes() || SB_QUIET || !S.user) return;
   if (k === `auri.u.${S.user}.stories`) return sbStoriesSoon();
+  if (k === 'auri.news' || k === 'auri.banners' || k === 'auri.newsdrafts') { if (POST_QUIET) return; clearTimeout(POST_T); POST_T = setTimeout(() => sbSyncPosts().then(c => c && softRender()), 1000); return; }
   if (k === 'auri.dm' || k === 'auri.notifs.' + S.user) { clearTimeout(SB_MSG_T); SB_MSG_T = setTimeout(() => sbSyncMsgs().then(c => c && msgUi()), 500); return; }
   let n = SOC_G[k]; const pre = `auri.u.${S.user}.`;
   if (!n && k.startsWith(pre)) { const s = k.slice(pre.length); n = { favs: ['favorites'], lib: ['library'], blocked: ['blocks'], muted: ['blocks'] }[s] || (SOC_KV.includes(s) ? ['user_data'] : null); }
@@ -1072,6 +1074,103 @@ async function sbSyncMod(force) {
   finally { MOD_BUSY = false; }
 }
 setInterval(() => { if (document.visibilityState === 'hidden' || !modCloud()) return; const on = /^#\/(moderation|gift|strike|admin)/.test(location.hash); if (Date.now() - MOD_LAST > (on ? 8000 : 60000)) sbSyncMod().then(c => c && softRender()); }, 3000);
+/* ---------- NUBE · noticias, banners y borradores ----------
+   La app sigue guardando todo en su copia local; aquí se compara con la nube y se sube/baja solo lo que cambió.
+   Los ids locales (números) se convierten en uuids fijos para no tocar el resto del código. Los permisos los decide el servidor. */
+const P_ID = { news: '00000000-0000-0001-0000-', banners: '00000000-0000-0002-0000-', newsdrafts: '00000000-0000-0003-0000-' };
+const pUuid = (kind, id) => { let s = String(id == null ? '' : id); if (isUuid(s)) return s; if (kind === 'newsdrafts') s = s.replace(/^d/, ''); const n = /^\d{1,15}$/.test(s) ? +s : NaN; return Number.isSafeInteger(n) ? P_ID[kind] + hx(n, 12) : null; };
+const pBack = (kind, u) => { u = String(u || ''); if (!u.startsWith(P_ID[kind])) return u; const n = parseInt(u.slice(-12), 16); return kind === 'newsdrafts' ? 'd' + n : n; };
+const pDay = o => o.date || (+o.id > 1e12 ? new Date(+o.id).toISOString().slice(0, 10) : '');
+const pTs = d => (d ? d + 'T12:00:00+00:00' : null);
+const POST_ST = { published: 'approved', pending: 'pending', rejected: 'rejected' }, POST_BACK = { approved: 'published', pending: 'pending', rejected: 'rejected' };
+const postCommon = (o, c) => ({ anon: !!o.anon, comm: postComm(o), status: POST_ST[o.status || 'published'] || 'approved', reason: o.reason || '', created_at: pTs(pDay(o)), edited_at: pTs(o.edited), by: c.uid(o.by || OWNER_EMAIL) || null });
+const postBack = (r, c) => ({ by: c.key(r.by) || '', byRole: r.by_role, anon: !!r.anon, comm: r.comm, status: POST_BACK[r.status] || 'published', reason: r.reason || '', date: day(r.created_at), ...(r.edited_at ? { edited: day(r.edited_at) } : {}) });
+const POSTS = {
+  news: { path: '/rest/v1/news?select=*&order=created_at.desc&limit=500',
+    row: (o, c) => ({ id: pUuid('news', o.id), type: o.type || 'Anuncio', title: o.title || '', text: o.text || '', blocks: Array.isArray(o.blocks) ? o.blocks : [], ...postCommon(o, c) }),
+    from: (r, c) => ({ id: pBack('news', r.id), type: r.type, title: r.title, text: r.text || '', blocks: Array.isArray(r.blocks) ? r.blocks : [], ...postBack(r, c) }) },
+  banners: { path: '/rest/v1/banners?select=*&order=position,created_at&limit=500',
+    row: (o, c) => ({ id: pUuid('banners', o.id), kind: o.kind === 'book' ? 'book' : 'event', story_id: o.kind === 'book' ? sUuid(o.storyId) : null, news_id: o.newsId != null && o.newsId !== '' ? pUuid('news', o.newsId) : null, title: o.title || '', text: o.text || '', btn: o.btn || '', ...postCommon(o, c) }),
+    from: (r, c) => ({ id: pBack('banners', r.id), kind: r.kind, ...(r.story_id ? { storyId: sBack(r.story_id) } : {}), ...(r.news_id ? { newsId: pBack('news', r.news_id) } : {}), title: r.title || '', text: r.text || '', btn: r.btn || '', ...postBack(r, c) }) },
+  newsdrafts: { path: '/rest/v1/news_drafts?select=*&order=updated_at.desc&limit=100',
+    row: (o, c) => ({ id: pUuid('newsdrafts', o.id), user_id: c.me, type: o.type || 'Actualización', title: o.title || '', blocks: Array.isArray(o.blocks) ? o.blocks : [], updated_at: new Date(Date.parse(o.updated) || 0).toISOString() }),
+    from: r => ({ id: pBack('newsdrafts', r.id), type: r.type, title: r.title || '', blocks: Array.isArray(r.blocks) ? r.blocks : [], updated: new Date(Date.parse(r.updated_at) || 0).toISOString() }) }
+};
+const pSig = (n, o, c) => { const { id, by, created_at, user_id, ...rest } = POSTS[n].row(o, c); return JSON.stringify(rest); };
+const pSort = (n, a) => (n === 'news' ? a.sort((x, y) => String(y.date || '').localeCompare(String(x.date || '')) || (+y.id || 0) - (+x.id || 0)) : n === 'newsdrafts' ? a.sort((x, y) => String(y.updated).localeCompare(String(x.updated))) : a);
+let POST_BUSY = false, POST_AGAIN = false, POST_QUIET = false, POST_LAST = 0, POST_T;
+async function postColl(n, rows, c, B, canPush, writeBase) {
+  const cf = POSTS[n], local = LS.get('auri.' + n, []), L = new Map(), CL = new Map(), raw = new Map(), base = B[n] || {}, out = new Map(), ops = [], mine = o => isOwner() || n === 'newsdrafts' || (o.by || OWNER_EMAIL) === S.user;
+  local.forEach(o => { const u = pUuid(n, o.id); if (u) L.set(u, o); });
+  rows.forEach(r => { CL.set(r.id, cf.from(r, c)); raw.set(r.id, r); });
+  for (const u of new Set([...L.keys(), ...CL.keys()])) {
+    const l = L.get(u), cl = CL.get(u), b = base[u];
+    if (l && !cl) { if (b !== undefined) continue; if (canPush && mine(l)) { ops.push({ t: 'ins', u, o: l }); out.set(u, l); } continue; }          // lo borraron en la nube / lo nuevo se sube
+    if (!l && cl) { if (b !== undefined && canPush && (isOwner() || n === 'newsdrafts' || raw.get(u).by === c.me)) ops.push({ t: 'del', u, cl }); else out.set(u, cl); continue; }   // lo borraste aquí / lo nuevo se baja
+    const ls = pSig(n, l, c), cs = pSig(n, cl, c);
+    if (ls !== cs && b !== undefined && ls !== b && cs === b && canPush && mine(l)) { ops.push({ t: 'upd', u, o: l, cl, cs }); out.set(u, l); }
+    else out.set(u, { ...l, ...cl });
+  }
+  // orden de las tarjetas del banner: manda lo local solo si lo reordenaste tú
+  let order = null;
+  if (n === 'banners') {
+    const cloudOrder = rows.map(r => r.id).filter(u => out.has(u)), news = [...out.keys()].filter(u => !CL.has(u)), localOrder = local.map(o => pUuid(n, o.id)).filter(u => out.has(u));
+    const bo = (B.order || []).filter(u => out.has(u)), lo = localOrder.filter(u => (B.order || []).includes(u));
+    order = canPush && lo.length > 1 && JSON.stringify(lo) !== JSON.stringify(bo) ? [...localOrder.filter(u => CL.has(u) || !news.includes(u)), ...cloudOrder.filter(u => !localOrder.includes(u)), ...news.filter(u => !localOrder.includes(u))] : [...cloudOrder, ...news];
+    order = [...new Set(order)];
+  }
+  const nb = {}; let net = false;
+  const send = async (t, u, o, extra) => {
+    if (t === 'del') return sbApi('/rest/v1/' + (n === 'newsdrafts' ? 'news_drafts' : n) + '?id=eq.' + u, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+    const row = cf.row(o, c); if (n === 'banners') row.position = Math.max(0, order.indexOf(u));
+    if (t === 'ins') { if (!row.by) delete row.by; if (!row.created_at) delete row.created_at; return sbApi('/rest/v1/' + (n === 'newsdrafts' ? 'news_drafts' : n), { method: 'POST', headers: { Prefer: 'return=minimal' }, body: row }); }
+    delete row.id; delete row.by; delete row.user_id; if (!row.created_at) delete row.created_at; delete row.kind;
+    return sbApi('/rest/v1/' + (n === 'newsdrafts' ? 'news_drafts' : n) + '?id=eq.' + u, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: row });
+  };
+  for (const op of ops) {
+    const r = await send(op.t, op.u, op.o);
+    if (r.ok) { if (op.t !== 'del') nb[op.u] = pSig(n, op.o, c); continue; }
+    if (r.net || r.status >= 500) { net = true; if (op.t === 'upd') nb[op.u] = base[op.u]; if (op.t === 'del') out.set(op.u, op.cl); continue; }     // sin conexión: se intenta de nuevo luego
+    if (op.t === 'ins') out.delete(op.u);                                                                  // la nube lo rechazó (permiso o dato que falta): se quita
+    else if (op.t === 'upd') { out.set(op.u, op.cl); nb[op.u] = op.cs; }
+    else out.set(op.u, op.cl);
+  }
+  for (const [u, o] of out) if (!(u in nb) && !ops.some(p => p.u === u && p.t === 'ins' && net)) nb[u] = CL.has(u) && !ops.some(p => p.u === u && p.t === 'upd' && net) ? pSig(n, CL.get(u), c) : undefined;
+  Object.keys(nb).forEach(k => nb[k] === undefined && delete nb[k]);
+  // posiciones del banner que cambiaron
+  if (n === 'banners' && canPush) for (const [i, u] of order.entries()) { const r0 = raw.get(u); if (r0 && r0.position !== i && !ops.some(p => p.u === u) && (isOwner() || r0.by === c.me)) await sbApi('/rest/v1/banners?id=eq.' + u, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { position: i } }); }
+  let list = [...out.values()]; if (order) { const idx = new Map(order.map((u, i) => [u, i])); list.sort((a, b) => (idx.get(pUuid(n, a.id)) ?? 1e9) - (idx.get(pUuid(n, b.id)) ?? 1e9)); } else pSort(n, list);
+  writeBase[n] = nb; if (order) writeBase.order = order;
+  return list;
+}
+async function sbSyncPosts() {
+  const ses = sbSes(); if (!cloud() || !ses || !S.user || isGuest() || String(ses.email || '').toLowerCase() !== S.user) return false;
+  if (POST_BUSY) { POST_AGAIN = true; return false; } POST_BUSY = true; POST_LAST = Date.now(); let changed = false;
+  try {
+    const me = ses.uid, K = uk('cloudposts'), B = LS.get(K, {}), canPush = isStaff(), nbs = { order: B.order || [] }, names = canPush ? ['news', 'banners', 'newsdrafts'] : ['news', 'banners'];
+    const res = await Promise.all(names.map(n => sbApi(POSTS[n].path)));
+    const pool = []; res.forEach(r => (r.ok && Array.isArray(r.data) ? r.data : []).forEach(x => x.by && pool.push(x.by)));
+    const ids = await sbKnow(pool), c = { me, uid: ids.uid, key: ids.key };
+    for (let i = 0; i < names.length; i++) {
+      const n = names[i]; if (!res[i].ok || !Array.isArray(res[i].data)) { nbs[n] = B[n] || {}; continue; }
+      const list = await postColl(n, res[i].data, c, B, canPush, nbs);
+      if (JSON.stringify(list) !== JSON.stringify(LS.get('auri.' + n, []))) { POST_QUIET = true; try { LS.set('auri.' + n, list); } finally { POST_QUIET = false; } changed = true; }
+    }
+    LS.set(K, { ...B, ...nbs });
+  } catch (e) { console.warn('posts', e); }
+  finally { POST_BUSY = false; if (POST_AGAIN) { POST_AGAIN = false; setTimeout(() => sbSyncPosts().then(c => c && softRender()), 400); } }
+  return changed;
+}
+async function sbPullPostsPublic() {                          // sin cuenta (invitado): solo lee lo aprobado
+  let changed = false;
+  for (const n of ['news', 'banners']) {
+    const r = await sbApi(POSTS[n].path); if (!r.ok || !Array.isArray(r.data)) continue;
+    const list = r.data.map(x => POSTS[n].from(x, { key: () => '' })); pSort(n, list);
+    if (JSON.stringify(list) !== JSON.stringify(LS.get('auri.' + n, []))) { POST_QUIET = true; try { LS.set('auri.' + n, list); } finally { POST_QUIET = false; } changed = true; }
+  }
+  return changed;
+}
+setInterval(() => { if (document.visibilityState === 'hidden' || !cloud() || !sbSes() || !S.user || isGuest()) return; const on = /^#\/(news|moderation|)$|^#\/(news|moderation)\//.test(location.hash) || location.hash === '#/' || !location.hash; if (Date.now() - POST_LAST > (on ? 15000 : 60000)) sbSyncPosts().then(c => c && softRender()); }, 4000);
 let PENDING = null, QZ = null;                         // registro en curso: la cuenta SOLO se crea al terminar el cuestionario
 async function register({ name, email, pass, pass2 }) {      // paso 0: correo y contraseña
   email = email.trim().toLowerCase(); name = name.trim();
