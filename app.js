@@ -171,11 +171,14 @@ function canAct(tg) {
 }
 const strikesOf = e => ((getUsers()[e] || {}).strikes || []).filter(x => !x.void);          // los anulados no cuentan
 const activeBan = e => { const b = (getUsers()[e] || {}).ban; if (!b) return null; if (b.until && Date.parse(b.until) <= Date.now()) return null; return b; };
-function logAction(type, target, extra, by) { const l = G.get('modlog', []); l.unshift({ id: Date.now() + Math.random().toString(36).slice(2, 5), type, by: by || S.user, target, extra: extra || '', date: new Date().toISOString() }); G.set('modlog', l.slice(0, 1000)); }
+function logAction(type, target, extra, by) {
+  if (modCloud() && S.user && !by) { const tu = sbIds(getUsers()).uid(target); sbApi('/rest/v1/modlog', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: { type, by: sbSes().uid, target: tu || String(target || ''), extra: String(extra || '') } }); return; }
+  const l = G.get('modlog', []); l.unshift({ id: Date.now() + Math.random().toString(36).slice(2, 5), type, by: by || S.user, target, extra: extra || '', date: new Date().toISOString() }); G.set('modlog', l.slice(0, 1000)); }
 function pushNotif(to, o) { if (sbOut(to, o)) return; const k = 'notifs.' + to, l = G.get(k, []); l.unshift({ id: Date.now() + Math.random().toString(36).slice(2, 6), from: '', storyId: '', extra: '', chap: '', date: new Date().toISOString(), read: false, ...o }); G.set(k, l.slice(0, 100)); }
 /* Acciones con verificación de permisos (devuelven un texto de error o '' si todo salió bien) */
 function giveStrike(tg, reason) {
   reason = String(reason || '').trim(); if (!canAct(tg)) return t('No tienes permiso para esta acción.'); if (reason.length < 3) return t('Escribe el motivo del strike.');
+  { const cu = modUid(tg); if (cu) return modDo('give_strike', { target: cu, reason: reason.slice(0, 500) }); }
   const us = getUsers(), id = 's' + Date.now().toString(36), arr = [...(us[tg].strikes || []), { id, reason: reason.slice(0, 500), by: S.user, date: new Date().toISOString() }];
   us[tg].strikes = arr; G.set('users', us); pushNotif(tg, { type: 'strike', extra: id }); logAction('strike', tg, reason.slice(0, 120)); return '';
 }
@@ -187,6 +190,7 @@ function submitAppeal(text, imgs) {
   const b = activeBan(S.user); if (!b) return t('La cuenta ya no está suspendida.');
   text = String(text || '').trim(); if (text.length < 10) return t('Cuenta qué ocurrió con al menos 10 caracteres.');
   if (myAppeal(b)) return t('Ya se envió una apelación para esta decisión.');
+  if (modCloud()) return modDo('submit_appeal', { txt: text.slice(0, 1000), imgs: (imgs || []).slice(0, 4) });
   const l = appealsAll(); l.unshift({ id: Date.now(), user: S.user, banDate: b.date, ban: { reason: b.reason, by: b.by, until: b.until || null }, text: text.slice(0, 1000), imgs: (imgs || []).slice(0, 4), date: today(), status: 'open' });
   if (!G.set('appeals', l)) return t('No se pudo guardar. Prueba con menos imágenes o más livianas.');
   staffFor(commOf(S.user)).filter(e => e === OWNER_EMAIL || roleOf(e) === 'ADMIN').forEach(e => pushNotif(e, { type: 'sys', extra: 'Nueva apelación de {n}', xv: { n: uName(S.user) }, href: '#/moderation/appeals' }));
@@ -194,17 +198,21 @@ function submitAppeal(text, imgs) {
 }
 function annulStrike(tg, sid, reason) {
   reason = String(reason || '').trim(); if (!canAct(tg) || !canBan()) return t('Solo Administración y Owner pueden anular strikes.'); if (reason.length < 3) return t('Escribe el motivo de la anulación.');
+  if (isUuid(sid) && modUid(tg)) return modDo('annul_strike', { sid, reason: reason.slice(0, 300) });
   const us = getUsers(), l = us[tg].strikes || [], i = l.findIndex(x => x.id === sid); if (i < 0) return t('Ese strike ya no existe.');
   l[i] = { ...l[i], void: { by: S.user, date: new Date().toISOString(), reason: reason.slice(0, 300) } }; us[tg].strikes = l; G.set('users', us);
   pushNotif(tg, { type: 'sys', extra: 'Un strike de tu cuenta fue anulado: {r}', xv: { r: reason.slice(0, 120) } }); logAction('strike-annul', tg, reason.slice(0, 100)); return '';
 }
 function applyBan(tg, days, reason) {
   reason = String(reason || '').trim(); if (!canAct(tg) || !canBan()) return t('Solo Administración y Owner pueden suspender o bloquear cuentas.'); if (reason.length < 3) return t('Escribe el motivo de la suspensión.');
+  { const cu = modUid(tg); if (cu) return modDo('ban_user', { target: cu, days: +days > 0 ? +days : 0, reason: reason.slice(0, 500) }); }
   const us = getUsers(), d = +days; us[tg].ban = { reason: reason.slice(0, 500), by: S.user, date: new Date().toISOString(), until: d > 0 ? new Date(Date.now() + d * 864e5).toISOString() : null };
   G.set('users', us); logAction('ban', tg, (d > 0 ? d + ' día(s): ' : 'permanente: ') + reason.slice(0, 100)); return '';
 }
 function liftBan(tg) {
-  if (!canAct(tg) || !canBan()) return t('Solo Administración y Owner pueden levantar una suspensión.'); const us = getUsers(); delete us[tg].ban; G.set('users', us); logAction('unban', tg);
+  if (!canAct(tg) || !canBan()) return t('Solo Administración y Owner pueden levantar una suspensión.');
+  { const cu = modUid(tg); if (cu) return modDo('lift_ban', { target: cu }); }
+  const us = getUsers(); delete us[tg].ban; G.set('users', us); logAction('unban', tg);
   G.set('appeals', appealsAll().map(a => a.user === tg && a.status === 'open' ? { ...a, status: 'released', handledBy: S.user, handledDate: today(), note: 'Cuenta liberada' } : a)); return '';
 }
 /* --- Cuenta de prueba «RiRi» (simula a otra persona). Para quitarla: Ajustes › Cuenta › Eliminar cuenta, o borra este bloque --- */
@@ -226,6 +234,7 @@ function inviteRole(tg, role) {                          // solo la Owner ascien
   if (role === 'ADMIN' && cur !== 'MODERATOR') return t('Solo una persona moderadora puede ascender a administración.');
   if (!isAdult(u)) return t('Solo personas mayores de 18 años pueden ser parte del equipo.');
   if (G.get('notifs.' + tg, []).some(n => n.type === 'modinvite' && !n.done)) return t('Ya tiene una invitación pendiente.');
+  { const cu = modUid(tg); if (cu) return modDo('invite_role', { target: cu, new_role: role }); }
   pushNotif(tg, { type: 'modinvite', role, from: S.user }); logAction('invite-' + role.toLowerCase(), tg); return '';
 }
 const inviteMod = tg => inviteRole(tg, 'MODERATOR');
@@ -236,13 +245,15 @@ function acceptInvite(nid) {
   const want = n.role === 'ADMIN' ? 'ADMIN' : 'MODERATOR', cur = roleOf(S.user);
   if ((want === 'MODERATOR' && cur !== 'USER') || (want === 'ADMIN' && cur !== 'MODERATOR')) return t('Tu cuenta no puede aceptar esta invitación.');
   if (!isAdult(u)) return t('Solo personas mayores de 18 años pueden ser parte del equipo.');
+  if (isUuid(nid) && modCloud()) return modDo('answer_invite', { nid, accept: true }, () => answerInvite(nid, 'accepted'));
   const us = getUsers(); us[S.user].role = want; us[S.user][want === 'ADMIN' ? 'admSince' : 'modSince'] = new Date().toISOString(); us[S.user].frameWorn = false; G.set('users', us);   // el marco nuevo es obligatorio
   answerInvite(nid, 'accepted'); pushNotif(OWNER_EMAIL, { type: 'sys', extra: want === 'ADMIN' ? '{n} aceptó tu invitación y ya es parte de la administración.' : '{n} aceptó tu invitación y ya es parte de la moderación.', xv: { n: u.name } }); logAction('accept-' + want.toLowerCase(), S.user); return '';
 }
-function declineInvite(nid) { const n = myInvite(nid); if (!n) return; answerInvite(nid, 'declined'); pushNotif(OWNER_EMAIL, { type: 'sys', extra: n.role === 'ADMIN' ? '{n} rechazó la invitación a la administración.' : '{n} rechazó la invitación a la moderación.', xv: { n: uName(S.user) } }); }
+function declineInvite(nid) { const n = myInvite(nid); if (!n) return; answerInvite(nid, 'declined'); if (isUuid(nid) && modCloud()) { modDo('answer_invite', { nid, accept: false }); return; } pushNotif(OWNER_EMAIL, { type: 'sys', extra: n.role === 'ADMIN' ? '{n} rechazó la invitación a la administración.' : '{n} rechazó la invitación a la moderación.', xv: { n: uName(S.user) } }); }
 function revokeMod(tg) {                                // "descender": Owner (Administración → Moderación, Moderación → USER) · Administración (Moderación → USER)
   const tr = roleOf(tg); if (!S.user || tg === S.user) return t('No tienes permiso para esta acción.');
   if (!(isOwner() ? (tr === 'MODERATOR' || tr === 'ADMIN') : isAdm() ? tr === 'MODERATOR' : false)) return t('No tienes permiso para esta acción.');
+  { const cu = modUid(tg); if (cu) return modDo('revoke_role', { target: cu }); }
   const us = getUsers();
   if (tr === 'ADMIN') { us[tg].role = 'MODERATOR'; us[tg].frameWorn = true; delete us[tg].admSince; } else { us[tg].role = 'USER'; delete us[tg].frameWorn; delete us[tg].modSince; }
   G.set('users', us); pushNotif(tg, { type: 'sys', extra: tr === 'ADMIN' ? 'Tu rol de administración ha finalizado: sigues en el equipo de moderación.' : 'Tu participación en el equipo de moderación de Auri Studios ha finalizado.' });
@@ -262,6 +273,7 @@ const giftLive = g => g.status === 'pending' || g.status === 'claimed';      // 
 const giftLeft = () => GIFT_TOTAL - giftsAll().filter(giftLive).length;
 const leftTxt = iso => { const ms = Math.max(0, new Date(iso).getTime() - Date.now()), h = Math.floor(ms / 3600000), m = Math.ceil((ms % 3600000) / 60000); return h > 0 ? h + ' h ' + (m % 60) + ' min' : Math.max(1, m) + ' min'; };
 function giftSweep() {                                  // los regalos sin reclamar a las 24 h se cancelan y el cupo vuelve a la Owner
+  if (modCloud()) return;                                // en la nube lo hace el servidor
   const L = giftsAll(), now = Date.now(); let ch = false;
   L.forEach(g => { if (g.status === 'pending' && new Date(g.expires).getTime() <= now) {
     g.status = 'expired'; g.endDate = new Date().toISOString(); ch = true;
@@ -279,15 +291,17 @@ function giftFind(raw) {                                // usuario (con o sin @)
 }
 function giftSend(raw) {
   if (!isOwner()) return t('Solo la Owner puede regalar.'); giftSweep();
-  const f = giftFind(raw); if (f.err) return f.err; const tg = f.e, u = getUsers()[tg];
+  const f = giftFind(raw); if (f.err) return modCloud() ? giftSendCloud(raw, f.err) : f.err; const tg = f.e, u = getUsers()[tg];
   if (tg === S.user || roleOf(tg) === 'OWNER') return t('Ese marco es para otras cuentas.');
   if (u.frameTop || giftsAll().some(g => g.to === tg && g.status === 'pending')) return u.frameTop ? t('{n} ya tiene el marco.', { n: uName(tg) }) : t('{n} ya tiene un regalo pendiente.', { n: uName(tg) });
   if (giftLeft() <= 0) return t('Ya no quedan cupos: {n} de {n} en uso.', { n: GIFT_TOTAL });
+  { const cu = modUid(tg); if (cu) return modDo('gift_send', { to_id: cu }); }
   const now = Date.now(), L = giftsAll(); L.unshift({ id: now + Math.random().toString(36).slice(2, 5), kind: 'top50', to: tg, by: S.user, date: new Date(now).toISOString(), expires: new Date(now + GIFT_MS).toISOString(), status: 'pending' }); G.set('gifts', L);
   pushNotif(tg, { type: 'sys', extra: '¡Te regalaron el marco exclusivo Top 50! Reclámalo en las próximas 24 h.', href: '#/gift' });
   logAction('gift-send', tg, 'Marco Top 50 · quedan ' + giftLeft() + ' de ' + GIFT_TOTAL); return '';
 }
 function giftClaim(id) {
+  if (isUuid(id) && modCloud()) return modDo('gift_claim', { gid: id });
   giftSweep(); const L = giftsAll(), g = L.find(x => x.id === id); if (!g || g.to !== S.user) return t('Ese regalo no es tuyo.');
   if (g.status === 'expired') return t('Este regalo venció: pasaron 24 h sin reclamarlo.'); if (g.status !== 'pending') return t('Este regalo ya no está disponible.');
   g.status = 'claimed'; g.claimedDate = new Date().toISOString(); G.set('gifts', L);
@@ -296,7 +310,7 @@ function giftClaim(id) {
   logAction('gift-claim', S.user, 'Reclamó el marco Top 50'); return '';
 }
 function giftCancel(id) {
-  if (!isOwner()) return; const L = giftsAll(), g = L.find(x => x.id === id); if (!g || !giftLive(g)) return;
+  if (!isOwner()) return; if (isUuid(id) && modCloud()) return modDo('gift_cancel', { gid: id }).then(e => e && toast(e)); const L = giftsAll(), g = L.find(x => x.id === id); if (!g || !giftLive(g)) return;
   const was = g.status; g.status = 'revoked'; g.endDate = new Date().toISOString(); G.set('gifts', L);
   if (was === 'claimed') { const us = getUsers(); if (us[g.to]) { delete us[g.to].frameTop; G.set('users', us); } }
   pushNotif(g.to, { type: 'sys', extra: was === 'claimed' ? 'Se retiró tu marco Top 50.' : 'Se canceló tu regalo del marco Top 50.' });
@@ -310,7 +324,7 @@ function showGiftOverlay() {                            // al entrar, quien tien
   const o = GIFTOV = document.createElement('div'); o.className = 'mod-ov'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true');
   o.innerHTML = `<div class="mod-ov-box"><div class="end-emoji">🎁</div><h1>${t('¡Te regalaron un marco!')}</h1><p>${t('Marco exclusivo {x} de Auri Studios', { x: '<b>Top 50</b>' })}</p><div class="mod-ov-av">${giftPreview(S.user)}</div><p class="helper">${t('Tienes {x} para reclamarlo. Si pasan 24 h, el regalo se cancela.', { x: '<b>' + esc(leftTxt(g.expires)) + '</b>' })}</p><p class="error-line" data-err role="alert"></p><button class="button" data-claim>${t('Reclamar marco')}</button><button class="link-btn" data-later style="color:#d9ccf0">${t('Más tarde')}</button></div>`;
   o.querySelector('[data-later]').onclick = () => { o.remove(); GIFTOV = null; };
-  o.querySelector('[data-claim]').onclick = () => { const r = giftClaim(g.id); if (r) { o.querySelector('[data-err]').textContent = r; return; } o.querySelector('.end-emoji').textContent = '✨'; o.querySelector('h1').textContent = t('¡Es tuyo!'); o.classList.add('worn'); setTimeout(() => { o.classList.add('bye'); setTimeout(() => { o.remove(); GIFTOV = null; KEEP = true; render(); }, 380); }, 1100); };
+  o.querySelector('[data-claim]').onclick = async () => { const r = await giftClaim(g.id); if (r) { o.querySelector('[data-err]').textContent = r; return; } o.querySelector('.end-emoji').textContent = '✨'; o.querySelector('h1').textContent = t('¡Es tuyo!'); o.classList.add('worn'); setTimeout(() => { o.classList.add('bye'); setTimeout(() => { o.remove(); GIFTOV = null; KEEP = true; render(); }, 380); }, 1100); };
   document.body.appendChild(o);
 }
 function giftView() {
@@ -591,6 +605,7 @@ async function sbRefresh(only) {                          // sube lo tuyo, trae 
       if (me && (q.all || q.st)) ch = (await sbSyncOwn()) || ch;
       if (q.all || q.st) ch = (await sbPullPublic()) || ch;
       if (me && (q.all || q.soc.has('dm'))) ch = (await sbSyncMsgs()) || ch;
+      if (me && q.all) ch = (await sbSyncMod()) || ch;
       if (me && (q.all || [...q.soc].some(x => x !== 'dm'))) { const set = new Set(q.soc); ['comments', 'comment_likes'].some(x => set.has(x)) && ['comments', 'comment_likes'].forEach(x => set.add(x)); ['pcom', 'pcom_likes'].some(x => set.has(x)) && ['pcom', 'pcom_likes'].forEach(x => set.add(x)); ch = (await sbSyncSocial(q.all ? null : [...set])) || ch; }
       const ae = document.activeElement && document.activeElement.tagName;
       if (ch && !W && ae !== 'INPUT' && ae !== 'TEXTAREA' && !/^#\/(write|story\/[^/]+\/\d)/.test(location.hash)) render();
@@ -990,6 +1005,73 @@ function msgUi() {
   if (!typing && !W && !/^#\/(write|story\/[^/]+\/\d)/.test(location.hash)) { KEEP = true; render(); }
 }
 setInterval(() => { if (document.visibilityState === 'hidden' || !S.user || isGuest() || !cloud() || !sbSes()) return; const on = /^#\/messages/.test(location.hash); if (Date.now() - MSG_LAST > (on ? 4000 : 20000)) sbSyncMsgs().then(c => c && msgUi()); }, 2000);
+/* ---------- NUBE · moderación ----------
+   Strikes, suspensiones, apelaciones, reportes, regalos e invitaciones los decide el servidor (funciones RPC con permisos propios).
+   Aquí solo se piden las acciones y se trae el estado a la copia local, para que el resto de la app lo lea como siempre. */
+function modCloud() { const s = sbSes(); return cloud() && !!s && !!S.user && !isGuest() && String(s.email || '').toLowerCase() === S.user; }
+function modUid(e) { return modCloud() ? (sbIds(getUsers()).uid(e) || null) : null; }
+const isP = r => !!r && typeof r.then === 'function';
+function modErr(r) { if (r.net) return t('Sin conexión. Inténtalo de nuevo.'); const m = String((r.data && (r.data.message || r.data.msg)) || '').replace(/\.$/, ''); return m ? t(m) : t('No se pudo completar la acción.'); }
+async function modDo(fn, args, after) {                    // devuelve '' si salió bien o el texto del error
+  const r = await sbApi('/rest/v1/rpc/' + fn, { method: 'POST', body: args });
+  if (!r.ok) return modErr(r);
+  try { if (after) await after(r); } catch (e) {}
+  await sbSyncMod(true); return '';
+}
+async function modReport(o) {
+  const ids = sbIds(getUsers()), ci = o.ci === '' || o.ci == null ? NaN : +o.ci;
+  const body = { type: o.type, story_id: o.sid ? sUuid(o.sid) : null, comment_id: o.sid && o.cid !== '' && o.cid != null && Number.isSafeInteger(+o.cid) ? cUuid(o.sid, +o.cid) : null, chapter_pos: Number.isInteger(ci) ? ci : null,
+    target: o.target ? ids.uid(o.target) : null, owner: o.owner ? ids.uid(o.owner) : null, title: o.title || '', excerpt: o.excerpt || '', reasons: o.reasons || [], text: o.text || '', imgs: o.imgs || [], community: commOf(o.owner || o.target || S.user), label: o.label || '' };
+  let r = await sbApi('/rest/v1/reports', { method: 'POST', headers: { Prefer: 'return=minimal' }, body });
+  if (!r.ok && !r.net && r.status < 500 && body.story_id) r = await sbApi('/rest/v1/reports', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: { ...body, story_id: null, comment_id: null } });
+  if (!r.ok) return modErr(r);
+  await sbSyncMod(true); return '';
+}
+async function giftSendCloud(raw, err) {                   // la Owner puede regalar a cuentas que este dispositivo aún no conoce
+  const q = String(raw || '').trim().replace(/^@/, ''); if (!q) return err;
+  const r = await sbApi('/rest/v1/rpc/find_user', { method: 'POST', body: { q } });
+  if (!r.ok || !Array.isArray(r.data) || !r.data.length) return err;
+  if (r.data.length > 1) return t('Hay varias cuentas con ese nombre: usa el correo.');
+  await sbKnow([r.data[0].id]); return modDo('gift_send', { to_id: r.data[0].id });
+}
+function softRender(force) {
+  const ae = document.activeElement && document.activeElement.tagName;
+  if (document.querySelector('.modal') || (!force && (ae === 'INPUT' || ae === 'TEXTAREA')) || W || /^#\/(write|story\/[^/]+\/\d)/.test(location.hash)) return;
+  KEEP = true; render();
+}
+let MOD_BUSY = false, MOD_LAST = 0, MOD_PROF = 0;
+const modSig = () => { const us = LS.get('auri.users', {}), o = {}; for (const k in us) { const u = us[k]; if (u && (u.remote || k === S.user)) o[k] = [u.role, u.scope, u.frameWorn, u.frameTop, u.strikes, u.ban, u.modSince, u.admSince]; } return JSON.stringify([o, G.get('reports', []), G.get('appeals', []), G.get('gifts', []), G.get('modlog', [])]); };
+async function sbSyncMod(force) {
+  if (!modCloud()) return false;
+  if (MOD_BUSY) return false; MOD_BUSY = true; MOD_LAST = Date.now();
+  try {
+    const me = sbSes().uid, owner = isOwner(), before = modSig();
+    if (owner || giftsAll().some(g => g.to === S.user && g.status === 'pending')) await sbApi('/rest/v1/rpc/gifts_sweep', { method: 'POST', body: {} });
+    const get = p => sbApi(p).then(r => (r.ok && Array.isArray(r.data) ? r.data : null));
+    const [st, bn, ap, rp, gf, ml] = await Promise.all([get('/rest/v1/strikes?select=*&order=created_at&limit=5000'), get('/rest/v1/bans?select=*&limit=5000'), get('/rest/v1/appeals?select=*&order=created_at.desc&limit=1000'),
+      get('/rest/v1/reports?select=*&order=created_at.desc&limit=1000'), get('/rest/v1/gifts?select=*&order=created_at.desc&limit=500'), owner ? get('/rest/v1/modlog?select=*&order=created_at.desc&limit=1000') : Promise.resolve(null)]);
+    if (!st && !bn && !ap && !rp && !gf) return false;                                  // sin conexión: no se toca nada
+    const pool = [me]; [st, bn, ap, rp, gf, ml].forEach(L => (L || []).forEach(x => ['user_id', 'by', 'void_by', 'ban_by', 'handled_by', 'to_user', 'target', 'owner'].forEach(f => { if (isUuid(x[f])) pool.push(x[f]); })));
+    const ids = await sbKnow(pool), k = u => (u && ids.key(u)) || '', us = LS.get('auri.users', {}), mine = key => { const u = us[key]; return !!u && (u.remote || key === S.user); };
+    if (st) { const m = {}; st.forEach(x => { const key = k(x.user_id); if (key) (m[key] = m[key] || []).push({ id: x.id, reason: x.reason, by: k(x.by), date: x.created_at, ...(x.void ? { void: { by: k(x.void_by), date: x.void_at || x.created_at, reason: x.void_reason || '' } } : {}) }); });
+      for (const key in us) if (mine(key)) us[key] = { ...us[key], strikes: m[key] || [] }; }
+    if (bn) { const m = {}, now = Date.now(); bn.forEach(x => { if (x.until && Date.parse(x.until) <= now) return; const key = k(x.user_id); if (key) m[key] = { reason: x.reason, by: k(x.by), date: x.created_at, until: x.until || null }; });
+      for (const key in us) { if (!mine(key)) continue; if (m[key]) us[key] = { ...us[key], ban: m[key] }; else if (us[key].ban) { const c = { ...us[key] }; delete c.ban; us[key] = c; } } }
+    const need = [me]; if (force || Date.now() - MOD_PROF > 600000) { MOD_PROF = Date.now(); for (const key in us) if (us[key] && us[key].remote && us[key].uid) need.push(us[key].uid); }
+    for (let i = 0; i < need.length; i += 80) {
+      const pr = await sbApi('/rest/v1/profiles?select=id,role,scope,frame_worn,frame_top,mod_since,adm_since&id=in.(' + need.slice(i, i + 80).join(',') + ')');
+      if (pr.ok && Array.isArray(pr.data)) pr.data.forEach(p => { const key = ids.key(p.id); if (key && us[key]) us[key] = { ...us[key], role: p.role, scope: Array.isArray(p.scope) ? p.scope : [], frameWorn: !!p.frame_worn, frameTop: !!p.frame_top, modSince: p.mod_since || undefined, admSince: p.adm_since || undefined }; });
+    }
+    LS.set('auri.users', us);
+    if (ap) G.set('appeals', ap.map(x => ({ id: x.id, user: k(x.user_id), banDate: x.ban_date, ban: { reason: x.ban_reason || '', by: k(x.ban_by), until: x.ban_until || null }, text: x.text, imgs: x.imgs || [], date: day(x.created_at), status: x.status, handledBy: k(x.handled_by), handledDate: day(x.handled_at), note: x.note || '' })));
+    if (rp) G.set('reports', rp.map(x => ({ id: x.id, by: k(x.by), type: x.type, imgs: x.imgs || [], sid: x.story_id ? sBack(x.story_id) : '', cid: x.comment_id ? cBack(x.comment_id) : '', ci: x.chapter_pos == null ? undefined : x.chapter_pos, target: k(x.target), owner: k(x.owner), title: x.title || '', excerpt: x.excerpt || '', reasons: x.reasons || [], text: x.text || '', label: x.label || '', date: day(x.created_at), status: x.status, handledBy: k(x.handled_by), handledDate: day(x.handled_at) })));
+    if (gf) G.set('gifts', gf.map(x => ({ id: x.id, kind: x.kind, to: k(x.to_user), by: k(x.by), date: x.created_at, expires: x.expires_at, status: x.status, claimedDate: x.claimed_at || '', endDate: x.ended_at || '' })));
+    if (ml) G.set('modlog', ml.map(x => ({ id: x.id, type: x.type, by: k(x.by) || 'sistema', target: isUuid(x.target) ? k(x.target) || x.target : x.target, extra: x.extra || '', date: x.created_at })));
+    return modSig() !== before;
+  } catch (e) { console.warn('mod', e); return false; }
+  finally { MOD_BUSY = false; }
+}
+setInterval(() => { if (document.visibilityState === 'hidden' || !modCloud()) return; const on = /^#\/(moderation|gift|strike|admin)/.test(location.hash); if (Date.now() - MOD_LAST > (on ? 8000 : 60000)) sbSyncMod().then(c => c && softRender()); }, 3000);
 let PENDING = null, QZ = null;                         // registro en curso: la cuenta SOLO se crea al terminar el cuestionario
 async function register({ name, email, pass, pass2 }) {      // paso 0: correo y contraseña
   email = email.trim().toLowerCase(); name = name.trim();
@@ -1595,6 +1677,7 @@ const INFO_FIELDS = ['title', 'synopsis', 'genre', 'fandom', 'tags', 'cover', 'm
 function requestUnmature(sid, title) {                  // la autoría pide quitar +18 de una obra ya publicada: queda en Reportes para moderación
   const l = G.get('reports', []);
   if (l.some(r => r.type === 'reclass' && r.sid === sid && (r.status || 'open') === 'open')) return t('Ya hay una solicitud en revisión para esta obra.');
+  if (modCloud()) { modReport({ type: 'reclass', sid, owner: S.user, title: title || '', label: title || '' }).then(e => { if (e) toast(e); }); return t('Solicitud enviada. La obra sigue marcada +18 hasta que moderación la revise.'); }
   l.unshift({ id: Date.now(), type: 'reclass', sid, owner: S.user, by: S.user, title: title || '', date: today(), status: 'open' }); G.set('reports', l);
   staffFor(commOf(S.user)).filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Solicitud para quitar +18 de «{title}»', xv: { title: title || t('una obra') }, href: '#/moderation/reports' }));
   return t('Solicitud enviada. La obra sigue marcada +18 hasta que moderación la revise.');
@@ -1961,6 +2044,7 @@ function openReport() {
   m.querySelector('[data-x]').onclick = () => m.remove(); m.onclick = ev => { if (ev.target === m) m.remove(); };
   m.querySelector('[data-send]').onclick = () => {
     const text = m.querySelector('[data-text]').value.trim(); if (!text) { m.querySelector('[data-err]').textContent = t('Escribe qué pasó.'); return; }
+    if (modCloud()) { modReport({ type: 'problem', text, label: 'problema' }).then(e => toast(e || t('Gracias, recibimos tu reporte ✓'))); m.remove(); return; }
     G.set('reports', [{ id: Date.now(), by: S.user, text, date: today() }, ...G.get('reports', [])]); m.remove(); toast(t('Gracias, recibimos tu reporte ✓'));
   };
   document.body.appendChild(m);
@@ -1983,6 +2067,7 @@ function openReportFor(type, o) {
     const reasons = [...m.querySelectorAll('input:checked')].map(i => RS[+i.value]), text = m.querySelector('[data-text]').value.trim();
     if (!reasons.length && !text) { m.querySelector('[data-err]').textContent = t('Marca un motivo o escribe qué pasó.'); return; }
     if (reportsAll().some(r => r.by === S.user && r.type === type && r.sid === o.sid && String(r.cid || '') === String(o.cid || '') && r.target === o.target && (r.status || 'open') === 'open')) { m.remove(); return toast('Ya reportaste esto: el equipo lo está revisando.'); }
+    if (modCloud()) { const bt = m.querySelector('[data-send]'); bt.disabled = true; modReport({ type, imgs, sid: o.sid || '', cid: o.cid || '', ci: o.ci, target: o.target || '', owner: o.owner || '', title: o.title || '', excerpt: String(o.excerpt || '').slice(0, 200), reasons, text, label: o.label || '' }).then(e => { if (e) { bt.disabled = false; m.querySelector('[data-err]').textContent = e; return; } m.remove(); toast(t('Gracias, recibimos tu reporte ✓')); }); return; }
     if (!G.set('reports', [{ id: Date.now(), by: S.user, type, imgs, sid: o.sid || '', cid: o.cid || '', ci: o.ci, target: o.target || '', owner: o.owner || '', title: o.title || '', excerpt: String(o.excerpt || '').slice(0, 200), reasons, text, date: today(), status: 'open' }, ...reportsAll()])) { m.querySelector('[data-err]').textContent = t('No se pudo guardar el reporte (las imágenes pesan demasiado). Prueba con menos imágenes.'); return; }
     staffFor(commOf(accOf(o) || S.user)).filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Nuevo reporte por revisar: {l}', xv: { l: o.label }, href: '#/moderation/reports' }));
     m.remove(); toast(t('Gracias, recibimos tu reporte ✓'));
@@ -2039,6 +2124,7 @@ let RFILT = 'open';
 const RTYPE = { story: '📖 Obra', comment: '💬 Comentario', pcomment: '💬 Comentario de párrafo', user: '👤 Perfil', problem: '🛠 Problema', reclass: '🏷 Clasificación' };
 function rpSet(id, st) {
   if (!isStaff()) return; const l = reportsAll(), i = l.findIndex(r => String(r.id) === String(id)); if (i < 0) return;
+  if (isUuid(id) && modCloud()) { modDo('resolve_report', { rid: String(id), st }).then(e => { if (e) toast(e); softRender(true); }); return; }
   l[i] = st === 'open' ? { ...l[i], status: 'open', handledBy: '', handledDate: '' } : { ...l[i], status: st, handledBy: S.user, handledDate: today() };
   G.set('reports', l); logAction('report-' + st, l[i].owner || l[i].target || '', String(id)); KEEP = true; render();
 }
@@ -2416,7 +2502,7 @@ function openAppealForm() {
   const imgs = [];
   const m = formModal('Apelar la decisión', `<p class="helper">${t('Explica qué ocurrió y por qué fue un malentendido. Se pueden adjuntar hasta 4 imágenes como prueba. Administración revisará el caso.')}</p><textarea class="textarea" data-text maxlength="1000" placeholder="${esc(t('Escribe tu explicación…'))}"></textarea><div class="ap-imgs" data-imgs></div>
     <label class="button secondary sm" style="cursor:pointer;margin-top:8px">${t('Adjuntar imágenes')}<input type="file" accept="image/*" multiple data-file hidden></label>`, 'Enviar apelación',
-    mm => { const e = submitAppeal(mm.querySelector('[data-text]').value, imgs); if (!e) { toast('Apelación enviada'); KEEP = true; render(); } return e; });
+    async mm => { const e = await submitAppeal(mm.querySelector('[data-text]').value, imgs); if (!e) { toast('Apelación enviada'); KEEP = true; render(); } return e; });
   const paint = () => { m.querySelector('[data-imgs]').innerHTML = imgs.map((d, k) => `<span class="ap-th"><img src="${esc(d)}" alt="Prueba ${k + 1}"><button type="button" data-rm="${k}" aria-label="${esc(t('Quitar imagen'))}">✕</button></span>`).join(''); };
   m.querySelector('[data-file]').onchange = ev => { [...ev.target.files].slice(0, 4 - imgs.length).forEach(f => fitPhoto(f, 1000, 1000, d => { if (imgs.length < 4) { imgs.push(d); paint(); } }, .7)); ev.target.value = ''; };
   m.addEventListener('click', ev => { const r = ev.target.closest('[data-rm]'); if (r) { imgs.splice(+r.dataset.rm, 1); paint(); } });
@@ -2450,22 +2536,24 @@ function formModal(title, body, yes, onYes, danger) {
   const m = document.createElement('div'); m.className = 'modal sheet';
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${esc(t(title))}</h2>${body}<p class="error-line" data-err role="alert"></p><div style="display:flex;gap:10px;margin-top:14px"><button class="button ghost" data-no style="flex:1">${t('Cancelar')}</button><button class="button ${danger ? 'danger' : ''}" data-yes style="flex:1">${esc(t(yes))}</button></div></div>`;
   m.querySelector('[data-no]').onclick = () => m.remove();
-  m.querySelector('[data-yes]').onclick = () => { const r = onYes(m); if (r) { m.querySelector('[data-err]').textContent = t(r); return; } m.remove(); };
+  m.querySelector('[data-yes]').onclick = () => { const r = onYes(m), yb = m.querySelector('[data-yes]');
+    if (isP(r)) { yb.disabled = true; r.then(e => { if (e) { yb.disabled = false; m.querySelector('[data-err]').textContent = t(e); return; } m.remove(); }); return; }
+    if (r) { m.querySelector('[data-err]').textContent = t(r); return; } m.remove(); };
   document.body.appendChild(m); return m;
 }
 function openStrikeForm(tg) {
   if (!canAct(tg)) return;
   formModal(t('Dar strike a {n}', { n: uName(tg) }), `<p class="helper">${t('La persona recibirá una notificación y verá este motivo.')}</p><textarea class="textarea" data-reason maxlength="500" placeholder="${esc(t('Escribe el motivo del strike…'))}"></textarea>`, 'Dar strike',
-    m => { const e = giveStrike(tg, m.querySelector('[data-reason]').value); if (!e) { toast('Strike enviado'); KEEP = true; render(); } return e; }, true);
+    async m => { const e = await giveStrike(tg, m.querySelector('[data-reason]').value); if (!e) { toast('Strike enviado'); KEEP = true; render(); } return e; }, true);
 }
 function openBanForm(tg) {
   if (!canAct(tg) || !canBan()) return;
   const opts = [[1, t('1 día')], [3, t('3 días')], [7, t('7 días')], [15, t('15 días')], [30, t('30 días')], [90, t('90 días')], ['custom', t('Otro tiempo…')], [0, t('Permanente (bloqueo)')]];
   const m = formModal(t('Suspender o bloquear a {n}', { n: uName(tg) }), `<div class="form-group"><label>${t('Duración')}</label><select class="select" data-days>${opts.map(([v, l]) => `<option value="${v}" ${v === 7 ? 'selected' : ''}>${l}</option>`).join('')}</select><input class="field" data-custom type="number" min="1" max="3650" placeholder="${esc(t('Número de días'))}" style="display:none;margin-top:8px"></div>
     <div class="form-group" style="margin-top:10px"><label>${t('Motivo (la persona lo verá)')}</label><textarea class="textarea" data-reason maxlength="500" placeholder="${esc(t('Escribe el motivo de la suspensión o el bloqueo…'))}"></textarea></div><p class="helper">${t('La persona podrá apelar: escribir su versión y enviar imágenes como prueba. Las apelaciones llegan a Administración.')}</p>`, 'Aplicar',
-    mm => { const sel = mm.querySelector('[data-days]'), d = sel.value === 'custom' ? Math.floor(+mm.querySelector('[data-custom]').value) : +sel.value;
+    async mm => { const sel = mm.querySelector('[data-days]'), d = sel.value === 'custom' ? Math.floor(+mm.querySelector('[data-custom]').value) : +sel.value;
       if (sel.value === 'custom' && !(d >= 1 && d <= 3650)) return t('Escribe un número de días entre 1 y 3650.');
-      const e = applyBan(tg, d, mm.querySelector('[data-reason]').value); if (!e) { toast(d > 0 ? 'Cuenta suspendida' : 'Cuenta bloqueada'); KEEP = true; render(); } return e; }, true);
+      const e = await applyBan(tg, d, mm.querySelector('[data-reason]').value); if (!e) { toast(d > 0 ? 'Cuenta suspendida' : 'Cuenta bloqueada'); KEEP = true; render(); } return e; }, true);
   m.querySelector('[data-days]').onchange = ev => { m.querySelector('[data-custom]').style.display = ev.target.value === 'custom' ? '' : 'none'; };
 }
 const TERMS_MOD = ['Usaré las herramientas de moderación solo para proteger a la comunidad, nunca por motivos personales.', 'Trataré con respeto y de forma imparcial a todas las personas, sin favoritismos.', 'Mantendré la confidencialidad de la información a la que acceda por mi rol.',
@@ -2476,7 +2564,7 @@ function openAcceptMod(nid) {
   const inv = myInvite(nid); if (!inv) return toast('Esta invitación ya no está disponible.');
   const adm = inv.role === 'ADMIN', list = adm ? TERMS_ADM : TERMS_MOD;
   const m = formModal(adm ? 'Términos de Administración' : 'Términos de Moderación', `<ul class="terms">${list.map(x => `<li>${esc(t(x))}</li>`).join('')}</ul><label class="check-line"><input type="checkbox" data-ok> <span>${adm ? t('Acepto los Términos de Administración de Auri Studios') : t('Confirmo que soy mayor de edad (18+ años) y acepto los Términos de Moderación de Auri Studios')}</span></label>`, 'Confirmar',
-    mm => { if (!mm.querySelector('[data-ok]').checked) return t('Debes marcar la casilla para continuar.'); const e = acceptInvite(nid); if (!e) { KEEP = true; render(); showModOverlay(); } return e; });
+    async mm => { if (!mm.querySelector('[data-ok]').checked) return t('Debes marcar la casilla para continuar.'); const e = await acceptInvite(nid); if (!e) { KEEP = true; render(); showModOverlay(); } return e; });
   const b = m.querySelector('[data-yes]'), c = m.querySelector('[data-ok]'); b.disabled = true; c.onchange = () => { b.disabled = !c.checked; };
 }
 let MODOV = null;
@@ -2925,17 +3013,17 @@ document.addEventListener('click', e => {
     },
     'adm-toggle': () => { const l = el.parentNode.parentNode.querySelector('.adm-list'); if (!l) return; l.hidden = !l.hidden; el.setAttribute('aria-expanded', String(!l.hidden)); },
     'adm-strike': () => openStrikeForm(id), 'adm-ban': () => openBanForm(id),
-    'adm-unban': () => { const r = liftBan(id); if (r) return toast(r); toast(t('Suspensión levantada')); KEEP = true; render(); },
+    'adm-unban': async () => { const r = await liftBan(id); if (r) return toast(r); toast(t('Suspensión levantada')); KEEP = true; render(); },
     'test-role': () => { testRole(id, el.dataset.role); toast(t('Rol de prueba actualizado ✓')); KEEP = true; render(); },
     'mod-comm': () => { if (!isStaff()) return; MODC = ['es', 'en'].includes(id) ? id : 'all'; KEEP = true; render(); },
-    'adm-scope': () => { if (!isOwner()) return; const us = getUsers(), cur = staffScope(id), nx = cur.length > 1 ? ['es'] : cur[0] === 'es' ? ['en'] : ['es', 'en']; if (!us[id]) return; us[id].scope = nx; G.set('users', us); logAction('scope-set', id, 'Modera: ' + nx.map(c => COMMS[c]).join(' y ')); toast(t('Ahora modera: {c}', { c: nx.map(c => COMMS[c]).join(' / ') })); KEEP = true; render(); },
-    'gift-send': () => { const inp = $('#g-to'), r = giftSend(inp ? inp.value : ''), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('Regalo enviado: tiene 24 h para reclamarlo')); KEEP = true; render(); },
-    'gift-profile': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Regalar el marco Top 50 a {n}?', { n: uName(id) }), t('Tendrá 24 h para reclamarlo. Si no lo hace, el regalo se cancela y el cupo vuelve a ti. Quedan {a} de {b}.', { a: giftLeft(), b: GIFT_TOTAL }), t('Regalar'), t('Cancelar'), () => { const r = giftSend(id); toast(r || t('Regalo enviado ✓')); KEEP = true; render(); }); },
-    'gift-claim': () => { const r = giftClaim(id), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('¡Marco reclamado!')); KEEP = true; render(); },
-    'gift-cancel': () => { if (!isOwner()) return; const g = giftsAll().find(x => x.id === id); if (!g) return; dialog(g.status === 'claimed' ? t('¿Quitar el marco a {n}?', { n: uName(g.to) }) : t('¿Cancelar el regalo para {n}?', { n: uName(g.to) }), t('El cupo volverá a ti.'), t('Sí, continuar'), t('No'), () => { giftCancel(id); KEEP = true; render(); }, true); },
-    'adm-mod': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Invitar a {n} a la moderación?', { n: uName(id) }), t('Recibirá una invitación y deberá aceptarla y confirmar que es mayor de edad.'), t('Enviar invitación'), t('Cancelar'), () => { const r = inviteMod(id); toast(r || t('Invitación enviada ✓')); }); },
-    'adm-admin': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Ascender a {n} a administración?', { n: uName(id) }), t('Recibirá una invitación que puede aceptar o rechazar. Si acepta, podrá publicar anuncios, revisar capítulos y descender moderadores, pero no ascender a nadie.'), t('Enviar invitación'), t('Cancelar'), () => { const r = inviteRole(id, 'ADMIN'); toast(r || t('Invitación enviada ✓')); }); },
-    'adm-revoke': () => { const r0 = roleOf(id); dialog(r0 === 'ADMIN' ? t('¿Quitar la administración a {n}?', { n: uName(id) }) : t('¿Quitar la moderación a {n}?', { n: uName(id) }), r0 === 'ADMIN' ? t('Perderá sus permisos de administración y su marco, y seguirá como moderador/a.') : t('Perderá los permisos y el marco de moderación.'), t('Quitar'), t('Cancelar'), () => { const r = revokeMod(id); toast(r || t('Rol retirado')); KEEP = true; render(); }, true); },
+    'adm-scope': () => { if (!isOwner()) return; const us = getUsers(), cur = staffScope(id), nx = cur.length > 1 ? ['es'] : cur[0] === 'es' ? ['en'] : ['es', 'en']; if (!us[id]) return; us[id].scope = nx; G.set('users', us); if (modCloud() && us[id].uid) sbApi('/rest/v1/profiles?id=eq.' + us[id].uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { scope: nx } }); logAction('scope-set', id, 'Modera: ' + nx.map(c => COMMS[c]).join(' y ')); toast(t('Ahora modera: {c}', { c: nx.map(c => COMMS[c]).join(' / ') })); KEEP = true; render(); },
+    'gift-send': async () => { const inp = $('#g-to'), r = await giftSend(inp ? inp.value : ''), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('Regalo enviado: tiene 24 h para reclamarlo')); KEEP = true; render(); },
+    'gift-profile': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Regalar el marco Top 50 a {n}?', { n: uName(id) }), t('Tendrá 24 h para reclamarlo. Si no lo hace, el regalo se cancela y el cupo vuelve a ti. Quedan {a} de {b}.', { a: giftLeft(), b: GIFT_TOTAL }), t('Regalar'), t('Cancelar'), async () => { const r = await giftSend(id); toast(r || t('Regalo enviado ✓')); KEEP = true; render(); }); },
+    'gift-claim': async () => { const r = await giftClaim(id), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('¡Marco reclamado!')); KEEP = true; render(); },
+    'gift-cancel': () => { if (!isOwner()) return; const g = giftsAll().find(x => x.id === id); if (!g) return; dialog(g.status === 'claimed' ? t('¿Quitar el marco a {n}?', { n: uName(g.to) }) : t('¿Cancelar el regalo para {n}?', { n: uName(g.to) }), t('El cupo volverá a ti.'), t('Sí, continuar'), t('No'), async () => { await giftCancel(id); KEEP = true; render(); }, true); },
+    'adm-mod': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Invitar a {n} a la moderación?', { n: uName(id) }), t('Recibirá una invitación y deberá aceptarla y confirmar que es mayor de edad.'), t('Enviar invitación'), t('Cancelar'), async () => { const r = await inviteMod(id); toast(r || t('Invitación enviada ✓')); }); },
+    'adm-admin': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Ascender a {n} a administración?', { n: uName(id) }), t('Recibirá una invitación que puede aceptar o rechazar. Si acepta, podrá publicar anuncios, revisar capítulos y descender moderadores, pero no ascender a nadie.'), t('Enviar invitación'), t('Cancelar'), async () => { const r = await inviteRole(id, 'ADMIN'); toast(r || t('Invitación enviada ✓')); }); },
+    'adm-revoke': () => { const r0 = roleOf(id); dialog(r0 === 'ADMIN' ? t('¿Quitar la administración a {n}?', { n: uName(id) }) : t('¿Quitar la moderación a {n}?', { n: uName(id) }), r0 === 'ADMIN' ? t('Perderá sus permisos de administración y su marco, y seguirá como moderador/a.') : t('Perderá los permisos y el marco de moderación.'), t('Quitar'), t('Cancelar'), async () => { const r = await revokeMod(id); toast(r || t('Rol retirado')); KEEP = true; render(); }, true); },
     'inv-accept': () => openAcceptMod(el.dataset.nid),
     'inv-decline': () => { declineInvite(el.dataset.nid); toast(t('Invitación rechazada')); KEEP = true; render(); },
     'owner-frame': () => { if (!isOwner()) return; const us = getUsers(); us[S.user].frameOn = us[S.user].frameOn === false; G.set('users', us); KEEP = true; render(); },
@@ -2956,14 +3044,17 @@ document.addEventListener('click', e => {
     'post-reject': () => { if (!canBan()) return; const k = el.dataset.k; formModal('Rechazar la publicación', '<p class="helper">' + esc(t('Quien la envió verá este motivo y podrá corregirla y reenviarla.')) + '</p><textarea class="textarea" data-reason maxlength="300" placeholder="' + esc(t('Motivo del rechazo…')) + '"></textarea>', tx('Rechazar', 'mod'),
       m => { const e = resolvePost(k, id, false, m.querySelector('[data-reason]').value); if (!e) { toast(t('Publicación rechazada')); KEEP = true; render(); } return e; }, true); },
     'adm-unstrike': () => { if (!canBan()) return; const sid = el.dataset.sid; formModal('Anular strike', '<p class="helper">' + esc(t('El strike deja de contar y la persona recibe un aviso con este motivo. Queda en el registro.')) + '</p><textarea class="textarea" data-reason maxlength="300" placeholder="' + esc(t('Motivo de la anulación…')) + '"></textarea>', 'Anular strike',
-      m => { const e = annulStrike(id, sid, m.querySelector('[data-reason]').value); if (!e) { toast(t('Strike anulado')); KEEP = true; render(); } return e; }); },
+      async m => { const e = await annulStrike(id, sid, m.querySelector('[data-reason]').value); if (!e) { toast(t('Strike anulado')); KEEP = true; render(); } return e; }); },
     'ap-open': () => openAppealForm(), 'ap-filter': () => { AFILT = id; KEEP = true; render(); },
     'ap-img': () => { const a = appealsAll().find(x => String(x.id) === id), d = a && (a.imgs || [])[+el.dataset.i]; if (!d) return; const m = document.createElement('div'); m.className = 'modal sheet'; m.innerHTML = `<div class="modal-box ap-view"><img src="${esc(d)}" alt="${esc(t('Prueba'))}"><button class="button ghost" data-no>${t('Cerrar')}</button></div>`; m.onclick = ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); }; document.body.appendChild(m); },
-    'ap-release': () => { if (!canBan()) return; const a = appealsAll().find(x => String(x.id) === id); if (!a) return; const e = liftBan(a.user); if (e) return toast(e);
+    'ap-release': async () => { if (!canBan()) return; const a = appealsAll().find(x => String(x.id) === id); if (!a) return;
+      if (isUuid(id) && modCloud()) { const e = await modDo('resolve_appeal', { aid: id, action: 'release', note: '' }); if (e) return toast(e); toast(t('Cuenta liberada')); KEEP = true; return render(); }
+      const e = liftBan(a.user); if (e) return toast(e);
       logAction('appeal-release', a.user, id); pushNotif(a.user, { type: 'sys', extra: 'Tu apelación fue aceptada y tu cuenta fue liberada.' }); toast(t('Cuenta liberada')); KEEP = true; render(); },
     'ap-reject': () => { if (!canBan()) return; const a = appealsAll().find(x => String(x.id) === id); if (!a) return;
-      formModal(t('Rechazar la apelación de {n}', { n: uName(a.user) }), '<p class="helper">' + esc(t('La persona verá este motivo.')) + '</p><textarea class="textarea" data-note maxlength="400" placeholder="' + esc(t('Explica por qué se mantiene la decisión…')) + '"></textarea>', 'Rechazar apelación', m => {
+      formModal(t('Rechazar la apelación de {n}', { n: uName(a.user) }), '<p class="helper">' + esc(t('La persona verá este motivo.')) + '</p><textarea class="textarea" data-note maxlength="400" placeholder="' + esc(t('Explica por qué se mantiene la decisión…')) + '"></textarea>', 'Rechazar apelación', async m => {
         const note = m.querySelector('[data-note]').value.trim(); if (note.length < 3) return 'Escribe el motivo del rechazo.';
+        if (isUuid(id) && modCloud()) { const e = await modDo('resolve_appeal', { aid: id, action: 'reject', note: note.slice(0, 400) }); if (!e) { toast(t('Apelación rechazada')); KEEP = true; render(); } return e; }
         G.set('appeals', appealsAll().map(x => String(x.id) === id ? { ...x, status: 'rejected', handledBy: S.user, handledDate: today(), note } : x)); logAction('appeal-reject', a.user, note.slice(0, 100));
         pushNotif(a.user, { type: 'sys', extra: 'Tu apelación fue rechazada: {n}', xv: { n: note } }); toast(t('Apelación rechazada')); KEEP = true; render(); return ''; }, true); },
     'rc-ok': () => { if (!isStaff()) return; const r = reportsAll().find(x => String(x.id) === String(id)); if (!r) return; const st = staffSetMature(r.sid, false); logAction('unmature', r.owner, r.sid);
@@ -3070,7 +3161,8 @@ document.addEventListener('click', e => {
     'acct-delete': () => { if (isOwner()) return toast('La cuenta Owner no se puede eliminar desde aquí.');
       typeConfirm('Eliminar cuenta', 'Se borrarán tu cuenta, tus historias, biblioteca, personajes, comentarios, likes y seguidores. No se puede deshacer. Escribe {w} para confirmar.', t('ELIMINAR'), 'Eliminar mi cuenta', deleteAccount); },
     privacy: showPrivacy, report: openReport,
-    'report-del': () => { G.set('reports', G.get('reports', []).filter(r => String(r.id) !== id)); KEEP = true; render(); },
+    'report-del': async () => { if (isUuid(id) && modCloud()) { const r = await sbApi('/rest/v1/reports?id=eq.' + id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); if (!r.ok) return toast(modErr(r)); await sbSyncMod(true); KEEP = true; return render(); }
+      G.set('reports', G.get('reports', []).filter(r => String(r.id) !== id)); KEEP = true; render(); },
     'qz-back': () => { const b = $('#qz-birth'); if (b && QZ) QZ.birth = b.value; if (QZ.step > 1) { QZ.step--; render(); } else go('/register'); },
     'qz-next': () => {
       if (QZ.step === 1) {
