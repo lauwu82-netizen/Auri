@@ -190,7 +190,7 @@ function submitAppeal(text, imgs) {
   const b = activeBan(S.user); if (!b) return t('La cuenta ya no está suspendida.');
   text = String(text || '').trim(); if (text.length < 10) return t('Cuenta qué ocurrió con al menos 10 caracteres.');
   if (myAppeal(b)) return t('Ya se envió una apelación para esta decisión.');
-  if (modCloud()) return modDo('submit_appeal', { txt: text.slice(0, 1000), imgs: (imgs || []).slice(0, 4) });
+  if (modCloud()) return sbImgConv((imgs || []).slice(0, 4)).then(im => modDo('submit_appeal', { txt: text.slice(0, 1000), imgs: im }));
   const l = appealsAll(); l.unshift({ id: Date.now(), user: S.user, banDate: b.date, ban: { reason: b.reason, by: b.by, until: b.until || null }, text: text.slice(0, 1000), imgs: (imgs || []).slice(0, 4), date: today(), status: 'open' });
   if (!G.set('appeals', l)) return t('No se pudo guardar. Prueba con menos imágenes o más livianas.');
   staffFor(commOf(S.user)).filter(e => e === OWNER_EMAIL || roleOf(e) === 'ADMIN').forEach(e => pushNotif(e, { type: 'sys', extra: 'Nueva apelación de {n}', xv: { n: uName(S.user) }, href: '#/moderation/appeals' }));
@@ -386,7 +386,7 @@ const postMeta = (anon, cid) => ({ byRole: roleOf(S.user), anon: !!anon, comm: (
 const notifyApprovers = (what, xv) => modCloud() ? 0 : [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) === 'ADMIN' && staffScope(e).some(c => staffScope(S.user).includes(c)))])].filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: what, xv, href: '#/moderation/posts' }));
 /** Una noticia son bloques: cada párrafo puede llevar su propia imagen (cualquier proporción). Las noticias antiguas (solo texto) se convierten al vuelo */
 const newsBlocks = n => Array.isArray(n.blocks) && n.blocks.length ? n.blocks : String(n.text || '').split(/\n\s*\n/).filter(Boolean).map(t => ({ t, img: '' }));
-const newsCover = n => { const b = n && newsBlocks(n).find(x => /^data:image\//.test(x.img || '')); return b ? b.img : ''; };
+const newsCover = n => { const b = n && newsBlocks(n).find(x => safeImg(x.img)); return b ? b.img : ''; };
 const unread = () => G.get('notifs.' + S.user, []).filter(n => !n.read).length;
 function notify(to, type, storyId, extra = '', chap = '', from = S.user) {
   if (!to || (to === S.user && type !== 'chapter')) return;
@@ -536,9 +536,11 @@ async function sbMirror() {
 }
 function sbProfileSoon() { if (!cloud() || !sbSes()) return; clearTimeout(SB_PT); SB_PT = setTimeout(sbPushProfile, 800); }
 async function sbPushProfile() {                         // sube tus cambios de perfil (nombre, bio, fotos, comunidad)
-  const s = sbSes(); if (!s) return; const u = LS.get('auri.users', {})[String(s.email).toLowerCase()]; if (!u || !u.cloud) return;
+  const s = sbSes(); if (!s) return; const em = String(s.email).toLowerCase(); let u = LS.get('auri.users', {})[em]; if (!u || !u.cloud) return;
+  const av = await sbImgConv(u.avatar || ''), bn = await sbImgConv(u.banner || '');
+  if (av !== (u.avatar || '') || bn !== (u.banner || '')) { const us = LS.get('auri.users', {}); if (us[em]) { us[em] = { ...us[em], ...(av !== (u.avatar || '') && us[em].avatar === u.avatar ? { avatar: av } : {}), ...(bn !== (u.banner || '') && us[em].banner === u.banner ? { banner: bn } : {}) }; LS.set('auri.users', us); u = us[em]; } }
   await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' },
-    body: { name: u.name, bio: u.bio || '', avatar: u.avatar || '', banner: u.banner || '', community: u.community === 'en' ? 'en' : 'es', frame_worn: !!u.frameWorn } });
+    body: { name: u.name, bio: u.bio || '', avatar: av, banner: bn, community: u.community === 'en' ? 'en' : 'es', frame_worn: !!u.frameWorn } });
 }
 async function cloudLogin(email, pass) {
   const r = await sbFetch('/auth/v1/token?grant_type=password', { method: 'POST', body: { email, password: pass } });
@@ -616,6 +618,7 @@ async function sbRefresh(only) {                          // sube lo tuyo, trae 
 }
 async function sbSyncOwn() {
   const ses = sbSes(), me = ses && String(ses.email || '').toLowerCase(); if (!ses || !S.user || S.user !== me) return false;
+  await sbImgLocal(uk('stories'));                         // portadas: primero a Storage
   const uid = ses.uid, K = uk('cloudsync'), st = LS.get(K, {}), stS = new Set(st.s || []), stC = new Set(st.c || []), sigS = st.si || {}, sigC = st.ci || {};
   const [rs, rc, rp] = await Promise.all([
     sbApi('/rest/v1/stories?owner=eq.' + uid + '&select=*&limit=2000'),
@@ -842,6 +845,7 @@ async function sbSyncSocial(only) {
   const ses = sbSes(); if (!ses || !S.user || String(ses.email).toLowerCase() !== S.user || isGuest()) return false;
   if (SOC_BUSY) { SOC_ONLY = null; return false; } SOC_BUSY = true;
   try {
+    await sbImgLocal(uk('chars'));                         // fotos de personajes: primero a Storage
     const names = SOC_ORDER.filter(n => !only || only.includes(n)), K = uk('cloudsoc'), B = LS.get(K, {}), me = ses.uid;
     const paths = { comments: '/rest/v1/comments?select=*&order=created_at&limit=50000', pcom: '/rest/v1/paragraph_comments?select=*&order=created_at&limit=50000', pcom_likes: rowSets.paragraph_comment_likes.path, user_data: '/rest/v1/user_data?select=*&limit=1000' };
     const res = await Promise.all(names.map(n => sbApi(paths[n] || rowSets[n].path)));
@@ -929,11 +933,11 @@ async function sbSyncMsgs() {
     for (const k in d0) for (const m of d0[k]) if (m.by === S.user && !m.ok && !m.u) { const o = k.split('|').find(x => x !== S.user), ru = ids.uid(o); if (ru) out.push({ k, m, ru, o }); }
     out.sort((a, b) => a.m.id - b.m.id);
     for (const x of out) {
-      const su = x.m.sid ? sUuid(x.m.sid) : null;
-      const r = await sbApi('/rest/v1/messages', { method: 'POST', headers: { Prefer: 'return=representation' }, body: { sender: me, recipient: x.ru, text: x.m.text || '', story_id: su, img: x.m.img || '' } });
+      const su = x.m.sid ? sUuid(x.m.sid) : null, imgUrl = x.m.img ? await sbImgConv(x.m.img) : '';
+      const r = await sbApi('/rest/v1/messages', { method: 'POST', headers: { Prefer: 'return=representation' }, body: { sender: me, recipient: x.ru, text: x.m.text || '', story_id: su, img: imgUrl } });
       if (r.net || r.status >= 500) break;                                   // sin conexión: se intenta de nuevo luego
       const all = G.get('dm', {}), l = all[x.k] || [], i = l.findIndex(z => z.id === x.m.id && z.by === S.user && !z.u); if (i < 0) continue;
-      if (r.ok && Array.isArray(r.data) && r.data[0]) { l[i] = { ...l[i], u: r.data[0].id, ok: 1, id: Date.parse(r.data[0].created_at) || l[i].id }; delete l[i].n; }
+      if (r.ok && Array.isArray(r.data) && r.data[0]) { l[i] = { ...l[i], u: r.data[0].id, ok: 1, id: Date.parse(r.data[0].created_at) || l[i].id, ...(imgUrl ? { img: imgUrl } : {}) }; delete l[i].n; }
       else if (l[i].n) {                                                      // la nube lo rechazó: se quita y se avisa
         l.splice(i, 1); const rq = dmReq(), kk = S.user + '>' + x.o; if (rq[kk] === 'pending' && !l.some(z => z.by === S.user)) { delete rq[kk]; localStorage.setItem('auri.dmreq', JSON.stringify(rq)); }
         toast(dmFailText(r));
@@ -1023,7 +1027,7 @@ async function modDo(fn, args, after) {                    // devuelve '' si sal
 async function modReport(o) {
   const ids = sbIds(getUsers()), ci = o.ci === '' || o.ci == null ? NaN : +o.ci;
   const body = { type: o.type, story_id: o.sid ? sUuid(o.sid) : null, comment_id: o.sid && o.cid !== '' && o.cid != null && Number.isSafeInteger(+o.cid) ? cUuid(o.sid, +o.cid) : null, chapter_pos: Number.isInteger(ci) ? ci : null,
-    target: o.target ? ids.uid(o.target) : null, owner: o.owner ? ids.uid(o.owner) : null, title: o.title || '', excerpt: o.excerpt || '', reasons: o.reasons || [], text: o.text || '', imgs: o.imgs || [], community: commOf(o.owner || o.target || S.user), label: o.label || '' };
+    target: o.target ? ids.uid(o.target) : null, owner: o.owner ? ids.uid(o.owner) : null, title: o.title || '', excerpt: o.excerpt || '', reasons: o.reasons || [], text: o.text || '', imgs: await sbImgConv(o.imgs || []), community: commOf(o.owner || o.target || S.user), label: o.label || '' };
   let r = await sbApi('/rest/v1/reports', { method: 'POST', headers: { Prefer: 'return=minimal' }, body });
   if (!r.ok && !r.net && r.status < 500 && body.story_id) r = await sbApi('/rest/v1/reports', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: { ...body, story_id: null, comment_id: null } });
   if (!r.ok) return modErr(r);
@@ -1147,6 +1151,7 @@ async function sbSyncPosts() {
   const ses = sbSes(); if (!cloud() || !ses || !S.user || isGuest() || String(ses.email || '').toLowerCase() !== S.user) return false;
   if (POST_BUSY) { POST_AGAIN = true; return false; } POST_BUSY = true; POST_LAST = Date.now(); let changed = false;
   try {
+    if (isStaff()) { await sbImgLocal('auri.news'); await sbImgLocal('auri.newsdrafts'); }
     const me = ses.uid, K = uk('cloudposts'), B = LS.get(K, {}), canPush = isStaff(), nbs = { order: B.order || [] }, names = canPush ? ['news', 'banners', 'newsdrafts'] : ['news', 'banners'];
     const res = await Promise.all(names.map(n => sbApi(POSTS[n].path)));
     const pool = []; res.forEach(r => (r.ok && Array.isArray(r.data) ? r.data : []).forEach(x => x.by && pool.push(x.by)));
@@ -1171,6 +1176,51 @@ async function sbPullPostsPublic() {                          // sin cuenta (inv
   return changed;
 }
 setInterval(() => { if (document.visibilityState === 'hidden' || !cloud() || !sbSes() || !S.user || isGuest()) return; const on = /^#\/(news|moderation|)$|^#\/(news|moderation)\//.test(location.hash) || location.hash === '#/' || !location.hash; if (Date.now() - POST_LAST > (on ? 15000 : 60000)) sbSyncPosts().then(c => c && softRender()); }, 4000);
+/* ---------- NUBE · imágenes (Supabase Storage) ----------
+   Las fotos se guardan en el bucket público «images», en la carpeta de quien las sube (images/<id>/<huella>.jpg).
+   La app sigue creando las fotos como siempre (reducidas, en base64); al sincronizar se suben y el dato local pasa a ser solo el enlace.
+   Si algo falla (sin conexión, bucket sin crear) la foto se queda como estaba y se intenta de nuevo en la siguiente sincronización. */
+const IMG_RE = /^data:image\/(png|jpeg|jpg|webp|gif);base64,/i;
+const IMG_PUB = () => SB_URL + '/storage/v1/object/public/images/';
+const isStoreUrl = u => typeof u === 'string' && u.startsWith(IMG_PUB());
+const IMG_UP = new Map();                                      // foto en base64 → promesa del enlace (para no subir dos veces lo mismo)
+function sbUpImg(d) {
+  if (IMG_UP.has(d)) return IMG_UP.get(d);
+  const pr = (async () => {
+    try {
+      const ses = sbSes(); if (!cloud() || !ses || !ses.uid) return null;
+      const m = IMG_RE.exec(d); if (!m) return null;
+      const blob = await (await fetch(d)).blob(); if (!blob.size || blob.size > 5242880) return null;
+      const hex = [...new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()))].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 40);
+      const path = ses.uid + '/' + hex + '.' + (m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase()), K = 'auri.imgdone', done = LS.get(K, {});
+      if (done[path]) return IMG_PUB() + path;
+      const tok = await sbToken(); if (!tok) return null;
+      const r = await fetch(SB_URL + '/storage/v1/object/images/' + path, { method: 'POST', headers: { apikey: SB_KEY, Authorization: 'Bearer ' + tok, 'Content-Type': blob.type || 'image/jpeg', 'x-upsert': 'true', 'cache-control': 'max-age=31536000' }, body: blob });
+      if (!r.ok) return null;
+      done[path] = 1; LS.set(K, done); return IMG_PUB() + path;
+    } catch (e) { return null; }
+  })();
+  IMG_UP.set(d, pr); pr.then(u => { if (!u) IMG_UP.delete(d); });
+  return pr;
+}
+async function imgCollect(v, map) {                            // sube todas las fotos en base64 que haya dentro de v
+  if (typeof v === 'string') { if (v.length > 300 && IMG_RE.test(v) && !map.has(v)) { const u = await sbUpImg(v); if (u) map.set(v, u); } return; }
+  if (Array.isArray(v)) { for (const x of v) await imgCollect(x, map); return; }
+  if (v && typeof v === 'object') for (const k in v) await imgCollect(v[k], map);
+}
+function imgReplace(v, map) {                                  // cambia cada foto subida por su enlace; devuelve [valor, ¿cambió?]
+  if (typeof v === 'string') return map.has(v) ? [map.get(v), true] : [v, false];
+  if (Array.isArray(v)) { let ch = false; const o = v.map(x => { const [y, c] = imgReplace(x, map); ch = ch || c; return y; }); return [ch ? o : v, ch]; }
+  if (v && typeof v === 'object') { let ch = false; const o = {}; for (const k in v) { const [y, c] = imgReplace(v[k], map); ch = ch || c; o[k] = y; } return [ch ? o : v, ch]; }
+  return [v, false];
+}
+async function sbImgConv(v) { const map = new Map(); await imgCollect(v, map); return map.size ? imgReplace(v, map)[0] : v; }
+async function sbImgLocal(key) {                               // sube las fotos de un dato local y lo reescribe (leyendo de nuevo, por si cambió mientras se subía)
+  if (!cloud() || !sbSes()) return false;
+  const v = LS.get(key, null); if (v == null) return false;
+  const map = new Map(); await imgCollect(v, map); if (!map.size) return false;
+  const [nv, ch] = imgReplace(LS.get(key, null), map); if (ch) LS.set(key, nv); return ch;
+}
 let PENDING = null, QZ = null;                         // registro en curso: la cuenta SOLO se crea al terminar el cuestionario
 async function register({ name, email, pass, pass2 }) {      // paso 0: correo y contraseña
   email = email.trim().toLowerCase(); name = name.trim();
@@ -1747,7 +1797,7 @@ function chaptersView() {
   <button type="button" class="button secondary" data-act="ch-add" style="margin:12px 0">＋ ${t('Capítulo {n}', { n: n + 1 })}</button>${submitBlock()}</main>`;
 }
 
-const safeImg = u => typeof u === 'string' && /^data:image\//.test(u);
+const safeImg = u => typeof u === 'string' && (/^data:image\//.test(u) || isStoreUrl(u));
 const chHero = (c, cls = 'ch-hero') => safeImg(c.cover) ? `<img class="${cls}" src="${esc(c.cover)}" alt="${esc(t('Portada del capítulo'))}">` : '';
 const chCoverBox = ch => `<div class="chc-box">${safeImg(ch.cover)
   ? `<div class="chc-prev"><img src="${esc(ch.cover)}" alt="${esc(t('Portada del capítulo'))}"><label class="button secondary sm chc-change">${t('Cambiar')}<input id="chc-file" type="file" accept="image/*" hidden></label><button type="button" class="icon-btn chc-x" data-act="chc-clear" aria-label="${esc(t('Quitar portada del capítulo'))}">✕</button></div>`
@@ -1874,7 +1924,7 @@ function loadCover(file) {
 }
 function applyCover(d) { W.cover = d; const p = $('#cover-prev'); if (p) p.innerHTML = coverPrev(); const u = $('#cover-url'); if (u) u.value = ''; }
 function coverEditor(src, done, ow, oh) {
-  const img = new Image();
+  const img = new Image(); if (/^https?:/i.test(src)) img.crossOrigin = 'anonymous';
   img.onload = () => {
     const iw = img.naturalWidth, ih = img.naturalHeight, FW = Math.max(160, Math.min(260, Math.round((window.innerWidth || 390) * .6))), FH = Math.round(FW * 1.5);
     const kc = Math.max(FW / iw, FH / ih), kf = Math.min(FW / iw, FH / ih), zmin = Math.min(1, kf / kc);
@@ -2289,7 +2339,7 @@ function applyImport(d) {
   });
   LS.set(uk('stories'), stories); LS.set(uk('favs'), arr(x.favs)); LS.set(uk('progress'), obj(x.progress)); LS.set(uk('pos'), obj(x.pos)); LS.set(uk('lib'), arr(x.lib)); LS.set(uk('cols'), arr(x.cols));
   if (x.chars) LS.set(uk('chars'), x.chars); if (x.cfg) LS.set(uk('cfg'), obj(x.cfg));
-  const users = getUsers(), p = d.profile || {}, img = v => typeof v === 'string' && /^data:image\//.test(v);
+  const users = getUsers(), p = d.profile || {}, img = v => safeImg(v);
   if (users[S.user]) { users[S.user] = { ...users[S.user], bio: String(p.bio || '').slice(0, 300), ...(img(p.avatar) ? { avatar: p.avatar } : {}), ...(img(p.banner) ? { banner: p.banner } : {}), ...(Array.isArray(p.interests) && p.interests.some(i => INTEREST_NAMES.includes(i)) ? { interests: p.interests.filter(i => INTEREST_NAMES.includes(i)) } : {}) }; G.set('users', users); }
   arr(x.lib).forEach(id => subscribe(id));
   loadUser(); toast(skipped ? t('Datos importados ({n} historia(s) omitidas: ya existen en otra cuenta)', { n: skipped }) : 'Datos importados ✓'); render();
@@ -2530,7 +2580,7 @@ function commentsHTML(s) {
 const likesReceived = e => publishedStories().filter(s => s.owner === e).reduce((a, s) => a + likes(s.id).length, 0);
 /** Portada del perfil con desvanecimiento inferior; encima, solo las cantidades */
 function profileHero(e, own) {
-  const u = getUsers()[e] || {}, pubs = publishedStories().filter(s => s.owner === e), has = typeof u.banner === 'string' && /^data:image\//.test(u.banner);
+  const u = getUsers()[e] || {}, pubs = publishedStories().filter(s => s.owner === e), has = safeImg(u.banner);
   const stat = (n, l) => `<span class="pf-stat"><b>${n}</b><small>${l}</small></span>`;
   return `<section class="pf-hero"><div class="pf-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>
     ${own ? `<div class="pf-bn-btns"><label class="button secondary sm" style="cursor:pointer">🖼 ${has ? t('Cambiar portada') : t('Añadir portada')}<input id="bn-file" type="file" accept="image/*" hidden></label>${has ? '<button class="button ghost sm" data-act="bn-clear">' + t('Quitar') + '</button>' : ''}</div>` : ''}
@@ -3296,7 +3346,7 @@ document.addEventListener('click', e => {
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
     preview: () => { collect(); WPREVIEW = true; render(); }, 'back-edit': () => { WPREVIEW = false; render(); },
     'save-draft': () => saveStory(false), publish: () => saveStory(true),
-    'cover-adjust': () => { const src = COVSRC || (/^data:image\//.test(W.cover || '') ? W.cover : ''); if (!src) return toast(t('Sube una imagen para poder ajustarla.')); coverEditor(src, applyCover); },
+    'cover-adjust': () => { const src = COVSRC || (safeImg(W.cover) || /^https?:\/\//i.test(W.cover || '') ? W.cover : ''); if (!src) return toast(t('Sube una imagen para poder ajustarla.')); coverEditor(src, applyCover); },
     'clear-cover': () => { COVSRC = null; W.cover = ''; $('#cover-url').value = ''; $('#cover-prev').innerHTML = coverPrev(); }
   };
   actions[act] && actions[act]();
