@@ -1006,3 +1006,34 @@ a.icon-btn.bell{position:relative}
 .comment.cm-hl .c-bubble{background:hsl(var(--primary)/.16)}
 .resume-fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:60;max-width:min(92vw,420px);white-space:nowrap;box-shadow:0 10px 28px rgba(112,69,172,.45);animation:popIn .3s ease-out}
 @media(prefers-reduced-motion:reduce){.comment.cm-hl .c-bubble{animation:none}}
+
+/* 34. PERFIL REMODELADO: portada con degradado, foto con aro, cifras que se tocan */
+.pf-page{padding-top:0}
+.pf-hero{position:relative;margin:0 0 4px;text-align:center}
+@media(max-width:1132px){.pf-page .pf-hero{margin:0 -16px 4px}}
+.pf-banner{position:relative;height:250px;border-radius:0;overflow:hidden;-webkit-mask-image:linear-gradient(to bottom,#000 52%,transparent 100%);mask-image:linear-gradient(to bottom,#000 52%,transparent 100%);background:linear-gradient(160deg,#6d4aa6,#2b1b47 70%) center/cover no-repeat}
+.pf-banner .pf-fade{display:none}
+.pf-bn-btns{top:calc(12px + env(safe-area-inset-top,0px))}
+.pf-warn{position:absolute;left:12px;top:calc(12px + env(safe-area-inset-top,0px));z-index:3;width:38px;height:38px;border-radius:50%;border:0;background:#f5c542;color:#4a3300;font-size:18px;display:grid;place-items:center;box-shadow:0 4px 12px rgba(0,0,0,.3);animation:popIn .3s ease-out}
+.pf-id{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:6px;padding:0 16px}
+.pf-av{margin-top:-112px;position:relative;z-index:2}
+.pf-av .fr.none .avatar,.pf-av>.avatar{box-shadow:0 0 0 4px hsl(var(--primary)),0 8px 24px rgba(0,0,0,.35)}
+.pf-name{font-size:26px;line-height:1.15;margin:2px 0 0;color:var(--title);overflow-wrap:anywhere}
+.pf-id .role-tag{align-self:center;margin:0}
+.pf-bio{max-width:480px;margin:2px 0 0;color:var(--soft);line-height:1.55;font-size:14px;overflow-wrap:anywhere}
+.pf-acts{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px}
+.pf-acts .pf-more{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;width:100%;margin-top:0}
+.pf-stats-row{display:grid;grid-template-columns:repeat(4,1fr);margin:20px 12px 6px}
+.pfs{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 4px;border:0;border-left:1px solid hsl(var(--border));background:transparent;color:inherit;min-width:0;text-align:center}
+.pfs:first-child{border-left:0}
+.pfs b{font-size:22px;line-height:1.1;color:var(--title)}
+.pfs small{font-size:12px;line-height:1.2;font-weight:600;color:hsl(var(--muted-foreground))}
+button.pfs{cursor:pointer;transition:transform .15s ease,opacity .15s}
+button.pfs:active{transform:scale(.95);opacity:.8}
+.pf-tab{display:flex;justify-content:center;margin-top:14px;border-bottom:1px solid hsl(var(--border)/.6)}
+.pf-tab span{display:inline-flex;align-items:center;gap:8px;padding:12px 18px;font-weight:700;color:hsl(var(--primary));border-bottom:2px solid hsl(var(--primary));margin-bottom:-1px}
+.pf-tab svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round}
+.pf-page .pf-edit{margin:14px 0}
+.pf-tools{display:flex;gap:8px;justify-content:flex-end;margin:16px 0 12px}
+.pf-page .story-grid{margin-top:4px}
+.modal-box .user-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}

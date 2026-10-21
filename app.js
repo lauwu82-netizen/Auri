@@ -57,7 +57,7 @@ function applyTheme() {                                 // 'light' | 'dark' | 'a
 }
 /* --- Ajustes (se guardan por cuenta) --- */
 const APP_VERSION = '0.9 (beta)';
-const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', notif: { chapter: true, like: true, comment: true, follow: true } };
+const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, notif: { chapter: true, like: true, comment: true, follow: true } };
 const cfg = k => {
   const c = S.cfg || {};
   if (k === 'showMature') { const u = getUsers()[S.user]; if (isMinor(u)) return false; return c.showMature == null ? isAdult(u) : c.showMature; }   // por defecto: visible solo si ya declaraste ser mayor de edad
@@ -2500,7 +2500,7 @@ function settingsView(secId) {
       const row = (e, act, lab) => `<div class="cr-row"><span class="cr-rt">${userAvatar(e)} <b>${esc(uName(e))}</b></span><span class="cr-rb"><button class="button secondary sm" data-act="${act}" data-id="${esc(e)}">${t(lab)}</button></span></div>`, b = bl(S.user, 'blocked'), m = bl(S.user, 'muted');
       return `<section class="panel set-sec"><h3>${t('Bloqueadas')}</h3><p class="helper">${t('No ves sus comentarios ni sus obras y no hay avisos entre ustedes.')}</p>${b.length ? b.map(e => row(e, 'unblock', 'Desbloquear')).join('') : '<p class="helper">' + t('No has bloqueado a nadie.') + '</p>'}</section>
       <section class="panel set-sec"><h3>${t('Silenciadas')}</h3><p class="helper">${t('No ves sus comentarios ni recibes sus avisos, pero siguen pudiendo ver tu perfil.')}</p>${m.length ? m.map(e => row(e, 'unmute', 'Dejar de silenciar')).join('') : '<p class="helper">' + t('No has silenciado a nadie.') + '</p>'}</section>`; } },
-    notificaciones: { ico: '🔔', c: '#d9534f', t: 'Notificaciones', sub: t('{n} de 4 activadas', { n: nOn }), body: () => `<section class="panel set-sec">${sw('notif.chapter', n.chapter, 'Capítulos nuevos de mi biblioteca')}${sw('notif.like', n.like, 'Likes en mis obras')}${sw('notif.comment', n.comment, 'Comentarios en mis obras')}${sw('notif.follow', n.follow, 'Nuevos seguidores')}${sw('notif.mod', true, 'Avisos de moderación', 'Aprobado o rechazado, strikes e invitaciones: siempre activos.', true)}</section>` },
+    notificaciones: { ico: '🔔', c: '#d9534f', t: 'Notificaciones', sub: t('{n} de 4 activadas', { n: nOn }), body: () => `<section class="panel set-sec">${sw('notif.chapter', n.chapter, 'Capítulos nuevos de mi biblioteca')}${sw('notif.like', n.like, 'Likes en mis obras')}${sw('notif.comment', n.comment, 'Comentarios en mis obras')}${sw('notif.follow', n.follow, 'Nuevos seguidores')}${strikesOf(S.user).length || cfg('hideStrikeBtn') ? sw('hideStrikeBtn', cfg('hideStrikeBtn'), 'Ocultar el botón de aviso de strikes', 'El botón amarillo ⚠️ de tu perfil.') : ''}${sw('notif.mod', true, 'Avisos de moderación', 'Aprobado o rechazado, strikes e invitaciones: siempre activos.', true)}</section>` },
     datos: { ico: '💾', c: '#2f9e7a', t: 'Tus datos', sub: t('Exportar, importar, borrar'), body: () => `<section class="panel set-sec"><p class="helper" style="margin:0 0 10px">${t('Hoy tus datos viven en este navegador. Haz una copia para llevarlos a otro dispositivo o editor.')}</p>
       <div class="set-btns"><button class="button secondary" data-act="export-file">${t('⬇ Exportar mis datos (archivo)')}</button><button class="button secondary" data-act="export-copy">${t('📋 Copiar mis datos')}</button>
       <label class="button secondary" style="cursor:pointer">${t('⬆ Importar desde archivo')}<input id="import-file" type="file" accept="application/json,.json" hidden></label>
@@ -2637,14 +2637,37 @@ function commentsHTML(s, ci = 0) {
 
 /* --- Mi perfil / perfil de otra persona --- */
 const likesReceived = e => publishedStories().filter(s => s.owner === e).reduce((a, s) => a + likes(s.id).length, 0);
-/** Portada del perfil con desvanecimiento inferior; encima, solo las cantidades */
-function profileHero(e, own) {
-  const u = getUsers()[e] || {}, pubs = publishedStories().filter(s => s.owner === e), has = safeImg(u.banner);
-  const stat = (n, l) => `<span class="pf-stat"><b>${n}</b><small>${l}</small></span>`;
+/** Perfil: portada con desvanecimiento hacia abajo, foto circular con aro, cifras que se pueden tocar y la pestaña de libros publicados */
+let PFEDIT = false;
+function profileHero(e, own, acts = '') {
+  const u = getUsers()[e] || {}, pubs = publishedStories().filter(s => s.owner === e), has = safeImg(u.banner), role = ROLE_LABEL[roleOf(e)], sk = own ? strikesOf(e) : [];
+  const stat = (n, l, act, kind) => act ? `<button type="button" class="pfs" data-act="${act}" data-id="${esc(e)}" data-kind="${kind || ''}"><b>${n}</b><small>${l}</small></button>` : `<span class="pfs"><b>${n}</b><small>${l}</small></span>`;
   return `<section class="pf-hero"><div class="pf-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>
+    ${sk.length && !cfg('hideStrikeBtn') ? `<button type="button" class="pf-warn" data-act="strike-info" aria-label="${esc(t('Aviso de strikes'))}">⚠️</button>` : ''}
     ${own ? `<div class="pf-bn-btns"><label class="button secondary sm" style="cursor:pointer">🖼 ${has ? t('Cambiar portada') : t('Añadir portada')}<input id="bn-file" type="file" accept="image/*" hidden></label>${has ? '<button class="button ghost sm" data-act="bn-adjust">' + t('Ajustar') + '</button><button class="button ghost sm" data-act="bn-clear">' + t('Quitar') + '</button>' : ''}</div>` : ''}
-    <div class="pf-fade"></div>
-    <div class="pf-stats4">${stat(followers(e).length, t('Seguidores'))}${stat(likesReceived(e), t('Likes'))}${stat(pubs.length, t('Libros'))}${stat(following(e).length, t('Siguiendo'))}</div></div></section>`;
+    <div class="pf-fade"></div></div>
+  <div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}</div>
+    <h1 class="pf-name serif">${esc(u.name || t('Mi perfil'))}</h1>${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}
+    ${u.bio || !own ? `<p class="pf-bio">${esc(u.bio || t('Esta persona aún no escribió su biografía.'))}</p>` : ''}
+    ${acts ? `<div class="pf-acts">${acts}</div>` : ''}</div>
+  <div class="pf-stats-row">${stat(followers(e).length, t('Seguidores'), 'pf-list', 'followers')}${stat(following(e).length, t('Seguidos'), 'pf-list', 'following')}${stat(pubs.length, t('Libros publicados'), 'pf-works')}${stat(likesReceived(e), t('Likes'))}</div>
+  <div class="pf-tab" id="pf-works"><span>${ICON.books} ${t('Libros publicados')}</span></div></section>`;
+}
+/** Lista de seguidores o de seguidos (al tocar la cifra) */
+function openUserList(e, kind) {
+  const us = getUsers(), list = (kind === 'following' ? following(e) : followers(e)).filter(x => us[x] && us[x].name && x !== GUEST && !iBlock(x));
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${kind === 'following' ? t('Seguidos') : t('Seguidores')} · ${list.length}</h2>
+    ${list.length ? `<div class="user-list">${list.map(x => `<a class="user-card panel" href="#/user/${encodeURIComponent(x)}" data-dir="next">${frWrap(x, 'sm', avatarHTML(us[x].avatar, us[x].name, 'sm'))}<div class="uc-txt"><b>${esc(us[x].name)}</b>${ROLE_LABEL[roleOf(x)] ? `<span class="role-tag ${roleOf(x).toLowerCase()}">🛡 ${t(ROLE_LABEL[roleOf(x)])}</span>` : ''}</div></a>`).join('')}</div>` : `<p class="helper">${t('Aún no hay nadie aquí.')}</p>`}</div>`;
+  m.addEventListener('click', ev => { if (ev.target === m || ev.target.closest('[data-no]') || ev.target.closest('a')) m.remove(); });
+  document.body.appendChild(m);
+}
+/** Aviso discreto de strikes (botón amarillo en la esquina de tu perfil) */
+function openStrikeInfo() {
+  const sk = strikesOf(S.user); if (!sk.length) return; const last = sk[sk.length - 1];
+  const m = formModal('Aviso de strikes', `<p>${tn(sk.length, 'Tienes {n} strike', 'Tienes {n} strikes')}</p><p class="helper">${t('Último motivo: {x}', { x: esc(last.reason) })}</p>
+    <button type="button" class="button ghost sm" data-hide-strike style="margin-top:8px">${t('Ocultar este botón')}</button><p class="helper">${t('Puedes volver a mostrarlo en Ajustes › Notificaciones.')}</p>`, 'Ver detalle', () => { go('/strike/' + last.id); });
+  m.querySelector('[data-hide-strike]').onclick = () => { setCfg('hideStrikeBtn', true); m.remove(); KEEP = true; render(); toast(t('Botón oculto.')); };
 }
 const worksGrid = list => list.length ? `<div class="story-grid">${list.map(storyCard).join('')}</div>` : empty('Aún no hay obras publicadas', 'Cuando se publique una historia aparecerá aquí.', '<a class="button secondary" href="#/write">' + t('Escribir una historia') + '</a>');
 /** Pendientes del equipo: libros por revisar, reportes, cuentas, publicaciones y apelaciones (cada tipo según lo que esa persona puede ver) */
@@ -2681,26 +2704,23 @@ function statsView() {
 }
 function profileView() {
   const u = getUsers()[S.user] || {}, works = S.stories.filter(s => storyState(s) !== 'draft').map(s => ({ ...s, owner: S.user, author: u.name }));
-  const sk = strikesOf(S.user), role = t(ROLE_LABEL[roleOf(S.user)]);
-  return `<main class="page">${profileHero(S.user, true)}${sk.length ? `<a class="strike-line" href="#/strike/${esc(sk[sk.length - 1].id)}">⚠️ ${tn(sk.length, 'Tienes {n} strike', 'Tienes {n} strikes')} · ${t('ver detalle')}</a>` : ''}<div class="panel pf-edit"><div class="pf-top"><div class="pf-photo">${frWrap(S.user, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}</div>
-  <div class="pf-title"><h2 class="serif">${esc(u.name || t('Mi perfil'))}</h2>${role ? `<span class="role-tag ${roleOf(S.user).toLowerCase()}">🛡 ${role}</span>` : ''}
-  <div class="pf-btns"><label class="button secondary sm" style="cursor:pointer">📷 ${u.avatar ? t('Cambiar foto') : t('Añadir foto')}<input id="av-file" type="file" accept="image/*" hidden></label>${u.avatar ? '<button class="button ghost sm" data-act="av-adjust">' + t('Ajustar') + '</button><button class="button ghost sm" data-act="av-clear">' + t('Quitar foto') + '</button>' : ''}${isOwner() ? `<button class="button ghost sm" data-act="owner-frame">${u.frameOn === false ? t('Ponerme el marco') : t('Quitar marco')}</button>` : ''}</div></div></div>
+  const acts = `<button class="button secondary sm" data-act="pf-edit">${PFEDIT ? t('Cerrar editor') : '✏️ ' + t('Editar perfil')}</button>`;
+  const edit = PFEDIT ? `<div class="panel pf-edit"><div class="pf-btns" style="flex-direction:row;flex-wrap:wrap;margin:0 0 14px"><label class="button secondary sm" style="cursor:pointer">📷 ${u.avatar ? t('Cambiar foto') : t('Añadir foto')}<input id="av-file" type="file" accept="image/*" hidden></label>${u.avatar ? '<button class="button ghost sm" data-act="av-adjust">' + t('Ajustar') + '</button><button class="button ghost sm" data-act="av-clear">' + t('Quitar foto') + '</button>' : ''}${isOwner() ? `<button class="button ghost sm" data-act="owner-frame">${u.frameOn === false ? t('Ponerme el marco') : t('Quitar marco')}</button>` : ''}</div>
   <form data-form="myprofile" class="pf-form"><div class="form-group"><label for="pf-name">${t('Usuario')}</label><input id="pf-name" class="field" maxlength="30" value="${esc(u.name)}"></div>
   <div class="form-group"><label for="pf-bio">${t('Biografía')}</label><textarea id="pf-bio" class="textarea" maxlength="300" placeholder="${esc(t('Cuéntales algo sobre ti…'))}">${esc(u.bio || '')}</textarea></div>
-  <button class="button" type="submit">${t('Guardar perfil')}</button></form></div>
-  <div class="section-head"><h2>${t('Mis obras')}</h2><span style="display:flex;gap:8px"><a class="button ghost sm" href="#/stats" data-dir="next">${t('📊 Estadísticas')}</a><a class="button sm" href="#/write">${t('＋ Nueva')}</a></span></div>${worksGrid(works)}
+  <button class="button" type="submit">${t('Guardar perfil')}</button></form></div>` : '';
+  return `<main class="page pf-page">${profileHero(S.user, true, acts)}${edit}
+  <div class="pf-tools"><a class="button ghost sm" href="#/stats" data-dir="next">${t('📊 Estadísticas')}</a><a class="button sm" href="#/write">${t('＋ Nueva')}</a></div>${worksGrid(works)}
   ${charsSection()}${profileExtras()}</main>`;
 }
 function userView(e) {
   const u = getUsers()[e];
   if (!u) return `<main class="page">${empty('Perfil no encontrado', 'Esta persona no existe en este dispositivo.', '<a class="button" href="#/">' + t('Volver') + '</a>')}</main>`;
   const works = publishedStories().filter(s => s.owner === e && matureOK(s)), fl = following(S.user).includes(e);
-  return `<main class="page">${profileHero(e, false)}<div class="profile-head panel"><div class="pf-avatar">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}</div>
-  <div class="pf-form"><h2 class="serif" style="font-size:27px;margin:0">${esc(u.name)}</h2>${ROLE_LABEL[roleOf(e)] ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(ROLE_LABEL[roleOf(e)])}</span>` : ''}<p style="color:var(--soft);line-height:1.6;margin:0">${esc(u.bio || t('Esta persona aún no escribió su biografía.'))}</p>
-  <button class="button ${fl ? 'secondary' : ''}" data-act="follow" data-id="${esc(e)}">${fl ? t('Siguiendo ✓') : t('＋ Seguir')}</button>
+  const acts = `<button class="button ${fl ? 'secondary' : ''}" data-act="follow" data-id="${esc(e)}">${fl ? t('Siguiendo ✓') : t('＋ Seguir')}</button>
   ${dmWhy(S.user, e) === '' ? `<a class="button secondary" href="#/messages/${encodeURIComponent(e)}" data-dir="next">${t('Mensaje')}</a>` : `<button type="button" class="button ghost" data-act="dm-why" data-id="${esc(e)}">${t('Mensaje')}</button>`}
-  <div class="pf-more"><button class="button ghost sm" data-act="${iMute(e) ? 'unmute' : 'mute'}" data-id="${esc(e)}">${iMute(e) ? t('🔔 Dejar de silenciar') : t('🔇 Silenciar')}</button><button class="button ghost sm" data-act="${iBlock(e) ? 'unblock' : 'block'}" data-id="${esc(e)}">${iBlock(e) ? t('✅ Desbloquear') : t('🚫 Bloquear')}</button><button class="button ghost sm" data-act="report-user" data-id="${esc(e)}">${t('Reportar')}</button></div></div></div>
-  ${repHistory(e)}${admMenu(e)}<div class="section-head"><h2>${t('Obras de {n}', { n: esc(u.name) })}</h2></div>${worksGrid(works)}</main>`;
+  <div class="pf-more"><button class="button ghost sm" data-act="${iMute(e) ? 'unmute' : 'mute'}" data-id="${esc(e)}">${iMute(e) ? t('🔔 Dejar de silenciar') : t('🔇 Silenciar')}</button><button class="button ghost sm" data-act="${iBlock(e) ? 'unblock' : 'block'}" data-id="${esc(e)}">${iBlock(e) ? t('✅ Desbloquear') : t('🚫 Bloquear')}</button><button class="button ghost sm" data-act="report-user" data-id="${esc(e)}">${t('Reportar')}</button></div>`;
+  return `<main class="page pf-page">${profileHero(e, false, acts)}${repHistory(e)}${admMenu(e)}${worksGrid(works)}</main>`;
 }
 
 /* --- Strikes, suspensión y menú de administración --- */
@@ -3151,7 +3171,7 @@ function render() {
   const nav = path !== LASTP, dir = nav ? NAVDIR : '', from = LASTP;
   if (nav && a === 'story' && d && /^c-\d+$/.test(d)) { HLC = d.slice(2); { const c0 = comments(b).find(x => String(x.id) === HLC); if (c0) REPOPEN.add(c0.parent != null && c0.parent !== '' ? c0.parent : c0.id); } if (!VISIT || VISIT.sid !== b) VISIT = { sid: b, pos: (S.pos || {})[b] ? { ...S.pos[b] } : null }; }
   else if (nav && (a !== 'story' || (VISIT && VISIT.sid !== b))) VISIT = null;
-  if (nav) { SHOWC = !!HLC; LASTP = path; NAVDIR = ''; NOTIF_OPEN = false; SETDEEP = a === 'settings' && !!b && from === '/settings'; }
+  if (nav) { PFEDIT = false; SHOWC = !!HLC; LASTP = path; NAVDIR = ''; NOTIF_OPEN = false; SETDEEP = a === 'settings' && !!b && from === '/settings'; }
   if (!S.user && !['login', 'register', 'signup', 'welcome', 'start'].includes(a)) return go(LS.get('auri.intro', false) ? '/start' : '/welcome');
   if (S.user && (a === 'welcome' || a === 'start' || (!isGuest() && (a === 'login' || a === 'register' || a === 'signup')))) return go('/');
   if (a === 'signup' && !QZ) return go('/register');
@@ -3467,6 +3487,8 @@ document.addEventListener('click', e => {
     'tag-add': () => { const i = $('#w-tags'); if (!i) return; const cur = parseTags(i.value); if (!cur.some(t => t.toLowerCase() === id.toLowerCase())) cur.push(id); i.value = tagsText(cur); i.dispatchEvent(new Event('input', { bubbles: true })); }, tab: () => { TAB = id; render(); tabFx(); },
     delete: () => { if (confirm(t('¿Eliminar este borrador? No se puede deshacer.'))) { S.stories = S.stories.filter(s => s.id !== id); persist('stories', S.stories); render(); } },
     'resume-read': () => { const p = VISIT && VISIT.pos; VISIT = null; if (p) { NAVDIR = 'next'; go('/story/' + id + '/' + (p.idx + 1)); } },
+    'pf-list': () => openUserList(id, el.dataset.kind), 'pf-works': () => { const w = document.getElementById('pf-works'); if (w && w.scrollIntoView) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+    'strike-info': () => openStrikeInfo(), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
     'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
     preview: () => { collect(); WPREVIEW = true; render(); }, 'back-edit': () => { WPREVIEW = false; render(); },
