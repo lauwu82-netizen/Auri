@@ -1462,4 +1462,13 @@ window.I18N = { en: {
   'Aún no hay nadie aquí.': 'Nobody here yet.',
   'Botón oculto.': 'Button hidden.',
   'Ver detalle': 'View details',
+  'Tu capítulo pasó la revisión automática y ya está publicado ✓': 'Your chapter passed the automatic review and is now published ✓',
+  'Tu capítulo quedó en revisión: el equipo de moderación lo revisará pronto.': 'Your chapter is under review: the moderation team will check it soon.',
+  '🤖 Marcado por la IA': '🤖 Flagged by AI',
+  'La IA marcó este capítulo por:': 'The AI flagged this chapter for:',
+  'revisión': 'review',
+  'Libro +18': '+18 book',
+  'Libro sin marca +18': 'Book without the +18 mark',
+  'Fragmento que preocupó': 'Excerpt of concern',
+  'Es una ayuda automática y puede equivocarse: decide tú.': 'This is an automatic aid and can be wrong: you decide.',
 } };

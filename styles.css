@@ -1037,3 +1037,11 @@ button.pfs:active{transform:scale(.95);opacity:.8}
 .pf-tools{display:flex;gap:8px;justify-content:flex-end;margin:16px 0 12px}
 .pf-page .story-grid{margin-top:4px}
 .modal-box .user-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+
+/* 35. NOTA DE LA IA EN MODERACIÓN */
+.ai-pill{background:#fdf0cf;color:#8a6410}
+.ai-note{margin-top:8px;padding:10px 12px;border-radius:12px;background:#fff7e0;border:1px solid #f0d58a;color:#6b4e00;font-size:13px;line-height:1.5;display:flex;flex-direction:column;gap:4px}
+.dark .ai-note{background:#3a2f12;border-color:#6b5520;color:#f5dd9b}
+.ai-note p{margin:6px 0 0;font-style:italic;overflow-wrap:anywhere}
+.ai-note summary{cursor:pointer;font-weight:600}
+.ai-note .helper{margin:2px 0 0;color:inherit;opacity:.8}

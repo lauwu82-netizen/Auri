@@ -700,7 +700,33 @@ async function sbSyncOwn() {
   const sIds = out.map(x => sUuid(x.id)).filter(Boolean), cIds = []; out.forEach(x => x.chapters.forEach(c => { const cu = cUuid(x.id, c.id); if (cu) cIds.push(cu); }));
   LS.set(K, { s: sIds, c: cIds, si: Object.fromEntries(sIds.map(u => [u, nSigS[u] || sigS[u]])), ci: Object.fromEntries(cIds.map(u => [u, nSigC[u] || sigC[u]])) });
   if (changed) { SB_QUIET = true; try { LS.set(K.replace('cloudsync', 'stories'), out); S.stories = out.map(norm); } finally { SB_QUIET = false; } }
+  sbAiScan(out);
   return changed;
+}
+/* ---------- Revisión automática con IA (primer filtro) ----------
+   Después de subir un capítulo que queda "pending", la app le pide a la función «moderate-chapter» que lo revise en el servidor.
+   Limpio → la base de datos lo aprueba y se publica; marcado → sigue oculto para moderación. Si algo falla, el capítulo simplemente sigue pendiente. */
+const AI_RUN = new Set();
+function sbAiScan(out) {
+  if (!cloud() || !sbSes() || !S.user || isGuest()) return;
+  const K = uk('aiseen'), seen = LS.get(K, {}), now = Date.now(), todo = [];
+  out.forEach(l => { const su = sUuid(l.id); if (!su) return; l.chapters.forEach(c => {
+    if (c.status !== 'pending') return; const cu = cUuid(l.id, c.id); if (!cu || AI_RUN.has(cu)) return;
+    const sig = contSig(c) + '|' + (l.mature ? 1 : 0), sn = seen[cu]; if (sn && sn.sig === sig && (sn.ok || now < sn.retry)) return;
+    todo.push({ sid: l.id, cid: c.id, cu, sig }); }); });
+  if (!todo.length) return; todo.forEach(x => AI_RUN.add(x.cu));
+  (async () => { for (const x of todo) await sbAiCheck(x, K); })();
+}
+async function sbAiCheck(x, K) {
+  const s0 = S.stories.find(v => v.id === x.sid), before = s0 ? publicPrefix(s0.chapters).length : 0;
+  let r; try { r = await sbApi('/functions/v1/moderate-chapter', { method: 'POST', body: { chapter_id: x.cu } }); } catch (e) { r = { ok: false }; }
+  AI_RUN.delete(x.cu); const seen = LS.get(K, {});
+  if (r.ok && r.data && r.data.result) {
+    seen[x.cu] = { sig: x.sig, ok: true }; LS.set(K, seen); const res = r.data.result;
+    if (res === 'approved') toast('Tu capítulo pasó la revisión automática y ya está publicado ✓');
+    else if (res === 'flagged') toast('Tu capítulo quedó en revisión: el equipo de moderación lo revisará pronto.');
+    await sbRefresh(); if (res === 'approved') announceChapters(x.sid, before);
+  } else { seen[x.cu] = { sig: x.sig, ok: false, retry: Date.now() + (r.status === 404 || r.status === 500 ? 30 : 10) * 60000 }; LS.set(K, seen); }   // sin función o sin conexión: sigue pendiente y se reintenta más tarde
 }
 async function sbPullPublic() {                           // trae las obras de otras personas (y la cola de revisión si eres del equipo)
   const ses = sbSes(), uid = ses && ses.uid, staff = !!S.user && !isGuest() && !!ses && roleOf(S.user) !== 'USER';
@@ -709,6 +735,7 @@ async function sbPullPublic() {                           // trae las obras de o
     sbApi('/rest/v1/chapter_published?select=*&order=position&limit=10000'),
     sbApi('/rest/v1/takedowns?select=story_id&limit=2000'),
     staff ? sbApi('/rest/v1/chapters?select=*&status=in.(pending,rejected)&limit=2000') : Promise.resolve(null)]);
+  const rai = staff ? await sbApi('/rest/v1/chapter_ai?select=chapter_id,flags&verdict=eq.flagged&limit=2000') : null, aiBy = new Map(((rai && rai.ok && Array.isArray(rai.data)) ? rai.data : []).map(a => [a.chapter_id, a.flags]));
   if (!rs.ok || !rp.ok || !Array.isArray(rs.data) || !Array.isArray(rp.data)) return false;
   const stories = rs.data.filter(r => r.owner !== uid), sIds = new Set(stories.map(r => r.id));
   const pubBy = new Map(), wkBy = new Map();
@@ -727,7 +754,7 @@ async function sbPullPublic() {                           // trae las obras de o
     for (const r of stories.filter(x => x.owner === o)) {
       const pubs = (pubBy.get(r.id) || []), wk = (wkBy.get(r.id) || []), cmap = new Map();
       pubs.forEach(p => cmap.set(p.chapter_id, { pos: p.position, c: { id: cBack(p.chapter_id), title: p.title, text: p.text, status: 'approved', ...(p.cover ? { cover: p.cover } : {}), ...(p.music ? { music: p.music } : {}) } }));
-      wk.forEach(w => { const p = pubs.find(x => x.chapter_id === w.id); cmap.set(w.id, { pos: w.position, c: { id: cBack(w.id), title: w.title, text: w.text, status: w.status, ...(w.status === 'rejected' && w.reason ? { reason: w.reason } : {}), ...(w.cover ? { cover: w.cover } : {}), ...(w.music ? { music: w.music } : {}),
+      wk.forEach(w => { const p = pubs.find(x => x.chapter_id === w.id); cmap.set(w.id, { pos: w.position, c: { id: cBack(w.id), title: w.title, text: w.text, status: w.status, ...(w.status === 'rejected' && w.reason ? { reason: w.reason } : {}), ...(w.cover ? { cover: w.cover } : {}), ...(w.music ? { music: w.music } : {}), ...(w.status === 'pending' && aiBy.get(w.id) ? { ai: aiBy.get(w.id) } : {}),
         ...(p ? { live: { title: p.title, text: p.text, music: p.music || '', cover: p.cover || '' } } : {}) } }); });
       const chs = [...cmap.values()].sort((a, b) => a.pos - b.pos).map(x => x.c); if (!chs.length) continue;
       const first = pubs.map(p => day(p.published_at)).sort()[0];
@@ -2193,6 +2220,7 @@ function commBar() {                                    // quien ve todo elige c
   if (sc.length === 1) return `<p class="comm-bar"><span class="pill">${t('Comunidad: {c}', { c: esc(COMMS[sc[0]]) })}</span></p>`;
   return `<div class="filter-row comm-bar" role="radiogroup" aria-label="${esc(t('Comunidad'))}">${[['all', 'Todas'], ['es', 'Español'], ['en', 'English']].map(([k, n]) => `<button type="button" class="chip ${MODC === k ? 'active' : ''}" data-act="mod-comm" data-id="${k}">${t(n)}</button>`).join('')}</div>`;
 }
+const aiNote = a => { const rs = (a && a.reasons) || []; return `<div class="ai-note"><b>${t('La IA marcó este capítulo por:')}</b> ${rs.map(r => esc(r.label) + ' (' + Math.round((r.score || 0) * 100) + '%)').join(', ') || esc(t('revisión'))}${a.mature ? ' · ' + t('Libro +18') : ' · ' + t('Libro sin marca +18')}${a.excerpt ? `<details><summary>${t('Fragmento que preocupó')}</summary><p>«${esc(a.excerpt)}…»</p></details>` : ''}<span class="helper">${t('Es una ayuda automática y puede equivocarse: decide tú.')}</span></div>`; };
 function modView(sub) {
   if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">' + t('Volver') + '</a>')}</main>`;
   const books = pendingBooks().filter(s => inScope(commOf(s.owner))).reverse(), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, npo = pendingPosts().length, tabs = commBar() + `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log', 'posts', 'gifts'].includes(sub) ? '' : 'active'}" href="#/moderation">${t('📚 Libros')} ${redN(books.length)}</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">${t('🚩 Reportes')} ${redN(nr)}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">${t('👥 Cuentas')} ${redN(nacc)}</a>${canBan() ? `<a class="tab ${sub === 'posts' ? 'active' : ''}" href="#/moderation/posts">${t('📣 Publicaciones')} ${redN(npo)}</a>` : ''}${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">${t('📨 Apelaciones')} ${redN(na)}</a>` : ''}${isOwner() ? `<a class="tab ${sub === 'gifts' ? 'active' : ''}" href="#/moderation/gifts">${t('🎁 Regalos')}</a><a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">${t('📋 Registro')}</a>` : ''}</div>`;
@@ -2211,7 +2239,7 @@ function modView(sub) {
     <div class="book-body"><p class="story-meta">${esc(genreName(s.genre))} · ${esc(s.fandom)} · <a href="#/user/${encodeURIComponent(s.owner)}" style="text-decoration:underline">${t('ver perfil')}</a></p>${first ? `<p style="color:var(--soft);line-height:1.6;margin:8px 0">${esc(s.synopsis)}</p><div class="tags" style="margin-bottom:10px">${s.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ''}
     <ol class="mod-list">${s.chapters.map((c, i) => {
       const ok = s.chapters.slice(0, i).every(x => pubChapter(x)), pend = c.status === 'pending';      // N solo si N-1 ya está aprobado
-      return `<li class="mod-ch"><div class="mod-ch-head"><b>${t('Cap. {n}', { n: i + 1 })}</b><span>${esc(c.title)}</span><span class="pill st-${c.status}">${t(CH_STATUS[c.status])}</span></div>${pend ? `
+      return `<li class="mod-ch"><div class="mod-ch-head"><b>${t('Cap. {n}', { n: i + 1 })}</b><span>${esc(c.title)}</span><span class="pill st-${c.status}">${t(CH_STATUS[c.status])}</span>${pend && c.ai ? `<span class="pill ai-pill">${t('🤖 Marcado por la IA')}</span>` : ''}</div>${pend && c.ai ? aiNote(c.ai) : ''}${pend ? `
       <details style="margin-top:8px"><summary class="helper" style="cursor:pointer">${t('Leer capítulo')}${c.live ? ' (' + t('versión editada') + ')' : ''}</summary><div class="mod-text" style="margin-top:8px">${esc(c.text)}</div></details>${chHero(c, 'mod-cover')}${c.music ? `<p class="helper" style="margin-top:8px">🎵 ${t('Canción')}: ${musicEmbed(c.music) ? `<a href="${esc(c.music)}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline">${esc(c.music)}</a>` : esc(c.music) + ' (' + t('enlace no válido') + ')'}</p>` : ''}
       <textarea id="rej-${esc(s.id)}-${c.id}" class="textarea" style="min-height:64px;margin-top:10px" placeholder="${esc(t('Motivo del rechazo (obligatorio para rechazar)'))}"></textarea>
       <div class="mod-actions"><button class="button" data-act="approve" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}" ${ok ? '' : 'disabled'}>${t('✓ Aprobar')}</button><button class="button danger" data-act="reject" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}">${t('✕ Rechazar')}</button></div>
