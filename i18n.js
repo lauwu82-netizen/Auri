@@ -1444,5 +1444,6 @@ window.I18N = { en: {
  "La fecha de cierre ya pasó.": "The closing date has already passed.",
  "Encuesta publicada en el banner": "Poll published in the banner",
  "Esa encuesta ya no está disponible.": "That poll is no longer available.",
- "Esa encuesta no está disponible para tu comunidad.": "That poll isn't available for your community."
+ "Esa encuesta no está disponible para tu comunidad.": "That poll isn't available for your community.",
+ "{n} por revisar": "{n} to review"
 } };

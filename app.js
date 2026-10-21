@@ -193,7 +193,6 @@ function submitAppeal(text, imgs) {
   if (modCloud()) return sbImgConv((imgs || []).slice(0, 4)).then(im => modDo('submit_appeal', { txt: text.slice(0, 1000), imgs: im }));
   const l = appealsAll(); l.unshift({ id: Date.now(), user: S.user, banDate: b.date, ban: { reason: b.reason, by: b.by, until: b.until || null }, text: text.slice(0, 1000), imgs: (imgs || []).slice(0, 4), date: today(), status: 'open' });
   if (!G.set('appeals', l)) return t('No se pudo guardar. Prueba con menos imágenes o más livianas.');
-  staffFor(commOf(S.user)).filter(e => e === OWNER_EMAIL || roleOf(e) === 'ADMIN').forEach(e => pushNotif(e, { type: 'sys', extra: 'Nueva apelación de {n}', xv: { n: uName(S.user) }, href: '#/moderation/appeals' }));
   return '';
 }
 function annulStrike(tg, sid, reason) {
@@ -373,7 +372,7 @@ const MESES_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
 const fmtDate = iso => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (uiLang() === 'en' ? `${MESES_EN[+m[2] - 1]} ${+m[3]}, ${m[1]}` : `${+m[3]} ${MESES[+m[2] - 1]} ${m[1]}`) : ''; };
 const HEART = '<svg class="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
 const likes = id => G.get('likes', {})[id] || [];
-const comments = id => G.get('comments', {})[id] || [];
+const comments = (id, ci) => { const l = G.get('comments', {})[id] || []; return ci == null ? l : l.filter(c => (c.ch | 0) === ci); };   // ci = posición del capítulo: cada capítulo tiene sus propios comentarios (los antiguos, sin capítulo, van al 1)
 const news = () => G.get('news', []);
 const pubOK = o => !o.status || o.status === 'published';               // sin estado = publicado (lo anterior)
 const newsPub = () => news().filter(pubOK).filter(n => commVisible(postComm(n)));
@@ -383,7 +382,7 @@ function byline(o) {                                    // quién publicó: siem
   return o.anon ? (isOwner() ? `${role} · ${real} ${t('(nombre oculto al público)')}` : role) : `${real} · ${role}`;
 }
 const postMeta = (anon, cid) => ({ byRole: roleOf(S.user), anon: !!anon, comm: (($('#' + cid) || {}).value) || (staffScope(S.user).length > 1 ? 'all' : staffScope(S.user)[0] || 'es'), ...(isMod() ? { status: 'pending' } : {}) });
-const notifyApprovers = (what, xv) => modCloud() ? 0 : [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) === 'ADMIN' && staffScope(e).some(c => staffScope(S.user).includes(c)))])].filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: what, xv, href: '#/moderation/posts' }));
+const notifyApprovers = () => 0;                      // ya no se avisa por notificación al equipo: lo pendiente se ve con el contador rojo en Moderación
 /** Una noticia son bloques: cada párrafo puede llevar su propia imagen (cualquier proporción). Las noticias antiguas (solo texto) se convierten al vuelo */
 const newsBlocks = n => Array.isArray(n.blocks) && n.blocks.length ? n.blocks : String(n.text || '').split(/\n\s*\n/).filter(Boolean).map(t => ({ t, img: '' }));
 const newsCover = n => { const b = n && newsBlocks(n).find(x => safeImg(x.img)); return b ? b.img : ''; };
@@ -409,8 +408,8 @@ function toggleLike(s) {
   all[s.id] = was ? l.filter(x => x !== S.user) : [...l, S.user]; G.set('likes', all);
   if (!was) notify(s.owner, 'like', s.id);
 }
-function addComment(s, text) {
-  const all = G.get('comments', {}); (all[s.id] = all[s.id] || []).push({ id: Date.now(), by: S.user, text, date: today() });
+function addComment(s, text, ci) {
+  const all = G.get('comments', {}); (all[s.id] = all[s.id] || []).push({ id: Date.now(), by: S.user, text, date: today(), ...(ci > 0 ? { ch: ci } : {}) });
   G.set('comments', all); notify(s.owner, 'comment', s.id, text.slice(0, 80));
 }
 /** Recorta la foto al centro en cuadrado y la reduce (ahorra localStorage) */
@@ -794,7 +793,7 @@ function socLocal(n, c) {
   else if (n === 'comments' || n === 'comment_likes') {
     const all = G.get('comments', {});
     for (const sid in all) { const su = sUuid(sid); if (!su) continue; for (const cm of all[sid] || []) { const u = c.uid(cm.by); if (!u) continue; const cu = idUuid(cm.id);
-      if (n === 'comments') { const r = { id: cu, story_id: su, user_id: u, parent_id: cm.parent != null && cm.parent !== '' ? idUuid(cm.parent) : null, text: String(cm.text || '').slice(0, 2000) || '·', edited: !!cm.edited, created_at: idTime(cm.id) }; put(r, cu, u === me, r.text + '\u0001' + (r.edited ? 1 : 0)); }
+      if (n === 'comments') { const r = { id: cu, story_id: su, user_id: u, parent_id: cm.parent != null && cm.parent !== '' ? idUuid(cm.parent) : null, text: String(cm.text || '').slice(0, 2000) || '·', edited: !!cm.edited, chapter_pos: Number.isInteger(cm.ch) && cm.ch > 0 ? cm.ch : 0, created_at: idTime(cm.id) }; put(r, cu, u === me, r.text + '\u0001' + (r.edited ? 1 : 0)); }
       else for (const k of cm.lk || []) { const lu = c.uid(k); if (lu) { const r = { comment_id: cu, user_id: lu }; put(r, rowSets.comment_likes.id(r), lu === me); } } } }
   }
   else if (n === 'pcom' || n === 'pcom_likes') {
@@ -828,7 +827,7 @@ function socWrite(n, F, c, fin) {
   else if (n === 'comments') {
     const lk = {}; (fin.comment_likes ? [...fin.comment_likes.values()] : []).forEach(x => { const k = c.key(x.row.user_id); if (k) (lk[x.row.comment_id] = lk[x.row.comment_id] || []).push(k); });
     const o = {}; rows.slice().sort((a, b) => uuidId(a.id).localeCompare(uuidId(b.id))).forEach(r => { const by = c.key(r.user_id); if (!by) return; const sid = sBack(r.story_id), id = Number(uuidId(r.id));
-      (o[sid] = o[sid] || []).push({ id, by, text: r.text, date: String(r.created_at || '').slice(0, 10), ...(r.parent_id ? { parent: Number(uuidId(r.parent_id)) } : {}), ...(r.edited ? { edited: true } : {}), ...(lk[r.id] ? { lk: lk[r.id] } : {}) }); });
+      (o[sid] = o[sid] || []).push({ id, by, text: r.text, date: String(r.created_at || '').slice(0, 10), ...(r.chapter_pos > 0 ? { ch: r.chapter_pos } : {}), ...(r.parent_id ? { parent: Number(uuidId(r.parent_id)) } : {}), ...(r.edited ? { edited: true } : {}), ...(lk[r.id] ? { lk: lk[r.id] } : {}) }); });
     store('auri.comments', o);
   }
   else if (n === 'pcom') {
@@ -845,8 +844,9 @@ async function socBulk(table, rows) {                // inserta por lotes; si el
   const out = { ok: new Set(), dead: new Set(), retry: new Set() }; if (!rows.length) return out;
   const H = { Prefer: 'return=minimal,resolution=ignore-duplicates' }, p = '/rest/v1/' + table;
   const r = await sbApi(p, { method: 'POST', headers: H, body: rows }); if (r.ok) { rows.forEach(x => out.ok.add(x._id)); return out; }
-  if (r.net || r.status >= 500) { rows.forEach(x => out.retry.add(x._id)); return out; }
-  for (const x of rows) { const { _id, ...b } = x; const q = await sbApi(p, { method: 'POST', headers: H, body: b }); (q.ok ? out.ok : (q.net || q.status >= 500) ? out.retry : out.dead).add(_id); }
+  const noCol = q => q && !q.ok && !q.net && /chapter_pos/.test(JSON.stringify(q.data || ''));      // aún no se corrió el SQL de comentarios por capítulo: se queda aquí y se reintenta
+  if (r.net || r.status >= 500 || noCol(r)) { rows.forEach(x => out.retry.add(x._id)); return out; }
+  for (const x of rows) { const { _id, ...b } = x; const q = await sbApi(p, { method: 'POST', headers: H, body: b }); (q.ok ? out.ok : (q.net || q.status >= 500 || noCol(q)) ? out.retry : out.dead).add(_id); }
   return out;
 }
 let SOC_ONLY = null, SOC_BUSY = false;
@@ -1357,19 +1357,19 @@ const ICON = {
   mail: IC('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7.5 8.5 6 8.5-6"/>')
 };
 function shell(path, html) {
-  const pop = NOTIF_OPEN ? notifPop() : '', n = unread();      // (primero la ventanita: al abrirla marca como leídas y el contador baja)
-  const item = (href, label, ic, on) => `<a class="bn-item ${on ? 'active' : ''}" href="${href}" ${on ? 'aria-current="page"' : ''}><span class="bn-ic">${ic}</span><span>${label}</span></a>`;
+  const pop = NOTIF_OPEN ? notifPop() : '', n = unread(), mcTot = modCounts().total;      // (primero la ventanita: al abrirla marca como leídas y el contador baja)
+  const item = (href, label, ic, on, bd = 0) => `<a class="bn-item ${on ? 'active' : ''}" href="${href}" ${on ? 'aria-current="page"' : ''}><span class="bn-ic">${ic}${bd ? `<b class="badge">${bd > 99 ? '99+' : bd}</b>` : ''}</span><span>${label}</span></a>`;
   return `<div class="shell"><header class="topbar tb2">
     <div class="top-row">
       <button class="icon-btn" data-act="settings" aria-label="${esc(t('Configuración'))}">${ICON.gear}</button>
       <div class="nav-actions"><button class="icon-btn" data-act="search-toggle" aria-label="${esc(t('Buscar'))}" aria-expanded="${SEARCH_OPEN}">${ICON.search}</button>
         <a class="icon-btn bell" href="#/messages" aria-label="${esc(t('Mensajes'))}">${ICON.mail}${dmUnread() ? `<b class="badge">${dmUnread()}</b>` : ''}</a>
         <button class="icon-btn bell" data-act="notif-toggle" aria-label="${esc(t('Notificaciones'))}" aria-expanded="${NOTIF_OPEN}">${ICON.bell}${n ? `<b class="badge">${n}</b>` : ''}</button>
-        <a href="#/profile" aria-label="${esc(t('Mi perfil'))}">${userAvatar(S.user)}</a></div>
+        <a href="#/profile" class="av-wrap" aria-label="${esc(t('Mi perfil'))}">${userAvatar(S.user)}${mcTot ? `<b class="badge">${mcTot > 99 ? '99+' : mcTot}</b>` : ''}</a></div>
     </div>
     <div class="search-bar ${SEARCH_OPEN ? 'open' : ''}"><input id="sq" class="field" type="search" placeholder="${esc(SM === 'users' ? t('Buscar usuarios…') : t('Buscar títulos, etiquetas o fandoms…'))}" aria-label="${esc(t('Buscar'))}" value="${esc(Q)}"><button class="icon-btn" data-act="search-close" aria-label="${esc(t('Cerrar búsqueda'))}">✕</button></div>
   </header>${html}${pop}
-  <nav class="bottom-nav" aria-label="${esc(t('Navegación principal'))}">${item('#/', t('Inicio'), ICON.home, path === '/')}${item('#/library', t('Biblioteca'), ICON.books, path === '/library')}<a class="bn-plus ${path === '/write' ? 'active' : ''}" href="#/write" aria-label="${esc(t('Crear historia'))}">${ICON.plus}</a>${item('#/news', t('Noticias'), ICON.news, path === '/news')}${item('#/profile', t('Mi Perfil'), ICON.user, path === '/profile')}</nav></div>`;
+  <nav class="bottom-nav" aria-label="${esc(t('Navegación principal'))}">${item('#/', t('Inicio'), ICON.home, path === '/')}${item('#/library', t('Biblioteca'), ICON.books, path === '/library')}<a class="bn-plus ${path === '/write' ? 'active' : ''}" href="#/write" aria-label="${esc(t('Crear historia'))}">${ICON.plus}</a>${item('#/news', t('Noticias'), ICON.news, path === '/news')}${item('#/profile', t('Mi Perfil'), ICON.user, path === '/profile', mcTot)}</nav></div>`;
 }
 const empty = (title, copy, action = '') => `<div class="empty">${mascot()}<h3>${esc(t(title))}</h3><p>${esc(t(copy))}</p>${action}</div>`;
 const badgeText = s => { const st = storyState(s), p = s.chapters.filter(c => c.status === 'pending').length; return st !== 'published' ? t(STATUS[st]) : p ? t('{n} cap. en revisión', { n: p }) : ''; };
@@ -1890,7 +1890,6 @@ function requestUnmature(sid, title) {                  // la autoría pide quit
   if (l.some(r => r.type === 'reclass' && r.sid === sid && (r.status || 'open') === 'open')) return t('Ya hay una solicitud en revisión para esta obra.');
   if (modCloud()) { modReport({ type: 'reclass', sid, owner: S.user, title: title || '', label: title || '' }).then(e => { if (e) toast(e); }); return t('Solicitud enviada. La obra sigue marcada +18 hasta que moderación la revise.'); }
   l.unshift({ id: Date.now(), type: 'reclass', sid, owner: S.user, by: S.user, title: title || '', date: today(), status: 'open' }); G.set('reports', l);
-  staffFor(commOf(S.user)).filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Solicitud para quitar +18 de «{title}»', xv: { title: title || t('una obra') }, href: '#/moderation/reports' }));
   return t('Solicitud enviada. La obra sigue marcada +18 hasta que moderación la revise.');
 }
 function staffSetMature(sid, v) {
@@ -1964,7 +1963,6 @@ function saveStory(submit) {
   if (!LS.set(uk('stories'), list)) return;
   S.stories = list; W.saved = true; WPREVIEW = false;
   if (submit) {
-    [...new Set([OWNER_EMAIL, ...Object.keys(getUsers()).filter(e => roleOf(e) !== 'USER')])].filter(e => e !== S.user).forEach(e => notify(e, 'review', W.id, W.title, toSend.length === 1 ? toSend[0].title : tn(toSend.length, '{n} capítulo', '{n} capítulos')));   // avisa a Owner, Administración y Moderación
     toast(toSend.length === 1 ? t('Capítulo enviado a revisión') : t('Capítulos enviados a revisión')); TAB = 'draft'; go('/library');
   } else toast(t('Borrador guardado ✓'));
 }
@@ -2058,7 +2056,6 @@ function playMusic(url, sid, ch) {                    // solo se abre cuando la 
 
 /* --- Historia (varios capítulos) --- */
 const readList = id => { const p = S.progress[id]; return Array.isArray(p) ? p : p ? [0] : []; };
-const commentsBox = s => `<div class="comments-box"><button class="button secondary" data-act="comments" aria-expanded="${SHOWC}">💬 ${t('Comentarios ({n})', { n: comments(s.id).length })} ${SHOWC ? '▴' : '▾'}</button>${SHOWC ? `<div id="comments">${commentsHTML(s)}</div>` : ''}</div>`;
 function storyView(id, num) {
   const s = findStory(id);
   if (!s) return `<main class="page">${empty(t('Esta historia se ha perdido'), t('Puede que se haya eliminado o que aún esté en revisión.'), '<a class="button" href="#/">' + t('Volver a descubrir') + '</a>')}</main>`;
@@ -2092,7 +2089,7 @@ function storyDetail(s, mine) {
   <a class="button" data-replace data-dir="next" ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} style="width:100%;max-width:420px" href="#/story/${esc(s.id)}/${next.idx + 1}">${!read.length && !at ? t('Empezar a leer') : all ? t('Leer otra vez') : t('Continuar: cap. {n}', { n: next.idx + 1 })}</a>
   <div class="row-btns"><button class="button secondary like-btn ${likes(s.id).includes(S.user) ? 'on' : ''}" data-act="like" data-id="${esc(s.id)}" aria-pressed="${likes(s.id).includes(S.user)}">${HEART}<span>${likes(s.id).includes(S.user) ? t('Te gusta') : t('Me gusta')}</span></button><button class="button secondary" data-act="fav" data-id="${esc(s.id)}">${fav ? '♥ ' + t('En favoritos') : '♡ ' + t('Favorito')}</button><button class="button secondary" data-act="lib-toggle" data-id="${esc(s.id)}">${S.lib.includes(s.id) ? '✓ ' + t('En tu biblioteca') : '📚 ' + t('Guardar en biblioteca')}</button>${mine ? `<a class="button ghost" href="#/write/${esc(s.id)}">${t('Editar')}</a>` : `<button class="button ghost" data-act="report-story" data-id="${esc(s.id)}">${t('Reportar')}</button>`}</div>
   <details class="ch-index"><summary>${t('Capítulos ({n})', { n: s.chapters.length })}</summary>${s.chapters.map(c => `<a data-replace ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} href="#/story/${esc(s.id)}/${c.idx + 1}"><b>${read.includes(c.idx) ? '✓' : c.idx + 1}</b><span>${esc(c.title || t('Capítulo {n}', { n: c.idx + 1 }))}${mine && c.status !== 'approved' ? ` (${t(CH_STATUS[c.status]).toLowerCase()})` : ''}</span></a>`).join('')}</details>
-  ${commentsBox(s)}</section></main>`;
+  </section></main>`;
 }
 /* Estado del libro + barra de progreso (solo si ya empezaste o lo guardaste) */
 function bookState(s) {
@@ -2159,13 +2156,13 @@ function chapterRead(s, N) {
   let pos = s.chapters.findIndex(c => c.idx === N); if (pos < 0) pos = 0;
   const ch = s.chapters[pos], before = s.chapters[pos - 1], after = s.chapters[pos + 1];
   if (!ch) return `<main class="page">${empty(t('Aún no hay capítulos'), t('Esta historia todavía no tiene capítulos publicados.'), `<a class="button" href="#/story/${esc(s.id)}">${t('Volver a la historia')}</a>`)}</main>`;
-  const nc = comments(s.id).length, exit = `data-act="exit-book" data-id="${esc(s.id)}" data-n="${ch.idx}"`;
+  const nc = comments(s.id, ch.idx).length, exit = `data-act="exit-book" data-id="${esc(s.id)}" data-n="${ch.idx}"`;
   return `<div class="rf"><div class="rf-bar"><i id="rf-bar-i"></i></div>
   <header class="rf-top"><button class="button ghost sm" ${exit} aria-label="${esc(t('Guardar progreso y salir del libro'))}">✕ ${t('Salir')}</button><div class="rf-title"><b>${t('Cap. {n}', { n: ch.idx + 1 })}</b> · ${esc(ch.title)}</div><button class="icon-btn" data-act="comments" aria-label="${esc(t('Comentarios'))}">💬</button></header>
   <article class="rf-body">${chHero(ch)}<h1 class="rf-h">${esc(ch.title)}</h1>${s.useReaderCharacter && S.chars.length > 1 ? `<label class="helper" style="display:flex;align-items:center;gap:8px;margin-bottom:14px">${t('Leyendo como')} <select id="char-sel" class="select" style="max-width:200px">${S.chars.map((x, k) => `<option value="${x.id}" ${x.id === S.activeId ? 'selected' : ''}>${esc(x.name || t('Personaje {n}', { n: k + 1 }))}</option>`).join('')}</select></label>` : ''}${ch.music && musicEmbed(ch.music) ? `<button class="button secondary sm" data-act="music" data-url="${esc(ch.music)}" style="margin-bottom:14px">🎵 ${t('Escuchar la canción de este capítulo')}</button>` : ''}${readerText(ch.text, s.useReaderCharacter, { sid: s.id, ci: ch.idx })}</article>
   <footer class="rf-end"><div class="ch-nav">${before ? `<a class="button secondary" data-replace data-dir="prev" href="#/story/${esc(s.id)}/${before.idx + 1}">${t('‹ Anterior')}</a>` : '<span></span>'}<button class="button" data-act="read" data-id="${esc(s.id)}" data-n="${ch.idx}">${read.includes(ch.idx) ? t('Leído ✓') : t('Marcar como leído')}</button>${after ? `<a class="button secondary" data-replace data-dir="next" href="#/story/${esc(s.id)}/${after.idx + 1}">${t('Siguiente ›')}</a>` : '<span></span>'}</div>
   <label class="helper" style="display:flex;align-items:center;gap:8px;margin-top:16px">${t('Ir a')} <select id="ch-sel" class="select" aria-label="${esc(t('Elegir capítulo'))}">${s.chapters.map(c => `<option value="${c.idx + 1}" ${c === ch ? 'selected' : ''}>${read.includes(c.idx) ? '✓ ' : ''}${esc(c.title || t('Capítulo {n}', { n: c.idx + 1 }))}${mine && c.status !== 'approved' ? ` (${t(CH_STATUS[c.status]).toLowerCase()})` : ''}</option>`).join('')}</select></label>
-  <button class="button secondary" style="width:100%;margin-top:14px" data-act="comments">💬 ${SHOWC ? t('Ocultar comentarios') : t('Comentarios ({n})', { n: nc })}</button>${SHOWC ? `<div id="comments">${commentsHTML(s)}</div>` : ''}
+  <button class="button secondary" style="width:100%;margin-top:14px" data-act="comments">💬 ${SHOWC ? t('Ocultar comentarios') : t('Comentarios ({n})', { n: nc })}</button>${SHOWC ? `<div id="comments">${commentsHTML(s, ch.idx)}</div>` : ''}
   <button class="button ghost" style="width:100%;margin-top:18px" ${exit}>${t('Guardar progreso y salir del libro')}</button></footer></div>`;
 }
 
@@ -2198,7 +2195,7 @@ function commBar() {                                    // quien ve todo elige c
 }
 function modView(sub) {
   if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">' + t('Volver') + '</a>')}</main>`;
-  const books = pendingBooks().filter(s => inScope(commOf(s.owner))).reverse(), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, npo = pendingPosts().length, tabs = commBar() + `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log', 'posts', 'gifts'].includes(sub) ? '' : 'active'}" href="#/moderation">${t('📚 Libros')} (${books.length})</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">${t('🚩 Reportes')}${nr ? ` (${nr})` : ''}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">${t('👥 Cuentas')}${nacc ? ` (${nacc})` : ''}</a>${canBan() ? `<a class="tab ${sub === 'posts' ? 'active' : ''}" href="#/moderation/posts">${t('📣 Publicaciones')}${npo ? ` (${npo})` : ''}</a>` : ''}${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">${t('📨 Apelaciones')}${na ? ` (${na})` : ''}</a>` : ''}${isOwner() ? `<a class="tab ${sub === 'gifts' ? 'active' : ''}" href="#/moderation/gifts">${t('🎁 Regalos')}</a><a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">${t('📋 Registro')}</a>` : ''}</div>`;
+  const books = pendingBooks().filter(s => inScope(commOf(s.owner))).reverse(), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, npo = pendingPosts().length, tabs = commBar() + `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log', 'posts', 'gifts'].includes(sub) ? '' : 'active'}" href="#/moderation">${t('📚 Libros')} ${redN(books.length)}</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">${t('🚩 Reportes')} ${redN(nr)}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">${t('👥 Cuentas')} ${redN(nacc)}</a>${canBan() ? `<a class="tab ${sub === 'posts' ? 'active' : ''}" href="#/moderation/posts">${t('📣 Publicaciones')} ${redN(npo)}</a>` : ''}${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">${t('📨 Apelaciones')} ${redN(na)}</a>` : ''}${isOwner() ? `<a class="tab ${sub === 'gifts' ? 'active' : ''}" href="#/moderation/gifts">${t('🎁 Regalos')}</a><a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">${t('📋 Registro')}</a>` : ''}</div>`;
   if (sub === 'reports') return reportsView(tabs);
   if (sub === 'appeals' && canBan()) return appealsView(tabs);
   if (sub === 'accounts') return accountsView(tabs);
@@ -2281,7 +2278,6 @@ function openReportFor(type, o) {
     if (reportsAll().some(r => r.by === S.user && r.type === type && r.sid === o.sid && String(r.cid || '') === String(o.cid || '') && r.target === o.target && (r.status || 'open') === 'open')) { m.remove(); return toast('Ya reportaste esto: el equipo lo está revisando.'); }
     if (modCloud()) { const bt = m.querySelector('[data-send]'); bt.disabled = true; modReport({ type, imgs, sid: o.sid || '', cid: o.cid || '', ci: o.ci, target: o.target || '', owner: o.owner || '', title: o.title || '', excerpt: String(o.excerpt || '').slice(0, 200), reasons, text, label: o.label || '' }).then(e => { if (e) { bt.disabled = false; m.querySelector('[data-err]').textContent = e; return; } m.remove(); toast(t('Gracias, recibimos tu reporte ✓')); }); return; }
     if (!G.set('reports', [{ id: Date.now(), by: S.user, type, imgs, sid: o.sid || '', cid: o.cid || '', ci: o.ci, target: o.target || '', owner: o.owner || '', title: o.title || '', excerpt: String(o.excerpt || '').slice(0, 200), reasons, text, date: today(), status: 'open' }, ...reportsAll()])) { m.querySelector('[data-err]').textContent = t('No se pudo guardar el reporte (las imágenes pesan demasiado). Prueba con menos imágenes.'); return; }
-    staffFor(commOf(accOf(o) || S.user)).filter(e => e !== S.user).forEach(e => pushNotif(e, { type: 'sys', extra: 'Nuevo reporte por revisar: {l}', xv: { l: o.label }, href: '#/moderation/reports' }));
     m.remove(); toast(t('Gracias, recibimos tu reporte ✓'));
   };
   document.body.appendChild(m);
@@ -2346,7 +2342,7 @@ function reportCard(r) {
     : ty === 'reclass' ? `<div class="rp-ctx"><b>${esc(r.title || (s && s.title) || t('Obra'))}</b> · ${t('por {a}', { a: esc(uName(owner)) })}<div class="helper">${t('La autoría pide quitar la marca +18 de una obra publicada.')} ${s ? (s.mature ? t('Ahora está marcada +18.') : t('Ya no está marcada +18.')) : t('La obra ya no está disponible.')}</div></div>`
     : ty === 'comment' || ty === 'pcomment' ? `<div class="rp-ctx">${t('{n} escribió: “{x}”', { n: '<b>' + esc(uName(owner)) + '</b>', x: esc(r.excerpt || '') })}${ty === 'comment' && r.sid && !comments(r.sid).some(c => String(c.id) === String(r.cid)) ? '<div class="helper">' + t('Ese comentario ya no existe.') + '</div>' : ''}</div>`
     : ty === 'user' ? `<div class="rp-ctx"><b>${esc(uName(r.target))}</b></div>` : '';
-  const link = (ty === 'story' || ty === 'reclass') && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}" data-dir="next">${t('📖 Ir a la obra')}</a>` : ty === 'comment' && s ? `<button class="button secondary sm" data-act="rp-comments" data-id="${esc(r.sid)}">${t('📖 Ir al comentario')}</button>` : ty === 'pcomment' && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}/${(+r.ci || 0) + 1}" data-dir="next">${t('📖 Ir al párrafo')}</a>` : '';
+  const link = (ty === 'story' || ty === 'reclass') && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}" data-dir="next">${t('📖 Ir a la obra')}</a>` : ty === 'comment' && s ? `<button class="button secondary sm" data-act="rp-comments" data-id="${esc(r.sid)}" data-cid="${esc(r.cid == null ? '' : r.cid)}">${t('📖 Ir al comentario')}</button>` : ty === 'pcomment' && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}/${(+r.ci || 0) + 1}" data-dir="next">${t('📖 Ir al párrafo')}</a>` : '';
   const who = ty === 'user' ? r.target : owner;
   return `<article class="panel rp ${open ? '' : 'done'}"><div class="rp-head"><span class="pill">${t(RTYPE[ty])}</span><span class="helper">${esc(fmtDate(r.date) || r.date)} · ${t('reporta {n}', { n: esc(uName(r.by)) })}</span></div>${ctx}
   ${(r.reasons || []).length ? `<div class="tags rp-why">${r.reasons.map(x => `<span class="tag">${esc(t(x))}</span>`).join('')}</div>` : ''}${r.text ? `<p class="rp-text">${esc(r.text)}</p>` : ''}${repImgs(r)}
@@ -2627,10 +2623,10 @@ function cmRow(x, s, sub, extra = '') {
     ${EDITC === x.id ? `<textarea id="c-edit-text" class="textarea" style="min-height:70px;margin-top:6px" maxlength="300">${esc(x.text)}</textarea><div class="c-actions"><button class="button sm" data-act="c-save" data-id="${esc(s.id)}" data-cid="${x.id}">${t('Guardar')}</button><button class="button ghost sm" data-act="c-cancel">${t('Cancelar')}</button></div>` : `<div class="c-text">${esc(x.text)}</div>`}</div>
     ${EDITC === x.id ? '' : `<div class="c-actions"><button type="button" class="c-heart ${liked ? 'on' : ''}" data-act="c-like" data-id="${esc(s.id)}" data-cid="${x.id}" aria-pressed="${liked}" aria-label="${esc(liked ? t('Quitar me gusta') : t('Me gusta'))}">${HEART}<span class="c-n">${lk.length || ''}</span></button><button type="button" class="c-act" data-act="c-reply" data-top="${top}" data-pre="${sub ? esc('@' + uName(x.by) + ' ') : ''}">${ICO_REPLY}${t('Responder')}</button>${authLike(x, s)}</div>`}${extra}</div></div>`;
 }
-function commentsHTML(s) {
-  const all = comments(s.id).filter(c => !hidesFrom(c.by)), tops = all.filter(c => !c.parent);
+function commentsHTML(s, ci = 0) {
+  const all = comments(s.id, ci).filter(c => !hidesFrom(c.by)), tops = all.filter(c => !c.parent);
   return `<section class="panel" style="margin-top:20px"><h2>${t('Comentarios ({n})', { n: all.length })}</h2>
-  ${isGuest() ? guestCompose('comentar') : ''}<form data-form="comment" data-id="${esc(s.id)}" class="c-compose" ${isGuest() ? 'style="display:none"' : ''}>${userAvatar(S.user)}<div class="c-pill"><input id="c-text" maxlength="300" placeholder="${esc(t('Escribe un comentario…'))}" aria-label="${esc(t('Escribe un comentario'))}" autocomplete="off"><button class="c-send" type="submit" aria-label="${esc(t('Enviar comentario'))}">${ICO_SEND}</button></div></form>
+  ${isGuest() ? guestCompose('comentar') : ''}<form data-form="comment" data-id="${esc(s.id)}" data-ch="${ci}" class="c-compose" ${isGuest() ? 'style="display:none"' : ''}>${userAvatar(S.user)}<div class="c-pill"><input id="c-text" maxlength="300" placeholder="${esc(t('Escribe un comentario…'))}" aria-label="${esc(t('Escribe un comentario'))}" autocomplete="off"><button class="c-send" type="submit" aria-label="${esc(t('Enviar comentario'))}">${ICO_SEND}</button></div></form>
   ${tops.length ? tops.map(x => {
     const reps = all.filter(r => r.parent === x.id), open = REPOPEN.has(x.id);
     const rf = REPLYTO === x.id ? `<form data-form="reply" data-id="${esc(s.id)}" data-cid="${x.id}" class="c-replyform">${userAvatar(S.user)}<div class="c-pill"><input id="c-reply-text" maxlength="300" value="${esc(REPLYPRE)}" placeholder="${esc(t('Escribe una respuesta…'))}" aria-label="${esc(t('Tu respuesta'))}" autocomplete="off"><button class="c-send" type="submit" aria-label="${esc(t('Enviar respuesta'))}">${ICO_SEND}</button></div><button type="button" class="c-act" data-act="c-reply-cancel">${t('Cancelar')}</button></form>` : '';
@@ -2651,7 +2647,14 @@ function profileHero(e, own) {
     <div class="pf-stats4">${stat(followers(e).length, t('Seguidores'))}${stat(likesReceived(e), t('Likes'))}${stat(pubs.length, t('Libros'))}${stat(following(e).length, t('Siguiendo'))}</div></div></section>`;
 }
 const worksGrid = list => list.length ? `<div class="story-grid">${list.map(storyCard).join('')}</div>` : empty('Aún no hay obras publicadas', 'Cuando se publique una historia aparecerá aquí.', '<a class="button secondary" href="#/write">' + t('Escribir una historia') + '</a>');
-const profileExtras = () => isStaff() ? `<section class="panel" style="margin-top:22px"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>${t('🛡 Moderación')}</strong><div class="helper">${t('Capítulos por revisar')}${pendingBooks().length ? ' (' + tn(pendingBooks().length, '{n} libro', '{n} libros') + ')' : ''}. ${t('Reportes abiertos: {n}.', { n: openReports() })}</div></div><a class="button secondary" href="#/moderation${openReports() && !pendingBooks().length ? '/reports' : ''}">${t('Abrir')}</a></div></section>` : '';
+/** Pendientes del equipo: libros por revisar, reportes, cuentas, publicaciones y apelaciones (cada tipo según lo que esa persona puede ver) */
+function modCounts() {
+  if (!isStaff()) return { books: 0, reports: 0, accounts: 0, posts: 0, appeals: 0, total: 0 };
+  const c = { books: pendingBooks().filter(s => inScope(commOf(s.owner))).length, reports: openReports(), accounts: accRows().filter(a => a.open).length, posts: canBan() ? pendingPosts().length : 0, appeals: canBan() ? openAppeals() : 0 };
+  return { ...c, total: c.books + c.reports + c.accounts + c.posts + c.appeals };
+}
+const redN = n => n > 0 ? `<b class="nbadge" aria-label="${esc(t('{n} por revisar', { n }))}">${n > 99 ? '99+' : n}</b>` : '';
+const profileExtras = () => isStaff() ? `<section class="panel" style="margin-top:22px"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>${t('🛡 Moderación')}</strong> ${redN(modCounts().total)}<div class="helper">${t('Capítulos por revisar')}${pendingBooks().length ? ' (' + tn(pendingBooks().length, '{n} libro', '{n} libros') + ')' : ''}. ${t('Reportes abiertos: {n}.', { n: openReports() })}</div></div><a class="button secondary" href="#/moderation${openReports() && !pendingBooks().length ? '/reports' : ''}">${t('Abrir')}</a></div></section>` : '';
 function readersOf(sid, owner) {
   const us = LS.get('auri.users', {}), out = [];
   for (const e in us) { if (e === owner) continue; const p = LS.get('auri.u.' + e + '.progress', {})[sid], r = Array.isArray(p) ? p : p ? [0] : [];
@@ -2949,7 +2952,10 @@ function sysNotif(n) {
     ${n.done ? `<div class="helper"><b>${n.done === 'accepted' ? t('✓ Aceptaste la invitación') : t('Rechazaste la invitación')}</b></div>` : `<div class="inv-btns"><button class="button sm" data-act="inv-accept" data-nid="${esc(n.id)}">${tx('Aceptar', 'inv')}</button><button class="button ghost sm" data-act="inv-decline" data-nid="${esc(n.id)}">${tx('Rechazar', 'inv')}</button></div>`}</div></div>`;
   return n.href ? `<a class="${cls}" href="${esc(n.href)}"><span class="sys-ic">🛡</span><div>${esc(t(n.extra, n.xv))}${d}</div></a>` : `<div class="${cls}"><span class="sys-ic">🛡</span><div>${esc(t(n.extra, n.xv))}${d}</div></div>`;
 }
-const notifItem = n => SYS_T.includes(n.type) ? sysNotif(n) : `<a class="notif ${n.read ? '' : 'new'}" href="${esc(notifHref(n))}">${userAvatar(n.from)}<div><strong>${esc(['approved', 'rejected'].includes(n.type) ? t('Moderación') : uName(n.from))}</strong> ${notifWhat(n)}<div class="helper">${esc(fmtDate(n.date))}</div></div></a>`;
+/** Aviso de capítulo nuevo: portada pequeña del libro (en vez de la foto de quien publica), para que el aviso no crezca */
+function notifCover(n) { const st = findStory(n.storyId), cv = st && st.cover && (safeImg(st.cover) || /^https?:\/\//i.test(st.cover)) ? st.cover : '';
+  return `<span class="notif-cv">${cv ? `<img src="${esc(cv)}" alt="" loading="lazy">` : `<i>${esc(((st && st.title) || '📖').trim().charAt(0).toUpperCase() || '📖')}</i>`}</span>`; }
+const notifItem = n => SYS_T.includes(n.type) ? sysNotif(n) : `<a class="notif ${n.read ? '' : 'new'}" href="${esc(notifHref(n))}">${n.type === 'chapter' ? notifCover(n) : userAvatar(n.from)}<div><strong>${esc(['approved', 'rejected'].includes(n.type) ? t('Moderación') : uName(n.from))}</strong> ${notifWhat(n)}<div class="helper">${esc(fmtDate(n.date))}</div></div></a>`;
 /** Ventanita superpuesta (no cambia de pantalla) con botón X; al abrirla se marcan como leídas */
 function notifPop() {
   const k = 'auri.notifs.' + S.user, list = LS.get(k, []);
@@ -3302,7 +3308,7 @@ document.addEventListener('click', e => {
     'report-user': () => openReportFor('user', { target: id, owner: id, label: t('a {n}', { n: uName(id) }) }),
     'rp-filter': () => { RFILT = id; KEEP = true; render(); },
     'rp-done': () => rpSet(id, 'resolved'), 'rp-dismiss': () => rpSet(id, 'dismissed'), 'rp-reopen': () => rpSet(id, 'open'),
-    'rp-comments': () => { go('/story/' + id); setTimeout(() => { SHOWC = true; KEEP = true; render(); }, 60); },
+    'rp-comments': () => { const cm = comments(id).find(x => String(x.id) === String(el.dataset.cid)); go('/story/' + id + '/' + (((cm && cm.ch) | 0) + 1)); setTimeout(() => { SHOWC = true; KEEP = true; render(); }, 60); },
     'rp-delcomment': () => { if (!isStaff()) return; confirmBox(t('¿Eliminar este comentario por incumplir las normas?'), () => { updateComments(id, l => l.filter(c => String(c.id) !== el.dataset.cid && String(c.parent) !== el.dataset.cid)); logAction('del-comment', id, el.dataset.cid); KEEP = true; render(); }); },
     'td-on': () => { if (!isStaff()) return; dialog(t('¿Retirar esta obra de Descubrir?'), t('Nadie más podrá encontrarla ni leerla hasta que se restaure. Se avisará a su autoría.'), t('Retirar'), t('Cancelar'), () => { const s0 = findStory(id); G.set('takedown', [...takedown().filter(x => x !== id), id]); sbTakedown(id, true); logAction('takedown', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «{n}» fue retirada de Descubrir por moderación. Si crees que fue un error, escribe a la administración.', xv: { n: s0.title } }); toast(t('Obra retirada de Descubrir')); KEEP = true; render(); }, true); },
     'td-off': () => { if (!isStaff()) return; G.set('takedown', takedown().filter(x => x !== id)); sbTakedown(id, false); const s0 = findStory(id); logAction('restore', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «{n}» volvió a estar visible en Descubrir.', xv: { n: s0.title } }); toast(t('Obra restaurada ✓')); KEEP = true; render(); },
@@ -3482,11 +3488,11 @@ document.addEventListener('submit', async e => {
   }
   if (kind === 'reply') {
     const t = (($('#c-reply-text') || {}).value || '').trim(), sid = form.dataset.id, top = +form.dataset.cid, s0 = findStory(sid), parent = comments(sid).find(c => c.id === top); if (!t || !s0 || !parent) return;
-    updateComments(sid, l => [...l, { id: Date.now(), by: S.user, text: t.slice(0, 300), date: today(), parent: top }]);
+    updateComments(sid, l => [...l, { id: Date.now(), by: S.user, text: t.slice(0, 300), date: today(), parent: top, ...((parent.ch | 0) > 0 ? { ch: parent.ch | 0 } : {}) }]);
     notify(parent.by, 'reply', sid, t.slice(0, 80)); if (s0.owner && s0.owner !== parent.by) notify(s0.owner, 'comment', sid, t.slice(0, 80));
     REPLYTO = null; REPLYPRE = ''; REPOPEN.add(top); KEEP = true; return render();
   }
-  if (kind === 'comment') { const t = $('#c-text').value.trim(); if (!t) return; addComment(findStory(form.dataset.id), t); KEEP = true; return render(); }
+  if (kind === 'comment') { const t = $('#c-text').value.trim(); if (!t) return; addComment(findStory(form.dataset.id), t, +form.dataset.ch || 0); KEEP = true; return render(); }
   if (kind === 'cr-poll') {
     if (!canNews()) return; const L = crAll(); if (L.length >= 6) return toast(t('Máximo 6 tarjetas manuales: elimina alguna.'));
     const q = v('#cp-q').trim(), opts = [...document.querySelectorAll('.cp-o')].map(x => x.value.trim()).filter(Boolean).slice(0, 6), ends = v('#cp-end');

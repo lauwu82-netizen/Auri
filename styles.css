@@ -984,3 +984,12 @@ a.icon-btn.bell{position:relative}
 .poll-row.mine .poll-bar{background:hsl(var(--primary)/.25)}
 .poll-t,.poll-row b{position:relative;z-index:1}
 .poll-t{font-weight:600;color:var(--title);overflow-wrap:anywhere}
+.notif-cv{flex:none;width:34px;height:46px;border-radius:7px;overflow:hidden;display:grid;place-items:center;background:linear-gradient(140deg,#c9a8f0,#8c5fc1);box-shadow:0 3px 8px rgba(60,30,100,.25);color:#fff;font-weight:700;font-size:16px}
+.notif-cv img{display:block;width:100%;height:100%;object-fit:cover}
+.notif-cv i{font-style:normal}
+/* 32. CONTADOR ROJO DE PENDIENTES (equipo) ------------------------------ */
+.nbadge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;margin-left:2px;border-radius:99px;background:#e0314f;color:#fff;font:700 11px/1 var(--sans);vertical-align:middle;box-shadow:0 0 0 2px hsl(var(--card))}
+.tab .nbadge{box-shadow:none}
+.av-wrap{position:relative;display:inline-flex}
+.bn-ic{position:relative;display:inline-grid}
+.bn-ic .badge{top:-5px;right:-9px}
