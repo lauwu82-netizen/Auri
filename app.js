@@ -706,10 +706,11 @@ async function sbSyncOwn() {
 /* ---------- Revisión automática con IA (primer filtro) ----------
    Después de subir un capítulo que queda "pending", la app le pide a la función «moderate-chapter» que lo revise en el servidor.
    Limpio → la base de datos lo aprueba y se publica; marcado → sigue oculto para moderación. Si algo falla, el capítulo simplemente sigue pendiente. */
-const AI_RUN = new Set();
+const AI_RUN = new Set(), AI_FNS = ['bright-handler', 'moderate-chapter'];      // nombre de la función en Supabase (se prueba cada uno hasta que uno exista)
+let AI_FN = '';
 function sbAiScan(out) {
   if (!cloud() || !sbSes() || !S.user || isGuest()) return;
-  const K = uk('aiseen'), seen = LS.get(K, {}), now = Date.now(), todo = [];
+  const K = uk('aiseen2'), seen = LS.get(K, {}), now = Date.now(), todo = [];
   out.forEach(l => { const su = sUuid(l.id); if (!su) return; l.chapters.forEach(c => {
     if (c.status !== 'pending') return; const cu = cUuid(l.id, c.id); if (!cu || AI_RUN.has(cu)) return;
     const sig = contSig(c) + '|' + (l.mature ? 1 : 0), sn = seen[cu]; if (sn && sn.sig === sig && (sn.ok || now < sn.retry)) return;
@@ -719,7 +720,11 @@ function sbAiScan(out) {
 }
 async function sbAiCheck(x, K) {
   const s0 = S.stories.find(v => v.id === x.sid), before = s0 ? publicPrefix(s0.chapters).length : 0;
-  let r; try { r = await sbApi('/functions/v1/moderate-chapter', { method: 'POST', body: { chapter_id: x.cu } }); } catch (e) { r = { ok: false }; }
+  let r = { ok: false };
+  for (const fn of (AI_FN ? [AI_FN] : AI_FNS)) {
+    try { r = await sbApi('/functions/v1/' + fn, { method: 'POST', body: { chapter_id: x.cu } }); } catch (e) { r = { ok: false }; }
+    if (r.status !== 404) { if (r.ok) AI_FN = fn; break; }
+  }
   AI_RUN.delete(x.cu); const seen = LS.get(K, {});
   if (r.ok && r.data && r.data.result) {
     seen[x.cu] = { sig: x.sig, ok: true }; LS.set(K, seen); const res = r.data.result;

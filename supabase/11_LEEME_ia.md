@@ -13,7 +13,7 @@ En Supabase → **SQL Editor** → consulta nueva → pega todo `11_ia_moderacio
 
 ## Paso 3 · La función en Supabase
 1. En Supabase → **Edge Functions** → **Deploy a new function** → **Via Editor**.
-2. Nombre exacto: `moderate-chapter`.
+2. Nombre: puede ser `moderate-chapter` o el que Supabase proponga (por ejemplo `bright-handler`): la app prueba ambos.
 3. Borra el código de ejemplo y pega todo `functions/moderate-chapter/index.ts`.
 4. Deja activada la opción **Verify JWT** (viene así por defecto). **Deploy**.
 5. En **Edge Functions → Secrets** agrega:
