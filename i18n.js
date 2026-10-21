@@ -1445,5 +1445,8 @@ window.I18N = { en: {
  "Encuesta publicada en el banner": "Poll published in the banner",
  "Esa encuesta ya no está disponible.": "That poll is no longer available.",
  "Esa encuesta no está disponible para tu comunidad.": "That poll isn't available for your community.",
- "{n} por revisar": "{n} to review"
+ "{n} por revisar": "{n} to review",
+  'Listo': 'Done',
+  'Ese comentario ya no está.': 'That comment is no longer there.',
+  'Continuar mi progreso': 'Continue my progress',
 } };

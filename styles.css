@@ -993,3 +993,16 @@ a.icon-btn.bell{position:relative}
 .av-wrap{position:relative;display:inline-flex}
 .bn-ic{position:relative;display:inline-grid}
 .bn-ic .badge{top:-5px;right:-9px}
+
+/* 33. ESCRIBIR CON TECLADO, COMENTARIO RESALTADO Y BOTÓN "CONTINUAR MI PROGRESO" */
+.wf-done{display:none}
+.wf.typing{padding-bottom:calc(var(--kb,0px) + 96px)}
+.wf.typing .wf-bottom{display:none}
+.wf.typing [data-act="preview"]{display:none}
+.wf.typing .wf-done{display:inline-flex}
+.wf-text{overflow-anchor:none;scroll-margin-bottom:120px}
+.comment.cm-hl .c-bubble{animation:cmHl 3.2s ease-out;box-shadow:0 0 0 2px hsl(var(--primary)/.7),0 8px 22px hsl(var(--primary)/.28)}
+@keyframes cmHl{0%{box-shadow:0 0 0 0 hsl(var(--primary)/.0)}12%{box-shadow:0 0 0 3px hsl(var(--primary)),0 0 26px hsl(var(--primary)/.55)}100%{box-shadow:0 0 0 2px hsl(var(--primary)/.0),0 0 0 hsl(var(--primary)/0)}}
+.comment.cm-hl .c-bubble{background:hsl(var(--primary)/.16)}
+.resume-fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:60;max-width:min(92vw,420px);white-space:nowrap;box-shadow:0 10px 28px rgba(112,69,172,.45);animation:popIn .3s ease-out}
+@media(prefers-reduced-motion:reduce){.comment.cm-hl .c-bubble{animation:none}}

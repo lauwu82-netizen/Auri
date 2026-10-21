@@ -409,8 +409,8 @@ function toggleLike(s) {
   if (!was) notify(s.owner, 'like', s.id);
 }
 function addComment(s, text, ci) {
-  const all = G.get('comments', {}); (all[s.id] = all[s.id] || []).push({ id: Date.now(), by: S.user, text, date: today(), ...(ci > 0 ? { ch: ci } : {}) });
-  G.set('comments', all); notify(s.owner, 'comment', s.id, text.slice(0, 80));
+  const all = G.get('comments', {}), id = Date.now(); (all[s.id] = all[s.id] || []).push({ id, by: S.user, text, date: today(), ...(ci > 0 ? { ch: ci } : {}) });
+  G.set('comments', all); notify(s.owner, 'comment', s.id, text.slice(0, 80), `${(ci | 0) + 1}:${id}`);
 }
 /** Recorta la foto al centro en cuadrado y la reduce (ahorra localStorage) */
 /** Recorta al centro con "cover" (llena w×h sin deformar) y reduce; guarda como JPEG para ahorrar espacio */
@@ -1872,7 +1872,7 @@ function chapterView(cid) {
   if (WPREVIEW) return `<div class="rf"><header class="rf-top"><button class="button ghost sm" data-act="back-edit">${t('‹ Volver a escribir')}</button><div class="rf-title">${t('Vista previa · Cap. {n}', { n: i + 1 })}</div><span style="width:44px"></span></header>
   <article class="rf-body">${chHero(ch)}<h1 class="rf-h">${esc(ch.title)}</h1>${readerText(ch.text || t('Aquí aparecerá el texto de tu capítulo.'), W.useReaderCharacter)}</article></div>`;
   return `<div class="wf"><header class="wf-top"><button class="button ghost sm" data-act="ch-list" aria-label="${esc(t('Guardar y salir a la lista de capítulos'))}">✕ ${t('Salir')}</button>
-  <span class="grow">${t('Cap. {i} de {n}', { i: i + 1, n })} · <span class="pill st-${st}">${t(CH_STATUS[st])}</span> <span id="w-saved"></span></span><button class="button secondary sm" data-act="preview">${t('Vista previa')}</button></header>
+  <span class="grow">${t('Cap. {i} de {n}', { i: i + 1, n })} · <span class="pill st-${st}">${t(CH_STATUS[st])}</span> <span id="w-saved"></span></span><button class="button secondary sm" data-act="preview">${t('Vista previa')}</button><button class="button sm wf-done" data-act="kb-done">${t('Listo')}</button></header>
   ${st === 'rejected' && ch.reason ? `<p class="notice">${t('Rechazado: {reason}', { reason: esc(ch.reason) })}</p>` : ''}${ch.live ? `<p class="notice">${t('Mientras se revisa esta edición, los lectores siguen viendo la versión aprobada anterior.')}</p>` : ''}
   ${chCoverBox(ch)}
   <input id="w-ch-title" class="wf-title" data-cid="${ch.id}" value="${esc(ch.title)}" placeholder="${esc(t('Título del capítulo'))}">
@@ -2163,7 +2163,7 @@ function chapterRead(s, N) {
   <footer class="rf-end"><div class="ch-nav">${before ? `<a class="button secondary" data-replace data-dir="prev" href="#/story/${esc(s.id)}/${before.idx + 1}">${t('‹ Anterior')}</a>` : '<span></span>'}<button class="button" data-act="read" data-id="${esc(s.id)}" data-n="${ch.idx}">${read.includes(ch.idx) ? t('Leído ✓') : t('Marcar como leído')}</button>${after ? `<a class="button secondary" data-replace data-dir="next" href="#/story/${esc(s.id)}/${after.idx + 1}">${t('Siguiente ›')}</a>` : '<span></span>'}</div>
   <label class="helper" style="display:flex;align-items:center;gap:8px;margin-top:16px">${t('Ir a')} <select id="ch-sel" class="select" aria-label="${esc(t('Elegir capítulo'))}">${s.chapters.map(c => `<option value="${c.idx + 1}" ${c === ch ? 'selected' : ''}>${read.includes(c.idx) ? '✓ ' : ''}${esc(c.title || t('Capítulo {n}', { n: c.idx + 1 }))}${mine && c.status !== 'approved' ? ` (${t(CH_STATUS[c.status]).toLowerCase()})` : ''}</option>`).join('')}</select></label>
   <button class="button secondary" style="width:100%;margin-top:14px" data-act="comments">💬 ${SHOWC ? t('Ocultar comentarios') : t('Comentarios ({n})', { n: nc })}</button>${SHOWC ? `<div id="comments">${commentsHTML(s, ch.idx)}</div>` : ''}
-  <button class="button ghost" style="width:100%;margin-top:18px" ${exit}>${t('Guardar progreso y salir del libro')}</button></footer></div>`;
+  <button class="button ghost" style="width:100%;margin-top:18px" ${exit}>${t('Guardar progreso y salir del libro')}</button></footer>${VISIT && VISIT.sid === s.id && VISIT.pos && VISIT.pos.idx > ch.idx ? `<button class="button resume-fab" data-act="resume-read" data-id="${esc(s.id)}">${t('Continuar mi progreso')} · ${t('Cap. {n}', { n: VISIT.pos.idx + 1 })} ›</button>` : ''}</div>`;
 }
 
 /* --- Moderación por capítulo (solo la cuenta dueña) --- */
@@ -2935,7 +2935,7 @@ function newsView(nid) {
     <div class="news-acts"><a class="button secondary sm" href="#/news/${n.id}" data-dir="next">${t('Leer publicación')}</a>${ownsPost(n) ? `${canEditPost(n) ? `<button class="button secondary sm" data-act="news-edit" data-id="${n.id}">${t('Editar')}</button>` : ''}<button class="button danger sm" data-act="news-del" data-id="${n.id}">${t('Eliminar')}</button>` : ''}</div></div>${cv ? `<img class="news-thumb" src="${esc(cv)}" alt="" loading="lazy">` : ''}</article>`; }).join('') : empty('Aún no hay noticias', pub ? 'Publica tu primer anuncio arriba.' : 'Aquí aparecerán las actualizaciones y eventos de Auri.')}</main>`;
 }
 
-const notifHref = n => n.type === 'chapter' ? '#/story/' + n.storyId + '/' + n.extra : n.type === 'follow' ? '#/user/' + encodeURIComponent(n.from) : n.type === 'review' ? '#/moderation' : n.type === 'rejected' ? '#/write/' + n.storyId + '/chapters' : '#/story/' + n.storyId;
+const notifHref = n => n.type === 'chapter' ? '#/story/' + n.storyId + '/' + n.extra : n.type === 'follow' ? '#/user/' + encodeURIComponent(n.from) : n.type === 'review' ? '#/moderation' : n.type === 'rejected' ? '#/write/' + n.storyId + '/chapters' : ['reply', 'comment', 'clike'].includes(n.type) && /^\d+:\d*$/.test(n.chap || '') ? '#/story/' + n.storyId + '/' + n.chap.split(':')[0] + (n.chap.split(':')[1] ? '/c-' + n.chap.split(':')[1] : '') : '#/story/' + n.storyId;
 /* --- Notificaciones --- */
 const notifWhat = n => { const ti = esc((findStory(n.storyId) || {}).title || t('una obra eliminada')), x = esc(n.type === 'comment' ? (String(n.extra).startsWith('en un párrafo: ') ? t('en un párrafo: ') + String(n.extra).slice(15) : t(n.extra)) : n.extra), c = esc(n.chap), V = { ti, x, c };
   const chap = /^\d+ cap/.test(n.chap) ? t('{n} capítulos nuevos', { n: parseInt(n.chap, 10) }) : t('el capítulo «{c}»', V);
@@ -3033,13 +3033,51 @@ const go = p => { location.hash = '#' + p; if (location.hash === '#' + p) render
 const goReplace = p => { if (location.replace) location.replace('#' + p); else location.hash = '#' + p; };   // no apila historial: "atrás" sale del libro
 /* Progreso de lectura: capítulo + posición de scroll por historia */
 const scrollPct = () => { const de = document.documentElement, max = Math.max(1, (de.scrollHeight || 0) - (window.innerHeight || 0)); return Math.min(1, Math.max(0, (window.scrollY || 0) / max)); };
-function savePos(sid, idx, pct) { S.pos = { ...S.pos, [sid]: { idx, pct } }; LS.set(uk('pos'), S.pos); }
+let VISIT = null, HLC = '';                            // VISIT: vienes de un aviso a un comentario de un capítulo anterior: el progreso no retrocede
+function savePos(sid, idx, pct) { if (VISIT && VISIT.sid === sid && VISIT.pos && idx < VISIT.pos.idx) return; S.pos = { ...S.pos, [sid]: { idx, pct } }; LS.set(uk('pos'), S.pos); }
 const saveReadPos = (sid, idx) => savePos(sid, idx, scrollPct());
 function restoreReadPos(sid, idx) {
   const p = (S.pos || {})[sid];
   if (p && p.idx === idx && p.pct > 0.02) setTimeout(() => { const de = document.documentElement; window.scrollTo(0, p.pct * Math.max(1, (de.scrollHeight || 0) - (window.innerHeight || 0))); }, 40);
 }
-function autoGrow() { const t = $('#w-ch-text'); if (t && t.style && t.scrollHeight) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; } }
+function autoGrow() {                                  // el cuadro crece con el texto; se conserva el scroll para que la pantalla no salte
+  const t = $('#w-ch-text'); if (!t || !t.style || !t.scrollHeight) return;
+  const y = window.scrollY || 0; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px';
+  if ((window.scrollY || 0) !== y) window.scrollTo(0, y);
+}
+/** Altura (px, desde el borde de arriba del cuadro) a la que está el borde de abajo de la línea del cursor: se mide con una copia invisible del texto */
+function caretBottom(ta) {
+  const cs = getComputedStyle(ta), m = document.createElement('div');
+  ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight', 'wordSpacing', 'textIndent', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'boxSizing', 'tabSize'].forEach(k => { m.style[k] = cs[k]; });
+  m.style.position = 'absolute'; m.style.visibility = 'hidden'; m.style.left = '-9999px'; m.style.top = '0'; m.style.whiteSpace = 'pre-wrap'; m.style.overflowWrap = 'break-word'; m.style.width = ta.getBoundingClientRect().width + 'px';
+  m.textContent = ta.value.slice(0, ta.selectionStart || 0); const sp = document.createElement('span'); sp.textContent = '​'; m.appendChild(sp); document.body.appendChild(m);
+  const y = sp.offsetTop + sp.offsetHeight; m.remove(); return y;
+}
+/** La pantalla sigue al cursor: si queda tapado por el teclado (o pegado arriba), se desliza lo justo para verlo con un poco de aire */
+let FOLLOWQ = 0;
+function followCaret() {
+  cancelAnimationFrame(FOLLOWQ);
+  FOLLOWQ = requestAnimationFrame(() => {
+    const ta = $('#w-ch-text'); if (!ta || document.activeElement !== ta) return;
+    const vv = window.visualViewport, vt = vv ? vv.offsetTop : 0, vh = vv ? vv.height : window.innerHeight;
+    const lh = parseFloat(getComputedStyle(ta).lineHeight) || 32, y = ta.getBoundingClientRect().top + caretBottom(ta);
+    const bottom = vt + vh - lh * 1.5, top = vt + 64 + lh;
+    if (y > bottom) window.scrollBy(0, y - bottom); else if (y < top) window.scrollBy(0, y - top);
+  });
+}
+let TYPEOFF = 0;
+function setTyping(on) {
+  const w = document.querySelector('.wf'); if (!w) return; clearTimeout(TYPEOFF);
+  if (on) { w.classList.add('typing'); kbVar(); } else TYPEOFF = setTimeout(() => { w.classList.remove('typing'); w.style.removeProperty('--kb'); }, 280);
+}
+function kbVar() {
+  const w = document.querySelector('.wf'), vv = window.visualViewport; if (!w) return;
+  w.style.setProperty('--kb', (vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0) + 'px');
+}
+document.addEventListener('focusin', e => { if (e.target.id === 'w-ch-text') { setTyping(true); setTimeout(followCaret, 120); setTimeout(followCaret, 420); setTimeout(followCaret, 800); } });
+document.addEventListener('focusout', e => { if (e.target.id === 'w-ch-text') setTyping(false); });
+document.addEventListener('selectionchange', () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') followCaret(); });
+if (window.visualViewport) { const f = () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { kbVar(); followCaret(); } }; window.visualViewport.addEventListener('resize', f); window.visualViewport.addEventListener('scroll', f); }
 /* --- Transiciones suaves entre pantallas (CSS + un poco de JS) --- */
 let NAVDIR = '';                                       // 'next' | 'prev' | '' → desliza hacia la derecha, hacia la izquierda o solo desvanece
 const BARS = {};                                       // último % mostrado de cada barra, para que se llenen con animación
@@ -3108,7 +3146,9 @@ function render() {
   if (S.user) S.stories = freshStories();                       // siempre lo último guardado (p. ej. estados que cambió moderación)
   const path = location.hash.slice(1) || '/', [, a, b, c, d] = path.split('/'), app = $('#app');
   const nav = path !== LASTP, dir = nav ? NAVDIR : '', from = LASTP;
-  if (nav) { SHOWC = false; LASTP = path; NAVDIR = ''; NOTIF_OPEN = false; SETDEEP = a === 'settings' && !!b && from === '/settings'; }
+  if (nav && a === 'story' && d && /^c-\d+$/.test(d)) { HLC = d.slice(2); { const c0 = comments(b).find(x => String(x.id) === HLC); if (c0) REPOPEN.add(c0.parent != null && c0.parent !== '' ? c0.parent : c0.id); } if (!VISIT || VISIT.sid !== b) VISIT = { sid: b, pos: (S.pos || {})[b] ? { ...S.pos[b] } : null }; }
+  else if (nav && (a !== 'story' || (VISIT && VISIT.sid !== b))) VISIT = null;
+  if (nav) { SHOWC = !!HLC; LASTP = path; NAVDIR = ''; NOTIF_OPEN = false; SETDEEP = a === 'settings' && !!b && from === '/settings'; }
   if (!S.user && !['login', 'register', 'signup', 'welcome', 'start'].includes(a)) return go(LS.get('auri.intro', false) ? '/start' : '/welcome');
   if (S.user && (a === 'welcome' || a === 'start' || (!isGuest() && (a === 'login' || a === 'register' || a === 'signup')))) return go('/');
   if (a === 'signup' && !QZ) return go('/register');
@@ -3141,7 +3181,8 @@ function render() {
   else if (MUSIC && (b !== MUSIC.sid || String(c || '') !== MUSIC.ch)) {   // la música es de cada capítulo: al pasar a otro se detiene (si el siguiente usa el mismo enlace, sigue sonando)
     const st = findStory(b), nx = st && c && c !== 'fin' ? st.chapters.find(x => x.idx === +c - 1) : null;
     if (nx && b === MUSIC.sid && nx.music && nx.music === MUSIC.url) MUSIC.ch = String(c); else closeMusic(); }
-  if (!KEEP) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); }
+  if (HLC) { const hid = HLC; HLC = ''; const cm0 = comments(b).find(x => String(x.id) === hid); if (cm0) { setTimeout(() => { const el = document.getElementById('cm-' + hid); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('cm-hl'); setTimeout(() => el.classList.remove('cm-hl'), 3200); } }, 120); } else toast(t('Ese comentario ya no está.')); }
+  else if (!KEEP) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); }
   KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
   if (nav && a === 'story' && c && c !== 'fin') pcHintOnce();
@@ -3317,7 +3358,7 @@ document.addEventListener('click', e => {
     block: () => dialog(t('¿Bloquear a {n}?', { n: uName(id) }), t('No verás sus comentarios ni sus obras, dejarán de seguirse y no habrá avisos entre ustedes. Puedes desbloquearla en Ajustes.'), t('Bloquear'), t('Cancelar'), () => { blockUser(id); toast(t('Cuenta bloqueada')); KEEP = true; render(); }, true),
     unblock: () => { setBM('blocked', id, false); toast(t('Desbloqueada ✓')); KEEP = true; render(); },
     'c-more': () => { const c = +el.dataset.cid; MENUC = MENUC === c ? null : c; KEEP = true; render(); },
-    'c-like': () => { const cid = +el.dataset.cid; let added = false, target = ''; updateComments(id, l => l.map(c => { if (c.id !== cid) return c; const lk = c.lk || []; added = !lk.includes(S.user); target = c.by; return { ...c, lk: added ? [...lk, S.user] : lk.filter(x => x !== S.user) }; })); if (added && target) notify(target, 'clike', id, ''); KEEP = true; render(); const hb = document.querySelector(`.c-heart[data-cid="${cid}"]`); if (hb && added) { hb.classList.add('pulse'); setTimeout(() => hb.classList.remove('pulse'), 500); } },
+    'c-like': () => { const cid = +el.dataset.cid; let added = false, target = '', cch = 0; updateComments(id, l => l.map(c => { if (c.id !== cid) return c; const lk = c.lk || []; added = !lk.includes(S.user); target = c.by; cch = c.ch | 0; return { ...c, lk: added ? [...lk, S.user] : lk.filter(x => x !== S.user) }; })); if (added && target) notify(target, 'clike', id, '', `${cch + 1}:${cid}`); KEEP = true; render(); const hb = document.querySelector(`.c-heart[data-cid="${cid}"]`); if (hb && added) { hb.classList.add('pulse'); setTimeout(() => hb.classList.remove('pulse'), 500); } },
     'c-reply': () => { REPLYTO = +el.dataset.top; REPLYPRE = el.dataset.pre || ''; REPOPEN.add(REPLYTO); KEEP = true; render(); const i = $('#c-reply-text'); if (i && i.focus) { i.focus(); if (i.setSelectionRange) i.setSelectionRange(i.value.length, i.value.length); } },
     'c-reply-cancel': () => { REPLYTO = null; REPLYPRE = ''; KEEP = true; render(); },
     'c-replies': () => { const c = +el.dataset.cid; REPOPEN.has(c) ? REPOPEN.delete(c) : REPOPEN.add(c); KEEP = true; render(); },
@@ -3365,7 +3406,7 @@ document.addEventListener('click', e => {
     'pc-more': () => { MENUC = MENUC === el.dataset.cid ? null : el.dataset.cid; paintPcList(); },
     'pc-like': () => { if (!PCS) return; const all = pcAll(), k = pcKey(PCS.sid, PCS.ci, PCS.pi), cid = el.dataset.cid; let added = false, target = '';
       all[k] = (all[k] || []).map(c => { if (String(c.id) !== cid) return c; const lk = c.lk || []; added = !lk.includes(S.user); target = c.by; return { ...c, lk: added ? [...lk, S.user] : lk.filter(x => x !== S.user) }; });
-      G.set('pcom', all); if (added && target) notify(target, 'clike', PCS.sid, ''); paintPcList(); const hb = document.querySelector(`#pc-list .c-heart[data-cid="${cid}"]`); if (hb && added) { hb.classList.add('pulse'); setTimeout(() => hb.classList.remove('pulse'), 500); } },
+      G.set('pcom', all); if (added && target) notify(target, 'clike', PCS.sid, '', `${(+PCS.ci | 0) + 1}:`); paintPcList(); const hb = document.querySelector(`#pc-list .c-heart[data-cid="${cid}"]`); if (hb && added) { hb.classList.add('pulse'); setTimeout(() => hb.classList.remove('pulse'), 500); } },
     'pc-reply': () => { PCREPLY = el.dataset.top; PCREPPRE = el.dataset.pre || ''; PCREPOPEN.add(PCREPLY); paintPcList(); const i = $('#pc-reply-text'); if (i && i.focus) { i.focus(); if (i.setSelectionRange) i.setSelectionRange(i.value.length, i.value.length); } },
     'pc-reply-cancel': () => { PCREPLY = null; PCREPPRE = ''; paintPcList(); },
     'pc-replies': () => { const c = el.dataset.cid; PCREPOPEN.has(c) ? PCREPOPEN.delete(c) : PCREPOPEN.add(c); paintPcList(); },
@@ -3422,6 +3463,8 @@ document.addEventListener('click', e => {
     'tag-search': () => { Q = Q.trim().toLowerCase() === '#' + id.toLowerCase() ? '' : '#' + id; GEN = 'All'; const i = $('#sq'); if (i) i.value = Q; if ((location.hash.slice(1) || '/') === '/') { render(); } else go('/'); },
     'tag-add': () => { const i = $('#w-tags'); if (!i) return; const cur = parseTags(i.value); if (!cur.some(t => t.toLowerCase() === id.toLowerCase())) cur.push(id); i.value = tagsText(cur); i.dispatchEvent(new Event('input', { bubbles: true })); }, tab: () => { TAB = id; render(); tabFx(); },
     delete: () => { if (confirm(t('¿Eliminar este borrador? No se puede deshacer.'))) { S.stories = S.stories.filter(s => s.id !== id); persist('stories', S.stories); render(); } },
+    'resume-read': () => { const p = VISIT && VISIT.pos; VISIT = null; if (p) { NAVDIR = 'next'; go('/story/' + id + '/' + (p.idx + 1)); } },
+    'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
     preview: () => { collect(); WPREVIEW = true; render(); }, 'back-edit': () => { WPREVIEW = false; render(); },
     'save-draft': () => saveStory(false), publish: () => saveStory(true),
@@ -3431,7 +3474,7 @@ document.addEventListener('click', e => {
   actions[act] && actions[act]();
 });
 document.addEventListener('input', e => {
-  if (e.target.id === 'w-ch-text') { $('#w-count').textContent = wc(e.target.value); autoGrow(); }
+  if (e.target.id === 'w-ch-text') { $('#w-count').textContent = wc(e.target.value); autoGrow(); followCaret(); }
   if (['w-ch-text', 'w-ch-title', 'w-ch-music'].includes(e.target.id)) {            // guardado automático mientras escribes
     const sv = $('#w-saved'); if (sv) sv.textContent = '';
     clearTimeout(ASV); ASV = setTimeout(() => { autosave(); const v = $('#w-saved'); if (v && W) v.textContent = t('Guardado ✓'); }, 1200);
@@ -3484,12 +3527,13 @@ document.addEventListener('submit', async e => {
     if (!PCS) return; const t = (($('#pc-reply-text') || {}).value || '').trim().slice(0, PC_MAX), top = form.dataset.top, s0 = findStory(PCS.sid), all = pcAll(), k = pcKey(PCS.sid, PCS.ci, PCS.pi), parent = (all[k] || []).find(c => String(c.id) === top);
     if (!t || !s0 || !parent) return;
     all[k].push({ id: Date.now() + Math.random().toString(36).slice(2, 5), by: S.user, text: t, date: today(), spoiler: false, q: PCS.q, parent: parent.id }); G.set('pcom', all);
-    notify(parent.by, 'reply', s0.id, t.slice(0, 80)); PCREPLY = null; PCREPPRE = ''; PCREPOPEN.add(parent.id); paintPcList(); return;
+    notify(parent.by, 'reply', s0.id, t.slice(0, 80), `${(+PCS.ci | 0) + 1}:`); PCREPLY = null; PCREPPRE = ''; PCREPOPEN.add(parent.id); paintPcList(); return;
   }
   if (kind === 'reply') {
     const t = (($('#c-reply-text') || {}).value || '').trim(), sid = form.dataset.id, top = +form.dataset.cid, s0 = findStory(sid), parent = comments(sid).find(c => c.id === top); if (!t || !s0 || !parent) return;
-    updateComments(sid, l => [...l, { id: Date.now(), by: S.user, text: t.slice(0, 300), date: today(), parent: top, ...((parent.ch | 0) > 0 ? { ch: parent.ch | 0 } : {}) }]);
-    notify(parent.by, 'reply', sid, t.slice(0, 80)); if (s0.owner && s0.owner !== parent.by) notify(s0.owner, 'comment', sid, t.slice(0, 80));
+    const rid = Date.now(), tg = `${(parent.ch | 0) + 1}:${rid}`;
+    updateComments(sid, l => [...l, { id: rid, by: S.user, text: t.slice(0, 300), date: today(), parent: top, ...((parent.ch | 0) > 0 ? { ch: parent.ch | 0 } : {}) }]);
+    notify(parent.by, 'reply', sid, t.slice(0, 80), tg); if (s0.owner && s0.owner !== parent.by) notify(s0.owner, 'comment', sid, t.slice(0, 80), tg);
     REPLYTO = null; REPLYPRE = ''; REPOPEN.add(top); KEEP = true; return render();
   }
   if (kind === 'comment') { const t = $('#c-text').value.trim(); if (!t) return; addComment(findStory(form.dataset.id), t, +form.dataset.ch || 0); KEEP = true; return render(); }
