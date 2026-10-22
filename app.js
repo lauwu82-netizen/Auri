@@ -2686,7 +2686,7 @@ function profileHero(e, own, acts = '') {
   const u = getUsers()[e] || {}, pubs = publishedStories().filter(s => s.owner === e), has = safeImg(u.banner), role = ROLE_LABEL[roleOf(e)], sk = own ? strikesOf(e) : [];
   const stat = (n, l, act, kind) => act ? `<button type="button" class="pfs" data-act="${act}" data-id="${esc(e)}" data-kind="${kind || ''}"><b>${n}</b><small>${l}</small></button>` : `<span class="pfs"><b>${n}</b><small>${l}</small></span>`;
   return `<section class="pf-hero"><div class="pf-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>
-    ${sk.length && !cfg('hideStrikeBtn') ? `<button type="button" class="pf-warn" data-act="strike-info" aria-label="${esc(t('Aviso de strikes'))}">⚠️</button>` : ''}
+    ${sk.length && !cfg('hideStrikeBtn') ? `<button type="button" class="pf-warn" data-act="strike-info" aria-label="${esc(t('Aviso de strikes'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5"/><circle cx="12" cy="16.6" r=".6" fill="currentColor"/></svg></button>` : ''}
     ${own ? `<div class="pf-bn-btns"><label class="button secondary sm" style="cursor:pointer">🖼 ${has ? t('Cambiar portada') : t('Añadir portada')}<input id="bn-file" type="file" accept="image/*" hidden></label>${has ? '<button class="button ghost sm" data-act="bn-adjust">' + t('Ajustar') + '</button><button class="button ghost sm" data-act="bn-clear">' + t('Quitar') + '</button>' : ''}</div>` : ''}
     <div class="pf-fade"></div></div>
   <div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}</div>
