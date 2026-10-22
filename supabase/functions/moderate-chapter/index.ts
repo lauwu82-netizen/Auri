@@ -89,6 +89,23 @@ async function moderate(chunks: string[], key: string): Promise<Record<string, {
   return max;
 }
 
+/** Palabras sensibles: si aparecen en un capítulo (en cualquier libro, también +18) va a revisión humana. Se pueden sumar más con el secreto BANNED_WORDS (separadas por comas) */
+export const BANNED_DEFAULT = [
+  'israel', 'israeli', 'israelies', 'israelita', 'palestina', 'palestino', 'palestinos', 'gaza', 'hamas', 'hezbola', 'hezbollah', 'sionismo', 'sionista', 'antisemitismo', 'antisemita',
+  'hitler', 'nazi', 'nazis', 'nazismo', 'neonazi', 'neonazis', 'tercer reich', 'tercer imperio', 'esvastica', 'swastika', 'holocausto', 'holocaust', 'auschwitz', 'genocidio', 'genocide', 'limpieza etnica',
+  'kkk', 'ku klux klan', 'isis', 'estado islamico', 'al qaeda', 'taliban', 'talibanes',
+];
+const plain = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+export function bannedHits(text: string, extra = ''): { words: string[]; excerpt: string } {
+  const list = [...new Set([...BANNED_DEFAULT, ...extra.split(',').map((w) => plain(w.trim())).filter(Boolean)])];
+  const t = plain(text).replace(/\s+/g, ' '), words: string[] = []; let first = -1;
+  for (const w of list) {
+    const m = new RegExp('(^|[^a-z0-9])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![a-z0-9])').exec(t);
+    if (m) { words.push(w); if (first < 0 || m.index < first) first = m.index; }
+  }
+  return { words, excerpt: first >= 0 ? text.slice(Math.max(0, first - 60), first + 160).replace(/\s+/g, ' ') : '' };
+}
+
 /** Segunda revisión opcional con reglas propias (temas delicados). Solo corre si existe el secreto GEMINI_API_KEY; si falla, no bloquea nada */
 export const TOPIC_RULES = `Eres un filtro para una plataforma de historias. Marca flag=true SOLO si el texto toma postura sobre conflictos o crisis reales, extremos y delicados (guerras, genocidios, masacres o limpiezas étnicas reales, en curso o recientes; por ejemplo Israel-Palestina/Gaza y situaciones similares como Ucrania, Sudán o Myanmar) mediante: apología, glorificación, justificación, propaganda, negación o burla de las víctimas, o exaltación de líderes, ejércitos o gobiernos involucrados. Aplica la misma regla a cualquier bando.
 NO marques: humor negro o sátira sobre políticos o gobernantes (por ejemplo chistes sobre Nicolás Maduro), ficción ambientada en mundos inventados, menciones neutras o informativas de pasada, ni temas políticos comunes.
@@ -146,6 +163,8 @@ async function run(req: Request, env: Record<string, string | undefined>): Promi
     const chunks = splitChunks((ch.title ? ch.title + '\n' : '') + (ch.text || ''));
     try { const d = decide(await moderate(chunks, KEY), mature, chunks); verdict = d.verdict; flags = d.flags; }
     catch (e) { return json({ error: 'ai_unavailable', detail: String((e as Error).message || e) }, 502); }
+    const bh = bannedHits((ch.title ? ch.title + '\n' : '') + (ch.text || ''), env.BANNED_WORDS || '');
+    if (bh.words.length && flags) { verdict = 'flagged'; flags = { ...flags, reasons: [{ cat: 'words', label: 'palabras sensibles: ' + bh.words.slice(0, 5).join(', '), score: 1, chunk: 0 }, ...flags.reasons], excerpt: bh.excerpt || flags.excerpt }; }
     if (env.GEMINI_API_KEY && flags) {                                                          // reglas propias: temas delicados (opcional)
       const tc = await topicCheck((ch.title ? ch.title + '\n' : '') + (ch.text || ''), env.GEMINI_API_KEY, env.GEMINI_MODEL || 'gemini-2.5-flash', env.TOPIC_RULES || TOPIC_RULES);
       if (tc && tc.flag) { verdict = 'flagged'; flags = { ...flags, reasons: [{ cat: 'topic', label: tc.reason, score: 1, chunk: 0 }, ...flags.reasons], excerpt: flags.excerpt || tc.quote }; }
