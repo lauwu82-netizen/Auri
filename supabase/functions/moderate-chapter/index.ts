@@ -91,7 +91,6 @@ async function moderate(chunks: string[], key: string): Promise<Record<string, {
 
 /** Palabras sensibles: si aparecen en un capítulo (en cualquier libro, también +18) va a revisión humana. Se pueden sumar más con el secreto BANNED_WORDS (separadas por comas) */
 export const BANNED_DEFAULT = [
-  'israel', 'israeli', 'israelies', 'israelita', 'hamas', 'hezbola', 'hezbollah', 'sionismo', 'sionista', 'antisemitismo', 'antisemita',
   'hitler', 'nazi', 'nazis', 'nazismo', 'neonazi', 'neonazis', 'tercer reich', 'tercer imperio', 'esvastica', 'swastika', 'holocausto', 'holocaust', 'auschwitz', 'limpieza etnica',
   'kkk', 'ku klux klan', 'isis', 'estado islamico', 'al qaeda', 'taliban', 'talibanes',
 ];
