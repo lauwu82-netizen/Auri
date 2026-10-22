@@ -639,9 +639,9 @@ async function sbSyncOwn() {
   const putS = [], patchS = [], putC = [], patchC = [], delC = [], delS = [], newS = new Set(), newC = new Set(), nSigS = {}, nSigC = {};
   const liveOf = u => { const p = pub.get(u); return p ? { title: p.title, text: p.text, music: p.music || '', cover: p.cover || '' } : undefined; };
   const fromCloudCh = r => { const c = { id: cBack(r.id), title: r.title, text: r.text, status: r.status, ...(r.cover ? { cover: r.cover } : {}), ...(r.music ? { music: r.music } : {}) }; if (r.status === 'rejected' && r.reason) c.reason = r.reason; if (r.status !== 'approved') { const lv = liveOf(r.id); if (lv) c.live = lv; } return c; };
-  const out = [];
+  const out = [], aiPend = LS.get(uk('aipend'), {}), annList = [];                  // capítulos que la IA aprobó mientras tanto: se avisa a quien sigue el libro
   for (const l0 of local) {
-    const l = { ...l0, chapters: l0.chapters.map(c => ({ ...c })) }, su = sUuid(l.id);
+    const l = { ...l0, chapters: l0.chapters.map(c => ({ ...c })) }, su = sUuid(l.id), pre0 = publicPrefix(l0.chapters).length;
     if (!su) { out.push(l); continue; }                                       // ids que no son de la nube (pruebas): se quedan solo aquí
     const R = cs.get(su);
     if (!R && stS.has(su)) { changed = true; continue; }                      // la borraste en otro lugar
@@ -663,6 +663,7 @@ async function sbSyncOwn() {
         if (!sameCont(c, C)) { Object.assign(c, fromCloudCh(C)); changed = true; }     // la editaste en otro lugar: manda la nube
         else if (C.status === 'approved' || C.status === 'rejected' || c.status === 'approved' || c.status === 'rejected') {
           if (c.status !== C.status || (c.reason || '') !== (C.reason || '')) {
+            if (C.status === 'approved' && c.status !== 'approved' && aiPend[cu]) { annList.push({ id: l.id, pre: pre0, cu }); }
             c.status = C.status; if (C.status === 'approved') { delete c.live; delete c.reason; } else if (C.status === 'rejected') c.reason = C.reason || ''; else { delete c.reason; }
             changed = true;
           }
@@ -700,6 +701,7 @@ async function sbSyncOwn() {
   const sIds = out.map(x => sUuid(x.id)).filter(Boolean), cIds = []; out.forEach(x => x.chapters.forEach(c => { const cu = cUuid(x.id, c.id); if (cu) cIds.push(cu); }));
   LS.set(K, { s: sIds, c: cIds, si: Object.fromEntries(sIds.map(u => [u, nSigS[u] || sigS[u]])), ci: Object.fromEntries(cIds.map(u => [u, nSigC[u] || sigC[u]])) });
   if (changed) { SB_QUIET = true; try { LS.set(K.replace('cloudsync', 'stories'), out); S.stories = out.map(norm); } finally { SB_QUIET = false; } }
+  if (annList.length) { const seenS = new Set(); annList.forEach(a => { if (!seenS.has(a.id)) { seenS.add(a.id); announceChapters(a.id, a.pre); } delete aiPend[a.cu]; }); LS.set(uk('aipend'), aiPend); }
   sbAiScan(out);
   return changed;
 }
@@ -719,6 +721,7 @@ function sbAiScan(out) {
   (async () => { for (const x of todo) await sbAiCheck(x, K); })();
 }
 async function sbAiCheck(x, K) {
+  { const pd = LS.get(uk('aipend'), {}); pd[x.cu] = 1; LS.set(uk('aipend'), pd); }      // si la IA lo aprueba, al sincronizar se avisa a quienes siguen el libro
   const s0 = S.stories.find(v => v.id === x.sid), before = s0 ? publicPrefix(s0.chapters).length : 0;
   let r = { ok: false };
   for (const fn of (AI_FN ? [AI_FN] : AI_FNS)) {
@@ -735,7 +738,8 @@ async function sbAiCheck(x, K) {
     else if (res === 'clean_waiting') toast('La IA no encontró problemas. Se publicará cuando se apruebe el capítulo anterior.');
     else if (res === 'off') toast('La revisión automática está apagada: moderación revisará tu capítulo.');
     else if (res === 'stale') toast('Cambiaste el capítulo durante la revisión. Se volverá a revisar.');
-    await sbRefresh(); if (res === 'approved') announceChapters(x.sid, before);
+    if (res !== 'approved' && res !== 'clean_waiting') { const pd = LS.get(uk('aipend'), {}); delete pd[x.cu]; LS.set(uk('aipend'), pd); }
+    await sbRefresh();
   } else {
     seen[x.cu] = { sig: x.sig, ok: false, retry: Date.now() + (r.status === 404 ? 30 : 3) * 60000 }; LS.set(K, seen);
     const code = r.data && (r.data.error || r.data.message), det = r.data && r.data.detail ? ' · ' + String(r.data.detail).slice(0, 120) : '';
