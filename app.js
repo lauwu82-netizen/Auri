@@ -706,7 +706,7 @@ async function sbSyncOwn() {
 /* ---------- Revisión automática con IA (primer filtro) ----------
    Después de subir un capítulo que queda "pending", la app le pide a la función «moderate-chapter» que lo revise en el servidor.
    Limpio → la base de datos lo aprueba y se publica; marcado → sigue oculto para moderación. Si algo falla, el capítulo simplemente sigue pendiente. */
-const AI_RUN = new Set(), AI_FNS = ['bright-handler', 'moderate-chapter'];      // nombre de la función en Supabase (se prueba cada uno hasta que uno exista)
+const AI_RUN = new Set(), AI_FNS = ['moderate-chapter', 'bright-handler'];      // nombre de la función en Supabase (se prueba cada uno hasta que uno exista)
 let AI_FN = '', AI_ERR = false;
 function sbAiScan(out) {
   if (!cloud() || !sbSes() || !S.user || isGuest()) return;
@@ -723,7 +723,8 @@ async function sbAiCheck(x, K) {
   let r = { ok: false };
   for (const fn of (AI_FN ? [AI_FN] : AI_FNS)) {
     try { r = await sbApi('/functions/v1/' + fn, { method: 'POST', body: { chapter_id: x.cu } }); } catch (e) { r = { ok: false }; }
-    if (r.status !== 404) { if (r.ok) AI_FN = fn; break; }
+    if (r.ok) { AI_FN = fn; break; }
+    if (r.status && r.status !== 404 && !r.net) break;                   // la función existe y respondió con un error: se queda con ese error
   }
   AI_RUN.delete(x.cu); const seen = LS.get(K, {});
   if (r.ok && r.data && r.data.result) {
