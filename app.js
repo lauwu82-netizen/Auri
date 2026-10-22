@@ -730,7 +730,7 @@ async function sbAiCheck(x, K) {
   if (r.ok && r.data && r.data.result) {
     seen[x.cu] = { sig: x.sig, ok: true }; LS.set(K, seen); const res = r.data.result;
     if (res === 'approved') toast('Tu capítulo pasó la revisión automática y ya está publicado ✓');
-    else if (res === 'flagged') toast('Tu capítulo quedó en revisión: el equipo de moderación lo revisará pronto.');
+    else if (res === 'flagged') { const rs = (r.data.reasons || []).map(x => t(x)).join(', '); toast(t('Tu capítulo quedó en revisión: el equipo de moderación lo revisará pronto.') + (rs ? ' ' + t('La IA detectó:') + ' ' + rs + '.' : '')); }
     else if (res === 'clean_advisory') toast('La IA no encontró problemas, pero está en modo "solo avisar": moderación lo aprobará.');
     else if (res === 'clean_waiting') toast('La IA no encontró problemas. Se publicará cuando se apruebe el capítulo anterior.');
     else if (res === 'off') toast('La revisión automática está apagada: moderación revisará tu capítulo.');
@@ -2254,7 +2254,7 @@ function modView(sub) {
     <div class="book-body"><p class="story-meta">${esc(genreName(s.genre))} · ${esc(s.fandom)} · <a href="#/user/${encodeURIComponent(s.owner)}" style="text-decoration:underline">${t('ver perfil')}</a></p>${first ? `<p style="color:var(--soft);line-height:1.6;margin:8px 0">${esc(s.synopsis)}</p><div class="tags" style="margin-bottom:10px">${s.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ''}
     <ol class="mod-list">${s.chapters.map((c, i) => {
       const ok = s.chapters.slice(0, i).every(x => pubChapter(x)), pend = c.status === 'pending';      // N solo si N-1 ya está aprobado
-      return `<li class="mod-ch"><div class="mod-ch-head"><b>${t('Cap. {n}', { n: i + 1 })}</b><span>${esc(c.title)}</span><span class="pill st-${c.status}">${t(CH_STATUS[c.status])}</span>${pend && c.ai ? `<span class="pill ai-pill">${t('🤖 Marcado por la IA')}</span>` : ''}</div>${pend && c.ai ? aiNote(c.ai) : ''}${pend ? `
+      return `<li class="mod-ch"><div class="mod-ch-head"><b>${t('Cap. {n}', { n: i + 1 })}</b><span>${esc(c.title)}</span><span class="pill st-${c.status}">${t(CH_STATUS[c.status])}</span>${pend && c.ai ? `<button type="button" class="pill ai-pill" data-act="ai-info" data-id="${esc(s.id)}" data-cid="${c.id}">${t('🤖 Marcado por la IA')} ⓘ</button>` : ''}</div>${pend && c.ai ? aiNote(c.ai) : ''}${pend ? `
       <details style="margin-top:8px"><summary class="helper" style="cursor:pointer">${t('Leer capítulo')}${c.live ? ' (' + t('versión editada') + ')' : ''}</summary><div class="mod-text" style="margin-top:8px">${esc(c.text)}</div></details>${chHero(c, 'mod-cover')}${c.music ? `<p class="helper" style="margin-top:8px">🎵 ${t('Canción')}: ${musicEmbed(c.music) ? `<a href="${esc(c.music)}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline">${esc(c.music)}</a>` : esc(c.music) + ' (' + t('enlace no válido') + ')'}</p>` : ''}
       <textarea id="rej-${esc(s.id)}-${c.id}" class="textarea" style="min-height:64px;margin-top:10px" placeholder="${esc(t('Motivo del rechazo (obligatorio para rechazar)'))}"></textarea>
       <div class="mod-actions"><button class="button" data-act="approve" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}" ${ok ? '' : 'disabled'}>${t('✓ Aprobar')}</button><button class="button danger" data-act="reject" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}">${t('✕ Rechazar')}</button></div>
@@ -2706,6 +2706,12 @@ function openUserList(e, kind) {
   document.body.appendChild(m);
 }
 /** Aviso discreto de strikes (botón amarillo en la esquina de tu perfil) */
+function openAiInfo(sid, cid) {
+  const s = S.stories.find(v => v.id === sid), c = s && s.chapters.find(x => String(x.id) === String(cid)), a = c && c.ai; if (!a) return;
+  const rs = a.reasons || [];
+  const m = formModal('🤖 Qué detectó la IA', `<p>${rs.length ? t('Marcó este capítulo por:') : t('Pidió una revisión humana.')}</p>${rs.length ? `<ul class="ai-list">${rs.map(r => `<li>${esc(t(r.label))} <b>(${Math.round((r.score || 0) * 100)}%)</b></li>`).join('')}</ul>` : ''}<p class="helper">${a.mature ? t('Libro +18') : t('Libro sin marca +18')}</p>${a.excerpt ? `<details><summary>${t('Fragmento que preocupó')}</summary><p>«${esc(a.excerpt)}…»</p></details>` : ''}<p class="helper">${t('Es una ayuda automática y puede equivocarse: decide tú.')}</p>`, 'Entendido', () => {});
+  const no = m.querySelector('[data-no]'); if (no) no.style.display = 'none';
+}
 function openStrikeInfo() {
   const sk = strikesOf(S.user); if (!sk.length) return; const last = sk[sk.length - 1];
   const m = formModal('Aviso de strikes', `<p>${tn(sk.length, 'Tienes {n} strike', 'Tienes {n} strikes')}</p><p class="helper">${t('Último motivo: {x}', { x: esc(last.reason) })}</p>
@@ -3531,7 +3537,7 @@ document.addEventListener('click', e => {
     delete: () => { if (confirm(t('¿Eliminar este borrador? No se puede deshacer.'))) { S.stories = S.stories.filter(s => s.id !== id); persist('stories', S.stories); render(); } },
     'resume-read': () => { const p = VISIT && VISIT.pos; VISIT = null; if (p) { NAVDIR = 'next'; go('/story/' + id + '/' + (p.idx + 1)); } },
     'pf-list': () => openUserList(id, el.dataset.kind), 'pf-works': () => { const w = document.getElementById('pf-works'); if (w && w.scrollIntoView) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
-    'strike-info': () => openStrikeInfo(), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
+    'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
     'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
     preview: () => { collect(); WPREVIEW = true; render(); }, 'back-edit': () => { WPREVIEW = false; render(); },

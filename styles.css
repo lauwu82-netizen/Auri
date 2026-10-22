@@ -1045,3 +1045,6 @@ button.pfs:active{transform:scale(.95);opacity:.8}
 .ai-note p{margin:6px 0 0;font-style:italic;overflow-wrap:anywhere}
 .ai-note summary{cursor:pointer;font-weight:600}
 .ai-note .helper{margin:2px 0 0;color:inherit;opacity:.8}
+
+button.ai-pill{border:0;cursor:pointer;font:inherit}
+.ai-list{margin:6px 0 8px 18px;line-height:1.7}
