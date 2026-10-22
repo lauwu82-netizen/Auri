@@ -1068,3 +1068,22 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .pf-tab{margin-top:8px}
 .pf-on{display:inline-block;width:11px;height:11px;border-radius:50%;background:#34c759;margin-left:8px;vertical-align:middle;box-shadow:0 0 0 2px hsl(var(--background))}
 .pf-edit .toggle-line{margin:6px 0 14px}
+/* 37. Editar perfil (pantalla propia) y marcos */
+.ep-page{padding-top:8px}
+.ep-save{margin-left:auto}
+.ep-media{position:relative;margin:0 -16px 8px}
+.ep-banner{height:150px;background:linear-gradient(160deg,#6d4aa6,#2b1b47 70%) center/cover no-repeat;position:relative}
+.ep-cam{position:absolute;right:12px;bottom:12px;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:grid;place-items:center;font-size:18px;backdrop-filter:blur(4px)}
+.ep-bn-acts{display:flex;gap:14px;justify-content:flex-end;padding:6px 16px 0;min-height:30px}
+.ep-av{position:relative;width:fit-content;margin:-70px 0 0 -10px;z-index:2}
+.ep-av .fr.xl{--a:104px}.ep-av .avatar.xl{box-shadow:0 0 0 4px hsl(var(--primary))}
+.ep-cam.sm{width:32px;height:32px;right:auto;left:calc(50% + 24px);bottom:4px;font-size:15px;box-shadow:0 0 0 3px hsl(var(--background))}
+.ep-av-acts{display:flex;gap:16px;padding:8px 16px 4px}
+.ep-link{background:none;border:0;padding:4px 0;color:hsl(var(--primary));font-weight:700;font-size:14px;cursor:pointer;font-family:inherit}
+.ep-form{display:flex;flex-direction:column;gap:6px}
+.ep-row{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;background:transparent;border:0;border-top:1px solid hsl(var(--border)/.6);border-bottom:1px solid hsl(var(--border)/.6);padding:14px 2px;color:inherit;font-family:inherit;cursor:pointer;margin-top:6px}
+.ep-row span{display:flex;flex-direction:column;gap:2px}.ep-row small{color:hsl(var(--muted-foreground));font-size:13px}.ep-row i{font-style:normal;font-size:24px;color:hsl(var(--muted-foreground))}
+.fr-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.fr-opt{display:flex;align-items:center;gap:14px;width:100%;padding:10px 12px;border-radius:16px;border:1.5px solid hsl(var(--border));background:transparent;color:inherit;font-family:inherit;text-align:left;cursor:pointer}
+.fr-opt.on{border-color:hsl(var(--primary));background:hsl(var(--primary)/.1)}
+.fr-opt b{flex:1}.fr-opt i{font-style:normal;color:hsl(var(--primary));font-weight:800}
