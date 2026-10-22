@@ -57,7 +57,7 @@ function applyTheme() {                                 // 'light' | 'dark' | 'a
 }
 /* --- Ajustes (se guardan por cuenta) --- */
 const APP_VERSION = '0.9 (beta)';
-const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, notif: { chapter: true, like: true, comment: true, follow: true } };
+const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, showOnline: true, notif: { chapter: true, like: true, comment: true, follow: true } };
 const cfg = k => {
   const c = S.cfg || {};
   if (k === 'showMature') { const u = getUsers()[S.user]; if (isMinor(u)) return false; return c.showMature == null ? isAdult(u) : c.showMature; }   // por defecto: visible solo si ya declaraste ser mayor de edad
@@ -70,7 +70,7 @@ function applyReading() {                               // tamaño, interlineado
   r.setProperty('--read-size', READ.size[cfg('fontSize')]); r.setProperty('--read-lh', READ.lh[cfg('lh')]); r.setProperty('--read-font', READ.font[cfg('font')]);
   document.documentElement.lang = uiLang();
 }
-function setCfg(k, v) { S.cfg = { ...S.cfg, [k]: v }; LS.set(uk('cfg'), S.cfg); applyReading(); }
+function setCfg(k, v) { S.cfg = { ...S.cfg, [k]: v }; LS.set(uk('cfg'), S.cfg); applyReading(); if (k === 'showOnline') { LAST_ON = null; sbBeat(); } }
 const matureOK = s => cfg('showMature') || !s.mature || s.owner === S.user;   // ocultar +18 (tus propias obras siempre se ven)
 /** Historias publicadas por cualquier cuenta de este dispositivo */
 /** Normaliza historias antiguas: el estado de moderación pasa a cada capítulo */
@@ -550,6 +550,30 @@ async function sbPushProfile() {                         // sube tus cambios de 
   await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' },
     body: { name: u.name, bio: u.bio || '', avatar: av, banner: bn, community: u.community === 'en' ? 'en' : 'es', frame_worn: !!u.frameWorn } });
 }
+/* ---------- Conexión (punto verde): se guarda cada minuto en tu perfil; solo se ve si tú lo permites ---------- */
+let PRES_OFF = false, LAST_ON = null;
+const PRES = {};                                           // clave de usuario → { at, on, ls }
+async function sbBeat() {
+  const s = sbSes(); if (!cloud() || !s || !S.user || isGuest() || PRES_OFF || document.visibilityState !== 'visible') return;
+  const on = cfg('showOnline') !== false; if (!on && LAST_ON === false) return; LAST_ON = on;
+  const r = await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: on ? { show_online: true, last_seen: new Date().toISOString() } : { show_online: false } });
+  if (!r.ok && !r.net && r.status >= 400 && r.status < 500) PRES_OFF = true;      // las columnas aún no existen (falta el SQL 12): no se insiste
+}
+async function sbPres(e) {
+  const u = getUsers()[e]; if (!cloud() || !sbSes() || PRES_OFF || !u || !u.uid || e === S.user) return;
+  const c = PRES[e]; if (c && Date.now() - c.at < 25000) return;
+  const r = await sbApi('/rest/v1/profiles?id=eq.' + u.uid + '&select=last_seen,show_online');
+  if (!r.ok || !Array.isArray(r.data)) { if (!r.net && r.status >= 400 && r.status < 500) PRES_OFF = true; return; }
+  const row = r.data[0] || {}, was = onlineDot(e) !== '';
+  PRES[e] = { at: Date.now(), on: row.show_online !== false, ls: row.last_seen ? Date.parse(row.last_seen) : 0 };
+  if (was !== (onlineDot(e) !== '') && location.hash === '#/user/' + encodeURIComponent(e)) { KEEP = true; render(); }
+}
+function onlineDot(e) {
+  const ok = e === S.user ? cfg('showOnline') !== false && !!sbSes() && cloud() : (() => { const c = PRES[e]; return !!c && c.on && c.ls && Date.now() - c.ls < 150000; })();
+  return ok ? `<span class="pf-on" role="img" aria-label="${esc(t('Conectado'))}" title="${esc(t('Conectado'))}"></span>` : '';
+}
+setInterval(() => { sbBeat(); const m = /^#\/user\/(.+)$/.exec(location.hash); if (m) sbPres(decodeURIComponent(m[1])); }, 60000);
+setTimeout(sbBeat, 4000);
 async function cloudLogin(email, pass) {
   const r = await sbFetch('/auth/v1/token?grant_type=password', { method: 'POST', body: { email, password: pass } });
   if (r.net) return t('No hay conexión con el servidor. Inténtalo de nuevo.');
@@ -801,7 +825,7 @@ function sbTakedown(id, on) {
   (on ? sbApi('/rest/v1/takedowns', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: { story_id: su, by: sbSes().uid } }) : sbApi('/rest/v1/takedowns?story_id=eq.' + su, { method: 'DELETE', headers: { Prefer: 'return=minimal' } })).then(() => sbRefresh());
 }
 setInterval(() => { if (document.visibilityState !== 'hidden') sbRefresh(); }, 90000);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sbRefresh(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { sbRefresh(); LAST_ON = null; sbBeat(); } });
 /* ---------- NUBE · seguir, me gusta, favoritos, biblioteca, comentarios y datos personales ----------
    Cada tipo de dato se sincroniza igual: se compara lo de este dispositivo, lo de la nube y lo de la última vez.
    - Lo que tú cambiaste se sube; lo que cambió otra persona se baja; lo que borraste se borra en la nube. */
@@ -2552,7 +2576,7 @@ function settingsView(secId) {
       <div class="set-btns"><button class="button secondary" data-act="export-file">${t('⬇ Exportar mis datos (archivo)')}</button><button class="button secondary" data-act="export-copy">${t('📋 Copiar mis datos')}</button>
       <label class="button secondary" style="cursor:pointer">${t('⬆ Importar desde archivo')}<input id="import-file" type="file" accept="application/json,.json" hidden></label>
       <button class="button danger" data-act="wipe-device">${t('🗑 Borrar datos de este dispositivo')}</button></div></section>` },
-    cuenta: { ico: '👤', c: '#5b6ee1', t: 'Cuenta', sub: isGuest() ? t('Invitado · crear cuenta o iniciar sesión') : S.user, body: () => isGuest() ? guestCard() : `<section class="panel set-sec"><div class="form-grid" style="grid-template-columns:1fr"><div class="form-group"><label for="ac-name">${t('Nombre de usuario')}</label><input id="ac-name" class="field" maxlength="30" value="${esc(u.name || '')}"></div>
+    cuenta: { ico: '👤', c: '#5b6ee1', t: 'Cuenta', sub: isGuest() ? t('Invitado · crear cuenta o iniciar sesión') : S.user, body: () => isGuest() ? guestCard() : `<section class="panel set-sec">${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}<div class="form-grid" style="grid-template-columns:1fr"><div class="form-group"><label for="ac-name">${t('Nombre de usuario')}</label><input id="ac-name" class="field" maxlength="30" value="${esc(u.name || '')}"></div>
       <div class="form-group"><label for="ac-email">${t('Correo')}</label><input id="ac-email" type="email" class="field" value="${esc(S.user)}"></div>
       <div class="form-group"><label for="ac-pass">${t('Contraseña actual')}</label><input id="ac-pass" type="password" class="field" autocomplete="current-password" placeholder="${esc(t('Solo para cambiar el correo'))}"></div></div>
       <button class="button" style="margin-top:12px;width:100%" data-act="acct-save">${t('Guardar cambios de cuenta')}</button></section>
@@ -2691,10 +2715,9 @@ function profileHero(e, own, acts = '') {
   const stat = (n, l, act, kind) => act ? `<button type="button" class="pfs" data-act="${act}" data-id="${esc(e)}" data-kind="${kind || ''}"><b>${n}</b><small>${l}</small></button>` : `<span class="pfs"><b>${n}</b><small>${l}</small></span>`;
   return `<section class="pf-hero"><div class="pf-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>
     ${sk.length && !cfg('hideStrikeBtn') ? `<button type="button" class="pf-warn" data-act="strike-info" aria-label="${esc(t('Aviso de strikes'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5"/><circle cx="12" cy="16.6" r=".6" fill="currentColor"/></svg></button>` : ''}
-    ${own ? `<div class="pf-bn-btns"><label class="button secondary sm" style="cursor:pointer">🖼 ${has ? t('Cambiar portada') : t('Añadir portada')}<input id="bn-file" type="file" accept="image/*" hidden></label>${has ? '<button class="button ghost sm" data-act="bn-adjust">' + t('Ajustar') + '</button><button class="button ghost sm" data-act="bn-clear">' + t('Quitar') + '</button>' : ''}</div>` : ''}
     <div class="pf-fade"></div></div>
   <div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}</div>
-    <div class="pf-info"><h1 class="pf-name serif">${esc(u.name || t('Mi perfil'))}</h1>${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}
+    <div class="pf-info"><h1 class="pf-name serif">${esc(u.name || t('Mi perfil'))}${onlineDot(e)}</h1>${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}
     ${u.bio || !own ? `<p class="pf-bio">${esc(u.bio || t('Esta persona aún no escribió su biografía.'))}</p>` : ''}</div>
     ${acts ? `<div class="pf-acts">${acts}</div>` : ''}</div>
   <div class="pf-stats-row">${stat(followers(e).length, t('Seguidores'), 'pf-list', 'followers')}${stat(following(e).length, t('Seguidos'), 'pf-list', 'following')}${stat(pubs.length, t('Libros publicados'), 'pf-works')}${stat(likesReceived(e), t('Likes'))}</div>
@@ -2764,7 +2787,9 @@ function statsView() {
 function profileView() {
   const u = getUsers()[S.user] || {}, works = S.stories.filter(s => storyState(s) !== 'draft').map(s => ({ ...s, owner: S.user, author: u.name }));
   const acts = `<button class="button secondary sm" data-act="pf-edit">${PFEDIT ? t('Cerrar editor') : '✏️ ' + t('Editar perfil')}</button>`;
-  const edit = PFEDIT ? `<div class="panel pf-edit"><div class="pf-btns" style="flex-direction:row;flex-wrap:wrap;margin:0 0 14px"><label class="button secondary sm" style="cursor:pointer">📷 ${u.avatar ? t('Cambiar foto') : t('Añadir foto')}<input id="av-file" type="file" accept="image/*" hidden></label>${u.avatar ? '<button class="button ghost sm" data-act="av-adjust">' + t('Ajustar') + '</button><button class="button ghost sm" data-act="av-clear">' + t('Quitar foto') + '</button>' : ''}${isOwner() ? `<button class="button ghost sm" data-act="owner-frame">${u.frameOn === false ? t('Ponerme el marco') : t('Quitar marco')}</button>` : ''}</div>
+  const edit = PFEDIT ? `<div class="panel pf-edit"><div class="pf-btns" style="flex-direction:row;flex-wrap:wrap;margin:0 0 8px"><label class="button secondary sm" style="cursor:pointer">📷 ${u.avatar ? t('Cambiar foto') : t('Añadir foto')}<input id="av-file" type="file" accept="image/*" hidden></label>${u.avatar ? '<button class="button ghost sm" data-act="av-adjust">' + t('Ajustar') + '</button><button class="button ghost sm" data-act="av-clear">' + t('Quitar foto') + '</button>' : ''}${isOwner() ? `<button class="button ghost sm" data-act="owner-frame">${u.frameOn === false ? t('Ponerme el marco') : t('Quitar marco')}</button>` : ''}</div>
+  <div class="pf-btns" style="flex-direction:row;flex-wrap:wrap;margin:0 0 14px"><label class="button secondary sm" style="cursor:pointer">🖼 ${u.banner ? t('Cambiar portada') : t('Añadir portada')}<input id="bn-file" type="file" accept="image/*" hidden></label>${u.banner ? '<button class="button ghost sm" data-act="bn-adjust">' + t('Ajustar') + '</button><button class="button ghost sm" data-act="bn-clear">' + t('Quitar') + '</button>' : ''}</div>
+  ${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}
   <form data-form="myprofile" class="pf-form"><div class="form-group"><label for="pf-name">${t('Usuario')}</label><input id="pf-name" class="field" maxlength="30" value="${esc(u.name)}"></div>
   <div class="form-group"><label for="pf-bio">${t('Biografía')}</label><textarea id="pf-bio" class="textarea" maxlength="300" placeholder="${esc(t('Cuéntales algo sobre ti…'))}">${esc(u.bio || '')}</textarea></div>
   <button class="button" type="submit">${t('Guardar perfil')}</button></form></div>` : '';
@@ -2773,7 +2798,7 @@ function profileView() {
   ${charsSection()}${profileExtras()}</main>`;
 }
 function userView(e) {
-  const u = getUsers()[e];
+  const u = getUsers()[e]; sbPres(e);
   if (!u) return `<main class="page">${empty('Perfil no encontrado', 'Esta persona no existe en este dispositivo.', '<a class="button" href="#/">' + t('Volver') + '</a>')}</main>`;
   const works = publishedStories().filter(s => s.owner === e && matureOK(s)), fl = following(S.user).includes(e);
   const acts = `<button class="button ${fl ? 'secondary' : ''}" data-act="follow" data-id="${esc(e)}">${fl ? t('Siguiendo ✓') : t('＋ Seguir')}</button>

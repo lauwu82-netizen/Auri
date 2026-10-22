@@ -1499,4 +1499,7 @@ window.I18N = { en: {
   "La IA todavía no revisó este capítulo (o la revisión falló). Revísalo tú.": "The AI hasn't reviewed this chapter yet (or the review failed). Please review it yourself.",
   "acoso": "harassment",
   "actividad ilegal": "illegal activity",
+  "Mostrar conexión": "Show online status",
+  "Un punto verde junto a tu nombre cuando estás conectada o conectado.": "A green dot next to your name when you are online.",
+  "Conectado": "Online",
 } };
