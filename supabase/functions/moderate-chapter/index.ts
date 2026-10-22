@@ -1,3 +1,4 @@
+// Publicada automáticamente desde GitHub
 // =====================================================================
 // AURI · Edge Function "moderate-chapter"
 // Revisa un capítulo con la API de moderación de OpenAI (gratuita) y le dice a la base de datos
