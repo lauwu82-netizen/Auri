@@ -750,7 +750,7 @@ async function sbPullPublic() {                           // trae las obras de o
     sbApi('/rest/v1/chapter_published?select=*&order=position&limit=10000'),
     sbApi('/rest/v1/takedowns?select=story_id&limit=2000'),
     staff ? sbApi('/rest/v1/chapters?select=*&status=in.(pending,rejected)&limit=2000') : Promise.resolve(null)]);
-  const rai = staff ? await sbApi('/rest/v1/chapter_ai?select=chapter_id,flags&verdict=eq.flagged&limit=2000') : null, aiBy = new Map(((rai && rai.ok && Array.isArray(rai.data)) ? rai.data : []).map(a => [a.chapter_id, a.flags]));
+  const rai = staff ? await sbApi('/rest/v1/chapter_ai?select=chapter_id,flags,verdict&limit=2000') : null, aiBy = new Map(((rai && rai.ok && Array.isArray(rai.data)) ? rai.data : []).map(a => [a.chapter_id, { ...(a.flags || {}), verdict: a.verdict }]));
   if (!rs.ok || !rp.ok || !Array.isArray(rs.data) || !Array.isArray(rp.data)) return false;
   const stories = rs.data.filter(r => r.owner !== uid), sIds = new Set(stories.map(r => r.id));
   const pubBy = new Map(), wkBy = new Map();
@@ -2254,7 +2254,7 @@ function modView(sub) {
     <div class="book-body"><p class="story-meta">${esc(genreName(s.genre))} · ${esc(s.fandom)} · <a href="#/user/${encodeURIComponent(s.owner)}" style="text-decoration:underline">${t('ver perfil')}</a></p>${first ? `<p style="color:var(--soft);line-height:1.6;margin:8px 0">${esc(s.synopsis)}</p><div class="tags" style="margin-bottom:10px">${s.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ''}
     <ol class="mod-list">${s.chapters.map((c, i) => {
       const ok = s.chapters.slice(0, i).every(x => pubChapter(x)), pend = c.status === 'pending';      // N solo si N-1 ya está aprobado
-      return `<li class="mod-ch"><div class="mod-ch-head"><b>${t('Cap. {n}', { n: i + 1 })}</b><span>${esc(c.title)}</span><span class="pill st-${c.status}">${t(CH_STATUS[c.status])}</span>${pend && c.ai ? `<button type="button" class="pill ai-pill" data-act="ai-info" data-id="${esc(s.id)}" data-cid="${c.id}">${t('🤖 Marcado por la IA')} ⓘ</button>` : ''}</div>${pend && c.ai ? aiNote(c.ai) : ''}${pend ? `
+      return `<li class="mod-ch"><div class="mod-ch-head"><b>${t('Cap. {n}', { n: i + 1 })}</b><span>${esc(c.title)}</span><span class="pill st-${c.status}">${t(CH_STATUS[c.status])}</span>${pend ? `<button type="button" class="pill ai-pill ${!c.ai ? 'ai-none' : c.ai.verdict === 'flagged' ? '' : 'ai-ok'}" data-act="ai-info" data-id="${esc(s.id)}" data-cid="${c.id}">${!c.ai ? t('🤖 IA: sin revisar') : c.ai.verdict === 'flagged' ? t('🤖 Marcado por la IA') : t('🤖 IA: sin problemas')} ⓘ</button>` : ''}</div>${pend && c.ai && c.ai.verdict === 'flagged' ? aiNote(c.ai) : ''}${pend ? `
       <details style="margin-top:8px"><summary class="helper" style="cursor:pointer">${t('Leer capítulo')}${c.live ? ' (' + t('versión editada') + ')' : ''}</summary><div class="mod-text" style="margin-top:8px">${esc(c.text)}</div></details>${chHero(c, 'mod-cover')}${c.music ? `<p class="helper" style="margin-top:8px">🎵 ${t('Canción')}: ${musicEmbed(c.music) ? `<a href="${esc(c.music)}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline">${esc(c.music)}</a>` : esc(c.music) + ' (' + t('enlace no válido') + ')'}</p>` : ''}
       <textarea id="rej-${esc(s.id)}-${c.id}" class="textarea" style="min-height:64px;margin-top:10px" placeholder="${esc(t('Motivo del rechazo (obligatorio para rechazar)'))}"></textarea>
       <div class="mod-actions"><button class="button" data-act="approve" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}" ${ok ? '' : 'disabled'}>${t('✓ Aprobar')}</button><button class="button danger" data-act="reject" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}">${t('✕ Rechazar')}</button></div>
@@ -2706,9 +2706,15 @@ function openUserList(e, kind) {
   document.body.appendChild(m);
 }
 /** Aviso discreto de strikes (botón amarillo en la esquina de tu perfil) */
+const AI_LBL = { sexual: 'contenido sexual o sugerente', 'sexual/minors': 'posible contenido sexual con menores', violence: 'violencia', 'violence/graphic': 'violencia gráfica', 'self-harm': 'autolesión', 'self-harm/intent': 'intención de autolesión', 'self-harm/instructions': 'instrucciones de autolesión', hate: 'odio', 'hate/threatening': 'odio con amenazas', harassment: 'acoso', 'harassment/threatening': 'acoso con amenazas', 'illicit': 'actividad ilegal', 'illicit/violent': 'actividad ilegal violenta' };
 function openAiInfo(sid, cid) {
-  const s = S.stories.find(v => v.id === sid), c = s && s.chapters.find(x => String(x.id) === String(cid)), a = c && c.ai; if (!a) return;
-  const rs = a.reasons || [];
+  const s = S.stories.find(v => v.id === sid), c = s && s.chapters.find(x => String(x.id) === String(cid)); if (!c) return;
+  const a = c.ai, rs = (a && a.reasons) || [];
+  if (!a || a.verdict !== 'flagged') {
+    const top = ((a && a.top) || []).map(x => `<li>${esc(t(AI_LBL[x.cat] || x.cat))} <b>(${Math.round(x.score * 100)}%)</b></li>`).join('');
+    const m0 = formModal('🤖 Qué detectó la IA', a ? `<p>${t('La IA no encontró problemas en este capítulo.')}</p>${top ? `<p class="helper">${t('Puntajes más altos:')}</p><ul class="ai-list">${top}</ul>` : ''}` : `<p>${t('La IA todavía no revisó este capítulo (o la revisión falló). Revísalo tú.')}</p>`, 'Entendido', () => {});
+    const n0 = m0.querySelector('[data-no]'); if (n0) n0.style.display = 'none'; return;
+  }
   const m = formModal('🤖 Qué detectó la IA', `<p>${rs.length ? t('Marcó este capítulo por:') : t('Pidió una revisión humana.')}</p>${rs.length ? `<ul class="ai-list">${rs.map(r => `<li>${esc(t(r.label))} <b>(${Math.round((r.score || 0) * 100)}%)</b></li>`).join('')}</ul>` : ''}<p class="helper">${a.mature ? t('Libro +18') : t('Libro sin marca +18')}</p>${a.excerpt ? `<details><summary>${t('Fragmento que preocupó')}</summary><p>«${esc(a.excerpt)}…»</p></details>` : ''}<p class="helper">${t('Es una ayuda automática y puede equivocarse: decide tú.')}</p>`, 'Entendido', () => {});
   const no = m.querySelector('[data-no]'); if (no) no.style.display = 'none';
 }

@@ -1492,4 +1492,11 @@ window.I18N = { en: {
   "acoso con amenazas": "harassment with threats",
   "actividad ilegal violenta": "violent illegal activity",
   "texto demasiado largo para revisar": "text too long to review",
+  "🤖 IA: sin revisar": "🤖 AI: not reviewed",
+  "🤖 IA: sin problemas": "🤖 AI: no issues",
+  "La IA no encontró problemas en este capítulo.": "The AI found no issues in this chapter.",
+  "Puntajes más altos:": "Highest scores:",
+  "La IA todavía no revisó este capítulo (o la revisión falló). Revísalo tú.": "The AI hasn't reviewed this chapter yet (or the review failed). Please review it yourself.",
+  "acoso": "harassment",
+  "actividad ilegal": "illegal activity",
 } };

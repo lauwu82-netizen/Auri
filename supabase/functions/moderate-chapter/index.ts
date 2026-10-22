@@ -18,7 +18,7 @@ export const MODEL = 'omni-moderation-latest';
 
 /** Umbrales (0 a 1): si la IA da un puntaje igual o mayor, el capítulo se marca para revisión humana */
 export const T_GENERAL: Record<string, number> = {          // libros SIN marca +18
-  'sexual': 0.25, 'sexual/minors': 0.15, 'violence': 0.92, 'violence/graphic': 0.5,
+  'sexual': 0.08, 'sexual/minors': 0.1, 'violence': 0.85, 'violence/graphic': 0.3,
   'self-harm': 0.6, 'self-harm/intent': 0.5, 'self-harm/instructions': 0.3,
   'hate': 0.6, 'hate/threatening': 0.4, 'harassment/threatening': 0.6, 'illicit/violent': 0.6,
 };
@@ -52,7 +52,7 @@ export function splitChunks(text: string): string[] {
 }
 
 export type Reason = { cat: string; label: string; score: number; chunk: number };
-export type Flags = { reasons: Reason[]; excerpt: string; mature: boolean; chunks: number };
+export type Flags = { reasons: Reason[]; excerpt: string; mature: boolean; chunks: number; top?: { cat: string; score: number }[] };
 
 /** Con el puntaje más alto de cada categoría decide si se marca y por qué */
 export function decide(maxScores: Record<string, { score: number; chunk: number }>, mature: boolean, chunks: string[]): { verdict: 'clean' | 'flagged'; flags: Flags } {
@@ -61,8 +61,9 @@ export function decide(maxScores: Record<string, { score: number; chunk: number 
     const m = maxScores[cat]; if (m && m.score >= T[cat]) reasons.push({ cat, label: LABEL[cat] || cat, score: Math.round(m.score * 100) / 100, chunk: m.chunk });
   }
   reasons.sort((a, b) => (b.cat === 'sexual/minors' ? 1 : 0) - (a.cat === 'sexual/minors' ? 1 : 0) || b.score - a.score);
-  const top = reasons[0], ex = top ? (chunks[top.chunk] || '').replace(/\s+/g, ' ').slice(0, 280) : '';
-  return { verdict: reasons.length ? 'flagged' : 'clean', flags: { reasons, excerpt: ex, mature, chunks: chunks.length } };
+  const first = reasons[0], ex = first ? (chunks[first.chunk] || '').replace(/\s+/g, ' ').slice(0, 280) : '';
+  const top = Object.entries(maxScores).map(([cat, m]) => ({ cat, score: Math.round(m.score * 100) / 100 })).sort((a, b) => b.score - a.score).slice(0, 4);
+  return { verdict: reasons.length ? 'flagged' : 'clean', flags: { reasons, excerpt: ex, mature, chunks: chunks.length, top } };
 }
 
 export async function sha256Hex(s: string): Promise<string> {

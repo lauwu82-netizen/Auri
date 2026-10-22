@@ -1048,3 +1048,7 @@ button.pfs:active{transform:scale(.95);opacity:.8}
 
 button.ai-pill{border:0;cursor:pointer;font:inherit}
 .ai-list{margin:6px 0 8px 18px;line-height:1.7}
+.ai-pill.ai-ok{background:#e3f6ea;color:#1d6b3a}
+.ai-pill.ai-none{background:#eceef2;color:#5b6472}
+.dark .ai-pill.ai-ok{background:#16382a;color:#8be0aa}
+.dark .ai-pill.ai-none{background:#2a2f3a;color:#aab3c2}
