@@ -118,7 +118,7 @@ async function run(req: Request, env: Record<string, string | undefined>): Promi
   let verdict: 'clean' | 'flagged', flags: Flags | null = null;
   const pr = await fetch(`${URL_}/rest/v1/chapter_ai?chapter_id=eq.${cid}&select=verdict,hash,mature,flags`, { headers: H });
   const prev = pr.ok ? (await pr.json())[0] : null;
-  if (prev && prev.hash === hash && !!prev.mature === mature) { verdict = prev.verdict; flags = prev.flags; }      // ya se revisó este mismo texto: no se vuelve a gastar la IA
+  if (prev && prev.flags && prev.flags.top && prev.hash === hash && !!prev.mature === mature) { verdict = prev.verdict; flags = prev.flags; }      // ya se revisó este mismo texto: no se vuelve a gastar la IA
   else if ((ch.text || '').length > MAX_CHARS) { verdict = 'flagged'; flags = { reasons: [{ cat: 'length', label: LABEL.length, score: 1, chunk: 0 }], excerpt: '', mature, chunks: 0 }; }
   else {
     if (!KEY) { console.error('falta el secreto OPENAI_API_KEY'); return json({ error: 'no_key' }, 500); }
