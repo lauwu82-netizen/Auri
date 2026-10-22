@@ -1052,3 +1052,17 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .ai-pill.ai-none{background:#eceef2;color:#5b6472}
 .dark .ai-pill.ai-ok{background:#16382a;color:#8be0aa}
 .dark .ai-pill.ai-none{background:#2a2f3a;color:#aab3c2}
+/* 36. Perfil en horizontal: banner rectangular, foto a la izquierda y nombre al lado */
+.pf-page .pf-hero{text-align:left}
+.pf-banner{height:150px;-webkit-mask-image:linear-gradient(to bottom,#000 60%,transparent 100%);mask-image:linear-gradient(to bottom,#000 60%,transparent 100%)}
+.pf-id{display:grid;grid-template-columns:auto 1fr;column-gap:14px;align-items:start;padding:0 16px}
+.pf-av{margin-top:-44px}
+.pf-av .fr.xl{--a:88px}.pf-av .avatar.xl{width:88px;height:88px;font-size:36px}
+.pf-info{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding-top:10px}
+.pf-name{font-size:23px;margin:0;text-align:left}
+.pf-id .role-tag{align-self:flex-start}
+.pf-bio{text-align:left;margin:2px 0 0;font-size:13.5px;max-width:none}
+.pf-acts{grid-column:1/-1;justify-content:flex-start;margin-top:4px}
+.pf-acts .pf-more{justify-content:flex-start}
+.pf-stats-row{margin:10px 12px 2px}
+.pf-tab{margin-top:8px}

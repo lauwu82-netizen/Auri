@@ -2694,8 +2694,8 @@ function profileHero(e, own, acts = '') {
     ${own ? `<div class="pf-bn-btns"><label class="button secondary sm" style="cursor:pointer">🖼 ${has ? t('Cambiar portada') : t('Añadir portada')}<input id="bn-file" type="file" accept="image/*" hidden></label>${has ? '<button class="button ghost sm" data-act="bn-adjust">' + t('Ajustar') + '</button><button class="button ghost sm" data-act="bn-clear">' + t('Quitar') + '</button>' : ''}</div>` : ''}
     <div class="pf-fade"></div></div>
   <div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}</div>
-    <h1 class="pf-name serif">${esc(u.name || t('Mi perfil'))}</h1>${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}
-    ${u.bio || !own ? `<p class="pf-bio">${esc(u.bio || t('Esta persona aún no escribió su biografía.'))}</p>` : ''}
+    <div class="pf-info"><h1 class="pf-name serif">${esc(u.name || t('Mi perfil'))}</h1>${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}
+    ${u.bio || !own ? `<p class="pf-bio">${esc(u.bio || t('Esta persona aún no escribió su biografía.'))}</p>` : ''}</div>
     ${acts ? `<div class="pf-acts">${acts}</div>` : ''}</div>
   <div class="pf-stats-row">${stat(followers(e).length, t('Seguidores'), 'pf-list', 'followers')}${stat(following(e).length, t('Seguidos'), 'pf-list', 'following')}${stat(pubs.length, t('Libros publicados'), 'pf-works')}${stat(likesReceived(e), t('Likes'))}</div>
   <div class="pf-tab" id="pf-works"><span>${ICON.books} ${t('Libros publicados')}</span></div></section>`;
