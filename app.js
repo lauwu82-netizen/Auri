@@ -707,7 +707,7 @@ async function sbSyncOwn() {
    Después de subir un capítulo que queda "pending", la app le pide a la función «moderate-chapter» que lo revise en el servidor.
    Limpio → la base de datos lo aprueba y se publica; marcado → sigue oculto para moderación. Si algo falla, el capítulo simplemente sigue pendiente. */
 const AI_RUN = new Set(), AI_FNS = ['bright-handler', 'moderate-chapter'];      // nombre de la función en Supabase (se prueba cada uno hasta que uno exista)
-let AI_FN = '';
+let AI_FN = '', AI_ERR = false;
 function sbAiScan(out) {
   if (!cloud() || !sbSes() || !S.user || isGuest()) return;
   const K = uk('aiseen2'), seen = LS.get(K, {}), now = Date.now(), todo = [];
@@ -731,7 +731,12 @@ async function sbAiCheck(x, K) {
     if (res === 'approved') toast('Tu capítulo pasó la revisión automática y ya está publicado ✓');
     else if (res === 'flagged') toast('Tu capítulo quedó en revisión: el equipo de moderación lo revisará pronto.');
     await sbRefresh(); if (res === 'approved') announceChapters(x.sid, before);
-  } else { seen[x.cu] = { sig: x.sig, ok: false, retry: Date.now() + (r.status === 404 || r.status === 500 ? 30 : 10) * 60000 }; LS.set(K, seen); }   // sin función o sin conexión: sigue pendiente y se reintenta más tarde
+  } else {
+    seen[x.cu] = { sig: x.sig, ok: false, retry: Date.now() + (r.status === 404 ? 30 : 3) * 60000 }; LS.set(K, seen);
+    const code = r.data && (r.data.error || r.data.message), det = r.data && r.data.detail ? ' · ' + String(r.data.detail).slice(0, 120) : '';
+    LS.set('auri.ai.lasterr', { at: new Date().toISOString(), status: r.status || 0, code: code || '', detail: det });
+    if (r.status && r.status !== 404 && !AI_ERR) { AI_ERR = true; toast(t('Revisión automática no disponible ({e}). Moderación revisará tu capítulo.', { e: (code || r.status) + det })); }
+  }   // sin función o sin conexión: sigue pendiente y se reintenta más tarde
 }
 async function sbPullPublic() {                           // trae las obras de otras personas (y la cola de revisión si eres del equipo)
   const ses = sbSes(), uid = ses && ses.uid, staff = !!S.user && !isGuest() && !!ses && roleOf(S.user) !== 'USER';

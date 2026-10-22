@@ -91,10 +91,15 @@ const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 
 export async function handle(req: Request, env: Record<string, string | undefined>): Promise<Response> {
+  try { return await run(req, env); }
+  catch (e) { console.error('moderate-chapter', e); return json({ error: 'exception', detail: String((e as Error).message || e) }, 500); }
+}
+
+async function run(req: Request, env: Record<string, string | undefined>): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
   const URL_ = env.SUPABASE_URL, ANON = env.SUPABASE_ANON_KEY, SVC = env.SUPABASE_SERVICE_ROLE_KEY, KEY = env.OPENAI_API_KEY, MODE = (env.AI_MODE || 'auto').toLowerCase();
-  if (!URL_ || !ANON || !SVC) return json({ error: 'config' }, 500);
+  if (!URL_ || !ANON || !SVC) { console.error('faltan variables de Supabase'); return json({ error: 'config' }, 500); }
   if (MODE === 'off') return json({ result: 'off' });
   const auth = req.headers.get('Authorization') || '';
   const ur = await fetch(URL_ + '/auth/v1/user', { headers: { apikey: ANON, Authorization: auth } });
@@ -115,13 +120,13 @@ export async function handle(req: Request, env: Record<string, string | undefine
   if (prev && prev.hash === hash && !!prev.mature === mature) { verdict = prev.verdict; flags = prev.flags; }      // ya se revisó este mismo texto: no se vuelve a gastar la IA
   else if ((ch.text || '').length > MAX_CHARS) { verdict = 'flagged'; flags = { reasons: [{ cat: 'length', label: LABEL.length, score: 1, chunk: 0 }], excerpt: '', mature, chunks: 0 }; }
   else {
-    if (!KEY) return json({ error: 'no_key' }, 500);
+    if (!KEY) { console.error('falta el secreto OPENAI_API_KEY'); return json({ error: 'no_key' }, 500); }
     const chunks = splitChunks((ch.title ? ch.title + '\n' : '') + (ch.text || ''));
     try { const d = decide(await moderate(chunks, KEY), mature, chunks); verdict = d.verdict; flags = d.flags; }
     catch (e) { return json({ error: 'ai_unavailable', detail: String((e as Error).message || e) }, 502); }          // la IA falló: el capítulo sigue pendiente para moderación
   }
   const rr = await fetch(URL_ + '/rest/v1/rpc/ai_decide_chapter', { method: 'POST', headers: H, body: JSON.stringify({ cid, p_verdict: verdict, p_hash: hash, p_mature: mature, p_flags: flags, p_auto: MODE === 'auto' }) });
-  if (!rr.ok) return json({ error: 'db', detail: await rr.text() }, 500);
+  if (!rr.ok) { const d = await rr.text(); console.error('ai_decide_chapter', d); return json({ error: 'db', detail: d.slice(0, 200) }, 500); }
   const result = await rr.json();
   return json({ result, verdict, reasons: (flags && flags.reasons || []).map((r) => r.label) });
 }

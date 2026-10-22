@@ -1471,4 +1471,5 @@ window.I18N = { en: {
   'Libro sin marca +18': 'Book without the +18 mark',
   'Fragmento que preocupó': 'Excerpt of concern',
   'Es una ayuda automática y puede equivocarse: decide tú.': 'This is an automatic aid and can be wrong: you decide.',
+  'Revisión automática no disponible ({e}). Moderación revisará tu capítulo.': 'Automatic review unavailable ({e}). Moderation will review your chapter.',
 } };
