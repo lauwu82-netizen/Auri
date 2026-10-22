@@ -1472,4 +1472,8 @@ window.I18N = { en: {
   'Fragmento que preocupó': 'Excerpt of concern',
   'Es una ayuda automática y puede equivocarse: decide tú.': 'This is an automatic aid and can be wrong: you decide.',
   'Revisión automática no disponible ({e}). Moderación revisará tu capítulo.': 'Automatic review unavailable ({e}). Moderation will review your chapter.',
+  "La IA no encontró problemas, pero está en modo \"solo avisar\": moderación lo aprobará.": "The AI found no issues, but it is in \"advisory only\" mode: moderation will approve it.",
+  "La IA no encontró problemas. Se publicará cuando se apruebe el capítulo anterior.": "The AI found no issues. It will be published once the previous chapter is approved.",
+  "La revisión automática está apagada: moderación revisará tu capítulo.": "Automatic review is off: moderation will review your chapter.",
+  "Cambiaste el capítulo durante la revisión. Se volverá a revisar.": "You changed the chapter during the review. It will be checked again.",
 } };

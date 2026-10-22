@@ -731,6 +731,10 @@ async function sbAiCheck(x, K) {
     seen[x.cu] = { sig: x.sig, ok: true }; LS.set(K, seen); const res = r.data.result;
     if (res === 'approved') toast('Tu capítulo pasó la revisión automática y ya está publicado ✓');
     else if (res === 'flagged') toast('Tu capítulo quedó en revisión: el equipo de moderación lo revisará pronto.');
+    else if (res === 'clean_advisory') toast('La IA no encontró problemas, pero está en modo "solo avisar": moderación lo aprobará.');
+    else if (res === 'clean_waiting') toast('La IA no encontró problemas. Se publicará cuando se apruebe el capítulo anterior.');
+    else if (res === 'off') toast('La revisión automática está apagada: moderación revisará tu capítulo.');
+    else if (res === 'stale') toast('Cambiaste el capítulo durante la revisión. Se volverá a revisar.');
     await sbRefresh(); if (res === 'approved') announceChapters(x.sid, before);
   } else {
     seen[x.cu] = { sig: x.sig, ok: false, retry: Date.now() + (r.status === 404 ? 30 : 3) * 60000 }; LS.set(K, seen);
