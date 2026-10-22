@@ -30,3 +30,9 @@ En Supabase → **SQL Editor** → consulta nueva → pega todo `11_ia_moderacio
 
 ## Para probar con calma
 Pon `AI_MODE = advisory`: la IA revisa y deja su nota, pero nada se publica solo. Cuando veas que acierta, cámbialo a `auto`.
+
+## Segunda revisión con reglas propias (temas delicados) — opcional
+1. Crea una llave gratis en https://aistudio.google.com/apikey
+2. En Supabase › Edge Functions › Secrets agrega `GEMINI_API_KEY` con esa llave.
+3. (Opcional) `GEMINI_MODEL` para cambiar el modelo (por defecto `gemini-2.5-flash`) y `TOPIC_RULES` para reemplazar las reglas escritas.
+Si el secreto no existe o Gemini falla, la revisión normal sigue funcionando igual.
