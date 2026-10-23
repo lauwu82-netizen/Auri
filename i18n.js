@@ -1521,4 +1521,6 @@ window.I18N = { en: {
   "Autorías pueden sumar una canción para acompañar.": "Authors can add a song to accompany the chapter.",
   "Lectura cómoda en una comunidad moderada y segura.": "Comfortable reading in a moderated, safe community.",
   "Usa tu OC como protagonista de tus historias favoritas": "Use your OC as the lead of your favorite stories",
+  "🎲 Orden aleatorio para ti · cambiar a más recientes": "🎲 Random order just for you · switch to newest",
+  "🕒 Más recientes primero · cambiar a orden aleatorio": "🕒 Newest first · switch to random order",
 } };
