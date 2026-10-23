@@ -1514,4 +1514,10 @@ window.I18N = { en: {
   "Cambiar foto de perfil": "Change profile photo",
   "Añadir foto de perfil": "Add profile photo",
   "El marco del equipo es fijo: no se puede cambiar ni quitar.": "The team frame is fixed: it can't be changed or removed.",
+  "Usa tu OC": "Use your OC",
+  "Nombre, apodo y personalidad de tu OC reemplazan al TN en fanfics compatibles, sin cambiar la historia original.": "Your OC's name, nickname and personality replace TN in compatible fanfics, without changing the original story.",
+  "Reacciona en momentos exactos, con spoilers difuminados.": "React to exact moments, with blurred spoilers.",
+  "Música en capítulos": "Music in chapters",
+  "Autorías pueden sumar una canción para acompañar.": "Authors can add a song to accompany the chapter.",
+  "Lectura cómoda en una comunidad moderada y segura.": "Comfortable reading in a moderated, safe community.",
 } };
