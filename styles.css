@@ -1118,3 +1118,20 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .mod-head p{margin:14px 0 0;line-height:1.65;font-size:14px}
 .mod-sorter{display:inline-block;margin:22px 0 0;padding:10px 16px;border-radius:999px;border:1px solid hsl(var(--border));background:hsl(var(--card));color:hsl(var(--primary));font:700 13px/1.4 var(--sans,inherit);text-align:left;cursor:pointer}
 .mod-card{margin-bottom:6px}
+
+/* 40. Feed de Inicio */
+.feed-sec{margin:26px 0 8px}
+.feed-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:0 0 12px}
+.feed-head h3{font:600 20px/1.2 var(--serif);margin:0;color:var(--title)}
+.feed-head p{margin:5px 0 0;font-size:12.5px;line-height:1.5;color:hsl(var(--muted-foreground))}
+.feed-more{font-size:13px;font-weight:700;color:hsl(var(--primary));white-space:nowrap}
+.feed-row{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 2px 10px;margin:0 -2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.feed-row::-webkit-scrollbar{display:none}
+.feed-row .mini{flex:0 0 108px;width:108px;scroll-snap-align:start}
+.feed-group{display:block;margin:26px 0 8px;padding:14px;border-radius:20px;border:1px solid hsl(var(--border));background:hsl(var(--card));color:inherit;text-decoration:none}
+.fg-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;font:600 17px/1.2 var(--serif);color:var(--title)}
+.fg-top span{font-size:24px;color:hsl(var(--primary));line-height:1}
+.fg-covers{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.fg-covers .cover{margin:0;border-radius:10px}
+.feed-all{margin-top:30px}
+.back-link{display:inline-block;margin:4px 0 8px;font-weight:700;color:hsl(var(--primary));text-decoration:none}
