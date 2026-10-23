@@ -1411,17 +1411,17 @@ function signupView() {
 
 /* 4. MASCOTA ------------------------------------------------------ */
 const mascot = (cls = '') => `<svg class="${cls}" viewBox="0 0 240 230" role="img" aria-label="${t('Auri, la gata alienígena')}">
-<path d="M52 100 37 29Q35 20 43 25L100 58ZM188 100 203 29Q205 20 197 25L140 58Z" fill="url(#auri-fur)" stroke="#8062a8" stroke-width="4" stroke-linejoin="round"/>
+<path d="M52 100 37 29Q35 20 43 25L100 58ZM188 100 203 29Q205 20 197 25L140 58Z" fill="url(#auri-fur)" stroke="#754caf" stroke-width="4" stroke-linejoin="round"/>
 <path d="M57 94 46 39Q45 35 49 38L88 61ZM183 94 194 39Q195 35 191 38L152 61Z" fill="#efb8d7"/>
-<path d="M46 116c0-45 33-73 74-73s74 28 74 73v38c0 36-30 58-74 58s-74-22-74-58z" fill="url(#auri-fur)" stroke="#8062a8" stroke-width="4"/>
+<path d="M46 116c0-45 33-73 74-73s74 28 74 73v38c0 36-30 58-74 58s-74-22-74-58z" fill="url(#auri-fur)" stroke="#754caf" stroke-width="4"/>
 <path d="M72 135c0-22 19-40 48-40s48 18 48 40v20c0 19-19 32-48 32s-48-13-48-32z" fill="url(#auri-belly)"/>
 <ellipse cx="91" cy="111" rx="7" ry="10" fill="#49365b"/><ellipse cx="149" cy="111" rx="7" ry="10" fill="#49365b"/>
 <circle cx="93" cy="108" r="2.5" fill="#fff"/><circle cx="151" cy="108" r="2.5" fill="#fff"/>
 <path d="M115 124q5-5 10 0-5 7-10 0" fill="#bf729f"/><path d="M120 130q-5 9-12 4M120 130q5 9 12 4" fill="none" stroke="#604770" stroke-width="2.5" stroke-linecap="round"/>
-<path d="M77 124H48m31 8H45m118-8h29m-29 8h32" stroke="#8062a8" stroke-width="2" stroke-linecap="round"/>
-<path d="M104 38c0-9 7-15 16-15s16 6 16 15" fill="none" stroke="#8062a8" stroke-width="4" stroke-linecap="round"/><circle cx="120" cy="19" r="8" fill="#f1bfdc" stroke="#8062a8" stroke-width="3"/>
-<path d="M47 180q-29 12-20 32 10 17 32 1" fill="none" stroke="#8062a8" stroke-width="9" stroke-linecap="round"/>
-<path d="M88 207v9m64-9v9" stroke="#8062a8" stroke-width="9" stroke-linecap="round"/></svg>`;
+<path d="M77 124H48m31 8H45m118-8h29m-29 8h32" stroke="#754caf" stroke-width="2" stroke-linecap="round"/>
+<path d="M104 38c0-9 7-15 16-15s16 6 16 15" fill="none" stroke="#754caf" stroke-width="4" stroke-linecap="round"/><circle cx="120" cy="19" r="8" fill="#f1bfdc" stroke="#754caf" stroke-width="3"/>
+<path d="M47 180q-29 12-20 32 10 17 32 1" fill="none" stroke="#754caf" stroke-width="9" stroke-linecap="round"/>
+<path d="M88 207v9m64-9v9" stroke="#754caf" stroke-width="9" stroke-linecap="round"/></svg>`;
 
 /* 5. VISTAS ------------------------------------------------------- */
 /* --- Cabecera mínima + barra de navegación inferior (estilo app móvil) --- */
