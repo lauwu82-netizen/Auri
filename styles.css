@@ -1111,3 +1111,10 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .mod-decide{margin-top:12px;position:sticky;bottom:78px}
 .ai-note.ok{background:#e3f6ea;border-color:#9fd6b3;color:#1d6b3a}.dark .ai-note.ok{background:#16382a;border-color:#2e6b4a;color:#8be0aa}
 .mod-user{margin:14px 0}.mod-user h3{margin:0}
+
+/* 39. Moderación: cabecera con aire */
+.mod-head{margin-bottom:28px}
+.mod-head h2{margin-top:14px!important}
+.mod-head p{margin:14px 0 0;line-height:1.65;font-size:14px}
+.mod-sorter{display:inline-block;margin:22px 0 0;padding:10px 16px;border-radius:999px;border:1px solid hsl(var(--border));background:hsl(var(--card));color:hsl(var(--primary));font:700 13px/1.4 var(--sans,inherit);text-align:left;cursor:pointer}
+.mod-card{margin-bottom:6px}
