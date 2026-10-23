@@ -96,9 +96,9 @@ const pubChapter = c => c.status === 'approved' ? c : c.live ? { ...c, status: '
 /** Solo es público el tramo de capítulos aprobados en orden consecutivo (1, 2, 3…) desde el primero */
 const publicPrefix = chs => { const out = []; for (let idx = 0; idx < chs.length; idx++) { const p = pubChapter(chs[idx]); if (!p) break; out.push({ ...p, idx }); } return out; };
 const takedown = () => G.get('takedown', []);                     // obras retiradas de Descubrir por moderación
-const pubAll = () => allStories().map(s => ({ ...s, chapters: publicPrefix(s.chapters) })).filter(s => s.chapters.length);
+const pubAll = () => allStories().filter(s => !s.private).map(s => ({ ...s, chapters: publicPrefix(s.chapters) })).filter(s => s.chapters.length);      // las historias privadas no salen en ninguna lista pública
 const publishedStories = () => pubAll().filter(s => !takedown().includes(s.id));
-const pendingBooks = () => allStories().filter(s => s.chapters.some(c => c.status === 'pending'));
+const pendingBooks = () => allStories().filter(s => !s.private && s.chapters.some(c => c.status === 'pending'));
 /** Lo que se muestra al abrir una historia: SIEMPRE lo que ve el público (solo capítulos aprobados), también para su autoría.
  *  Solo si la obra aún no es pública (nada aprobado) la autoría abre su copia completa para poder leerla. */
 const findStory = id => {
@@ -541,7 +541,7 @@ async function sbMirror() {
   const pv = (q.ok && Array.isArray(q.data) && q.data[0]) || {};
   const email = String(s.email || pv.email || '').toLowerCase(), us = LS.get('auri.users', {}), old = us[email] || {};
   us[email] = { ...old, uid: s.uid, cloud: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || old.bio || '', avatar: pr.avatar || old.avatar || '', banner: pr.banner || old.banner || '',
-    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
+    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
     birth: pv.birth || old.birth || '', gender: pv.gender || old.gender || '', interests: pv.interests || old.interests || [], onboarded: true,
     termsAccepted: pr.terms_accepted || old.termsAccepted, created: String(pr.created_at || '').slice(0, 10) || old.created, strikes: old.strikes || [] };
   LS.set('auri.users', us);
@@ -585,6 +585,10 @@ setTimeout(sbBeat, 4000);
 async function sbPushFrame() {
   const s = sbSes(); if (!cloud() || !s || PRES_OFF) return; const u = LS.get('auri.users', {})[String(s.email).toLowerCase()]; if (!u) return;
   await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { frame_sel: u.frameSel === undefined ? null : u.frameSel } });
+}
+async function sbPushLists() {
+  const s = sbSes(); if (!cloud() || !s || PRES_OFF) return; const u = LS.get('auri.users', {})[String(s.email).toLowerCase()]; if (!u) return;
+  await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { hide_lists: !!u.hideLists } });
 }
 async function cloudLogin(email, pass) {
   const r = await sbFetch('/auth/v1/token?grant_type=password', { method: 'POST', body: { email, password: pass } });
@@ -634,10 +638,10 @@ const cBack = u => { const h = String(u).replace(/-/g, ''); return parseInt(h.sl
 const remoteKey = uid => 'u-' + uid + '@cloud.auri';
 const hsh = s => { s = String(s); let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h + ':' + s.length; };
 const PHASES = ['ongoing', 'paused', 'finished'], CH_ST = ['draft', 'pending', 'rejected', 'approved'];
-const infoSig = l => hsh(JSON.stringify([l.title || '', l.synopsis || '', l.genre || '', l.fandom || '', l.tags || [], l.cover || '', !!l.mature, l.phase || 'ongoing', l.prev || '', l.useReaderCharacter !== false]));
+const infoSig = l => hsh(JSON.stringify([l.title || '', l.synopsis || '', l.genre || '', l.fandom || '', l.tags || [], l.cover || '', !!l.mature, l.phase || 'ongoing', l.prev || '', l.useReaderCharacter !== false, !!l.private]));
 const contSig = c => hsh([c.title || '', c.text || '', c.cover || '', c.music || ''].join('\u0001'));
 const sameCont = (c, r) => (c.title || '') === (r.title || '') && (c.text || '') === (r.text || '') && (c.cover || '') === (r.cover || '') && (c.music || '') === (r.music || '');
-const infoFromRow = r => ({ title: r.title, synopsis: r.synopsis || '', genre: r.genre || '', fandom: r.fandom || '', tags: r.tags || [], cover: r.cover || '', mature: !!r.mature, phase: r.phase || 'ongoing', prev: r.prev ? sBack(r.prev) : '', useReaderCharacter: r.use_reader_character !== false });
+const infoFromRow = r => ({ title: r.title, synopsis: r.synopsis || '', genre: r.genre || '', fandom: r.fandom || '', tags: r.tags || [], cover: r.cover || '', mature: !!r.mature, phase: r.phase || 'ongoing', prev: r.prev ? sBack(r.prev) : '', useReaderCharacter: r.use_reader_character !== false, private: !!r.private });
 const day = v => String(v || '').slice(0, 10);
 let SB_BUSY = false, SB_ST, SB_QUIET = false, SB_Q = { all: false, st: false, soc: new Set() };
 function sbStoriesSoon() { if (!cloud() || !sbSes() || SB_QUIET) return; SB_Q.st = true; clearTimeout(SB_ST); SB_ST = setTimeout(() => sbRefresh({ st: true }), 1500); }
@@ -682,10 +686,10 @@ async function sbSyncOwn() {
     const R = cs.get(su);
     if (!R && stS.has(su)) { changed = true; continue; }                      // la borraste en otro lugar
     const row = { id: su, owner: uid, community: comm, title: l.title || '', synopsis: l.synopsis || '', genre: l.genre || '', fandom: l.fandom || '', tags: l.tags || [], cover: l.cover || '', mature: !!l.mature,
-      phase: PHASES.includes(l.phase) ? l.phase : 'ongoing', prev: l.prev && sUuid(l.prev) ? sUuid(l.prev) : null, use_reader_character: l.useReaderCharacter !== false, terms: false };
+      phase: PHASES.includes(l.phase) ? l.phase : 'ongoing', prev: l.prev && sUuid(l.prev) ? sUuid(l.prev) : null, use_reader_character: l.useReaderCharacter !== false, terms: false, ...(l.private || (R && R.private) ? { private: !!l.private } : {}) };
     if (!R) putS.push(row);
     else if (sigS[su] === infoSig(l)) { const ni = infoFromRow(R); if (infoSig({ ...l, ...ni }) !== infoSig(l)) { Object.assign(l, ni); changed = true; } }   // no la tocaste: manda la nube (p. ej. cambio de moderación)
-    else { const same = ['title', 'synopsis', 'genre', 'fandom', 'cover', 'phase'].every(k => (R[k] || '') === (row[k] || '')) && !!R.mature === row.mature && JSON.stringify(R.tags || []) === JSON.stringify(row.tags) && (R.prev || null) === row.prev && (R.use_reader_character !== false) === row.use_reader_character; if (!same) patchS.push(row); }
+    else { const same = ['title', 'synopsis', 'genre', 'fandom', 'cover', 'phase'].every(k => (R[k] || '') === (row[k] || '')) && !!R.mature === row.mature && JSON.stringify(R.tags || []) === JSON.stringify(row.tags) && (R.prev || null) === row.prev && (R.use_reader_character !== false) === row.use_reader_character && !!R.private === !!l.private; if (!same) patchS.push(row); }
     nSigS[su] = infoSig(l);
     // capítulos
     const mine = new Set();
@@ -749,7 +753,7 @@ let AI_FN = '', AI_ERR = false;
 function sbAiScan(out) {
   if (!cloud() || !sbSes() || !S.user || isGuest()) return;
   const K = uk('aiseen2'), seen = LS.get(K, {}), now = Date.now(), todo = [];
-  out.forEach(l => { const su = sUuid(l.id); if (!su) return; l.chapters.forEach(c => {
+  out.forEach(l => { const su = sUuid(l.id); if (!su || l.private) return; l.chapters.forEach(c => {
     if (c.status !== 'pending') return; const cu = cUuid(l.id, c.id); if (!cu || AI_RUN.has(cu)) return;
     const sig = contSig(c) + '|' + (l.mature ? 1 : 0), sn = seen[cu]; if (sn && sn.sig === sig && (sn.ok || now < sn.retry)) return;
     todo.push({ sid: l.id, cid: c.id, cu, sig }); }); });
@@ -814,7 +818,7 @@ async function sbPullPublic() {                           // trae las obras de o
   for (const o of owners) {
     const pr = prof.find(x => x.id === o); if (!pr) continue; const key = remoteKey(o), old = us[key] || {};
     us[key] = { ...old, uid: o, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
     const list = [];
     for (const r of stories.filter(x => x.owner === o)) {
       const pubs = (pubBy.get(r.id) || []), wk = (wkBy.get(r.id) || []), cmap = new Map();
@@ -986,7 +990,7 @@ async function sbSyncSocial(only) {
 function sbPseudo(pr, old) {                                   // copia local de la cuenta de otra persona (sin datos privados)
   old = old || {};
   return { ...old, uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
 }
 const SOC_G = { 'auri.likes': ['likes'], 'auri.follows': ['follows'], 'auri.comments': ['comments', 'comment_likes'], 'auri.pcom': ['pcom', 'pcom_likes'], 'auri.subs': ['subscriptions'] };
 let SB_SOC_T;
@@ -1167,7 +1171,7 @@ async function sbSyncMod(force) {
     const need = [me]; if (force || Date.now() - MOD_PROF > 600000) { MOD_PROF = Date.now(); for (const key in us) if (us[key] && us[key].remote && us[key].uid) need.push(us[key].uid); }
     for (let i = 0; i < need.length; i += 80) {
       const pr = await sbApi('/rest/v1/profiles?select=*&id=in.(' + need.slice(i, i + 80).join(',') + ')');
-      if (pr.ok && Array.isArray(pr.data)) pr.data.forEach(p => { const key = ids.key(p.id); if (key && us[key]) us[key] = { ...us[key], role: p.role, scope: Array.isArray(p.scope) ? p.scope : [], frameWorn: !!p.frame_worn, frameSel: p.frame_sel == null ? undefined : p.frame_sel, frameTop: !!p.frame_top, modSince: p.mod_since || undefined, admSince: p.adm_since || undefined }; });
+      if (pr.ok && Array.isArray(pr.data)) pr.data.forEach(p => { const key = ids.key(p.id); if (key && us[key]) us[key] = { ...us[key], role: p.role, scope: Array.isArray(p.scope) ? p.scope : [], frameWorn: !!p.frame_worn, frameSel: p.frame_sel == null ? undefined : p.frame_sel, hideLists: !!p.hide_lists, frameTop: !!p.frame_top, modSince: p.mod_since || undefined, admSince: p.adm_since || undefined }; });
     }
     LS.set('auri.users', us);
     if (ap) G.set('appeals', ap.map(x => ({ id: x.id, user: k(x.user_id), banDate: x.ban_date, ban: { reason: x.ban_reason || '', by: k(x.ban_by), until: x.ban_until || null }, text: x.text, imgs: x.imgs || [], date: day(x.created_at), status: x.status, handledBy: k(x.handled_by), handledDate: day(x.handled_at), note: x.note || '' })));
@@ -1706,7 +1710,7 @@ async function sbSearchUsers() {                         // trae de Supabase a l
   const us = LS.get('auri.users', {}), me = sbSes() && sbSes().uid; let ch = false;
   r.data.filter(p => p.id !== me).forEach(pr => { const key = remoteKey(pr.id), old = us[key];
     const n = { ...(old || {}), uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
     if (JSON.stringify(old) !== JSON.stringify(n)) { us[key] = n; ch = true; } });
   if (ch) { LS.set('auri.users', us); const l = $('#list'); if (l && SM === 'users') l.innerHTML = usersList(); }
 }
@@ -1822,11 +1826,11 @@ function discoverView() {
 }
 
 /* --- Escribir (portada, capítulos ilimitados, +18 y revisión) --- */
-const STATUS = { draft: 'Borrador', pending: 'En revisión', rejected: 'Rechazada', published: 'Publicada' };
+const STATUS = { draft: 'Borrador', pending: 'En revisión', rejected: 'Rechazada', published: 'Publicada', private: 'Privada' };
 const CH_STATUS = { draft: 'Borrador', pending: 'En revisión', rejected: 'Rechazado', approved: 'Aprobado' };
 const CH_MARK = { approved: ' ✓', pending: ' ⏳', rejected: ' ✕' };
 /** Estado general de la obra, derivado de sus capítulos */
-const storyState = s => publicPrefix(s.chapters).length ? 'published' : s.chapters.some(x => x.status === 'pending') ? 'pending' : s.chapters.some(x => x.status === 'rejected') ? 'rejected' : 'draft';
+const storyState = s => s.private ? 'private' : publicPrefix(s.chapters).length ? 'published' : s.chapters.some(x => x.status === 'pending') ? 'pending' : s.chapters.some(x => x.status === 'rejected') ? 'rejected' : 'draft';
 const statusNote = s => { const p = s.chapters.filter(c => c.status === 'pending').length;
   return [p ? t('{n} capítulo(s) en revisión: aún no se ven en la app.', { n: p }) : '', ...s.chapters.filter(c => c.status === 'rejected').map(c => t('«{title}» fue rechazado{reason}. Edítalo y vuelve a enviarlo.', { title: c.title, reason: c.reason ? ': ' + c.reason : '' }))].filter(Boolean).join(' '); };
 // Borrador de términos: conviene que una persona con formación legal los revise antes de lanzar la app
@@ -1911,7 +1915,7 @@ function writeRoute(editId, sub, cid) {
   return sub === 'chapters' ? chaptersView() : sub === 'ch' ? chapterView(+cid) : infoView(true);
 }
 const needTerms = () => !(getUsers()[S.user] || {}).termsAccepted;     // cuentas anteriores al nuevo registro: aceptan una sola vez aquí
-const submitBlock = () => `<div class="panel" style="margin-top:16px">${needTerms() ? `<label class="check"><input type="checkbox" id="w-terms" ${W.terms ? 'checked' : ''}><span>${t('Acepto los {terms} de Auri.', { terms: '<button type="button" class="link-btn" data-act="terms">' + t('términos y condiciones') + '</button>' })}</span></label>` : ''}
+const submitBlock = () => W.private ? `<div class="panel" style="margin-top:16px"><p class="notice" style="margin:0 0 4px">🔒 ${t('Historia privada: solo tú la ves y no pasa por moderación.')}</p><button class="button" style="margin-top:12px;width:100%" data-act="save-draft">${t('Guardar')}</button></div>` : `<div class="panel" style="margin-top:16px">${needTerms() ? `<label class="check"><input type="checkbox" id="w-terms" ${W.terms ? 'checked' : ''}><span>${t('Acepto los {terms} de Auri.', { terms: '<button type="button" class="link-btn" data-act="terms">' + t('términos y condiciones') + '</button>' })}</span></label>` : ''}
   <p class="notice" style="margin:0 0 4px">🔞 ${t('Si tu historia tiene contenido +18, acuérdate de marcarla como +18 antes de enviarla. Los términos ya los aceptaste al crear tu cuenta.')}</p>
   <button class="button" style="margin-top:12px;width:100%" data-act="publish">${t('Enviar a revisión')}</button>
   <p class="helper" style="margin-top:8px">${t('Se envían todos los capítulos terminados que aún no están en revisión. Moderación los revisa en orden: la historia aparece en Descubrir cuando se aprueba el primero.')}</p></div>`;
@@ -1937,6 +1941,8 @@ function infoView(existing) {
     ${sagaBox()}
   </div><div class="toggle-line"><div><strong>${t('Tarjeta de personaje lector')}</strong><div class="helper">${t('Reemplaza TN / T/N por el nombre de tu personaje.')}</div></div>
   <button type="button" role="switch" class="switch" aria-checked="${W.useReaderCharacter}" data-act="toggle-tn" aria-label="${esc(t('Usar tarjeta de personaje lector'))}"></button></div>
+  <div class="toggle-line"><div><strong>🔒 ${t('Historia privada')}</strong><div class="helper">${t('Solo tú la ves: no aparece en Descubrir, búsquedas ni tu perfil público, y no pasa por moderación.')}</div></div>
+  <button type="button" role="switch" class="switch" aria-checked="${!!W.private}" data-act="toggle-priv" aria-label="${esc(t('Historia privada'))}"></button></div>
   ${isMinor(getUsers()[S.user]) ? '' : `<div class="toggle-line"><div><strong>${t('Historia +18')}</strong><div class="helper">${t('Actívalo si tiene contenido sugerente o temas para mayores de edad. Una vez publicada, quitar la marca +18 necesita aprobación de moderación.')}</div></div>
   <button type="button" role="switch" class="switch" aria-checked="${W.mature}" data-act="toggle-18" aria-label="${esc(t('Historia +18'))}"></button></div>`}
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px">${existing ? '<button class="button" data-act="info-save">' + t('Guardar cambios') + '</button>' : '<button class="button" data-act="save-next">' + t('Guardar y siguiente ›') + '</button>'}</div></section>${existing ? chaptersEntry() : ''}</main>`;
@@ -2045,6 +2051,7 @@ function saveStory(submit) {
   const cur = freshStories();
   let chs = reconcile(W.chapters, cur.find(s => s.id === W.id));
   const toSend = chs.filter(c => c.status === 'draft' && c.text.trim());
+  if (submit && W.private) submit = false;                       // una historia privada no se envía a revisión
   if (submit) {
     if (!toSend.length) return toast(t('No hay capítulos nuevos o editados para enviar.'));
     if (needTerms()) { if (!W.terms) return toast(t('Debes aceptar los términos y condiciones para enviar.')); const us = getUsers(); if (us[S.user]) { us[S.user].termsAccepted = today(); G.set('users', us); } }
@@ -2647,7 +2654,7 @@ function settingsView(secId) {
       <div class="set-btns"><button class="button secondary" data-act="export-file">${t('⬇ Exportar mis datos (archivo)')}</button><button class="button secondary" data-act="export-copy">${t('📋 Copiar mis datos')}</button>
       <label class="button secondary" style="cursor:pointer">${t('⬆ Importar desde archivo')}<input id="import-file" type="file" accept="application/json,.json" hidden></label>
       <button class="button danger" data-act="wipe-device">${t('🗑 Borrar datos de este dispositivo')}</button></div></section>` },
-    cuenta: { ico: '👤', c: '#5b6ee1', t: 'Cuenta', sub: isGuest() ? t('Invitado · crear cuenta o iniciar sesión') : S.user, body: () => isGuest() ? guestCard() : `<section class="panel set-sec">${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}<div class="form-grid" style="grid-template-columns:1fr"><div class="form-group"><label for="ac-name">${t('Nombre de usuario')}</label><input id="ac-name" class="field" maxlength="30" value="${esc(u.name || '')}"></div>
+    cuenta: { ico: '👤', c: '#5b6ee1', t: 'Cuenta', sub: isGuest() ? t('Invitado · crear cuenta o iniciar sesión') : S.user, body: () => isGuest() ? guestCard() : `<section class="panel set-sec">${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}${sw('hideLists', !!u.hideLists, 'Ocultar mis listas', 'Nadie más ve quién te sigue ni a quién sigues. Los números siguen visibles.')}<div class="form-grid" style="grid-template-columns:1fr"><div class="form-group"><label for="ac-name">${t('Nombre de usuario')}</label><input id="ac-name" class="field" maxlength="30" value="${esc(u.name || '')}"></div>
       <div class="form-group"><label for="ac-email">${t('Correo')}</label><input id="ac-email" type="email" class="field" value="${esc(S.user)}"></div>
       <div class="form-group"><label for="ac-pass">${t('Contraseña actual')}</label><input id="ac-pass" type="password" class="field" autocomplete="current-password" placeholder="${esc(t('Solo para cambiar el correo'))}"></div></div>
       <button class="button" style="margin-top:12px;width:100%" data-act="acct-save">${t('Guardar cambios de cuenta')}</button></section>
@@ -2784,7 +2791,7 @@ let PFEDIT = false, EPD = null;                          // EPD: lo escrito en E
 document.addEventListener('input', ev => { if (ev.target && (ev.target.id === 'pf-name' || ev.target.id === 'pf-bio')) EPD = { name: ($('#pf-name') || {}).value || '', bio: ($('#pf-bio') || {}).value || '' }; });
 function profileHero(e, own, acts = '') {
   const u = getUsers()[e] || {}, pubs = publishedStories().filter(s => s.owner === e), has = safeImg(u.banner), role = ROLE_LABEL[roleOf(e)], sk = own ? strikesOf(e) : [];
-  const stat = (n, l, act, kind) => act ? `<button type="button" class="pfs" data-act="${act}" data-id="${esc(e)}" data-kind="${kind || ''}"><b>${n}</b><small>${l}</small></button>` : `<span class="pfs"><b>${n}</b><small>${l}</small></span>`;
+  const lk = !own && (getUsers()[e] || {}).hideLists, stat = (n, l, act, kind) => act && !(lk && act === 'pf-list') ? `<button type="button" class="pfs" data-act="${act}" data-id="${esc(e)}" data-kind="${kind || ''}"><b>${n}</b><small>${l}</small></button>` : `<span class="pfs"><b>${n}</b><small>${l}</small></span>`;
   return `<section class="pf-hero"><div class="pf-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>
     ${sk.length && !cfg('hideStrikeBtn') ? `<button type="button" class="pf-warn" data-act="strike-info" aria-label="${esc(t('Aviso de strikes'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5"/><circle cx="12" cy="16.6" r=".6" fill="currentColor"/></svg></button>` : ''}
     <div class="pf-fade"></div></div>
@@ -2797,6 +2804,7 @@ function profileHero(e, own, acts = '') {
 }
 /** Lista de seguidores o de seguidos (al tocar la cifra) */
 function openUserList(e, kind) {
+  if (e !== S.user && (getUsers()[e] || {}).hideLists) return toast(t('Esta persona mantiene privadas sus listas.'));
   const us = getUsers(), list = (kind === 'following' ? following(e) : followers(e)).filter(x => us[x] && us[x].name && x !== GUEST && !iBlock(x));
   const m = document.createElement('div'); m.className = 'modal sheet';
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${kind === 'following' ? t('Seguidos') : t('Seguidores')} · ${list.length}</h2>
@@ -2877,6 +2885,7 @@ function editProfileView() {
     <div class="form-group"><label for="pf-bio">${t('Biografía')}</label><textarea id="pf-bio" class="textarea" maxlength="300" placeholder="${esc(t('Cuéntales algo sobre ti…'))}">${esc(EPD ? EPD.bio : (u.bio || ''))}</textarea></div>
     <button type="button" class="ep-row" data-act="frames"><span><b>${t('Marcos')}</b><small>${frameLine}</small></span><i aria-hidden="true">›</i></button>
     ${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}
+    ${sw('hideLists', !!u.hideLists, 'Ocultar mis listas', 'Nadie más ve quién te sigue ni a quién sigues. Los números siguen visibles.')}
   </form></main>`;
 }
 /** Lista de marcos que tienes: moderación y administración no pueden cambiarlo */
@@ -3512,6 +3521,7 @@ document.addEventListener('click', e => {
     comments: () => { SHOWC = !SHOWC; KEEP = true; render(); if (SHOWC) { const c = $('#comments'); if (c && c.scrollIntoView) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
     'ch-add': addChapter,
     'ch-trash': () => { const c = W.chapters.find(x => x.id === +el.dataset.cid); if (c) confirmBox(t('¿Seguro que quieres eliminar «{title}»?', { title: c.title || t('capítulo') }), () => deleteChapter(c.id)); },
+    'toggle-priv': () => { collect(); W.private = !W.private; el.setAttribute('aria-checked', String(!!W.private)); toast(W.private ? t('Historia privada: solo tú la ves.') : t('La historia vuelve a ser pública cuando envíes sus capítulos a revisión.')); },
     'toggle-18': () => { if (isMinor(getUsers()[S.user])) return; collect(); const st = freshStories().find(x => x.id === W.id);
       if (W.mature && st && st.mature && publicPrefix(st.chapters).length && !isStaff()) { el.setAttribute('aria-checked', 'true'); return dialog(t('Quitar +18 de una obra publicada'), t('Para proteger a las personas menores, quitar la marca +18 de una obra ya publicada necesita aprobación de moderación. Seguirá marcada +18 mientras tanto.'), t('Enviar solicitud'), t('Cancelar'), () => toast(requestUnmature(W.id, W.title))); }
       W.mature = !W.mature; el.setAttribute('aria-checked', W.mature); },
@@ -3627,6 +3637,7 @@ document.addEventListener('click', e => {
     'settings-back': () => { const h = window.history; if (h && h.length > 1) h.back(); else go('/'); },
     cfg: () => { const k = el.dataset.k, v = el.dataset.v; if (k === 'theme') { S.theme = v; LS.set('auri.themeSet', true); applyTheme(); } else setCfg(k, v); KEEP = true; render(); },
     'cfg-toggle': () => { const k = el.dataset.k;
+      if (k === 'hideLists') { const us = getUsers(); if (!us[S.user]) return; us[S.user].hideLists = !us[S.user].hideLists; G.set('users', us); sbPushLists(); el.setAttribute('aria-checked', String(!!us[S.user].hideLists)); return; }
       if (k === 'showOnline') { setCfg(k, !cfg(k)); el.setAttribute('aria-checked', String(cfg(k) !== false)); return; }      // sin redibujar: no se pierde lo que estás escribiendo
       if (k.startsWith('notif.')) { const key = k.slice(6); setCfg('notif', { ...cfg('notif'), [key]: !cfg('notif')[key] }); }
       else if (k === 'showMature') {

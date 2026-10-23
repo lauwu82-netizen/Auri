@@ -1531,4 +1531,13 @@ window.I18N = { en: {
   "Revisar capítulo": "Review chapter",
   "Los marcados en amarillo llamaron la atención de la IA. Toca un capítulo en revisión para leerlo.": "Chapters in yellow caught the AI's attention. Tap a chapter in review to read it.",
   "Una ficha por libro. Toca uno para ver sus capítulos. Los nuevos se aprueban en orden: 1, 2, 3…": "One card per book. Tap one to see its chapters. New ones are approved in order: 1, 2, 3…",
+  "Historia privada": "Private story",
+  "Solo tú la ves: no aparece en Descubrir, búsquedas ni tu perfil público, y no pasa por moderación.": "Only you can see it: it won't show in Discover, searches or your public profile, and it skips moderation.",
+  "Historia privada: solo tú la ves.": "Private story: only you can see it.",
+  "La historia vuelve a ser pública cuando envíes sus capítulos a revisión.": "The story becomes public again when you send its chapters for review.",
+  "Historia privada: solo tú la ves y no pasa por moderación.": "Private story: only you can see it and it skips moderation.",
+  "Privada": "Private",
+  "Ocultar mis listas": "Hide my lists",
+  "Nadie más ve quién te sigue ni a quién sigues. Los números siguen visibles.": "Nobody else can see who follows you or who you follow. The numbers stay visible.",
+  "Esta persona mantiene privadas sus listas.": "This person keeps their lists private.",
 } };
