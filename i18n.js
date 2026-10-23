@@ -1523,4 +1523,12 @@ window.I18N = { en: {
   "Usa tu OC como protagonista de tus historias favoritas": "Use your OC as the lead of your favorite stories",
   "🎲 Orden aleatorio para ti · cambiar a más recientes": "🎲 Random order just for you · switch to newest",
   "🕒 Más recientes primero · cambiar a orden aleatorio": "🕒 Newest first · switch to random order",
+  "{n} lo está revisando": "{n} is reviewing it",
+  "Ver qué detectó la IA": "See what the AI detected",
+  "Marcado": "Flagged",
+  "IA": "AI",
+  "Revisar libro": "Review book",
+  "Revisar capítulo": "Review chapter",
+  "Los marcados en amarillo llamaron la atención de la IA. Toca un capítulo en revisión para leerlo.": "Chapters in yellow caught the AI's attention. Tap a chapter in review to read it.",
+  "Una ficha por libro. Toca uno para ver sus capítulos. Los nuevos se aprueban en orden: 1, 2, 3…": "One card per book. Tap one to see its chapters. New ones are approved in order: 1, 2, 3…",
 } };

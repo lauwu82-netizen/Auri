@@ -791,6 +791,16 @@ async function sbPullPublic() {                           // trae las obras de o
     sbApi('/rest/v1/takedowns?select=story_id&limit=2000'),
     staff ? sbApi('/rest/v1/chapters?select=*&status=in.(pending,rejected)&limit=2000') : Promise.resolve(null)]);
   const rai = staff ? await sbApi('/rest/v1/chapter_ai?select=chapter_id,flags,verdict&limit=2000') : null, aiBy = new Map(((rai && rai.ok && Array.isArray(rai.data)) ? rai.data : []).map(a => [a.chapter_id, { ...(a.flags || {}), verdict: a.verdict }]));
+  if (staff) {                                           // quién está revisando cada libro ahora mismo
+    const rcl = await sbApi('/rest/v1/review_claims?select=*&at=gte.' + encodeURIComponent(new Date(Date.now() - CLAIM_MS).toISOString())), sig0 = JSON.stringify(Object.entries(CLAIMS).filter(([, v]) => v.by !== S.user));
+    if (rcl.ok && Array.isArray(rcl.data)) {
+      for (const k in CLAIMS) if (CLAIMS[k].by !== S.user) delete CLAIMS[k];
+      const others = rcl.data.filter(r => r.user_id !== uid), nm = {};
+      if (others.length) { const pn = await sbApi('/rest/v1/profiles?select=id,name&id=in.(' + [...new Set(others.map(r => r.user_id))].join(',') + ')'); if (pn.ok && Array.isArray(pn.data)) pn.data.forEach(p => { nm[p.id] = p.name; }); }
+      others.forEach(r => { CLAIMS[sBack(r.story_id)] = { by: remoteKey(r.user_id), name: nm[r.user_id] || '', at: Date.parse(r.at) }; });
+      if (JSON.stringify(Object.entries(CLAIMS).filter(([, v]) => v.by !== S.user)) !== sig0 && location.hash.startsWith('#/moderation')) setTimeout(() => { KEEP = true; render(); }, 0);
+    }
+  }
   if (!rs.ok || !rp.ok || !Array.isArray(rs.data) || !Array.isArray(rp.data)) return false;
   const stories = rs.data.filter(r => r.owner !== uid), sIds = new Set(stories.map(r => r.id));
   const pubBy = new Map(), wkBy = new Map();
@@ -2276,30 +2286,78 @@ function commBar() {                                    // quien ve todo elige c
   return `<div class="filter-row comm-bar" role="radiogroup" aria-label="${esc(t('Comunidad'))}">${[['all', 'Todas'], ['es', 'Español'], ['en', 'English']].map(([k, n]) => `<button type="button" class="chip ${MODC === k ? 'active' : ''}" data-act="mod-comm" data-id="${k}">${t(n)}</button>`).join('')}</div>`;
 }
 const aiNote = a => { const rs = (a && a.reasons) || []; return `<div class="ai-note"><b>${t('La IA marcó este capítulo por:')}</b> ${rs.map(r => esc(r.label) + ' (' + Math.round((r.score || 0) * 100) + '%)').join(', ') || esc(t('revisión'))}${a.mature ? ' · ' + t('Libro +18') : ' · ' + t('Libro sin marca +18')}${a.excerpt ? `<details><summary>${t('Fragmento que preocupó')}</summary><p>«${esc(a.excerpt)}…»</p></details>` : ''}<span class="helper">${t('Es una ayuda automática y puede equivocarse: decide tú.')}</span></div>`; };
+/* ---------- Revisión de libros: ficha, pantalla del libro y pantalla del capítulo ---------- */
+function afterReview(id) { const bk = allStories().find(x => x.id === id), left = bk && bk.chapters.some(c => c.status === 'pending'); NAVDIR = 'prev'; if (left) go('/moderation/book/' + encodeURIComponent(id)); else { releaseClaim(id); go('/moderation'); } }
+const CLAIMS = {};                                         // id del libro → { by (clave de usuario), at }: quién lo está revisando ahora
+const CLAIM_MS = 10 * 60 * 1000;
+const claimOf = id => { const c = CLAIMS[id]; return c && c.by !== S.user && Date.now() - c.at < CLAIM_MS ? c : null; };
+const canApproveCh = (bk, i) => !!(bk.chapters[i] && (bk.chapters[i].live || bk.chapters.slice(0, i).every(x => pubChapter(x))));   // una edición de un capítulo ya publicado se aprueba sin importar los anteriores
+const aiState = c => !c.ai ? 'none' : c.ai.verdict === 'flagged' ? 'flag' : 'ok';
+function modBookCard(s) {
+  const np = s.chapters.filter(c => c.status === 'pending').length, fl = s.chapters.filter(c => c.status === 'pending' && aiState(c) === 'flag').length, first = !publicPrefix(s.chapters).length, cl = claimOf(s.id), href = '#/moderation/book/' + encodeURIComponent(s.id);
+  return `<div class="mod-card ${fl ? 'has-flag' : ''}"><a class="mod-card-main" href="${href}" data-dir="next">${s.cover ? `<img class="book-thumb" src="${esc(s.cover)}" alt="">` : '<span class="book-thumb">📖</span>'}
+    <span class="mod-card-txt"><strong class="serif">${esc(s.title)}</strong><small>${t('por {a}', { a: esc(s.author) })}${s.mature ? ' · +18' : ''}</small><small>${t('{n} en revisión', { n: np })}${first ? ' · ' + t('Historia nueva') : ''}</small>${cl ? `<span class="pill claim">👀 ${t('{n} lo está revisando', { n: esc(cl.name || uName(cl.by)) })}</span>` : ''}</span></a>
+    <a class="mod-ai ${fl ? 'flag' : ''}" href="${href}" data-dir="next" aria-label="${esc(t('Ver qué detectó la IA'))}"><span>🤖</span><small>${fl ? t('Marcado') : t('IA')}</small></a></div>`;
+}
+function modBookView(id) {
+  if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">' + t('Volver') + '</a>')}</main>`;
+  const s = allStories().find(x => x.id === id), back = `<div class="set-head"><a class="icon-btn" href="#/moderation" data-dir="prev" aria-label="${esc(t('Volver'))}">‹</a><h2>${t('Revisar libro')}</h2></div>`;
+  if (!s || !inScope(commOf(s.owner))) return `<main class="page story-layout">${back}${empty('Nada por revisar', 'Este libro ya no tiene capítulos en revisión.', '<a class="button" href="#/moderation">' + t('Volver') + '</a>')}</main>`;
+  const first = !publicPrefix(s.chapters).length, cl = claimOf(s.id);
+  const rows = s.chapters.map((c, i) => {
+    const pend = c.status === 'pending', st = pend ? aiState(c) : '', inner = `<b>${t('Cap. {n}', { n: i + 1 })}</b><span class="mod-row-t">${esc(c.title)}</span><span class="pill st-${c.status}">${t(CH_STATUS[c.status])}</span>`
+      + (pend ? `<span class="pill ai-pill ${st === 'flag' ? '' : st === 'ok' ? 'ai-ok' : 'ai-none'}">${st === 'flag' ? t('🤖 Marcado por la IA') : st === 'ok' ? t('🤖 IA: sin problemas') : t('🤖 IA: sin revisar')}</span>` : '')
+      + (pend && c.live ? `<small class="helper">${t('versión editada')}</small>` : '') + (pend && st === 'flag' ? `<small class="mod-row-why">${(c.ai.reasons || []).map(r => esc(t(r.label))).join(', ')}</small>` : '');
+    return pend ? `<a class="mod-row ${st === 'flag' ? 'flag' : ''}" href="#/moderation/book/${encodeURIComponent(s.id)}/${c.id}" data-dir="next">${inner}<i aria-hidden="true">›</i></a>` : `<div class="mod-row off">${inner}</div>`;
+  }).join('');
+  return `<main class="page story-layout">${back}
+  <section class="panel mod-book-head">${s.cover ? `<img class="book-thumb big" src="${esc(s.cover)}" alt="">` : '<span class="book-thumb big">📖</span>'}<div><h1 class="serif" style="margin:0 0 4px;font-size:22px">${esc(s.title)}</h1>
+    <p class="story-meta">${t('por {a}', { a: esc(s.author) })}${s.mature ? ' · +18' : ''} · <a href="#/user/${encodeURIComponent(s.owner)}" data-dir="next" style="text-decoration:underline">${t('ver perfil')}</a></p><p class="story-meta">${esc(genreName(s.genre))} · ${esc(s.fandom)}</p>
+    ${first ? `<span class="pill">${t('Historia nueva')}</span>` : ''}${cl ? ` <span class="pill claim">👀 ${t('{n} lo está revisando', { n: esc(cl.name || uName(cl.by)) })}</span>` : ''}</div></section>
+  ${first && s.synopsis ? `<p class="mod-syn">${esc(s.synopsis)}</p>` : ''}
+  <h3 style="margin:18px 0 8px">${t('Capítulos')}</h3><p class="helper" style="margin:0 0 10px">${t('Los marcados en amarillo llamaron la atención de la IA. Toca un capítulo en revisión para leerlo.')}</p><div class="mod-rows">${rows}</div></main>`;
+}
+function modChapterView(id, cid) {
+  if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">' + t('Volver') + '</a>')}</main>`;
+  const s = allStories().find(x => x.id === id), i = s ? s.chapters.findIndex(c => String(c.id) === String(cid)) : -1, c = s && s.chapters[i], bk = '#/moderation/book/' + encodeURIComponent(id);
+  if (!s || !c || !inScope(commOf(s.owner)) || c.status !== 'pending') return `<main class="page story-layout"><div class="set-head"><a class="icon-btn" href="${bk}" data-dir="prev" aria-label="${esc(t('Volver'))}">‹</a><h2>${t('Revisar capítulo')}</h2></div>${empty('Nada por revisar', 'Este capítulo ya fue revisado.', `<a class="button" href="#/moderation">${t('Volver')}</a>`)}</main>`;
+  const ok = canApproveCh(s, i), st = aiState(c);
+  return `<main class="page story-layout"><div class="set-head"><a class="icon-btn" href="${bk}" data-dir="prev" aria-label="${esc(t('Volver'))}">‹</a><h2>${t('Cap. {n}', { n: i + 1 })} · ${esc(s.title)}</h2></div>
+  <p class="story-meta">${t('por {a}', { a: esc(s.author) })}${c.live ? ' · ' + t('versión editada') : ''}</p>
+  ${st === 'flag' ? aiNote(c.ai) : `<div class="ai-note ${st === 'ok' ? 'ok' : ''}"><b>${st === 'ok' ? t('La IA no encontró problemas en este capítulo.') : t('La IA todavía no revisó este capítulo (o la revisión falló). Revísalo tú.')}</b></div>`}
+  <article class="panel mod-read">${chHero(c, 'mod-cover')}<h2 class="serif" style="margin:0 0 10px">${esc(c.title)}</h2><div class="mod-text">${esc(c.text)}</div>${c.music ? `<p class="helper" style="margin-top:10px">🎵 ${t('Canción')}: ${musicEmbed(c.music) ? `<a href="${esc(c.music)}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline">${esc(c.music)}</a>` : esc(c.music) + ' (' + t('enlace no válido') + ')'}</p>` : ''}</article>
+  <div class="panel mod-decide"><textarea id="rej-${esc(s.id)}-${c.id}" class="textarea" style="min-height:70px" placeholder="${esc(t('Motivo del rechazo (obligatorio para rechazar)'))}"></textarea>
+  <div class="mod-actions"><button class="button" data-act="approve" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}" ${ok ? '' : 'disabled'}>${t('✓ Aprobar')}</button><button class="button danger" data-act="reject" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}">${t('✕ Rechazar')}</button></div>
+  ${ok ? '' : `<p class="helper" style="margin-top:8px">${t('Aprueba antes el capítulo {n} para poder aprobar este.', { n: i })}</p>`}</div></main>`;
+}
+/** Para el equipo: los libros en revisión de una persona, al entrar a su perfil */
+function modUserBooks(e) {
+  if (!isStaff() || e === S.user) return '';
+  const l = pendingBooks().filter(s => s.owner === e && inScope(commOf(s.owner))); if (!l.length) return '';
+  return `<section class="mod-user"><h3>🛡 ${t('En revisión')} (${l.length})</h3><div class="mod-cards">${l.map(modBookCard).join('')}</div></section>`;
+}
+async function claimBook(id) {
+  const ses = sbSes(), su = sUuid(id); if (!cloud() || !ses || !su || !isStaff()) return;
+  CLAIMS[id] = { by: S.user, at: Date.now() };
+  await sbApi('/rest/v1/review_claims', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: { story_id: su, user_id: ses.uid, at: new Date().toISOString() } });
+}
+async function releaseClaim(id) {
+  const ses = sbSes(), su = sUuid(id); if (CLAIMS[id] && CLAIMS[id].by === S.user) delete CLAIMS[id]; if (!cloud() || !ses || !su) return;
+  await sbApi('/rest/v1/review_claims?story_id=eq.' + su + '&user_id=eq.' + ses.uid, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+}
 function modView(sub) {
   if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">' + t('Volver') + '</a>')}</main>`;
   const shuf = cfg('modShuffle') !== false, hs = x => { let h = 2166136261; for (const ch of String(x)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };      // orden aleatorio propio de cada persona del equipo (estable al redibujar)
-  const books = pendingBooks().filter(s => inScope(commOf(s.owner))).reverse().map(b => [b, hs(S.user + '|' + b.id)]).sort((a, b) => shuf ? a[1] - b[1] : 0).map(x => x[0]), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, npo = pendingPosts().length, tabs = commBar() + `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log', 'posts', 'gifts'].includes(sub) ? '' : 'active'}" href="#/moderation">${t('📚 Libros')} ${redN(books.length)}</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">${t('🚩 Reportes')} ${redN(nr)}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">${t('👥 Cuentas')} ${redN(nacc)}</a>${canBan() ? `<a class="tab ${sub === 'posts' ? 'active' : ''}" href="#/moderation/posts">${t('📣 Publicaciones')} ${redN(npo)}</a>` : ''}${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">${t('📨 Apelaciones')} ${redN(na)}</a>` : ''}${isOwner() ? `<a class="tab ${sub === 'gifts' ? 'active' : ''}" href="#/moderation/gifts">${t('🎁 Regalos')}</a><a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">${t('📋 Registro')}</a>` : ''}</div>`;
+  const books = pendingBooks().filter(s => inScope(commOf(s.owner))).reverse().map(b => [b, hs(S.user + '|' + b.id)]).sort((a, b) => shuf ? a[1] - b[1] : 0).map(x => x[0]).sort((x, y) => (claimOf(x.id) ? 1 : 0) - (claimOf(y.id) ? 1 : 0)), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, npo = pendingPosts().length, tabs = commBar() + `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log', 'posts', 'gifts'].includes(sub) ? '' : 'active'}" href="#/moderation">${t('📚 Libros')} ${redN(books.length)}</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">${t('🚩 Reportes')} ${redN(nr)}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">${t('👥 Cuentas')} ${redN(nacc)}</a>${canBan() ? `<a class="tab ${sub === 'posts' ? 'active' : ''}" href="#/moderation/posts">${t('📣 Publicaciones')} ${redN(npo)}</a>` : ''}${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">${t('📨 Apelaciones')} ${redN(na)}</a>` : ''}${isOwner() ? `<a class="tab ${sub === 'gifts' ? 'active' : ''}" href="#/moderation/gifts">${t('🎁 Regalos')}</a><a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">${t('📋 Registro')}</a>` : ''}</div>`;
   if (sub === 'reports') return reportsView(tabs);
   if (sub === 'appeals' && canBan()) return appealsView(tabs);
   if (sub === 'accounts') return accountsView(tabs);
   if (sub === 'posts' && canBan()) return postsView(tabs);
   if (sub === 'log' && isOwner()) return logView(tabs);
   if (sub === 'gifts' && isOwner()) return giftsView(tabs);
-  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('🛡 Moderación')}</span><h2 style="margin-top:8px">${t('Libros por revisar')} (${books.length})</h2><p>${t('Una ficha por libro. Los capítulos se aprueban en orden: 1, 2, 3…')}</p>${books.length > 1 ? `<button type="button" class="link-btn" data-act="mod-order">${shuf ? t('🎲 Orden aleatorio para ti · cambiar a más recientes') : t('🕒 Más recientes primero · cambiar a orden aleatorio')}</button>` : ''}</div></div>
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('🛡 Moderación')}</span><h2 style="margin-top:8px">${t('Libros por revisar')} (${books.length})</h2><p>${t('Una ficha por libro. Toca uno para ver sus capítulos. Los nuevos se aprueban en orden: 1, 2, 3…')}</p>${books.length > 1 ? `<button type="button" class="link-btn" data-act="mod-order">${shuf ? t('🎲 Orden aleatorio para ti · cambiar a más recientes') : t('🕒 Más recientes primero · cambiar a orden aleatorio')}</button>` : ''}</div></div>
   ${books.length ? '' : `<p class="notice" style="margin-bottom:14px">${t('No hay libros en revisión en este navegador. Por ahora cada navegador o dispositivo guarda sus propios datos: un libro enviado desde otro teléfono, navegador o editor no llega hasta aquí. Para que lleguen entre dispositivos hace falta el servidor.')}</p>`}
-  ${books.length ? books.map(s => {
-    const first = !publicPrefix(s.chapters).length, np = s.chapters.filter(c => c.status === 'pending').length;
-    return `<details class="panel book" data-book="${esc(s.id)}" ${OPEN.has(s.id) ? 'open' : ''} style="margin-bottom:14px"><summary class="book-sum">${s.cover ? `<img class="book-thumb" src="${esc(s.cover)}" alt="">` : '<span class="book-thumb">📖</span>'}
-    <div class="book-info"><strong class="serif">${esc(s.title)}</strong><div class="story-meta">${t('por {a}', { a: esc(s.author) })} · ${t('{n} en revisión', { n: np })} · ${t('{n} cap.', { n: s.chapters.length })}${s.mature ? ' · +18' : ''}${first ? ' · ' + t('Historia nueva') : ''}</div></div></summary>
-    <div class="book-body"><p class="story-meta">${esc(genreName(s.genre))} · ${esc(s.fandom)} · <a href="#/user/${encodeURIComponent(s.owner)}" style="text-decoration:underline">${t('ver perfil')}</a></p>${first ? `<p style="color:var(--soft);line-height:1.6;margin:8px 0">${esc(s.synopsis)}</p><div class="tags" style="margin-bottom:10px">${s.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ''}
-    <ol class="mod-list">${s.chapters.map((c, i) => {
-      const ok = s.chapters.slice(0, i).every(x => pubChapter(x)), pend = c.status === 'pending';      // N solo si N-1 ya está aprobado
-      return `<li class="mod-ch"><div class="mod-ch-head"><b>${t('Cap. {n}', { n: i + 1 })}</b><span>${esc(c.title)}</span><span class="pill st-${c.status}">${t(CH_STATUS[c.status])}</span>${pend ? `<button type="button" class="pill ai-pill ${!c.ai ? 'ai-none' : c.ai.verdict === 'flagged' ? '' : 'ai-ok'}" data-act="ai-info" data-id="${esc(s.id)}" data-cid="${c.id}">${!c.ai ? t('🤖 IA: sin revisar') : c.ai.verdict === 'flagged' ? t('🤖 Marcado por la IA') : t('🤖 IA: sin problemas')} ⓘ</button>` : ''}</div>${pend && c.ai && c.ai.verdict === 'flagged' ? aiNote(c.ai) : ''}${pend ? `
-      <details style="margin-top:8px"><summary class="helper" style="cursor:pointer">${t('Leer capítulo')}${c.live ? ' (' + t('versión editada') + ')' : ''}</summary><div class="mod-text" style="margin-top:8px">${esc(c.text)}</div></details>${chHero(c, 'mod-cover')}${c.music ? `<p class="helper" style="margin-top:8px">🎵 ${t('Canción')}: ${musicEmbed(c.music) ? `<a href="${esc(c.music)}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline">${esc(c.music)}</a>` : esc(c.music) + ' (' + t('enlace no válido') + ')'}</p>` : ''}
-      <textarea id="rej-${esc(s.id)}-${c.id}" class="textarea" style="min-height:64px;margin-top:10px" placeholder="${esc(t('Motivo del rechazo (obligatorio para rechazar)'))}"></textarea>
-      <div class="mod-actions"><button class="button" data-act="approve" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}" ${ok ? '' : 'disabled'}>${t('✓ Aprobar')}</button><button class="button danger" data-act="reject" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}">${t('✕ Rechazar')}</button></div>
-      ${ok ? '' : `<p class="helper" style="margin-top:6px">${t('Aprueba antes el capítulo {n} para poder aprobar este.', { n: i })}</p>`}` : c.status === 'rejected' && c.reason ? `<p class="helper" style="margin-top:6px">${t('Motivo')}: ${esc(c.reason)}</p>` : ''}</li>`; }).join('')}</ol></div></details>`; }).join('') : empty('Nada por revisar', 'Cuando alguien envíe un capítulo, su libro aparecerá aquí.')}${reportsPanel()}</main>`;
+  ${books.length ? `<div class="mod-cards">${books.map(modBookCard).join('')}</div>` : empty('Nada por revisar', 'Cuando alguien envíe un capítulo, su libro aparecerá aquí.')}${reportsPanel()}</main>`;
 }
 
 /* --- Diálogos genéricos --- */
@@ -2844,7 +2902,7 @@ function userView(e) {
   const acts = `<button class="button ${fl ? 'secondary' : ''}" data-act="follow" data-id="${esc(e)}">${fl ? t('Siguiendo ✓') : t('＋ Seguir')}</button>
   ${dmWhy(S.user, e) === '' ? `<a class="button secondary" href="#/messages/${encodeURIComponent(e)}" data-dir="next">${t('Mensaje')}</a>` : `<button type="button" class="button ghost" data-act="dm-why" data-id="${esc(e)}">${t('Mensaje')}</button>`}
   <div class="pf-more"><button class="button ghost sm" data-act="${iMute(e) ? 'unmute' : 'mute'}" data-id="${esc(e)}">${iMute(e) ? t('🔔 Dejar de silenciar') : t('🔇 Silenciar')}</button><button class="button ghost sm" data-act="${iBlock(e) ? 'unblock' : 'block'}" data-id="${esc(e)}">${iBlock(e) ? t('✅ Desbloquear') : t('🚫 Bloquear')}</button><button class="button ghost sm" data-act="report-user" data-id="${esc(e)}">${t('Reportar')}</button></div>`;
-  return `<main class="page pf-page">${profileHero(e, false, acts)}${repHistory(e)}${admMenu(e)}${worksGrid(works)}</main>`;
+  return `<main class="page pf-page">${profileHero(e, false, acts)}${modUserBooks(e)}${repHistory(e)}${admMenu(e)}${worksGrid(works)}</main>`;
 }
 
 /* --- Strikes, suspensión y menú de administración --- */
@@ -3295,6 +3353,8 @@ function render() {
   const nav = path !== LASTP, dir = nav ? NAVDIR : '', from = LASTP;
   if (nav && a === 'story' && d && /^c-\d+$/.test(d)) { HLC = d.slice(2); { const c0 = comments(b).find(x => String(x.id) === HLC); if (c0) REPOPEN.add(c0.parent != null && c0.parent !== '' ? c0.parent : c0.id); } if (!VISIT || VISIT.sid !== b) VISIT = { sid: b, pos: (S.pos || {})[b] ? { ...S.pos[b] } : null }; }
   else if (nav && (a !== 'story' || (VISIT && VISIT.sid !== b))) VISIT = null;
+  if (nav && from && from.startsWith('/moderation/book/') && !(a === 'moderation' && b === 'book' && c === from.split('/')[3])) releaseClaim(decodeURIComponent(from.split('/')[3] || ''));
+  if (nav && a === 'moderation' && b === 'book' && c) claimBook(decodeURIComponent(c));
   if (nav) { PFEDIT = false; EPD = null; SHOWC = !!HLC; LASTP = path; NAVDIR = ''; NOTIF_OPEN = false; SETDEEP = a === 'settings' && !!b && from === '/settings'; }
   if (!S.user && !['login', 'register', 'signup', 'welcome', 'start'].includes(a)) return go(LS.get('auri.intro', false) ? '/start' : '/welcome');
   if (S.user && (a === 'welcome' || a === 'start' || (!isGuest() && (a === 'login' || a === 'register' || a === 'signup')))) return go('/');
@@ -3315,6 +3375,8 @@ function render() {
   else if (a === 'profile') app.innerHTML = shell('/profile', isGuest() ? guestProfile() : profileView());
   else if (a === 'user') app.innerHTML = shell('', userView(decodeURIComponent(b || '')));
   else if (a === 'strike') app.innerHTML = shell('', strikeView(b));
+  else if (a === 'moderation' && b === 'book' && c && d) app.innerHTML = shell('/moderation', modChapterView(decodeURIComponent(c), decodeURIComponent(d)));
+  else if (a === 'moderation' && b === 'book' && c) app.innerHTML = shell('/moderation', modBookView(decodeURIComponent(c)));
   else if (a === 'moderation') app.innerHTML = shell('/moderation', modView(b));
   else if (a === 'gift') app.innerHTML = shell('', giftView());
   else if (a === 'stats') app.innerHTML = shell('', statsView());
@@ -3482,9 +3544,9 @@ document.addEventListener('click', e => {
     terms: showTerms, 'close-modal': () => el.closest('.modal').remove(),
     adult: () => { const u = getUsers(); if (isMinor(u[S.user])) return; u[S.user].adultDeclared = true; G.set('users', u); render(); },
     approve: () => { if (!isStaff()) return; const bk = allStories().find(x => x.id === id), i = bk ? bk.chapters.findIndex(c => c.id === +el.dataset.cid) : -1;
-      if (i < 0) return; if (!bk.chapters.slice(0, i).every(c => pubChapter(c))) return toast(t('Aprueba primero los capítulos anteriores.'));
-      setChapterStatus(id, el.dataset.owner, +el.dataset.cid, 'approved'); toast('Capítulo aprobado'); render(); },
-    reject: () => { if (!isStaff()) return; const r = (($('#rej-' + id + '-' + el.dataset.cid) || {}).value || '').trim(); if (!r) return toast('Escribe el motivo del rechazo.'); setChapterStatus(id, el.dataset.owner, +el.dataset.cid, 'rejected', r); toast('Capítulo rechazado'); render(); },
+      if (i < 0) return; if (!canApproveCh(bk, i)) return toast(t('Aprueba primero los capítulos anteriores.'));
+      setChapterStatus(id, el.dataset.owner, +el.dataset.cid, 'approved'); toast('Capítulo aprobado'); afterReview(id); },
+    reject: () => { if (!isStaff()) return; const r = (($('#rej-' + id + '-' + el.dataset.cid) || {}).value || '').trim(); if (!r) return toast('Escribe el motivo del rechazo.'); setChapterStatus(id, el.dataset.owner, +el.dataset.cid, 'rejected', r); toast('Capítulo rechazado'); afterReview(id); },
     'char-sel': () => { setActive(+el.dataset.cid); KEEP = true; render(); },
     'char-add': () => openCharForm(null),
     'char-edit': () => openCharForm(+el.dataset.cid),
