@@ -1636,7 +1636,7 @@ const WL_SLIDES = [
   () => `<div class="wl-art">${mascot('wl-mascot')}</div><h1>${t('Te damos la bienvenida a Auri')}</h1><p>${t('Un rincón acogedor para leer fanfics, escribir historias y compartirlas con una comunidad que ama los libros tanto como Auri.')}</p>`,
   () => `<div class="wl-art"><div class="wl-demo"><div class="wl-oc"><span class="wl-av">L</span><span class="wl-ocx"><b>Luna</b><small>${t('OC · cabello plateado · ojos violetas')}</small></span></div>
     <p class="wl-from">«${t('TN sonrió bajo la luna…')}»</p><span class="wl-ic wl-down">${WI.down}</span><p class="wl-to">«<mark>Luna</mark> ${t('sonrió bajo la luna…')}»</p></div></div>
-    <span class="eyebrow">${t('Función estrella')}</span><h1>${t('Usa tu OC')}</h1><p>${t('Nombre, apodo y personalidad de tu OC reemplazan al TN en fanfics compatibles, sin cambiar la historia original.')}</p>`,
+    <span class="eyebrow">${t('Función estrella')}</span><h1>${t('Usa tu OC como protagonista de tus historias favoritas')}</h1><p>${t('Nombre, apodo y personalidad de tu OC reemplazan al TN en fanfics compatibles, sin cambiar la historia original.')}</p>`,
   () => `<h1>${t('Pensada para disfrutar cada capítulo')}</h1><div class="wl-feats">${[
     ['book', 'Biblioteca y progreso', 'Cada historia recuerda en qué capítulo quedó la lectura.'],
     ['chat', 'Comentarios por párrafo', 'Reacciona en momentos exactos, con spoilers difuminados.'],

@@ -1520,4 +1520,5 @@ window.I18N = { en: {
   "Música en capítulos": "Music in chapters",
   "Autorías pueden sumar una canción para acompañar.": "Authors can add a song to accompany the chapter.",
   "Lectura cómoda en una comunidad moderada y segura.": "Comfortable reading in a moderated, safe community.",
+  "Usa tu OC como protagonista de tus historias favoritas": "Use your OC as the lead of your favorite stories",
 } };
