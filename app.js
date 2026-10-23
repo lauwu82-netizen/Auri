@@ -1411,9 +1411,9 @@ function signupView() {
 
 /* 4. MASCOTA ------------------------------------------------------ */
 const mascot = (cls = '') => `<svg class="${cls}" viewBox="0 0 240 230" role="img" aria-label="${t('Auri, la gata alienígena')}">
-<path d="M54 91 36 28q-2-9 7-4l42 32M186 91l18-63q2-9-7-4l-42 32" fill="url(#auri-fur)" stroke="#8062a8" stroke-width="4" stroke-linejoin="round"/>
+<path d="M52 100 37 29Q35 20 43 25L100 58ZM188 100 203 29Q205 20 197 25L140 58Z" fill="url(#auri-fur)" stroke="#8062a8" stroke-width="4" stroke-linejoin="round"/>
+<path d="M57 94 46 39Q45 35 49 38L88 61ZM183 94 194 39Q195 35 191 38L152 61Z" fill="#efb8d7"/>
 <path d="M46 116c0-45 33-73 74-73s74 28 74 73v38c0 36-30 58-74 58s-74-22-74-58z" fill="url(#auri-fur)" stroke="#8062a8" stroke-width="4"/>
-<path d="M73 47 58 39l8 27M167 47l15-8-8 27" fill="#efb8d7"/>
 <path d="M72 135c0-22 19-40 48-40s48 18 48 40v20c0 19-19 32-48 32s-48-13-48-32z" fill="url(#auri-belly)"/>
 <ellipse cx="91" cy="111" rx="7" ry="10" fill="#49365b"/><ellipse cx="149" cy="111" rx="7" ry="10" fill="#49365b"/>
 <circle cx="93" cy="108" r="2.5" fill="#fff"/><circle cx="151" cy="108" r="2.5" fill="#fff"/>
