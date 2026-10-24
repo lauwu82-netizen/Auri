@@ -1875,8 +1875,7 @@ function discoverView() {
   ${popTags().length ? `<div class="tag-row" aria-label="${esc(t('Etiquetas populares'))}"><span class="helper">${t('Etiquetas:')}</span>${popTags().map(x => `<button type="button" class="tag tag-link ${Q.trim().toLowerCase() === '#' + x.toLowerCase() ? 'on' : ''}" data-act="tag-search" data-id="${esc(x)}">#${esc(x)}</button>`).join('')}</div>` : ''}
   <div class="filter-row">${gens.map(g => `<button class="chip ${GEN === g ? 'active' : ''}" data-act="genre" data-id="${esc(g)}">${g === 'All' ? t('Todos') : esc(genreName(g))}</button>`).join('')}</div>
   `}
-  <div id="list">${discoverList()}</div>
-  <p class="notice" style="margin-top:24px">${t('En esta versión las historias se guardan en este navegador y solo las ven las cuentas de este dispositivo.')}</p></main>`;
+  <div id="list">${discoverList()}</div></main>`;
 }
 
 /* --- Escribir (portada, capítulos ilimitados, +18 y revisión) --- */
