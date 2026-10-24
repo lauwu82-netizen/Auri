@@ -1551,4 +1551,9 @@ window.I18N = { en: {
   "Todas las historias": "All stories",
   "Explorar": "Explore",
   "Aún no hay libros con esta etiqueta.": "There are no books with this tag yet.",
+  "Estás al día": "You're all caught up",
+  "Si te gustó esta historia": "If you liked this story",
+  "Libros con etiquetas parecidas": "Books with similar tags",
+  "Agrega al menos 3 etiquetas para poder publicar.": "Add at least 3 tags to publish.",
+  "mínimo 3 para publicar": "at least 3 to publish",
 } };

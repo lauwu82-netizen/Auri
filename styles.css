@@ -1135,3 +1135,12 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .fg-covers .cover{margin:0;border-radius:10px}
 .feed-all{margin-top:30px}
 .back-link{display:inline-block;margin:4px 0 8px;font-weight:700;color:hsl(var(--primary));text-decoration:none}
+
+/* 41. Fin de libro: portada + recomendaciones */
+.end-cover{position:relative;width:150px;margin:6px auto 30px}
+.end-cover .cover{margin:0;border-radius:14px;box-shadow:0 14px 30px rgba(72,47,110,.28)}
+.end-badge{position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);white-space:nowrap;padding:6px 14px;border-radius:999px;background:hsl(var(--primary));color:#fff;font-size:12px;font-weight:800;box-shadow:0 6px 14px rgba(72,47,110,.3)}
+.end-badge.done{background:#3d9a6a}
+.end-recs{margin-top:34px;text-align:left}
+.end-recs h3{font:600 20px/1.2 var(--serif);margin:0;color:var(--title)}
+.end-recs .helper{margin:5px 0 14px}

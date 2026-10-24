@@ -1716,21 +1716,22 @@ async function sbSearchUsers() {                         // trae de Supabase a l
 }
 /* --- Feed de Inicio: filas con scroll, «Podría interesarte» y grupos con portadas --- */
 const FEED = { row: 2, group: 3 };                  // mínimo de libros para mostrar una fila o un grupo (subir cuando haya más libros)
+const tagsOf = s => [...(s.tags || []), ...(s.fandom && tagKey(s.fandom) !== 'original' ? [s.fandom] : [])];   // etiquetas + fandom (naruto, bts…)
 const tagKey = x => String(x || '').trim().toLowerCase();
 const feedPool = () => publishedStories().filter(matureOK).filter(storyVisible).filter(s => !hidesStory(s.owner));
 function feedTags(pool) {                              // etiqueta (minúsculas) -> {label, n}
-  const m = {}; pool.forEach(s => (s.tags || []).forEach(x => { const k = tagKey(x); if (!k) return; m[k] = m[k] || { label: String(x).trim(), n: 0 }; m[k].n++; })); return m;
+  const m = {}; pool.forEach(s => tagsOf(s).forEach(x => { const k = tagKey(x); if (!k) return; m[k] = m[k] || { label: String(x).trim(), n: 0 }; m[k].n++; })); return m;
 }
 function tasteTags(pool) {                             // etiquetas de lo que lees, guardas o te gusta (de más a menos)
   const w = {};
   pool.forEach(s => { let n = 0; if (S.progress[s.id]) n += 3; if (S.lib.includes(s.id)) n += 2; if (S.favs.includes(s.id)) n += 2; if (S.user && likes(s.id).includes(S.user)) n += 2;
-    if (n) (s.tags || []).forEach(x => { const k = tagKey(x); if (k) w[k] = (w[k] || 0) + n; }); });
+    if (n) tagsOf(s).forEach(x => { const k = tagKey(x); if (k) w[k] = (w[k] || 0) + n; }); });
   return Object.entries(w).sort((a, b) => b[1] - a[1]).map(x => x[0]);
 }
 const feedScore = s => likes(s.id).length * 2 + (G.get('comments', {})[s.id] || []).length;
 const feedRow = (title, sub, list, more) => `<section class="feed-sec"><div class="feed-head"><div><h3>${title}</h3>${sub ? `<p>${sub}</p>` : ''}</div>${more ? `<a class="feed-more" href="#/explore/${encodeURIComponent(more)}">${t('Ver todo')}</a>` : ''}</div><div class="feed-row">${list.map(storyCard).join('')}</div></section>`;
 function groupCard(k, pool, tags) {                    // cuadro con portadas pequeñas: «Explorar dark romance»
-  const l = pool.filter(s => (s.tags || []).some(x => tagKey(x) === k)).sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 4), lab = (tags[k] || { label: k }).label;
+  const l = pool.filter(s => tagsOf(s).some(x => tagKey(x) === k)).sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 4), lab = (tags[k] || { label: k }).label;
   return `<a class="feed-group" href="#/explore/${encodeURIComponent(k)}" aria-label="${esc(t('Explorar {tag}', { tag: lab }))}"><div class="fg-top"><b>${esc(t('Explorar {tag}', { tag: lab }))}</b><span>›</span></div><div class="fg-covers">${l.map((s, i) => coverHTML(s, i)).join('')}</div></a>`;
 }
 function feedHTML() {
@@ -1741,7 +1742,7 @@ function feedHTML() {
   if (rowOK(feat)) out.push(feedRow(t('Destacados'), '', feat));
   const top = taste.filter(k => tags[k]).slice(0, 5);                  // para ti
   if (top.length) {
-    const cand = pool.filter(s => s.owner !== S.user && !S.progress[s.id] && !S.lib.includes(s.id) && !S.favs.includes(s.id)).map(s => { const hit = top.filter(k => (s.tags || []).some(x => tagKey(x) === k)); return { s, hit, sc: hit.reduce((a, k) => a + (6 - top.indexOf(k)), 0) + (hit.length > 1 ? 3 : 0) }; }).filter(x => x.hit.length).sort((a, b) => b.sc - a.sc || feedScore(b.s) - feedScore(a.s)).slice(0, 12);
+    const cand = pool.filter(s => s.owner !== S.user && !S.progress[s.id] && !S.lib.includes(s.id) && !S.favs.includes(s.id)).map(s => { const hit = top.filter(k => tagsOf(s).some(x => tagKey(x) === k)); return { s, hit, sc: hit.reduce((a, k) => a + (6 - top.indexOf(k)), 0) + (hit.length > 1 ? 3 : 0) }; }).filter(x => x.hit.length).sort((a, b) => b.sc - a.sc || feedScore(b.s) - feedScore(a.s)).slice(0, 12);
     if (rowOK(cand)) { const lab = [...new Set(cand.slice(0, 4).flatMap(x => x.hit))].slice(0, 2).map(k => '#' + tags[k].label).join(' · '); out.push(feedRow(t('Podría interesarte'), t('Porque lees {tags}', { tags: lab }), cand.map(x => x.s))); cand.forEach(x => used.add(x.s.id)); }
   }
   const groups = Object.keys(tags).filter(k => tags[k].n >= FEED.group).sort((a, b) => (top.indexOf(b) + 1 || 0) - (top.indexOf(a) + 1 || 0) || tags[b].n - tags[a].n);
@@ -1749,7 +1750,7 @@ function feedHTML() {
   const pickG = groups.length ? groups[hash % groups.length] : '';
   const rnd = Object.keys(tags).filter(k => tags[k].n >= FEED.row && k !== pickG); const rk = rnd.length ? rnd[(hash * 7) % rnd.length] : '';
   if (groups[0]) out.push(groupCard(groups[0], pool, tags));
-  if (rk) out.push(feedRow('#' + esc(tags[rk].label), t('Una etiqueta para explorar hoy'), pool.filter(s => (s.tags || []).some(x => tagKey(x) === rk)).slice(0, 12), rk));
+  if (rk) out.push(feedRow('#' + esc(tags[rk].label), t('Una etiqueta para explorar hoy'), pool.filter(s => tagsOf(s).some(x => tagKey(x) === rk)).slice(0, 12), rk));
   const recent = Date.now() - 30 * 864e5, scored = pool.filter(s => feedScore(s) > 0);
   const hot = scored.filter(s => new Date(s.updatedAt || 0).getTime() >= recent).sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12), all = scored.sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12);
   if (rowOK(hot)) out.push(feedRow(t('Lo más famoso del momento'), '', hot));
@@ -1758,9 +1759,13 @@ function feedHTML() {
   return out.length ? out.join('') + `<div class="section-head feed-all"><div><h2>${t('Todas las historias')}</h2></div></div>` : '';
 }
 function exploreView(k) {
-  k = tagKey(k); const pool = feedPool(), tags = feedTags(pool), l = pool.filter(s => (s.tags || []).some(x => tagKey(x) === k)).sort((a, b) => feedScore(b) - feedScore(a)), lab = (tags[k] || { label: k }).label;
+  k = tagKey(k); const pool = feedPool(), tags = feedTags(pool), l = pool.filter(s => tagsOf(s).some(x => tagKey(x) === k)).sort((a, b) => feedScore(b) - feedScore(a)), lab = (tags[k] || { label: k }).label;
   return `<main class="page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Explorar')}</span><h2 style="margin-top:8px">#${esc(lab)}</h2><p>${t('{n} libros', { n: l.length })}</p></div></div>
   ${l.length ? `<div class="story-grid">${l.map(storyCard).join('')}</div>` : empty(t('Aún no hay libros con esta etiqueta.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
+}
+function similarBooks(s, max = 15) {                  // libros parecidos al que acabas de leer (comparten etiquetas), con algo de azar entre empates
+  const mine = new Set(tagsOf(s).map(tagKey)); if (!mine.size) return [];
+  return feedPool().filter(x => x.id !== s.id && x.owner !== S.user && !(S.progress[x.id] && bookProgress(x).finished)).map(x => ({ x, n: tagsOf(x).filter(k => mine.has(tagKey(k))).length, r: Math.random() })).filter(o => o.n > 0).sort((a, b) => b.n - a.n || a.r - b.r).slice(0, max).map(o => o.x);
 }
 function discoverList() {
   if (SM === 'users') return usersList();
@@ -1985,7 +1990,7 @@ function infoView(existing) {
     <div class="form-group full"><label for="w-syn">${t('Sinopsis')}</label><textarea id="w-syn" class="textarea" placeholder="${esc(t('Unas líneas para invitar a leer…'))}">${esc(W.synopsis)}</textarea></div>
     <div class="form-group"><label for="w-genre">${t('Género')}</label><select id="w-genre" class="select">${Object.keys(GENRES).map(g => `<option value="${g}" ${W.genre === g ? 'selected' : ''}>${esc(t(GENRES[g]))}</option>`).join('')}</select></div>
     <div class="form-group"><label for="w-fandom">${t('Fandom / universo')}</label><input id="w-fandom" class="field" value="${esc(W.fandom)}"></div>
-    <div class="form-group full"><label for="w-tags">${t('Etiquetas')}</label><input id="w-tags" class="field" value="${esc(tagsText(W.tags))}" placeholder="${esc(t('#romance lento #magia #enemies to lovers'))}" autocapitalize="none"><div id="w-tags-prev" class="tag-prev">${W.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div><div class="tag-sug"><span class="helper">${t('Sugeridas:')}</span>${[...new Set([...popTags(6), 'lgbtq+', 'yaoi', 'yuri', t('poliamor'), t('romance lento'), 'au'])].slice(0, 10).map(t => `<button type="button" class="tag tag-link" data-act="tag-add" data-id="${esc(t)}">#${esc(t)}</button>`).join('')}</div><span class="helper">${t('Escribe cada etiqueta con # al inicio. Ej: #romance lento #magia. Así la gente te encuentra al buscar por etiquetas.')}</span></div>
+    <div class="form-group full"><label for="w-tags">${t('Etiquetas')} <span class="helper" style="display:inline">· ${t('mínimo 3 para publicar')}</span></label><input id="w-tags" class="field" value="${esc(tagsText(W.tags))}" placeholder="${esc(t('#romance lento #magia #enemies to lovers'))}" autocapitalize="none"><div id="w-tags-prev" class="tag-prev">${W.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div><div class="tag-sug"><span class="helper">${t('Sugeridas:')}</span>${[...new Set([...popTags(6), 'lgbtq+', 'yaoi', 'yuri', t('poliamor'), t('romance lento'), 'au'])].slice(0, 10).map(t => `<button type="button" class="tag tag-link" data-act="tag-add" data-id="${esc(t)}">#${esc(t)}</button>`).join('')}</div><span class="helper">${t('Escribe cada etiqueta con # al inicio. Ej: #romance lento #magia. Así la gente te encuentra al buscar por etiquetas.')}</span></div>
     <div class="form-group"><label for="w-phase">${t('Estado del libro')}</label><select id="w-phase" class="select">${Object.keys(PHASE).map(k => `<option value="${k}" ${(W.phase || 'ongoing') === k ? 'selected' : ''}>${esc(t(PHASE[k]))}</option>`).join('')}</select></div>
     ${sagaBox()}
   </div><div class="toggle-line"><div><strong>${t('Tarjeta de personaje lector')}</strong><div class="helper">${t('Reemplaza TN / T/N por el nombre de tu personaje.')}</div></div>
@@ -2103,6 +2108,7 @@ function saveStory(submit) {
   if (submit && W.private) submit = false;                       // una historia privada no se envía a revisión
   if (submit) {
     if (!toSend.length) return toast(t('No hay capítulos nuevos o editados para enviar.'));
+    if (W.tags.length < 3) return toast(t('Agrega al menos 3 etiquetas para poder publicar.'));
     if (needTerms()) { if (!W.terms) return toast(t('Debes aceptar los términos y condiciones para enviar.')); const us = getUsers(); if (us[S.user]) { us[S.user].termsAccepted = today(); G.set('users', us); } }
     chs = chs.map(c => toSend.includes(c) ? { ...c, status: 'pending' } : c);
   }
@@ -2294,9 +2300,9 @@ function bookEnd(s) {
     main = `<div class="end-panel">${colBtn}${inLib ? `<button class="button ghost" data-act="lib-del" data-id="${id}">🗑️ ${t('Borrar de la biblioteca')}</button>` : ''}<a class="end-link" href="#/">${t('‹ Volver al inicio')}</a></div>`;
   }
   return `<div class="rf"><header class="rf-top"><a class="button ghost sm" data-replace href="#/story/${id}">✕ ${t('Cerrar')}</a><div class="rf-title">${esc(s.title)}</div><span style="width:44px"></span></header>
-  <div class="rf-body end-card"><h1 class="rf-h end-h">${head}</h1><p class="story-meta">${esc(s.title)}</p>
+  <div class="rf-body end-card"><h1 class="rf-h end-h">${head}</h1><div class="end-cover">${coverHTML(s, 0)}${p.finished || p.caught ? `<span class="end-badge ${p.finished ? 'done' : ''}">${p.finished ? t('Terminado') : t('Estás al día')}</span>` : ''}</div><p class="story-meta">${esc(s.title)}</p>
   <div class="pbar big"><i data-key="b-${esc(s.id)}" data-w="${p.pct}" style="width:${p.pct}%"></i></div>
-  <p class="end-pills">${pills.map(x => `<span class="pill ${pillCls[x] || ''}">${t(x)}</span>`).join(' ')}</p>${notice}${main}</div></div>`;
+  <p class="end-pills">${pills.map(x => `<span class="pill ${pillCls[x] || ''}">${t(x)}</span>`).join(' ')}</p>${notice}${main}${(() => { const r = p.caught ? similarBooks(s) : []; return r.length ? `<section class="end-recs"><h3>${t('Si te gustó esta historia')}</h3><p class="helper">${t('Libros con etiquetas parecidas')}</p><div class="story-grid">${r.map(storyCard).join('')}</div></section>` : ''; })()}</div></div>`;
 }
 /* Pantalla 2: lectura a pantalla completa (sin barra de la app); la salida guarda el progreso */
 function chapterRead(s, N) {
