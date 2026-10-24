@@ -493,14 +493,6 @@ img{max-width:100%}
 
 /* 27. ROLES, ADMINISTRACIÓN, STRIKES Y MARCOS ------------------------ */
 :root{--FW:1078;--FH:976}                          /* tamaño de las imágenes de marco */
-.fr{--a:34px;position:relative;display:inline-block;flex:none;width:calc(var(--a) * var(--FW) / var(--D));aspect-ratio:calc(var(--FW) / var(--FH))}
-.fr.big{--a:84px}.fr.xl{--a:104px}
-.fr.mod{--D:684;--cx:530;--cy:496}                  /* hueco medido del marco sencillo (moderación) */
-.fr.own{--D:652;--cx:534.5;--cy:530}                /* hueco medido del marco del gatito (Owner) */
-.fr .avatar{position:absolute;width:var(--a);height:var(--a);left:calc(var(--cx) / var(--FW) * 100%);top:calc(var(--cy) / var(--FH) * 100%);transform:translate(-50%,-50%)}
-.fr-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;z-index:2;transition:opacity .5s ease,transform .6s cubic-bezier(.2,.9,.3,1.2)}
-.fr-img.off{opacity:0;transform:scale(1.35)}
-.fr.fr-fallback .avatar{box-shadow:0 0 0 4px #e9c46a,0 0 0 7px #8c5fc1}
 .role-tag{display:inline-block;align-self:flex-start;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:hsl(var(--accent)/.7);color:var(--title);margin:6px 0}
 .role-tag.owner{background:linear-gradient(135deg,#f6d365,#e9a5f0)}
 .strike-line{display:block;margin:6px 0 12px;padding:10px 14px;border-radius:14px;background:#fdebd0;color:#7a4a00;font-weight:600;font-size:14px}
@@ -533,7 +525,6 @@ img{max-width:100%}
 @keyframes ovIn{from{opacity:0}to{opacity:1}}
 
 /* 28. AJUSTES COMO MENÚ + EDITAR PERFIL ------------------------------ */
-.fr.none{--D:684;--cx:539;--cy:488}                 /* sin marco: mismo espacio, foto centrada */
 .set-head{display:flex;align-items:center;gap:12px;margin:2px 0 16px}
 .set-head h2{display:flex;align-items:center;gap:10px;font:600 26px var(--serif);color:var(--title);margin:0}
 .set-ico{--c:#8c5fc1;width:36px;height:36px;border-radius:11px;display:inline-grid;place-items:center;flex:none;font-size:18px;background:linear-gradient(145deg,color-mix(in srgb,var(--c) 85%,#fff),var(--c));box-shadow:0 3px 8px color-mix(in srgb,var(--c) 35%,transparent)}
@@ -650,8 +641,6 @@ img{max-width:100%}
 .cover-fields{flex-wrap:wrap}
 
 /* 31. ADMINISTRACIÓN (rol y marco) ---------------------------------- */
-.fr.adm{--D:652;--cx:534.5;--cy:529.5}                /* hueco medido del marco de Administración (gatito azul, 1077×976) */
-.fr.top{--FW:960;--FH:1104;--D:610;--cx:478.5;--cy:608}   /* hueco medido del marco Top 50 (960×1104, la corona sobresale arriba) */
 .role-tag.admin{background:linear-gradient(135deg,#9be7c4,#8fb8f6)}
 
 /* 32. Fecha en el banner y cuenta de prueba */
@@ -1017,7 +1006,7 @@ a.icon-btn.bell{position:relative}
 .pf-warn{position:absolute;left:12px;top:calc(12px + env(safe-area-inset-top,0px));z-index:3;width:30px;height:30px;border-radius:50%;border:0;background:#fbe08a;color:#6b4a00;padding:0;display:grid;place-items:center;box-shadow:0 4px 12px rgba(0,0,0,.3);animation:popIn .3s ease-out}
 .pf-id{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:6px;padding:0 16px}
 .pf-av{margin-top:-112px;position:relative;z-index:2}
-.pf-av .fr.none .avatar,.pf-av>.avatar{box-shadow:0 0 0 4px hsl(var(--primary)),0 8px 24px rgba(0,0,0,.35)}
+.pf-av .fr .avatar,.pf-av>.avatar{box-shadow:0 0 0 4px hsl(var(--primary)),0 8px 24px rgba(0,0,0,.35)}
 .pf-name{font-size:26px;line-height:1.15;margin:2px 0 0;color:var(--title);overflow-wrap:anywhere}
 .pf-id .role-tag{align-self:center;margin:0}
 .pf-bio{max-width:480px;margin:2px 0 0;color:var(--soft);line-height:1.55;font-size:14px;overflow-wrap:anywhere}
@@ -1144,3 +1133,24 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .end-recs{margin-top:34px;text-align:left}
 .end-recs h3{font:600 20px/1.2 var(--serif);margin:0;color:var(--title)}
 .end-recs .helper{margin:5px 0 14px}
+
+/* 42. Insignias y adornos de perfil (sin marco que tape la foto) */
+.fr{--a:34px;position:relative;display:inline-block;flex:none;width:var(--a);height:var(--a);line-height:0;vertical-align:middle}
+.fr.big{--a:84px}.fr.xl{--a:104px}
+.fr .avatar{display:block}
+.orn{position:absolute;z-index:2;pointer-events:none;line-height:0;transition:opacity .5s ease,scale .6s cubic-bezier(.2,.9,.3,1.2)}
+.orn svg{display:block;width:100%;height:auto;overflow:visible}
+.orn.off{opacity:0;scale:1.35}
+.orn-top.crown{left:22%;top:-33%;width:56%;transform:rotate(-14deg)}
+.orn-top.bow{left:-14%;top:-18%;width:46%;transform:rotate(-16deg)}
+.orn-bot.bA{right:-9%;bottom:-9%;width:38%}
+.orn-bot.b50{left:-12%;bottom:-24%;width:124%}
+.fr.sm .orn-bot.b50{left:-18%;width:136%;bottom:-26%}
+.fr-h{font:700 12px/1 var(--sans,inherit);letter-spacing:.08em;text-transform:uppercase;color:hsl(var(--muted-foreground));margin:18px 0 8px}
+.cos-sw{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.cos-b{padding:8px 4px;border-radius:14px;border:1.5px solid hsl(var(--border));background:transparent;cursor:pointer}
+.cos-b.on{border-color:hsl(var(--primary));background:hsl(var(--primary)/.1)}
+.cos-b svg{display:block;width:100%;height:auto;max-width:42px;margin:0 auto}
+.nm-own{color:#b8892a}.nm-adm{color:#3f78b8}.nm-mod{color:#7a56c0}
+.dark .nm-own{color:#e6c46f}.dark .nm-adm{color:#8db9ea}.dark .nm-mod{color:#b79ce0}
+.pf-av{margin-bottom:10px}
