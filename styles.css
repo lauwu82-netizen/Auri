@@ -1134,26 +1134,123 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .end-recs h3{font:600 20px/1.2 var(--serif);margin:0;color:var(--title)}
 .end-recs .helper{margin:5px 0 14px}
 
-/* 42. Insignias y adornos de perfil (sin marco que tape la foto) */
-.fr{--a:34px;position:relative;display:inline-block;flex:none;width:var(--a);height:var(--a);line-height:0;vertical-align:middle}
-.fr.big{--a:84px}.fr.xl{--a:104px}
-.fr .avatar{display:block}
-.orn{position:absolute;z-index:2;pointer-events:none;line-height:0;transition:opacity .5s ease,scale .6s cubic-bezier(.2,.9,.3,1.2)}
-.orn svg{display:block;width:100%;height:auto;overflow:visible}
-.orn.off{opacity:0;scale:1.35}
-.orn-top.crown{left:4%;top:-19%;width:46%;transform:rotate(-27deg)}
-.orn-top.bow{left:-14%;top:-18%;width:46%;transform:rotate(-16deg)}
-.orn-bot.bA{right:-12%;bottom:-10%;width:42%}
-.orn-bot.b50{left:-12%;bottom:-24%;width:124%}
-.fr.sm .orn-bot.b50{left:-18%;width:136%;bottom:-26%}
-.fr-h{font:700 12px/1 var(--sans,inherit);letter-spacing:.08em;text-transform:uppercase;color:hsl(var(--muted-foreground));margin:18px 0 8px}
-.cos-sw{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.cos-b{padding:8px 4px;border-radius:14px;border:1.5px solid hsl(var(--border));background:transparent;cursor:pointer}
-.cos-b.on{border-color:hsl(var(--primary));background:hsl(var(--primary)/.1)}
-.cos-b svg{display:block;width:100%;height:auto;max-width:42px;margin:0 auto}
-.nm-own{color:#b8892a}.nm-adm{color:#3f78b8}.nm-mod{color:#7a56c0}
-.dark .nm-own{color:#e6c46f}.dark .nm-adm{color:#8db9ea}.dark .nm-mod{color:#b79ce0}
-.pf-av{margin-bottom:10px}
+/* 42. Insignias y adornos de perfil (volumen + sombra + iluminación) */
+.fr {
+  --a: 34px;
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: var(--a);
+  height: var(--a);
+  line-height: 0;
+  vertical-align: middle;
+}
+.fr.big { --a: 84px; }
+.fr.xl  { --a: 104px; }
+.fr .avatar {
+  display: block;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(60, 30, 90, .12);
+}
+
+/* Contenedor del adorno */
+.orn {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  line-height: 0;
+  transition: opacity .4s ease, transform .5s cubic-bezier(.2, .9, .3, 1.2);
+  filter: drop-shadow(0 3px 6px rgba(50, 25, 80, .22));
+}
+.orn svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.orn.off {
+  opacity: 0;
+  transform: scale(1.28);
+}
+
+/* —— Posiciones equilibradas —— */
+.orn-top.crown {
+  left: 4%;
+  top: -17%;
+  width: 46%;
+  transform: rotate(-27deg);
+}
+.orn-top.bow {
+  left: -13%;
+  top: -13%;
+  width: 46%;
+  transform: rotate(-16deg);
+}
+.orn-bot.bA {
+  right: -11%;
+  bottom: -9%;
+  width: 40%;
+}
+.orn-bot.b50 {
+  left: -12%;
+  bottom: -24%;
+  width: 124%;
+}
+
+/* Ajustes por tamaño */
+.fr.sm .orn-top.crown { top: -22%; width: 56%; }
+.fr.sm .orn-top.bow   { top: -18%; width: 56%; }
+.fr.sm .orn-bot.bA    { right: -14%; bottom: -11%; width: 44%; }
+.fr.sm .orn-bot.b50   { left: -18%; width: 136%; bottom: -26%; }
+
+.fr.xl .orn-top.crown { top: -17%; width: 46%; }
+.fr.xl .orn-bot.b50   { bottom: -24%; }
+
+/* Selectores de cosméticos */
+.fr-h {
+  font: 700 12px/1 var(--sans, inherit);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+  margin: 18px 0 8px;
+}
+.cos-sw {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.cos-b {
+  padding: 10px 4px;
+  border-radius: 16px;
+  border: 1.5px solid hsl(var(--border));
+  background: transparent;
+  cursor: pointer;
+  transition: border-color .2s, background .2s, transform .15s, box-shadow .2s;
+}
+.cos-b:active { transform: scale(.96); }
+.cos-b.on {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary) / .12);
+  box-shadow: 0 4px 14px rgba(112, 69, 172, .18);
+}
+.cos-b svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 46px;
+  margin: 0 auto;
+  filter: drop-shadow(0 2px 4px rgba(50, 25, 80, .15));
+}
+
+/* Nombres de color por rol */
+.nm-own { color: #b8892a; }
+.nm-adm { color: #3f78b8; }
+.nm-mod { color: #7a56c0; }
+.dark .nm-own { color: #e6c46f; }
+.dark .nm-adm { color: #8db9ea; }
+.dark .nm-mod { color: #b79ce0; }
+
+.pf-av { margin-bottom: 10px; }
 
 /* 43. Reportar errores */
 .bug-fab{position:fixed;right:14px;bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:40;width:42px;height:42px;border-radius:50%;border:1px solid hsl(var(--border));background:hsl(var(--card));color:hsl(var(--primary));display:grid;place-items:center;padding:0;box-shadow:0 6px 16px rgba(60,35,95,.22);cursor:pointer}

@@ -264,24 +264,124 @@ const frameKey = e => {
   const own = ownedFrames(e); let sel = u.frameSel; if (sel === undefined && r === 'OWNER' && u.frameOn === false) sel = '';
   if (sel === '') return ''; return sel && own.includes(sel) ? sel : (own[0] || '');
 };
-/** Adornos de perfil (dibujos vectoriales, sin líneas negras: el contorno es un tono más oscuro del mismo color).
- *  Abajo, en la esquina: la A de Auri (Owner dorada, administración plateada, moderación morada) o el «50» del Top 50.
- *  Arriba: la corona de Owner (torcida) o un cosmético (por ahora el moñito, solo para la Owner hasta que exista la tienda). */
-const BOWS = { white: ['#f4eff8', '#c4b9d3', 'Blanco'], pink: ['#eab4c8', '#c4849d', 'Rosa'], blue: ['#abcdea', '#7aa2c4', 'Azul claro'], red: ['#da8a8a', '#b25e5e', 'Rojo'], purple: ['#b8a0e0', '#8a6cba', 'Morado'], yellow: ['#ecd68c', '#c1a95c', 'Amarillo'], green: ['#a9d6b4', '#79a887', 'Verde'], orange: ['#eabb8e', '#c28c5c', 'Naranja'] };
-const A_COL = { own: ['#f3dc96', '#c9a14f', '#9a7430'], adm: ['#eceff4', '#a9b0bd', '#7d8594'], mod: ['#d3bdf3', '#9170c8', '#6a4c9c'] };
-const GOLD = ['#f3dc96', '#c9a14f', '#9a7430'];
-const grad = (id, [c1, c2]) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient>`;
-const svgBot = k => {
-  if (A_COL[k]) { const [c1, c2, st] = A_COL[k];                 // la A de Auri: letra dorada/plateada/morada con rasgo en el travesaño
-    return `<svg viewBox="0 0 100 100" aria-hidden="true"><defs>${grad('gA' + k, [c1, c2])}</defs><g stroke="${st}" stroke-width="3" stroke-linejoin="round"><path fill="url(#gA${k})" d="M33 11H50L83 88H66L42 38 30 66H9Z"/><path fill="url(#gA${k})" d="M4 86C7 70 25 61 45 59 63 57 73 51 77 33 85 47 80 62 68 73 54 85 35 75 23 84 17 88 12 91 7 90Z"/></g></svg>`; }
-  const leaf = (cx, cy, rot, f, r) => `<ellipse cx="${cx}" cy="${cy}" rx="14" ry="6.2" transform="rotate(${rot} ${cx} ${cy})" fill="${f}" stroke="${r}" stroke-width="2.6"/>`;
-  const G = ['#e2c37a', '#b88f3f'], P = ['#c3c9d4', '#8f98a8'];
-  return `<svg viewBox="0 0 170 60" aria-hidden="true">${leaf(36, 16, -62, ...G)}${leaf(24, 27, -38, ...G)}${leaf(18, 40, -10, ...G)}${leaf(134, 16, 62, ...P)}${leaf(146, 27, 38, ...P)}${leaf(152, 40, 10, ...P)}<rect x="36" y="9" width="98" height="44" rx="22" fill="#ebd596" stroke="#b88f3f" stroke-width="4.5"/><text x="85" y="42" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-weight="700" font-size="30" fill="#8a6528">50</text></svg>`;
+/** Adornos de perfil (rediseño Cozy & Premium con volumen, sombra e iluminación).
+ *  Sin líneas negras: el contorno es siempre un tono más oscuro del propio color.
+ *  Abajo: A de Auri (Owner/Admin/Mod) o badge Top 50.
+ *  Arriba: corona de Owner o moñito (colores de prueba). */
+const BOWS = {
+  white:  ['#f8f4fc', '#d4c8e0', '#b8a8c8', 'Blanco'],
+  pink:   ['#f5d0de', '#e0a0b8', '#c07898', 'Rosa'],
+  blue:   ['#d0e4f5', '#a0c0e0', '#7898c0', 'Azul claro'],
+  red:    ['#f0b8b8', '#d88888', '#b86060', 'Rojo'],
+  purple: ['#d8c8f0', '#b098d8', '#8870b8', 'Morado'],
+  yellow: ['#f5e8b0', '#e0c878', '#c0a050', 'Amarillo'],
+  green:  ['#c8e8d0', '#98c8a8', '#70a880', 'Verde'],
+  orange: ['#f5d8b0', '#e0b078', '#c09050', 'Naranja']
 };
+const A_COL = {
+  own: ['#f8ecc0', '#e0c070', '#b89040', '#8a6828'],
+  adm: ['#f4f6fa', '#c8d0dc', '#98a4b4', '#707888'],
+  mod: ['#e4d8f5', '#b898e0', '#8870c0', '#6850a0']
+};
+const GOLD = ['#f8ecc0', '#e0c070', '#b89040', '#8a6828'];
+
+const grad = (id, colors) => {
+  const stops = colors.map((c, i) => `<stop offset="${i / (colors.length - 1)}" stop-color="${c}"/>`).join('');
+  return `<linearGradient id="${id}" x1="0" y1="0" x2="0.15" y2="1">${stops}</linearGradient>`;
+};
+const radGrad = (id, c1, c2) => `<radialGradient id="${id}" cx="35%" cy="30%" r="70%"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></radialGradient>`;
+
+/* —— A de Auri (abajo) —— */
+const svgBot = k => {
+  if (A_COL[k]) {
+    const [c1, c2, c3, st] = A_COL[k];
+    return `<svg viewBox="0 0 64 64" aria-hidden="true">
+      <defs>
+        ${grad('gA' + k, [c1, c2, c3])}
+        ${radGrad('hA' + k, 'rgba(255,255,255,.55)', 'rgba(255,255,255,0)')}
+      </defs>
+      <g stroke="${st}" stroke-width="2.2" stroke-linejoin="round" transform="scale(.64)">
+        <path fill="url(#gA${k})" d="M33 11H50L83 88H66L42 38 30 66H9Z"/>
+        <path fill="url(#gA${k})" d="M4 86C7 70 25 61 45 59 63 57 73 51 77 33 85 47 80 62 68 73 54 85 35 75 23 84 17 88 12 91 7 90Z"/>
+      </g>
+      <path fill="url(#hA${k})" d="M24 8 31 8 40 30 37 31Z" opacity=".85"/>
+    </svg>`;
+  }
+
+  /* Top 50 badge con volumen */
+  const leaf = (cx, cy, rot, f, r) => `<ellipse cx="${cx}" cy="${cy}" rx="11" ry="4.6" transform="rotate(${rot} ${cx} ${cy})" fill="${f}" stroke="${r}" stroke-width="2"/>`;
+  const G = ['#f0d898', '#b89040'], P = ['#dfe3ec', '#788090'];
+  return `<svg viewBox="0 0 170 60" aria-hidden="true">
+    <defs>
+      ${grad('g50', ['#f8ecc0', '#e0c070', '#c0a050'])}
+      ${radGrad('h50', 'rgba(255,255,255,.55)', 'rgba(255,255,255,0)')}
+    </defs>
+    ${leaf(27, 14, -72, ...G)}${leaf(18, 23, -52, ...G)}${leaf(13, 34, -28, ...G)}${leaf(13, 46, -2, ...G)}
+    ${leaf(143, 14, 72, ...P)}${leaf(152, 23, 52, ...P)}${leaf(157, 34, 28, ...P)}${leaf(157, 46, 2, ...P)}
+    <rect x="36" y="9" width="98" height="44" rx="22" fill="url(#g50)" stroke="#b89040" stroke-width="3.6"/>
+    <rect x="42" y="13" width="86" height="14" rx="9" fill="url(#h50)"/>
+    <text x="85" y="42" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-weight="700" font-size="30" fill="#8a6828">50</text>
+  </svg>`;
+};
+
+/* —— Corona / Moñito (arriba) —— */
 const svgTop = c => {
-  if (c === 'crown') return `<svg viewBox="0 0 100 70" aria-hidden="true"><defs>${grad('gC', [GOLD[0], GOLD[1]])}</defs><path d="M10 62 8 27 26 46 30 17 40 44 50 9 60 44 70 17 74 46 92 27 90 62Z" fill="url(#gC)" stroke="${GOLD[2]}" stroke-width="3.5" stroke-linejoin="round"/><rect x="9" y="50" width="82" height="14" rx="6" fill="url(#gC)" stroke="${GOLD[2]}" stroke-width="3.5"/><circle cx="8" cy="25" r="5" fill="#f3dc96" stroke="${GOLD[2]}" stroke-width="3"/><circle cx="30" cy="15" r="5" fill="#f3dc96" stroke="${GOLD[2]}" stroke-width="3"/><circle cx="50" cy="7" r="5.5" fill="#f3dc96" stroke="${GOLD[2]}" stroke-width="3"/><circle cx="70" cy="15" r="5" fill="#f3dc96" stroke="${GOLD[2]}" stroke-width="3"/><circle cx="92" cy="25" r="5" fill="#f3dc96" stroke="${GOLD[2]}" stroke-width="3"/><path d="M30 52.5 34 57 30 61.5 26 57Z M50 52.5 54 57 50 61.5 46 57Z M70 52.5 74 57 70 61.5 66 57Z" fill="#c2a6ec" stroke="#8a69bd" stroke-width="2.4" stroke-linejoin="round"/></svg>`;
-  const b = BOWS[String(c).split(':')[1]]; if (!b) return '';
-  return `<svg viewBox="0 0 100 72" aria-hidden="true"><path d="M46 44 32 66 47 62Z M54 44 68 66 53 62Z" fill="${b[0]}" stroke="${b[1]}" stroke-width="3.5" stroke-linejoin="round"/><path d="M50 34C36 6 6 8 8 34 10 60 36 58 50 34Z M50 34C64 6 94 8 92 34 90 60 64 58 50 34Z" fill="${b[0]}" stroke="${b[1]}" stroke-width="4" stroke-linejoin="round"/><circle cx="50" cy="35" r="9" fill="${b[0]}" stroke="${b[1]}" stroke-width="4"/></svg>`;
+  if (c === 'crown') {
+    return `<svg viewBox="0 0 84 60" aria-hidden="true">
+      <defs>
+        ${grad('gC', [GOLD[0], GOLD[1], GOLD[2]])}
+        ${radGrad('hC', 'rgba(255,255,255,.6)', 'rgba(255,255,255,0)')}
+      </defs>
+      <!-- base de la corona -->
+      <path fill="url(#gC)" stroke="${GOLD[3]}" stroke-width="2.4" stroke-linejoin="round"
+        d="M9 46c0-2.2 2.2-4 5.2-4h55.6c3 0 5.2 1.8 5.2 4v5c0 2.2-2.2 4-5.2 4H14.2c-3 0-5.2-1.8-5.2-4z"/>
+      <!-- cuerpo principal -->
+      <path fill="url(#gC)" stroke="${GOLD[3]}" stroke-width="2.4" stroke-linejoin="round"
+        d="M11 44 9 20l13 13 8-20 10 17 10-22 10 22 10-17 8 20 13-13-2 24Z"/>
+      <!-- brillo en la base -->
+      <rect x="14" y="47" width="56" height="5" rx="2.5" fill="url(#hC)"/>
+      <!-- joyas superiores (con volumen) -->
+      <circle cx="9"  cy="18" r="4.6" fill="#faf0d0" stroke="${GOLD[3]}" stroke-width="1.9"/>
+      <circle cx="9"  cy="17" r="2"   fill="rgba(255,255,255,.7)"/>
+      <circle cx="30" cy="11" r="4.6" fill="#faf0d0" stroke="${GOLD[3]}" stroke-width="1.9"/>
+      <circle cx="30" cy="10" r="2"   fill="rgba(255,255,255,.7)"/>
+      <circle cx="42" cy="6"  r="5.2" fill="#faf0d0" stroke="${GOLD[3]}" stroke-width="1.9"/>
+      <circle cx="42" cy="5"  r="2.2" fill="rgba(255,255,255,.75)"/>
+      <circle cx="54" cy="11" r="4.6" fill="#faf0d0" stroke="${GOLD[3]}" stroke-width="1.9"/>
+      <circle cx="54" cy="10" r="2"   fill="rgba(255,255,255,.7)"/>
+      <circle cx="75" cy="18" r="4.6" fill="#faf0d0" stroke="${GOLD[3]}" stroke-width="1.9"/>
+      <circle cx="75" cy="17" r="2"   fill="rgba(255,255,255,.7)"/>
+      <!-- acentos morados suaves en la base -->
+      <circle cx="30" cy="49" r="2.8" fill="#d0b8f0" stroke="#9070c0" stroke-width="1.5"/>
+      <circle cx="42" cy="49" r="2.8" fill="#d0b8f0" stroke="#9070c0" stroke-width="1.5"/>
+      <circle cx="54" cy="49" r="2.8" fill="#d0b8f0" stroke="#9070c0" stroke-width="1.5"/>
+    </svg>`;
+  }
+
+  const b = BOWS[String(c).split(':')[1]];
+  if (!b) return '';
+  const [fill, mid, stroke] = b;
+
+  return `<svg viewBox="0 0 84 68" aria-hidden="true">
+    <defs>
+      ${grad('gB' + c.replace(':', ''), [fill, mid])}
+      ${radGrad('hB' + c.replace(':', ''), 'rgba(255,255,255,.55)', 'rgba(255,255,255,0)')}
+    </defs>
+    <!-- lazo izquierdo -->
+    <path fill="url(#gB${c.replace(':', '')})" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"
+      d="M42 32C28 6 5 8 8 28c2.5 18 18 20 34 4"/>
+    <!-- lazo derecho -->
+    <path fill="url(#gB${c.replace(':', '')})" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"
+      d="M42 32C56 6 79 8 76 28c-2.5 18-18 20-34 4"/>
+    <!-- nudo central -->
+    <ellipse cx="42" cy="31" rx="10" ry="9"
+      fill="url(#gB${c.replace(':', '')})" stroke="${stroke}" stroke-width="2.5"/>
+    <!-- brillo del nudo -->
+    <ellipse cx="39" cy="27" rx="4.5" ry="3.5" fill="url(#hB${c.replace(':', '')})"/>
+    <!-- colas -->
+    <path fill="url(#gB${c.replace(':', '')})" stroke="${stroke}" stroke-width="2.3" stroke-linejoin="round"
+      d="M37 38 24 60 40 53Z M47 38 60 60 44 53Z"/>
+  </svg>`;
 };
 const topKey = e => {                                    // adorno de arriba que se muestra para esa persona
   const u = getUsers()[e] || {}; if (roleOf(e) !== 'OWNER') return '';                    // los cosméticos aún no están en la tienda: solo la Owner los usa
@@ -3057,7 +3157,7 @@ function openFrames() {
   const rowT = (val, label) => `<button type="button" class="fr-opt ${curTop === val ? 'on' : ''}" data-cos="${val}">${av('', val)}<b>${esc(label)}</b>${curTop === val ? '<i>✓</i>' : ''}</button>`;
   const bot = locked ? `<div class="fr-opt on" style="cursor:default">${av(cur, '')}<b>${esc(t(FR_NAME[cur] || 'Insignia de moderación'))}</b><i>🔒</i></div><p class="helper">${t('La insignia del equipo es fija: no se puede cambiar ni quitar.')}</p>`
     : n.length ? `<div class="fr-list">${n.map(k => row(k, t(FR_NAME[k]))).join('')}${row('', t('Sin insignia'))}</div>` : `<p class="helper">${t('Aún no tienes insignias.')}</p>`;
-  const top = owner ? `<div class="fr-list">${rowT('crown', t('Corona de Owner'))}${rowT('', t('Sin adorno'))}</div><p class="helper" style="margin:12px 0 6px">${t('Moñito (en prueba, solo para ti)')}</p><div class="cos-sw">${Object.keys(BOWS).map(k => `<button type="button" class="cos-b ${curTop === 'bow:' + k ? 'on' : ''}" data-cos="bow:${k}" aria-label="${esc(t(BOWS[k][2]))}" title="${esc(t(BOWS[k][2]))}">${svgTop('bow:' + k)}</button>`).join('')}</div>`
+  const top = owner ? `<div class="fr-list">${rowT('crown', t('Corona de Owner'))}${rowT('', t('Sin adorno'))}</div><p class="helper" style="margin:12px 0 6px">${t('Moñito (en prueba, solo para ti)')}</p><div class="cos-sw">${Object.keys(BOWS).map(k => `<button type="button" class="cos-b ${curTop === 'bow:' + k ? 'on' : ''}" data-cos="bow:${k}" aria-label="${esc(t(BOWS[k][3]))}" title="${esc(t(BOWS[k][3]))}">${svgTop('bow:' + k)}</button>`).join('')}</div>`
     : `<p class="helper">${t('Pronto habrá adornos para ponerte aquí, en la tienda.')}</p>`;
   const m = document.createElement('div'); m.className = 'modal sheet';
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Insignias y adornos')}</h2><h3 class="fr-h">${t('Abajo')}</h3>${bot}<h3 class="fr-h">${t('Arriba')}</h3>${top}</div>`;
