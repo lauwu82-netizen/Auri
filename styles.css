@@ -1154,3 +1154,12 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .nm-own{color:#b8892a}.nm-adm{color:#3f78b8}.nm-mod{color:#7a56c0}
 .dark .nm-own{color:#e6c46f}.dark .nm-adm{color:#8db9ea}.dark .nm-mod{color:#b79ce0}
 .pf-av{margin-bottom:10px}
+
+/* 43. Reportar errores */
+.bug-fab{position:fixed;right:14px;bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:40;width:42px;height:42px;border-radius:50%;border:1px solid hsl(var(--border));background:hsl(var(--card));color:hsl(var(--primary));display:grid;place-items:center;padding:0;box-shadow:0 6px 16px rgba(60,35,95,.22);cursor:pointer}
+.bug-fab:active{transform:scale(.94)}
+.bug-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.bug-top time{margin-left:auto}
+.bug-text{margin:10px 0 8px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.bug-open{background:#f3d6df;color:#8a3b55}.bug-seen,.bug-working{background:#f3e8c4;color:#7a5e1c}.bug-resolved{background:#d4ead9;color:#2f6b45}
+.dark .bug-open{background:#4a2a38;color:#f0b8ca}.dark .bug-seen,.dark .bug-working{background:#4a4126;color:#ecd68c}.dark .bug-resolved{background:#26412f;color:#a9d6b4}
+.ap-th .ap-crop{right:auto;left:3px}

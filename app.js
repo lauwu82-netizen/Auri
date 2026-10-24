@@ -57,7 +57,7 @@ function applyTheme() {                                 // 'light' | 'dark' | 'a
 }
 /* --- Ajustes (se guardan por cuenta) --- */
 const APP_VERSION = '0.9 (beta)';
-const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
+const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
 const cfg = k => {
   const c = S.cfg || {};
   if (k === 'showMature') { const u = getUsers()[S.user]; if (isMinor(u)) return false; return c.showMature == null ? isAdult(u) : c.showMature; }   // por defecto: visible solo si ya declaraste ser mayor de edad
@@ -1205,6 +1205,8 @@ async function sbSyncMod(force) {
   } catch (e) { console.warn('mod', e); return false; }
   finally { MOD_BUSY = false; }
 }
+let BUG_LAST = 0;
+setInterval(() => { if (document.visibilityState === 'hidden' || !modCloud() || !isOwner()) return; const on = /^#\/moderation\/bugs/.test(location.hash); if (Date.now() - BUG_LAST > (on ? 8000 : 60000)) { BUG_LAST = Date.now(); sbBugs().then(c => c && softRender()); } }, 4000);
 setInterval(() => { if (document.visibilityState === 'hidden' || !modCloud()) return; const on = /^#\/(moderation|gift|strike|admin)/.test(location.hash); if (Date.now() - MOD_LAST > (on ? 8000 : 60000)) sbSyncMod().then(c => c && softRender()); }, 3000);
 /* ---------- NUBE · noticias, banners y borradores ----------
    La app sigue guardando todo en su copia local; aquí se compara con la nube y se sube/baja solo lo que cambió.
@@ -1478,6 +1480,7 @@ const ICON = {
 function shell(path, html) {
   const pop = NOTIF_OPEN ? notifPop() : '', n = unread(), mcTot = modCounts().total;      // (primero la ventanita: al abrirla marca como leídas y el contador baja)
   const item = (href, label, ic, on, bd = 0) => `<a class="bn-item ${on ? 'active' : ''}" href="${href}" ${on ? 'aria-current="page"' : ''}><span class="bn-ic">${ic}${bd ? `<b class="badge">${bd > 99 ? '99+' : bd}</b>` : ''}</span><span>${label}</span></a>`;
+  const fab = (path === '/' || path === '/profile') && !isGuest() && !cfg('hideBugFab') && !/^#\/profile\/edit/.test(location.hash) ? `<button type="button" class="bug-fab" data-act="report" aria-label="${esc(t('Reportar un error'))}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8a4 4 0 0 1 8 0v1H8Z"/><rect x="6.5" y="9" width="11" height="10" rx="5"/><path d="M12 9v10M3 13h3.5M17.5 13H21M4.5 7.5 7.5 9.5M19.5 7.5 16.5 9.5M5 19l2.6-2M19 19l-2.6-2"/></svg></button>` : '';
   return `<div class="shell"><header class="topbar tb2">
     <div class="top-row">
       <button class="icon-btn" data-act="settings" aria-label="${esc(t('Configuración'))}">${ICON.gear}</button>
@@ -1487,7 +1490,7 @@ function shell(path, html) {
         <a href="#/profile" class="av-wrap" aria-label="${esc(t('Mi perfil'))}">${userAvatar(S.user)}${mcTot ? `<b class="badge">${mcTot > 99 ? '99+' : mcTot}</b>` : ''}</a></div>
     </div>
     <div class="search-bar ${SEARCH_OPEN ? 'open' : ''}"><input id="sq" class="field" type="search" placeholder="${esc(SM === 'users' ? t('Buscar usuarios…') : t('Buscar títulos, etiquetas o fandoms…'))}" aria-label="${esc(t('Buscar'))}" value="${esc(Q)}"><button class="icon-btn" data-act="search-close" aria-label="${esc(t('Cerrar búsqueda'))}">✕</button></div>
-  </header>${html}${pop}
+  </header>${html}${pop}${fab}
   <nav class="bottom-nav" aria-label="${esc(t('Navegación principal'))}">${item('#/', t('Inicio'), ICON.home, path === '/')}${item('#/library', t('Biblioteca'), ICON.books, path === '/library')}<a class="bn-plus ${path === '/write' ? 'active' : ''}" href="#/write" aria-label="${esc(t('Crear historia'))}">${ICON.plus}</a>${item('#/news', t('Noticias'), ICON.news, path === '/news')}${item('#/profile', t('Mi Perfil'), ICON.user, path === '/profile', mcTot)}</nav></div>`;
 }
 const empty = (title, copy, action = '') => `<div class="empty">${mascot()}<h3>${esc(t(title))}</h3><p>${esc(t(copy))}</p>${action}</div>`;
@@ -2432,11 +2435,12 @@ async function releaseClaim(id) {
 function modView(sub) {
   if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">' + t('Volver') + '</a>')}</main>`;
   const shuf = cfg('modShuffle') !== false, hs = x => { let h = 2166136261; for (const ch of String(x)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };      // orden aleatorio propio de cada persona del equipo (estable al redibujar)
-  const books = pendingBooks().filter(s => inScope(commOf(s.owner))).reverse().map(b => [b, hs(S.user + '|' + b.id)]).sort((a, b) => shuf ? a[1] - b[1] : 0).map(x => x[0]).sort((x, y) => (claimOf(x.id) ? 1 : 0) - (claimOf(y.id) ? 1 : 0)), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, npo = pendingPosts().length, tabs = commBar() + `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log', 'posts', 'gifts'].includes(sub) ? '' : 'active'}" href="#/moderation">${t('📚 Libros')} ${redN(books.length)}</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">${t('🚩 Reportes')} ${redN(nr)}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">${t('👥 Cuentas')} ${redN(nacc)}</a>${canBan() ? `<a class="tab ${sub === 'posts' ? 'active' : ''}" href="#/moderation/posts">${t('📣 Publicaciones')} ${redN(npo)}</a>` : ''}${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">${t('📨 Apelaciones')} ${redN(na)}</a>` : ''}${isOwner() ? `<a class="tab ${sub === 'gifts' ? 'active' : ''}" href="#/moderation/gifts">${t('🎁 Regalos')}</a><a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">${t('📋 Registro')}</a>` : ''}</div>`;
+  const books = pendingBooks().filter(s => inScope(commOf(s.owner))).reverse().map(b => [b, hs(S.user + '|' + b.id)]).sort((a, b) => shuf ? a[1] - b[1] : 0).map(x => x[0]).sort((x, y) => (claimOf(x.id) ? 1 : 0) - (claimOf(y.id) ? 1 : 0)), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, npo = pendingPosts().length, nb = openBugs(), tabs = commBar() + `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log', 'posts', 'gifts', 'bugs'].includes(sub) ? '' : 'active'}" href="#/moderation">${t('📚 Libros')} ${redN(books.length)}</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">${t('🚩 Reportes')} ${redN(nr)}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">${t('👥 Cuentas')} ${redN(nacc)}</a>${canBan() ? `<a class="tab ${sub === 'posts' ? 'active' : ''}" href="#/moderation/posts">${t('📣 Publicaciones')} ${redN(npo)}</a>` : ''}${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">${t('📨 Apelaciones')} ${redN(na)}</a>` : ''}${isOwner() ? `<a class="tab ${sub === 'bugs' ? 'active' : ''}" href="#/moderation/bugs">${t('🐞 Errores')} ${redN(nb)}</a><a class="tab ${sub === 'gifts' ? 'active' : ''}" href="#/moderation/gifts">${t('🎁 Regalos')}</a><a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">${t('📋 Registro')}</a>` : ''}</div>`;
   if (sub === 'reports') return reportsView(tabs);
   if (sub === 'appeals' && canBan()) return appealsView(tabs);
   if (sub === 'accounts') return accountsView(tabs);
   if (sub === 'posts' && canBan()) return postsView(tabs);
+  if (sub === 'bugs' && isOwner()) return bugsView(tabs);
   if (sub === 'log' && isOwner()) return logView(tabs);
   if (sub === 'gifts' && isOwner()) return giftsView(tabs);
   return `<main class="page story-layout">${tabs}<div class="section-head mod-head" style="margin-top:0"><div><span class="eyebrow">${t('🛡 Moderación')}</span><h2 style="margin-top:8px">${t('Libros por revisar')} (${books.length})</h2><p>${t('Una ficha por libro. Toca uno para ver sus capítulos. Los nuevos se aprueban en orden: 1, 2, 3…')}</p>${books.length > 1 ? `<button type="button" class="mod-sorter" data-act="mod-order">${shuf ? t('🎲 Orden aleatorio para ti · cambiar a más recientes') : t('🕒 Más recientes primero · cambiar a orden aleatorio')}</button>` : ''}</div></div>
@@ -2472,17 +2476,97 @@ function showPrivacy() {
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${t('Política de privacidad')}</h2><div class="terms">${trLegal(PRIVACY)}</div><button class="button" data-act="close-modal" style="width:100%;margin-top:14px">${t('Entendido')}</button></div>`;
   document.body.appendChild(m);
 }
+/* --- Reportes de errores de la app: cualquier cuenta los envía; solo la Owner los ve (Moderación › Errores) --- */
+const BUG_KINDS = { error: 'Algo no funciona', visual: 'Algo se ve mal', sugerencia: 'Sugerencia', otro: 'Otro' };
+const BUG_ST = { open: 'Nuevo', seen: 'Visto', working: 'En proceso', resolved: 'Resuelto' };
+const BUG_DONE = 'Tu reporte de error fue resuelto. ¡Gracias por avisarnos!';
+const bugsAll = () => G.get('bugs', []);
+const openBugs = () => isOwner() ? bugsAll().filter(b => b.status === 'open').length : 0;
+const bugMeta = () => `v${APP_VERSION} · ${innerWidth}x${innerHeight} · ${String(navigator.userAgent || '').replace(/\s+/g, ' ')}`.slice(0, 390);
+function cropFree(src, cb) {                       // recorte libre: se arrastra sobre la imagen para marcar la zona
+  const img = new Image();
+  img.onload = () => {
+    const k = Math.min(1, Math.min(340, innerWidth - 56) / img.width), cw = Math.max(1, Math.round(img.width * k)), ch = Math.max(1, Math.round(img.height * k));
+    const m = document.createElement('div'); m.className = 'modal sheet';
+    m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${t('Recorta la parte importante')}</h2><p class="helper">${t('Arrastra sobre la imagen para marcar la zona que quieres mostrar.')}</p><canvas data-cv width="${cw}" height="${ch}" style="width:${cw}px;height:${ch}px;max-width:100%;touch-action:none;border-radius:12px;display:block;margin:12px auto"></canvas><div class="rp-acts" style="justify-content:center"><button class="button" data-ok>${t('Usar recorte')}</button><button class="button secondary" data-all>${t('Usar completa')}</button></div></div>`;
+    const cv = m.querySelector('[data-cv]'), g = cv.getContext('2d'); let r = null, st = null;
+    const draw = () => { g.drawImage(img, 0, 0, cw, ch); if (r) { g.fillStyle = 'rgba(20,10,35,.55)'; g.fillRect(0, 0, cw, ch); g.drawImage(img, r.x / k, r.y / k, r.w / k, r.h / k, r.x, r.y, r.w, r.h); g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.strokeRect(r.x, r.y, r.w, r.h); } };
+    const pt = ev => { const b = cv.getBoundingClientRect(); return { x: Math.max(0, Math.min(cw, (ev.clientX - b.left) * cw / b.width)), y: Math.max(0, Math.min(ch, (ev.clientY - b.top) * ch / b.height)) }; };
+    cv.onpointerdown = ev => { st = pt(ev); r = null; cv.setPointerCapture(ev.pointerId); };
+    cv.onpointermove = ev => { if (!st) return; const p = pt(ev); r = { x: Math.min(st.x, p.x), y: Math.min(st.y, p.y), w: Math.abs(p.x - st.x), h: Math.abs(p.y - st.y) }; draw(); };
+    cv.onpointerup = () => { st = null; if (r && (r.w < 12 || r.h < 12)) { r = null; draw(); } };
+    const done = full => { const o = document.createElement('canvas'), q = (!full && r) ? { x: r.x / k, y: r.y / k, w: r.w / k, h: r.h / k } : { x: 0, y: 0, w: img.width, h: img.height }, z = Math.min(1, 1200 / Math.max(q.w, q.h)); o.width = Math.max(1, Math.round(q.w * z)); o.height = Math.max(1, Math.round(q.h * z)); o.getContext('2d').drawImage(img, q.x, q.y, q.w, q.h, 0, 0, o.width, o.height); m.remove(); cb(o.toDataURL('image/jpeg', .78)); };
+    m.querySelector('[data-ok]').onclick = () => done(false); m.querySelector('[data-all]').onclick = () => done(true); m.onclick = ev => { if (ev.target === m) m.remove(); };
+    draw(); document.body.appendChild(m);
+  };
+  img.src = src;
+}
+async function sendBug(o) {
+  const meta = bugMeta();
+  if (modCloud()) {
+    const imgs = await sbImgConv(o.imgs);
+    const r = await sbApi('/rest/v1/bug_reports', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: { kind: o.kind, text: o.text, imgs, screen: o.screen, meta } });
+    if (!r.ok) return r.status === 403 || r.status === 401 ? t('Llegaste al límite de reportes de hoy. Inténtalo mañana.') : modErr(r);
+    if (isOwner()) await sbBugs(); return '';
+  }
+  G.set('bugs', [{ id: 'b' + Date.now(), by: S.user, kind: o.kind, text: o.text, imgs: o.imgs, screen: o.screen, meta, status: 'open', note: '', date: new Date().toISOString() }, ...bugsAll()]); return '';
+}
 function openReport() {
+  if (isGuest()) return toast(t('Inicia sesión para reportar un error.'));
+  const screen = String(location.hash || '#/').slice(0, 190), imgs = []; let kind = 'error';
   const m = document.createElement('div'); m.className = 'modal sheet';
-  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true" aria-label="${esc(t('Reportar un problema'))}"><button class="icon-btn close-x" data-x aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Reportar un problema')}</h2><p class="helper">${t('Cuéntanos qué pasó o qué se puede mejorar. Lo verá el equipo de moderación.')}</p>
-  <textarea class="textarea" data-text maxlength="600" placeholder="${esc(t('Describe el problema…'))}" style="margin-top:10px"></textarea><p class="error" data-err></p><button class="button" data-send style="width:100%;margin-top:6px">${t('Enviar')}</button></div>`;
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true" aria-label="${esc(t('Reportar un error'))}"><button class="icon-btn close-x" data-x aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Reportar un error')}</h2><p class="helper">${t('Cuéntanos qué pasó. Puedes adjuntar capturas y recortar la parte donde ves el error. Solo lo verá la dueña de Auri.')}</p>
+  <div class="filter-row" data-kinds style="margin-top:10px">${Object.keys(BUG_KINDS).map(k => `<button type="button" class="chip ${k === kind ? 'active' : ''}" data-k="${k}">${t(BUG_KINDS[k])}</button>`).join('')}</div>
+  <textarea class="textarea" data-text maxlength="1500" placeholder="${esc(t('Describe qué hacías y qué salió mal…'))}" style="margin-top:8px"></textarea><div class="ap-imgs" data-imgs></div>
+  <label class="button secondary sm" style="cursor:pointer;margin-top:8px">${t('Adjuntar capturas')}<input type="file" accept="image/*" multiple data-file hidden></label><p class="helper" style="margin:6px 0 0">${t('Hasta 4 imágenes.')}</p><p class="error" data-err></p><button class="button" data-send style="width:100%;margin-top:6px">${t('Enviar')}</button></div>`;
   m.querySelector('[data-x]').onclick = () => m.remove(); m.onclick = ev => { if (ev.target === m) m.remove(); };
-  m.querySelector('[data-send]').onclick = () => {
-    const text = m.querySelector('[data-text]').value.trim(); if (!text) { m.querySelector('[data-err]').textContent = t('Escribe qué pasó.'); return; }
-    if (modCloud()) { modReport({ type: 'problem', text, label: 'problema' }).then(e => toast(e || t('Gracias, recibimos tu reporte ✓'))); m.remove(); return; }
-    G.set('reports', [{ id: Date.now(), by: S.user, text, date: today() }, ...G.get('reports', [])]); m.remove(); toast(t('Gracias, recibimos tu reporte ✓'));
+  const paintI = () => { m.querySelector('[data-imgs]').innerHTML = imgs.map((d, k) => `<span class="ap-th"><img src="${esc(d)}" alt="${esc(t('Captura {n}', { n: k + 1 }))}"><button type="button" data-rm="${k}" aria-label="${esc(t('Quitar imagen'))}">✕</button><button type="button" class="ap-crop" data-crop="${k}" aria-label="${esc(t('Recortar'))}">✂</button></span>`).join(''); };
+  m.querySelector('[data-file]').onchange = ev => { [...ev.target.files].slice(0, 4 - imgs.length).forEach(f => fitPhoto(f, 1400, 1400, d => { if (imgs.length < 4) { imgs.push(d); paintI(); } }, .78)); ev.target.value = ''; };
+  m.addEventListener('click', ev => {
+    const r = ev.target.closest('[data-rm]'), c = ev.target.closest('[data-crop]'), kb = ev.target.closest('[data-k]');
+    if (r) { imgs.splice(+r.dataset.rm, 1); paintI(); }
+    if (c) { const i = +c.dataset.crop; cropFree(imgs[i], d => { imgs[i] = d; paintI(); }); }
+    if (kb) { kind = kb.dataset.k; m.querySelectorAll('[data-k]').forEach(x => x.classList.toggle('active', x === kb)); }
+  });
+  m.querySelector('[data-send]').onclick = async ev => {
+    const text = m.querySelector('[data-text]').value.trim(), err = m.querySelector('[data-err]'); err.textContent = '';
+    if (!text) { err.textContent = t('Escribe qué pasó.'); return; }
+    const b = ev.currentTarget; b.disabled = true; b.textContent = t('Enviando…');
+    const e = await sendBug({ kind, text, imgs, screen });
+    if (e) { err.textContent = e; b.disabled = false; b.textContent = t('Enviar'); return; }
+    m.remove(); toast(t('Gracias, recibimos tu reporte ✓'));
   };
   document.body.appendChild(m);
+}
+async function sbBugs() {                           // la Owner trae todos los reportes de errores
+  if (!modCloud() || !isOwner()) return false;
+  const r = await sbApi('/rest/v1/bug_reports?select=*&order=created_at.desc&limit=500'); if (!r.ok || !Array.isArray(r.data)) return false;
+  const ids = await sbKnow(r.data.map(x => x.by).filter(isUuid));
+  const L = r.data.map(x => ({ id: x.id, by: ids.key(x.by) || '', kind: x.kind, text: x.text, imgs: x.imgs || [], screen: x.screen || '', meta: x.meta || '', status: x.status, note: x.note || '', date: x.created_at }));
+  if (JSON.stringify(L) === JSON.stringify(bugsAll())) return false; G.set('bugs', L); return true;
+}
+async function bugSet(id, st, note) {
+  if (modCloud() && isUuid(id)) { const r = await sbApi('/rest/v1/bug_reports?id=eq.' + id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { status: st, note: note || '' } }); if (!r.ok) return modErr(r); await sbBugs(); return ''; }
+  const L = bugsAll().map(b => b.id === id ? { ...b, status: st, note: note || b.note || '' } : b); G.set('bugs', L);
+  const b = L.find(x => x.id === id); if (st === 'resolved' && b && b.by && b.by !== S.user) pushNotif(b.by, { type: 'sys', extra: BUG_DONE }); return '';
+}
+let BUGF = 'open';
+function bugCard(b) {
+  const th = (b.imgs || []).filter(safeImg).map((d, k) => `<button type="button" class="ap-th" data-act="bug-img" data-id="${esc(b.id)}" data-n="${k}"><img src="${esc(d)}" alt="${esc(t('Captura {n}', { n: k + 1 }))}"></button>`).join('');
+  const fd = new Date(b.date).toLocaleString(LOC(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const btn = (st, label) => b.status === st ? '' : `<button type="button" class="button ${st === 'resolved' ? '' : 'secondary'} sm" data-act="bug-set" data-id="${esc(b.id)}" data-st="${st}">${t(label)}</button>`;
+  return `<article class="panel bug-card" style="margin-bottom:12px"><div class="bug-top"><span class="pill">${t(BUG_KINDS[b.kind] || 'Otro')}</span><span class="pill bug-${b.status}">${t(BUG_ST[b.status] || 'Nuevo')}</span><time class="helper">${esc(fd)}</time></div>
+  <p class="bug-text">${esc(b.text)}</p>${th ? `<div class="ap-imgs">${th}</div>` : ''}<p class="helper" style="margin:8px 0 0">${esc(uName(b.by))} · ${esc(b.screen)}</p>
+  <details style="margin-top:4px"><summary class="helper">${t('Datos técnicos')}</summary><p class="helper" style="overflow-wrap:anywhere">${esc(b.meta)}</p></details>
+  <textarea class="textarea" data-note rows="2" maxlength="600" placeholder="${esc(t('Nota (opcional)'))}" style="margin-top:8px">${esc(b.note || '')}</textarea>
+  <div class="rp-acts" style="margin-top:8px">${btn('seen', 'Marcar visto')}${btn('working', 'En proceso')}${btn('resolved', 'Resuelto')}<button type="button" class="icon-btn" data-act="bug-del" data-id="${esc(b.id)}" aria-label="${esc(t('Eliminar reporte'))}">${TRASH}</button></div></article>`;
+}
+function bugsView(tabs) {
+  const all = bugsAll(), cnt = f => all.filter(b => f === 'open' ? b.status === 'open' : f === 'work' ? (b.status === 'seen' || b.status === 'working') : b.status === 'resolved').length;
+  const l = all.filter(b => BUGF === 'open' ? b.status === 'open' : BUGF === 'work' ? (b.status === 'seen' || b.status === 'working') : b.status === 'resolved');
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('🐞 Errores')}</span><h2 style="margin-top:8px">${t('Reportes de errores')}</h2><p>${t('Lo que las personas encuentran en la app. Al marcar uno como resuelto, quien lo envió recibe un aviso.')}</p></div></div>
+  <div class="filter-row">${[['open', 'Nuevos'], ['work', 'En proceso'], ['done', 'Resueltos']].map(([k, n]) => `<button class="chip ${BUGF === k ? 'active' : ''}" data-act="bug-filter" data-id="${k}">${t(n)} (${cnt(k)})</button>`).join('')}</div>
+  ${l.length ? l.map(bugCard).join('') : empty('Nada por aquí', 'Cuando alguien reporte un error, aparecerá en esta lista.')}</main>`;
 }
 const REASONS_USER = ['Acoso, odio o amenazas', 'Pide datos personales o fotos', 'Contenido sexual con menores', 'Sospecha de edad falsa', 'Suplantación de identidad', 'Spam o publicidad', 'Otro motivo'];
 const REASONS = ['Contenido sexual con menores', 'Contenido sexual explícito', 'Acoso, odio o amenazas', 'Violencia extrema', 'Plagio o copia', 'Spam o publicidad', 'Datos personales de alguien', 'Mal etiquetado (+18 o spoilers)', 'Otro motivo'];
@@ -2736,7 +2820,7 @@ function settingsView(secId) {
       <div class="form-group"><label for="ac-pass">${t('Contraseña actual')}</label><input id="ac-pass" type="password" class="field" autocomplete="current-password" placeholder="${esc(t('Solo para cambiar el correo'))}"></div></div>
       <button class="button" style="margin-top:12px;width:100%" data-act="acct-save">${t('Guardar cambios de cuenta')}</button></section>
       <section class="panel set-sec danger-zone"><h2>${t('⚠️ Zona de peligro')}</h2><p class="helper" style="margin:8px 0 12px">${t('Eliminar tu cuenta borra tus historias (publicadas, en revisión y borradores), biblioteca, personajes, comentarios, likes y seguidores. No se puede deshacer.')}</p><button class="button danger" data-act="acct-delete">${t('Eliminar cuenta')}</button></section>` },
-    acerca: { ico: 'ℹ️', c: '#7a869a', t: 'Acerca de', sub: t('Versión {v}', { v: APP_VERSION }), body: () => `<section class="panel set-sec"><div class="set-btns"><button class="button secondary" data-act="terms">${t('Términos y condiciones')}</button><button class="button secondary" data-act="privacy">${t('Política de privacidad')}</button><button class="button secondary" data-act="report">${t('Reportar un problema')}</button></div><p class="helper" style="margin:14px 0 0;text-align:center">${t('Auri · versión {v}', { v: APP_VERSION })}</p></section>` }
+    acerca: { ico: 'ℹ️', c: '#7a869a', t: 'Acerca de', sub: t('Versión {v}', { v: APP_VERSION }), body: () => `<section class="panel set-sec"><div class="set-btns"><button class="button secondary" data-act="terms">${t('Términos y condiciones')}</button><button class="button secondary" data-act="privacy">${t('Política de privacidad')}</button><button class="button secondary" data-act="report">${t('Reportar un error')}</button></div>${sw('hideBugFab', !!cfg('hideBugFab'), 'Ocultar el botón flotante de errores', 'Sigue disponible aquí, en Acerca de.')}<p class="helper" style="margin:14px 0 0;text-align:center">${t('Auri · versión {v}', { v: APP_VERSION })}</p></section>` }
   };
   if (secId && SECS[secId]) {                                    // pantalla de una sección
     const x = SECS[secId];
@@ -2912,8 +2996,8 @@ const worksGrid = list => list.length ? `<div class="story-grid">${list.map(stor
 /** Pendientes del equipo: libros por revisar, reportes, cuentas, publicaciones y apelaciones (cada tipo según lo que esa persona puede ver) */
 function modCounts() {
   if (!isStaff()) return { books: 0, reports: 0, accounts: 0, posts: 0, appeals: 0, total: 0 };
-  const c = { books: pendingBooks().filter(s => inScope(commOf(s.owner))).length, reports: openReports(), accounts: accRows().filter(a => a.open).length, posts: canBan() ? pendingPosts().length : 0, appeals: canBan() ? openAppeals() : 0 };
-  return { ...c, total: c.books + c.reports + c.accounts + c.posts + c.appeals };
+  const c = { books: pendingBooks().filter(s => inScope(commOf(s.owner))).length, reports: openReports(), accounts: accRows().filter(a => a.open).length, posts: canBan() ? pendingPosts().length : 0, appeals: canBan() ? openAppeals() : 0, bugs: openBugs() };
+  return { ...c, total: c.books + c.reports + c.accounts + c.posts + c.appeals + c.bugs };
 }
 const redN = n => n > 0 ? `<b class="nbadge" aria-label="${esc(t('{n} por revisar', { n }))}">${n > 99 ? '99+' : n}</b>` : '';
 const profileExtras = () => isStaff() ? `<section class="panel" style="margin-top:22px"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>${t('🛡 Moderación')}</strong> ${redN(modCounts().total)}<div class="helper">${t('Capítulos por revisar')}${pendingBooks().length ? ' (' + tn(pendingBooks().length, '{n} libro', '{n} libros') + ')' : ''}. ${t('Reportes abiertos: {n}.', { n: openReports() })}</div></div><a class="button secondary" href="#/moderation${openReports() && !pendingBooks().length ? '/reports' : ''}">${t('Abrir')}</a></div></section>` : '';
@@ -3444,6 +3528,7 @@ function render() {
   else if (nav && (a !== 'story' || (VISIT && VISIT.sid !== b))) VISIT = null;
   if (nav && from && from.startsWith('/moderation/book/') && !(a === 'moderation' && b === 'book' && c === from.split('/')[3])) releaseClaim(decodeURIComponent(from.split('/')[3] || ''));
   if (nav && a === 'moderation' && b === 'book' && c) claimBook(decodeURIComponent(c));
+  if (a === 'moderation' && b === 'bugs' && isOwner()) { BUG_LAST = Date.now(); sbBugs().then(ch => ch && softRender()); }
   if (nav) { PFEDIT = false; EPD = null; SHOWC = !!HLC; LASTP = path; NAVDIR = ''; NOTIF_OPEN = false; SETDEEP = a === 'settings' && !!b && from === '/settings'; }
   if (!S.user && !['login', 'register', 'signup', 'welcome', 'start'].includes(a)) return go(LS.get('auri.intro', false) ? '/start' : '/welcome');
   if (S.user && (a === 'welcome' || a === 'start' || (!isGuest() && (a === 'login' || a === 'register' || a === 'signup')))) return go('/');
@@ -3733,6 +3818,10 @@ document.addEventListener('click', e => {
     'acct-delete': () => { if (isOwner()) return toast('La cuenta Owner no se puede eliminar desde aquí.');
       typeConfirm('Eliminar cuenta', 'Se borrarán tu cuenta, tus historias, biblioteca, personajes, comentarios, likes y seguidores. No se puede deshacer. Escribe {w} para confirmar.', t('ELIMINAR'), 'Eliminar mi cuenta', deleteAccount); },
     privacy: showPrivacy, report: openReport,
+    'bug-filter': () => { BUGF = id; KEEP = true; render(); },
+    'bug-set': async () => { const card = el.closest('.bug-card'), note = card ? card.querySelector('[data-note]').value.trim() : '', e = await bugSet(id, el.dataset.st, note); if (e) return toast(e); KEEP = true; render(); },
+    'bug-del': async () => { if (!confirm(t('¿Eliminar este reporte?'))) return; if (modCloud() && isUuid(id)) { const r = await sbApi('/rest/v1/bug_reports?id=eq.' + id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); if (!r.ok) return toast(modErr(r)); await sbBugs(); } else G.set('bugs', bugsAll().filter(b => b.id !== id)); KEEP = true; render(); },
+    'bug-img': () => { const b = bugsAll().find(x => x.id === id), src = b && (b.imgs || [])[+el.dataset.n]; if (!src || !safeImg(src)) return; const m = document.createElement('div'); m.className = 'modal'; m.innerHTML = `<div class="modal-box" style="padding:10px;max-width:min(96vw,640px)"><img src="${esc(src)}" alt="" style="width:100%;height:auto;border-radius:12px;display:block"><button class="button secondary" data-x style="width:100%;margin-top:10px">${t('Cerrar')}</button></div>`; m.onclick = ev => { if (ev.target === m || ev.target.closest('[data-x]')) m.remove(); }; document.body.appendChild(m); },
     'report-del': async () => { if (isUuid(id) && modCloud()) { const r = await sbApi('/rest/v1/reports?id=eq.' + id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); if (!r.ok) return toast(modErr(r)); await sbSyncMod(true); KEEP = true; return render(); }
       G.set('reports', G.get('reports', []).filter(r => String(r.id) !== id)); KEEP = true; render(); },
     'qz-back': () => { const b = $('#qz-birth'); if (b && QZ) QZ.birth = b.value; if (QZ.step > 1) { QZ.step--; render(); } else go('/register'); },
