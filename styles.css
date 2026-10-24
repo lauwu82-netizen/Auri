@@ -1141,9 +1141,9 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .orn{position:absolute;z-index:2;pointer-events:none;line-height:0;transition:opacity .5s ease,scale .6s cubic-bezier(.2,.9,.3,1.2)}
 .orn svg{display:block;width:100%;height:auto;overflow:visible}
 .orn.off{opacity:0;scale:1.35}
-.orn-top.crown{left:22%;top:-33%;width:56%;transform:rotate(-14deg)}
+.orn-top.crown{left:4%;top:-19%;width:46%;transform:rotate(-27deg)}
 .orn-top.bow{left:-14%;top:-18%;width:46%;transform:rotate(-16deg)}
-.orn-bot.bA{right:-9%;bottom:-9%;width:38%}
+.orn-bot.bA{right:-12%;bottom:-10%;width:42%}
 .orn-bot.b50{left:-12%;bottom:-24%;width:124%}
 .fr.sm .orn-bot.b50{left:-18%;width:136%;bottom:-26%}
 .fr-h{font:700 12px/1 var(--sans,inherit);letter-spacing:.08em;text-transform:uppercase;color:hsl(var(--muted-foreground));margin:18px 0 8px}
