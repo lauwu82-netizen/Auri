@@ -298,7 +298,7 @@ const CAT_TW = ["M.08 .6A.42 .4 0 1 1 .92 .6A.42 .4 0 1 1 .08 .6ZM.11 .44L0.22 0
 const HALOS = { pink: ['#f0a8c4', 'Rosa'], blue: ['#9cc4ec', 'Azul claro'], purple: ['#b79ce0', 'Morado'], mint: ['#9ed8b4', 'Menta'], yellow: ['#ecd47c', 'Amarillo'], peach: ['#f0b88c', 'Durazno'], white: ['#f4eefa', 'Blanco'], red: ['#e69090', 'Rojo'] };
 function shapeDefs() {                              // recortes SVG compartidos (el gato mueve las orejitas cada 10 segundos)
   if (document.getElementById('shape-defs')) return;
-  const tw = reduceMotion() ? '' : `<animate attributeName="d" dur="10s" repeatCount="indefinite" calcMode="discrete" keyTimes="0;.9;.915;.93;.945;.96;.975;.99;1" values="${CAT_TW.join(';')}"/>`;
+  const tw = reduceMotion() ? '' : `<animate attributeName="d" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;.74;.8;.86;.9;.94;.97;.985;1" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1" values="${CAT_TW.join(';')}"/>`;
   const one = (k, d, extra = '') => `<clipPath id="sh-${k}" clipPathUnits="objectBoundingBox"><path d="${d}">${extra}</path></clipPath>`;
   document.body.insertAdjacentHTML('beforeend', `<svg id="shape-defs" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>${Object.keys(SHAPE_D).map(k => one(k, SHAPE_D[k], k === 'cat' ? tw : '')).join('')}</defs></svg>`);
 }
