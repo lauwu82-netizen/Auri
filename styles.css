@@ -1267,6 +1267,7 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .fr[data-halo] .avatar{position:relative;z-index:1;box-shadow:none!important}
 .fr[data-halo]::after{content:'';position:absolute;inset:0;background:var(--hc);clip-path:var(--clip,circle(50%));z-index:0;pointer-events:none}
 .fr[data-halo]::after{transform:scale(1.07)}
+.fr[data-shape] .avatar{scale:1.14}.fr[data-shape][data-halo]::after{transform:scale(1.22)}
 @media(prefers-reduced-motion:no-preference){
 .fr.xl[data-shape=heart],.fr.big[data-shape=heart]{animation:shp-heart 10s ease-in-out infinite}
 .fr.xl[data-shape=star],.fr.big[data-shape=star]{animation:shp-star 10s ease-in-out infinite}
