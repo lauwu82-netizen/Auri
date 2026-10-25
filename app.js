@@ -291,7 +291,20 @@ const topKey = e => {                                    // adorno de arriba que
 const ornHTMLk = (bot, top) => (top && cosImg(top) ? `<span class="orn orn-top ${top === 'crown' ? 'crown' : 'bow'}">${cosImg(top)}</span>` : '') + (bot && cosImg(bot) ? `<span class="orn orn-bot ${bot === 'top' ? 'b50' : 'bA'}">${cosImg(bot)}</span>` : '');
 const nmCls = e => ({ OWNER: 'nm-own', ADMIN: 'nm-adm', MODERATOR: 'nm-mod' }[roleOf(e)] || '');   // solo el equipo tiene el usuario con color
 const ornHTML = e => ornHTMLk(frameKey(e), topKey(e));
-const frWrap = (e, cls, av) => `<span class="fr ${cls}">${av}${ornHTML(e)}</span>`;
+/* --- Forma y borde de la foto de perfil (por ahora solo la Owner; todo queda guardado para ponerlo a la venta después) --- */
+const SHAPES = { '': 'Círculo', cat: 'Gato', heart: 'Corazón', star: 'Estrella', flower: 'Flor', cloud: 'Nube' };
+const SHAPE_D = {"cat": "M.08 .6A.42 .4 0 1 1 .92 .6A.42 .4 0 1 1 .08 .6ZM.11 .44L0.22 0.06L.44 .2ZM.56 .2L0.78 0.06L.89 .44Z", "heart": "M.5 .95C.1 .66 .02 .42 .08 .27C.15 .08 .39 .06 .5 .27C.61 .06 .85 .08 .92 .27C.98 .42 .9 .66 .5 .95Z", "star": "M0.466 0.111Q0.5 0.05 0.534 0.111L0.624 0.271Q0.659 0.332 0.727 0.345L0.907 0.382Q0.976 0.395 0.928 0.447L0.804 0.582Q0.757 0.633 0.765 0.703L0.786 0.885Q0.794 0.955 0.73 0.925L0.564 0.849Q0.5 0.82 0.436 0.849L0.27 0.925Q0.206 0.955 0.214 0.885L0.235 0.703Q0.243 0.633 0.196 0.582L0.072 0.447Q0.024 0.395 0.093 0.382L0.273 0.345Q0.341 0.332 0.376 0.271Z", "flower": "M0.3 0.5A0.2 0.2 0 1 1 0.7 0.5A0.2 0.2 0 1 1 0.3 0.5ZM0.3 0.23A0.2 0.2 0 1 1 0.7 0.23A0.2 0.2 0 1 1 0.3 0.23ZM0.534 0.365A0.2 0.2 0 1 1 0.934 0.365A0.2 0.2 0 1 1 0.534 0.365ZM0.534 0.635A0.2 0.2 0 1 1 0.934 0.635A0.2 0.2 0 1 1 0.534 0.635ZM0.3 0.77A0.2 0.2 0 1 1 0.7 0.77A0.2 0.2 0 1 1 0.3 0.77ZM0.066 0.635A0.2 0.2 0 1 1 0.466 0.635A0.2 0.2 0 1 1 0.066 0.635ZM0.066 0.365A0.2 0.2 0 1 1 0.466 0.365A0.2 0.2 0 1 1 0.066 0.365Z", "cloud": "M0.1 0.56A0.2 0.2 0 1 1 0.5 0.56A0.2 0.2 0 1 1 0.1 0.56ZM0.25 0.42A0.27 0.27 0 1 1 0.79 0.42A0.27 0.27 0 1 1 0.25 0.42ZM0.54 0.56A0.2 0.2 0 1 1 0.94 0.56A0.2 0.2 0 1 1 0.54 0.56ZM0.1 0.66A0.16 0.16 0 1 1 0.42 0.66A0.16 0.16 0 1 1 0.1 0.66ZM0.58 0.66A0.16 0.16 0 1 1 0.9 0.66A0.16 0.16 0 1 1 0.58 0.66ZM.26 .5H.74V.82H.26Z"};
+const CAT_TW = ["M.08 .6A.42 .4 0 1 1 .92 .6A.42 .4 0 1 1 .08 .6ZM.11 .44L0.22 0.06L.44 .2ZM.56 .2L0.78 0.06L.89 .44Z", "M.08 .6A.42 .4 0 1 1 .92 .6A.42 .4 0 1 1 .08 .6ZM.11 .44L0.16 0.1L.44 .2ZM.56 .2L0.78 0.06L.89 .44Z", "M.08 .6A.42 .4 0 1 1 .92 .6A.42 .4 0 1 1 .08 .6ZM.11 .44L0.26 0.03L.44 .2ZM.56 .2L0.78 0.06L.89 .44Z", "M.08 .6A.42 .4 0 1 1 .92 .6A.42 .4 0 1 1 .08 .6ZM.11 .44L0.16 0.1L.44 .2ZM.56 .2L0.78 0.06L.89 .44Z", "M.08 .6A.42 .4 0 1 1 .92 .6A.42 .4 0 1 1 .08 .6ZM.11 .44L0.22 0.06L.44 .2ZM.56 .2L0.78 0.06L.89 .44Z", "M.08 .6A.42 .4 0 1 1 .92 .6A.42 .4 0 1 1 .08 .6ZM.11 .44L0.22 0.06L.44 .2ZM.56 .2L0.84 0.1L.89 .44Z", "M.08 .6A.42 .4 0 1 1 .92 .6A.42 .4 0 1 1 .08 .6ZM.11 .44L0.22 0.06L.44 .2ZM.56 .2L0.74 0.03L.89 .44Z", "M.08 .6A.42 .4 0 1 1 .92 .6A.42 .4 0 1 1 .08 .6ZM.11 .44L0.22 0.06L.44 .2ZM.56 .2L0.84 0.1L.89 .44Z", "M.08 .6A.42 .4 0 1 1 .92 .6A.42 .4 0 1 1 .08 .6ZM.11 .44L0.22 0.06L.44 .2ZM.56 .2L0.78 0.06L.89 .44Z"];
+const HALOS = { pink: ['#f0a8c4', 'Rosa'], blue: ['#9cc4ec', 'Azul claro'], purple: ['#b79ce0', 'Morado'], mint: ['#9ed8b4', 'Menta'], yellow: ['#ecd47c', 'Amarillo'], peach: ['#f0b88c', 'Durazno'], white: ['#f4eefa', 'Blanco'], red: ['#e69090', 'Rojo'] };
+function shapeDefs() {                              // recortes SVG compartidos (el gato mueve las orejitas cada 10 segundos)
+  if (document.getElementById('shape-defs')) return;
+  const tw = reduceMotion() ? '' : `<animate attributeName="d" dur="10s" repeatCount="indefinite" calcMode="discrete" keyTimes="0;.9;.915;.93;.945;.96;.975;.99;1" values="${CAT_TW.join(';')}"/>`;
+  const one = (k, d, extra = '') => `<clipPath id="sh-${k}" clipPathUnits="objectBoundingBox"><path d="${d}">${extra}</path></clipPath>`;
+  document.body.insertAdjacentHTML('beforeend', `<svg id="shape-defs" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>${Object.keys(SHAPE_D).map(k => one(k, SHAPE_D[k], k === 'cat' ? tw : '')).join('')}</defs></svg>`);
+}
+const lookOf = e => { const u = getUsers()[e] || {}; if (roleOf(e) !== 'OWNER') return {}; return { shape: SHAPES[u.shape] && u.shape ? u.shape : '', halo: HALOS[u.halo] ? u.halo : '' }; };   // por ahora solo la Owner las tiene
+const lookAttr = e => { const l = lookOf(e); return (l.shape ? ` data-shape="${l.shape}"` : '') + (l.halo ? ` data-halo="${l.halo}" style="--hc:${HALOS[l.halo][0]}"` : ''); };
+const frWrap = (e, cls, av) => `<span class="fr ${cls}"${lookAttr(e)}>${av}${ornHTML(e)}</span>`;
 const framedAvatar = (e, cls = '') => frWrap(e, cls, userAvatar(e, cls));
 /* REGALOS (solo la Owner regala): marco exclusivo Top 50 · 53 cupos (50 para el top + 3 de prueba) · 24 h para reclamar */
 const GIFT_TOTAL = 53, GIFT_MS = 24 * 3600 * 1000;
@@ -561,7 +574,7 @@ async function sbMirror() {
   const pv = (q.ok && Array.isArray(q.data) && q.data[0]) || {};
   const email = String(s.email || pv.email || '').toLowerCase(), us = LS.get('auri.users', {}), old = us[email] || {};
   us[email] = { ...old, uid: s.uid, cloud: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || old.bio || '', avatar: pr.avatar || old.avatar || '', banner: pr.banner || old.banner || '',
-    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
+    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
     birth: pv.birth || old.birth || '', gender: pv.gender || old.gender || '', interests: pv.interests || old.interests || [], onboarded: true,
     termsAccepted: pr.terms_accepted || old.termsAccepted, created: String(pr.created_at || '').slice(0, 10) || old.created, strikes: old.strikes || [] };
   LS.set('auri.users', us);
@@ -609,6 +622,10 @@ async function sbPushFrame() {
 async function sbPushCos() {
   const s = sbSes(); if (!cloud() || !s || PRES_OFF) return; const u = LS.get('auri.users', {})[String(s.email).toLowerCase()]; if (!u) return;
   await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { cos_top: u.cosTop === undefined ? null : u.cosTop } });
+}
+async function sbPushLook() {
+  const s = sbSes(); if (!cloud() || !s || PRES_OFF) return; const u = LS.get('auri.users', {})[String(s.email).toLowerCase()]; if (!u) return;
+  await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { photo_shape: u.shape || '', halo: u.halo || '' } });
 }
 async function sbPushLists() {
   const s = sbSes(); if (!cloud() || !s || PRES_OFF) return; const u = LS.get('auri.users', {})[String(s.email).toLowerCase()]; if (!u) return;
@@ -842,7 +859,7 @@ async function sbPullPublic() {                           // trae las obras de o
   for (const o of owners) {
     const pr = prof.find(x => x.id === o); if (!pr) continue; const key = remoteKey(o), old = us[key] || {};
     us[key] = { ...old, uid: o, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
     const list = [];
     for (const r of stories.filter(x => x.owner === o)) {
       const pubs = (pubBy.get(r.id) || []), wk = (wkBy.get(r.id) || []), cmap = new Map();
@@ -1014,7 +1031,7 @@ async function sbSyncSocial(only) {
 function sbPseudo(pr, old) {                                   // copia local de la cuenta de otra persona (sin datos privados)
   old = old || {};
   return { ...old, uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
 }
 const SOC_G = { 'auri.likes': ['likes'], 'auri.follows': ['follows'], 'auri.comments': ['comments', 'comment_likes'], 'auri.pcom': ['pcom', 'pcom_likes'], 'auri.subs': ['subscriptions'] };
 let SB_SOC_T;
@@ -1737,7 +1754,7 @@ async function sbSearchUsers() {                         // trae de Supabase a l
   const us = LS.get('auri.users', {}), me = sbSes() && sbSes().uid; let ch = false;
   r.data.filter(p => p.id !== me).forEach(pr => { const key = remoteKey(pr.id), old = us[key];
     const n = { ...(old || {}), uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
     if (JSON.stringify(old) !== JSON.stringify(n)) { us[key] = n; ch = true; } });
   if (ch) { LS.set('auri.users', us); const l = $('#list'); if (l && SM === 'users') l.innerHTML = usersList(); }
 }
@@ -3046,6 +3063,7 @@ function editProfileView() {
     <div class="form-group"><label for="pf-name">${t('Usuario')}</label><input id="pf-name" class="field" maxlength="30" value="${esc(EPD ? EPD.name : u.name)}"></div>
     <div class="form-group"><label for="pf-bio">${t('Biografía')}</label><textarea id="pf-bio" class="textarea" maxlength="300" placeholder="${esc(t('Cuéntales algo sobre ti…'))}">${esc(EPD ? EPD.bio : (u.bio || ''))}</textarea></div>
     <button type="button" class="ep-row" data-act="frames"><span><b>${t('Marcos')}</b><small>${frameLine}</small></span><i aria-hidden="true">›</i></button>
+    ${roleOf(S.user) === 'OWNER' ? `<button type="button" class="ep-row" data-act="look"><span><b>${t('Forma y borde de la foto')}</b><small>${esc(t(SHAPES[lookOf(S.user).shape || ''] || 'Círculo'))}${lookOf(S.user).halo ? ' · ' + esc(t(HALOS[lookOf(S.user).halo][1])) : ''}</small></span><i aria-hidden="true">›</i></button>` : ''}
     ${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}
     ${sw('hideLists', !!u.hideLists, 'Ocultar mis listas', 'Nadie más ve quién te sigue ni a quién sigues. Los números siguen visibles.')}
   </form></main>`;
@@ -3066,6 +3084,21 @@ function openFrames() {
     const b = ev.target.closest('[data-fr]'), c = ev.target.closest('[data-cos]');
     if (b && !locked) { const us = getUsers(); us[me].frameSel = b.dataset.fr; G.set('users', us); sbPushFrame(); m.remove(); KEEP = true; render(); return; }
     if (c && owner) { const us = getUsers(); us[me].cosTop = c.dataset.cos; G.set('users', us); sbPushCos(); m.remove(); KEEP = true; render(); return; }
+    if (ev.target === m || ev.target.closest('[data-no]')) m.remove();
+  });
+  document.body.appendChild(m);
+}
+function openLook() {
+  if (roleOf(S.user) !== 'OWNER') return;
+  const u = getUsers()[S.user] || {}, cur = SHAPES[u.shape] && u.shape ? u.shape : '', hc = HALOS[u.halo] ? u.halo : '';
+  const av = (shape, halo) => `<span class="fr big"${shape ? ` data-shape="${shape}"` : ''}${halo ? ` data-halo="${halo}" style="--hc:${HALOS[halo][0]}"` : ''}>${avatarHTML(u.avatar, u.name, 'xl')}</span>`;
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Forma y borde de la foto')}</h2><p class="helper">${t('Solo tú las tienes por ahora. Cada forma tiene una animación suave.')}</p>
+  <h3 class="fr-h">${t('Forma')}</h3><div class="shp-grid">${Object.keys(SHAPES).map(k => `<button type="button" class="shp-opt ${cur === k ? 'on' : ''}" data-shape="${k}">${av(k, hc)}<span>${t(SHAPES[k])}</span></button>`).join('')}</div>
+  <h3 class="fr-h">${t('Borde de color')}</h3><div class="cos-sw">${[['', 'Sin borde'], ...Object.entries(HALOS).map(([k, v]) => [k, v[1]])].map(([k, n]) => `<button type="button" class="cos-b hal-b ${hc === k ? 'on' : ''}" data-halo="${k}" aria-label="${esc(t(n))}" title="${esc(t(n))}"><i style="${k ? 'background:' + HALOS[k][0] : ''}" class="${k ? '' : 'none'}"></i></button>`).join('')}</div></div>`;
+  m.addEventListener('click', ev => {
+    const a = ev.target.closest('button[data-shape]'), h = ev.target.closest('button[data-halo]');
+    if (a || h) { const us = getUsers(); if (a) us[S.user].shape = a.dataset.shape; if (h) us[S.user].halo = h.dataset.halo; G.set('users', us); sbPushLook(); m.remove(); KEEP = true; render(); openLook(); return; }
     if (ev.target === m || ev.target.closest('[data-no]')) m.remove();
   });
   document.body.appendChild(m);
@@ -3858,7 +3891,7 @@ document.addEventListener('click', e => {
     delete: () => { if (confirm(t('¿Eliminar este borrador? No se puede deshacer.'))) { S.stories = S.stories.filter(s => s.id !== id); persist('stories', S.stories); render(); } },
     'resume-read': () => { const p = VISIT && VISIT.pos; VISIT = null; if (p) { NAVDIR = 'next'; go('/story/' + id + '/' + (p.idx + 1)); } },
     'pf-list': () => openUserList(id, el.dataset.kind), 'pf-works': () => { const w = document.getElementById('pf-works'); if (w && w.scrollIntoView) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
-    'frames': () => openFrames(), 'mod-order': () => { setCfg('modShuffle', cfg('modShuffle') === false); KEEP = true; render(); }, 'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
+    'frames': () => openFrames(), 'look': () => openLook(), 'mod-order': () => { setCfg('modShuffle', cfg('modShuffle') === false); KEEP = true; render(); }, 'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
     'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
     preview: () => { collect(); WPREVIEW = true; render(); }, 'back-edit': () => { WPREVIEW = false; render(); },
@@ -4018,3 +4051,4 @@ setInterval(() => document.querySelectorAll('.rel-t[data-ts]').forEach(t => { co
   const d = document.createElement('div'); d.className = 'splash'; d.innerHTML = LOADER() + '<b>Auri Studios</b>'; document.body.appendChild(d);
   setTimeout(() => { d.classList.add('bye'); setTimeout(() => d.remove(), 320); }, 650);
 })();
+shapeDefs();
