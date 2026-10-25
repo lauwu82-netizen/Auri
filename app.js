@@ -278,116 +278,17 @@ const BOWS = {
   green:  ['#c8e8d0', '#98c8a8', '#70a880', 'Verde'],
   orange: ['#f5d8b0', '#e0b078', '#c09050', 'Naranja']
 };
-const A_COL = {
-  own: ['#f8ecc0', '#e0c070', '#b89040', '#8a6828'],
-  adm: ['#f4f6fa', '#c8d0dc', '#98a4b4', '#707888'],
-  mod: ['#e4d8f5', '#b898e0', '#8870c0', '#6850a0']
-};
-const GOLD = ['#f8ecc0', '#e0c070', '#b89040', '#8a6828'];
-
-const grad = (id, colors) => {
-  const stops = colors.map((c, i) => `<stop offset="${i / (colors.length - 1)}" stop-color="${c}"/>`).join('');
-  return `<linearGradient id="${id}" x1="0" y1="0" x2="0.15" y2="1">${stops}</linearGradient>`;
-};
-const radGrad = (id, c1, c2) => `<radialGradient id="${id}" cx="35%" cy="30%" r="70%"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></radialGradient>`;
-
-/* —— A de Auri (abajo) —— */
-const svgBot = k => {
-  if (A_COL[k]) {
-    const [c1, c2, c3, st] = A_COL[k];
-    return `<svg viewBox="0 0 64 64" aria-hidden="true">
-      <defs>
-        ${grad('gA' + k, [c1, c2, c3])}
-        ${radGrad('hA' + k, 'rgba(255,255,255,.55)', 'rgba(255,255,255,0)')}
-      </defs>
-      <g stroke="${st}" stroke-width="2.2" stroke-linejoin="round" transform="scale(.64)">
-        <path fill="url(#gA${k})" d="M33 11H50L83 88H66L42 38 30 66H9Z"/>
-        <path fill="url(#gA${k})" d="M4 86C7 70 25 61 45 59 63 57 73 51 77 33 85 47 80 62 68 73 54 85 35 75 23 84 17 88 12 91 7 90Z"/>
-      </g>
-      <path fill="url(#hA${k})" d="M24 8 31 8 40 30 37 31Z" opacity=".85"/>
-    </svg>`;
-  }
-
-  /* Top 50 badge con volumen */
-  const leaf = (cx, cy, rot, f, r) => `<ellipse cx="${cx}" cy="${cy}" rx="11" ry="4.6" transform="rotate(${rot} ${cx} ${cy})" fill="${f}" stroke="${r}" stroke-width="2"/>`;
-  const G = ['#f0d898', '#b89040'], P = ['#dfe3ec', '#788090'];
-  return `<svg viewBox="0 0 170 60" aria-hidden="true">
-    <defs>
-      ${grad('g50', ['#f8ecc0', '#e0c070', '#c0a050'])}
-      ${radGrad('h50', 'rgba(255,255,255,.55)', 'rgba(255,255,255,0)')}
-    </defs>
-    ${leaf(27, 14, -72, ...G)}${leaf(18, 23, -52, ...G)}${leaf(13, 34, -28, ...G)}${leaf(13, 46, -2, ...G)}
-    ${leaf(143, 14, 72, ...P)}${leaf(152, 23, 52, ...P)}${leaf(157, 34, 28, ...P)}${leaf(157, 46, 2, ...P)}
-    <rect x="36" y="9" width="98" height="44" rx="22" fill="url(#g50)" stroke="#b89040" stroke-width="3.6"/>
-    <rect x="42" y="13" width="86" height="14" rx="9" fill="url(#h50)"/>
-    <text x="85" y="42" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-weight="700" font-size="30" fill="#8a6828">50</text>
-  </svg>`;
-};
-
-/* —— Corona / Moñito (arriba) —— */
-const svgTop = c => {
-  if (c === 'crown') {
-    return `<svg viewBox="0 0 84 60" aria-hidden="true">
-      <defs>
-        ${grad('gC', [GOLD[0], GOLD[1], GOLD[2]])}
-        ${radGrad('hC', 'rgba(255,255,255,.6)', 'rgba(255,255,255,0)')}
-      </defs>
-      <!-- base de la corona -->
-      <path fill="url(#gC)" stroke="${GOLD[3]}" stroke-width="2.4" stroke-linejoin="round"
-        d="M9 46c0-2.2 2.2-4 5.2-4h55.6c3 0 5.2 1.8 5.2 4v5c0 2.2-2.2 4-5.2 4H14.2c-3 0-5.2-1.8-5.2-4z"/>
-      <!-- cuerpo principal -->
-      <path fill="url(#gC)" stroke="${GOLD[3]}" stroke-width="2.4" stroke-linejoin="round"
-        d="M11 44 9 20l13 13 8-20 10 17 10-22 10 22 10-17 8 20 13-13-2 24Z"/>
-      <!-- brillo en la base -->
-      <rect x="14" y="47" width="56" height="5" rx="2.5" fill="url(#hC)"/>
-      <!-- joyas superiores (con volumen) -->
-      <circle cx="9"  cy="18" r="4.6" fill="#faf0d0" stroke="${GOLD[3]}" stroke-width="1.9"/>
-      <circle cx="9"  cy="17" r="2"   fill="rgba(255,255,255,.7)"/>
-      <circle cx="30" cy="11" r="4.6" fill="#faf0d0" stroke="${GOLD[3]}" stroke-width="1.9"/>
-      <circle cx="30" cy="10" r="2"   fill="rgba(255,255,255,.7)"/>
-      <circle cx="42" cy="6"  r="5.2" fill="#faf0d0" stroke="${GOLD[3]}" stroke-width="1.9"/>
-      <circle cx="42" cy="5"  r="2.2" fill="rgba(255,255,255,.75)"/>
-      <circle cx="54" cy="11" r="4.6" fill="#faf0d0" stroke="${GOLD[3]}" stroke-width="1.9"/>
-      <circle cx="54" cy="10" r="2"   fill="rgba(255,255,255,.7)"/>
-      <circle cx="75" cy="18" r="4.6" fill="#faf0d0" stroke="${GOLD[3]}" stroke-width="1.9"/>
-      <circle cx="75" cy="17" r="2"   fill="rgba(255,255,255,.7)"/>
-      <!-- acentos morados suaves en la base -->
-      <circle cx="30" cy="49" r="2.8" fill="#d0b8f0" stroke="#9070c0" stroke-width="1.5"/>
-      <circle cx="42" cy="49" r="2.8" fill="#d0b8f0" stroke="#9070c0" stroke-width="1.5"/>
-      <circle cx="54" cy="49" r="2.8" fill="#d0b8f0" stroke="#9070c0" stroke-width="1.5"/>
-    </svg>`;
-  }
-
-  const b = BOWS[String(c).split(':')[1]];
-  if (!b) return '';
-  const [fill, mid, stroke] = b;
-
-  return `<svg viewBox="0 0 84 68" aria-hidden="true">
-    <defs>
-      ${grad('gB' + c.replace(':', ''), [fill, mid])}
-      ${radGrad('hB' + c.replace(':', ''), 'rgba(255,255,255,.55)', 'rgba(255,255,255,0)')}
-    </defs>
-    <!-- lazo izquierdo -->
-    <path fill="url(#gB${c.replace(':', '')})" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"
-      d="M42 32C28 6 5 8 8 28c2.5 18 18 20 34 4"/>
-    <!-- lazo derecho -->
-    <path fill="url(#gB${c.replace(':', '')})" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"
-      d="M42 32C56 6 79 8 76 28c-2.5 18-18 20-34 4"/>
-    <!-- nudo central -->
-    <ellipse cx="42" cy="31" rx="10" ry="9"
-      fill="url(#gB${c.replace(':', '')})" stroke="${stroke}" stroke-width="2.5"/>
-    <!-- brillo del nudo -->
-    <ellipse cx="39" cy="27" rx="4.5" ry="3.5" fill="url(#hB${c.replace(':', '')})"/>
-    <!-- colas -->
-    <path fill="url(#gB${c.replace(':', '')})" stroke="${stroke}" stroke-width="2.3" stroke-linejoin="round"
-      d="M37 38 24 60 40 53Z M47 38 60 60 44 53Z"/>
-  </svg>`;
-};
+/* Imágenes (PNG) de los adornos: aquí se pone el enlace de cada una, tal cual. Vacío = no se dibuja nada.
+ *  Abajo: own (A de Owner), adm (A de administración), mod (A de moderación), top (50 del Top 50).
+ *  Arriba: crown (corona de Owner) y los moñitos bow:white, bow:pink, bow:blue, bow:red, bow:purple, bow:yellow, bow:green, bow:orange. */
+const COS_IMG = { own: '', adm: '', mod: '', top: '', crown: '', 'bow:white': '', 'bow:pink': '', 'bow:blue': '', 'bow:red': '', 'bow:purple': '', 'bow:yellow': '', 'bow:green': '', 'bow:orange': '' };
+const cosImg = k => COS_IMG[k] ? `<img src="${esc(COS_IMG[k])}" alt="" referrerpolicy="no-referrer" decoding="async">` : '';
+const svgBot = cosImg, svgTop = cosImg;
 const topKey = e => {                                    // adorno de arriba que se muestra para esa persona
   const u = getUsers()[e] || {}; if (roleOf(e) !== 'OWNER') return '';                    // los cosméticos aún no están en la tienda: solo la Owner los usa
   const c = u.cosTop; if (c === undefined || c === null) return 'crown'; if (c === 'crown') return 'crown'; return /^bow:/.test(c) && BOWS[c.split(':')[1]] ? c : (c === '' ? '' : 'crown');
 };
-const ornHTMLk = (bot, top) => (top ? `<span class="orn orn-top ${top === 'crown' ? 'crown' : 'bow'}">${svgTop(top)}</span>` : '') + (bot ? `<span class="orn orn-bot ${bot === 'top' ? 'b50' : 'bA'}">${svgBot(bot)}</span>` : '');
+const ornHTMLk = (bot, top) => (top && cosImg(top) ? `<span class="orn orn-top ${top === 'crown' ? 'crown' : 'bow'}">${cosImg(top)}</span>` : '') + (bot && cosImg(bot) ? `<span class="orn orn-bot ${bot === 'top' ? 'b50' : 'bA'}">${cosImg(bot)}</span>` : '');
 const nmCls = e => ({ OWNER: 'nm-own', ADMIN: 'nm-adm', MODERATOR: 'nm-mod' }[roleOf(e)] || '');   // solo el equipo tiene el usuario con color
 const ornHTML = e => ornHTMLk(frameKey(e), topKey(e));
 const frWrap = (e, cls, av) => `<span class="fr ${cls}">${av}${ornHTML(e)}</span>`;
@@ -1580,7 +1481,7 @@ const ICON = {
 function shell(path, html) {
   const pop = NOTIF_OPEN ? notifPop() : '', n = unread(), mcTot = modCounts().total;      // (primero la ventanita: al abrirla marca como leídas y el contador baja)
   const item = (href, label, ic, on, bd = 0) => `<a class="bn-item ${on ? 'active' : ''}" href="${href}" ${on ? 'aria-current="page"' : ''}><span class="bn-ic">${ic}${bd ? `<b class="badge">${bd > 99 ? '99+' : bd}</b>` : ''}</span><span>${label}</span></a>`;
-  const fab = (path === '/' || path === '/profile') && !isGuest() && !cfg('hideBugFab') && !/^#\/profile\/edit/.test(location.hash) ? `<button type="button" class="bug-fab" data-act="report" aria-label="${esc(t('Reportar un error'))}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8a4 4 0 0 1 8 0v1H8Z"/><rect x="6.5" y="9" width="11" height="10" rx="5"/><path d="M12 9v10M3 13h3.5M17.5 13H21M4.5 7.5 7.5 9.5M19.5 7.5 16.5 9.5M5 19l2.6-2M19 19l-2.6-2"/></svg></button>` : '';
+  const fab = (path === '/' || path === '/profile') && !isGuest() && !cfg('hideBugFab') && !/^#\/profile\/edit/.test(location.hash) ? `<button type="button" class="bug-fab" data-act="report" aria-label="${esc(t('Reportar un error'))}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.6 21.6 20.4H2.4Z"/><path d="M12 9.6v5"/><circle cx="12" cy="17.4" r=".6" fill="currentColor"/></svg></button>` : '';
   return `<div class="shell"><header class="topbar tb2">
     <div class="top-row">
       <button class="icon-btn" data-act="settings" aria-label="${esc(t('Configuración'))}">${ICON.gear}</button>

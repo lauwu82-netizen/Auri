@@ -1162,7 +1162,7 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
   transition: opacity .4s ease, transform .5s cubic-bezier(.2, .9, .3, 1.2);
   filter: drop-shadow(0 3px 6px rgba(50, 25, 80, .22));
 }
-.orn svg {
+.orn img, .orn svg {
   display: block;
   width: 100%;
   height: auto;
