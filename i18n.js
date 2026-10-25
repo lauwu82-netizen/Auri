@@ -1634,4 +1634,5 @@ window.I18N = { en: {
   "Encuentra tu próxima emoción": "Find your next favorite",
   "Leer": "Read",
   "Tema cambiado": "Theme changed",
+  "Azul": "Blue",
 } };

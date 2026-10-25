@@ -56,7 +56,8 @@ function applyTheme() {                                 // 'light' | 'dark' | 'a
   LS.set('auri.theme', S.theme);
   applyAccent();
 }
-function accentOf(e) { const a = e === S.user ? cfg('accent') : ((getUsers()[e] || {}).accent || ''); return a === 'rosa' ? 'rosa' : ''; }
+const ACCENTS = ['rosa', 'azul', 'naranja'];
+function accentOf(e) { const a = e === S.user ? cfg('accent') : ((getUsers()[e] || {}).accent || ''); return ACCENTS.includes(a) ? a : ''; }
 function applyAccent() {                                // color de la app: el tuyo, o el de la persona cuyo perfil estás viendo
   let ac = ''; try { const m = /^#\/user\/([^/?]+)/.exec(location.hash || ''), v = m ? decodeURIComponent(m[1]) : null; ac = v && v !== S.user ? accentOf(v) : (S.user ? accentOf(S.user) : ''); } catch (e) { }
   if (ac) document.documentElement.dataset.accent = ac; else delete document.documentElement.dataset.accent;
@@ -2814,7 +2815,7 @@ function settingsView(secId) {
   const u = getUsers()[S.user] || {}, n = cfg('notif'), act = S.chars.find(c => c.id === S.activeId);
   const nOn = ['chapter', 'like', 'comment', 'follow'].filter(k => n[k]).length;
   const SECS = {
-    apariencia: { ico: '🎨', c: '#8c5fc1', t: t('Apariencia'), sub: `${t('Tema')} ${t(({ light: 'claro', dark: 'oscuro', auto: 'automático' })[S.theme] || 'automático')} · ${uiLang() === 'en' ? 'English' : 'Español'}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tema')}</span>${seg('theme', [['light', '☀ ' + t('Claro')], ['dark', '🌙 ' + t('Oscuro')], ['auto', t('Automático')]], S.theme)}</div><div class="set-row"><span>${t('Tema de color')}</span><button type="button" class="button secondary sm" data-act="theme-colors"><i class="th-dot ${cfg('accent') === 'rosa' ? 'rosa' : ''}"></i>${t(cfg('accent') === 'rosa' ? 'Rosa' : 'Violeta')} · ${t('Cambiar')}</button></div>
+    apariencia: { ico: '🎨', c: '#8c5fc1', t: t('Apariencia'), sub: `${t('Tema')} ${t(({ light: 'claro', dark: 'oscuro', auto: 'automático' })[S.theme] || 'automático')} · ${uiLang() === 'en' ? 'English' : 'Español'}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tema')}</span>${seg('theme', [['light', '☀ ' + t('Claro')], ['dark', '🌙 ' + t('Oscuro')], ['auto', t('Automático')]], S.theme)}</div><div class="set-row"><span>${t('Tema de color')}</span><button type="button" class="button secondary sm" data-act="theme-colors"><i class="th-dot ${accentOf(S.user)}"></i>${t(accentOf(S.user) ? THEMES[accentOf(S.user)].n : 'Violeta')} · ${t('Cambiar')}</button></div>
       <div class="set-row"><span>${t('Tu comunidad')}</span><b>${esc(COMMS[commOf(S.user)])}</b></div>
       <div class="set-row"><span>${t('Ver también la otra comunidad')}</span>${seg('otherComm', [['no', t('No')], ['yes', t('Sí')]], cfg('otherComm'))}</div>
       <div class="set-row"><span>${t('Idioma')}</span><select class="select set-lang" aria-label="${esc(t('Idioma'))}"><option value="auto" ${uiSetting() === 'auto' ? 'selected' : ''}>${t('Automático')}</option><option value="es" ${uiSetting() === 'es' ? 'selected' : ''}>${t('Español')}</option><option value="en" ${uiSetting() === 'en' ? 'selected' : ''}>${t('English')}</option></select></div></section>` },
@@ -3097,7 +3098,9 @@ function openFrames() {
 
 const THEMES = {
   violeta: { n: 'Violeta', L: { bg: '#faf6ff', card: '#fff', hero: 'linear-gradient(112deg,#fff,#e4d1fb)', pr: '#9e72d9', btn: 'linear-gradient(115deg,#9e72d9,#7147ac)', tx: '#3d2b50', mu: '#756b7d', ch: '#eee3fa' }, D: { bg: '#1c1830', card: '#262038', hero: 'linear-gradient(112deg,#241d36,#3a2a5c)', pr: '#b88df0', btn: 'linear-gradient(115deg,#9e72d9,#7147ac)', tx: '#eadcf8', mu: '#b3a7c0', ch: '#3a2f55' } },
-  rosa: { n: 'Rosa', L: { bg: '#fff5f9', card: '#fff', hero: 'linear-gradient(112deg,#fff,#fbd0e1)', pr: '#ee86ae', btn: 'linear-gradient(115deg,#ee86ae,#d4578a)', tx: '#5a2a42', mu: '#7d6a74', ch: '#fbe4ee' }, D: { bg: '#1f161b', card: '#2a1d24', hero: 'linear-gradient(112deg,#2b1822,#52293f)', pr: '#f08fb5', btn: 'linear-gradient(115deg,#ee86ae,#d4578a)', tx: '#fadce9', mu: '#c7a9b7', ch: '#4a2c3b' } }
+  rosa: { n: 'Rosa', L: { bg: '#fff5f9', card: '#fff', hero: 'linear-gradient(112deg,#fff,#fbd0e1)', pr: '#ee86ae', btn: 'linear-gradient(115deg,#ee86ae,#d4578a)', tx: '#5a2a42', mu: '#7d6a74', ch: '#fbe4ee' }, D: { bg: '#1f161b', card: '#2a1d24', hero: 'linear-gradient(112deg,#2b1822,#52293f)', pr: '#f08fb5', btn: 'linear-gradient(115deg,#ee86ae,#d4578a)', tx: '#fadce9', mu: '#c7a9b7', ch: '#4a2c3b' } },
+  azul: { n: 'Azul', L: { bg: '#f4f9ff', card: '#fff', hero: 'linear-gradient(112deg,#fff,#cfe3fc)', pr: '#6aaaf0', btn: 'linear-gradient(115deg,#6aaaf0,#3b78c9)', tx: '#1f3a5c', mu: '#66758a', ch: '#e1eefc' }, D: { bg: '#131a26', card: '#1b2536', hero: 'linear-gradient(112deg,#16223a,#243f6a)', pr: '#6fb0f5', btn: 'linear-gradient(115deg,#6aaaf0,#3b78c9)', tx: '#dcebfb', mu: '#a9b9cc', ch: '#2a3d58' } },
+  naranja: { n: 'Naranja', L: { bg: '#fff8f1', card: '#fff', hero: 'linear-gradient(112deg,#fff,#fcd9b8)', pr: '#f59a55', btn: 'linear-gradient(115deg,#f59a55,#df6f26)', tx: '#5a321a', mu: '#85705f', ch: '#fde8d3' }, D: { bg: '#1c1510', card: '#281d16', hero: 'linear-gradient(112deg,#2b1c14,#5a331a)', pr: '#f6a05e', btn: 'linear-gradient(115deg,#f59a55,#df6f26)', tx: '#fde3cf', mu: '#cbb09a', ch: '#4a3022' } }
 };
 function themeMock(c, label) {
   return `<div class="tm-phone" style="background:${c.bg};color:${c.tx}"><div class="tm-top"><i style="background:${c.card}"></i><i style="background:${c.card}"></i><i class="tm-av" style="background:${c.btn}"></i></div>
@@ -3107,7 +3110,7 @@ function themeMock(c, label) {
   <div class="tm-nav" style="background:${c.card}"><i style="background:${c.pr}"></i><i style="background:${c.mu}"></i><i class="tm-plus" style="background:${c.btn}"></i><i style="background:${c.mu}"></i><i style="background:${c.mu}"></i></div><em>${esc(label)}</em></div>`;
 }
 function openThemes() {
-  let pick = cfg('accent') === 'rosa' ? 'rosa' : 'violeta';
+  let pick = accentOf(S.user) || 'violeta';
   const m = document.createElement('div'); m.className = 'modal sheet';
   const body = () => `<button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Tema de color')}</h2><p class="helper">${t('Así se ve en modo claro y en modo oscuro. Quien visite tu perfil lo verá con tu color.')}</p>
   <div class="tm-demo">${themeMock(THEMES[pick].L, t('Claro'))}${themeMock(THEMES[pick].D, t('Oscuro'))}</div>
@@ -3118,7 +3121,7 @@ function openThemes() {
   m.addEventListener('click', ev => {
     const p = ev.target.closest('[data-pick]');
     if (p) { pick = p.dataset.pick; paint(); return; }
-    if (ev.target.closest('[data-apply]')) { setCfg('accent', pick); const us = getUsers(); if (us[S.user]) { us[S.user].accent = pick === 'rosa' ? 'rosa' : ''; G.set('users', us); } sbPushAccent(); m.remove(); applyAccent(); KEEP = true; render(); toast('Tema cambiado'); return; }
+    if (ev.target.closest('[data-apply]')) { setCfg('accent', pick === 'violeta' ? '' : pick); const us = getUsers(); if (us[S.user]) { us[S.user].accent = pick === 'violeta' ? '' : pick; G.set('users', us); } sbPushAccent(); m.remove(); applyAccent(); KEEP = true; render(); toast('Tema cambiado'); return; }
     if (ev.target === m || ev.target.closest('[data-no]')) m.remove();
   });
   document.body.appendChild(m);
