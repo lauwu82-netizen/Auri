@@ -1550,3 +1550,5 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .avoid-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.avoid-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:5px 6px 5px 10px}
 .avoid-chip button{border:0;background:transparent;color:inherit;opacity:.7;padding:0 4px;font-size:11px;cursor:pointer}
 .avoid-add{display:flex;gap:8px;align-items:center}.avoid-add .input{flex:1;min-width:0}
+
+.set-head .set-tt{display:flex;flex-direction:column;gap:1px}.set-head .set-tt small{font:500 13px var(--sans);color:hsl(var(--muted-foreground));letter-spacing:0}
