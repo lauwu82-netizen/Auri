@@ -1635,4 +1635,9 @@ window.I18N = { en: {
   "Leer": "Read",
   "Tema cambiado": "Theme changed",
   "Azul": "Blue",
+  "Etiquetas que quiero evitar": "Tags I want to avoid",
+  "No te mostraremos libros con estas etiquetas en Inicio, búsquedas ni recomendaciones. Tus propias obras siempre se ven.": "We won't show books with these tags in Home, search or recommendations. Your own books are always visible.",
+  "Aún no evitas ninguna etiqueta.": "You are not avoiding any tags yet.",
+  "#etiqueta": "#tag",
+  "Agregar": "Add",
 } };

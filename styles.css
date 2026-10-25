@@ -1544,3 +1544,9 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .tm-opt{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 6px;border-radius:16px;border:1.5px solid hsl(var(--border));background:transparent;color:inherit;font:600 13px var(--sans)}
 .tm-opt.on{border-color:hsl(var(--primary));background:hsl(var(--primary)/.1)}
 .tm-circ{width:46px;height:46px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(128,128,128,.3)}
+
+/* 47. Etiquetas que quiero evitar */
+.avoid-box{margin-top:18px;padding-top:14px;border-top:1px solid hsl(var(--border))}.avoid-box h3{margin:0 0 4px;font-size:16px}
+.avoid-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.avoid-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:5px 6px 5px 10px}
+.avoid-chip button{border:0;background:transparent;color:inherit;opacity:.7;padding:0 4px;font-size:11px;cursor:pointer}
+.avoid-add{display:flex;gap:8px;align-items:center}.avoid-add .input{flex:1;min-width:0}

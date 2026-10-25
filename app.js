@@ -64,7 +64,7 @@ function applyAccent() {                                // color de la app: el t
 }
 /* --- Ajustes (se guardan por cuenta) --- */
 const APP_VERSION = '0.9 (beta)';
-const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
+const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
 const cfg = k => {
   const c = S.cfg || {};
   if (k === 'showMature') { const u = getUsers()[S.user]; if (isMinor(u)) return false; return c.showMature == null ? isAdult(u) : c.showMature; }   // por defecto: visible solo si ya declaraste ser mayor de edad
@@ -1769,7 +1769,9 @@ async function sbSearchUsers() {                         // trae de Supabase a l
 const FEED = { row: 2, group: 3 };                  // mínimo de libros para mostrar una fila o un grupo (subir cuando haya más libros)
 const tagsOf = s => [...(s.tags || []), ...(s.fandom && tagKey(s.fandom) !== 'original' ? [s.fandom] : [])];   // etiquetas + fandom (naruto, bts…)
 const tagKey = x => String(x || '').trim().toLowerCase();
-const feedPool = () => publishedStories().filter(matureOK).filter(storyVisible).filter(s => !hidesStory(s.owner));
+const avoidList = () => (cfg('avoidTags') || []).map(tagKey).filter(Boolean);
+const avoidOK = s => { const a = avoidList(); return !a.length || s.owner === S.user || !tagsOf(s).some(x => a.includes(tagKey(x))); };    // oculta libros con etiquetas que la persona quiere evitar
+const feedPool = () => publishedStories().filter(matureOK).filter(storyVisible).filter(avoidOK).filter(s => !hidesStory(s.owner));
 function feedTags(pool) {                              // etiqueta (minúsculas) -> {label, n}
   const m = {}; pool.forEach(s => tagsOf(s).forEach(x => { const k = tagKey(x); if (!k) return; m[k] = m[k] || { label: String(x).trim(), n: 0 }; m[k].n++; })); return m;
 }
@@ -1820,7 +1822,7 @@ function similarBooks(s, max = 15) {                  // libros parecidos al que
 }
 function discoverList() {
   if (SM === 'users') return usersList();
-  const live = publishedStories().filter(matureOK).filter(storyVisible).filter(s => !hidesStory(s.owner));
+  const live = publishedStories().filter(matureOK).filter(storyVisible).filter(avoidOK).filter(s => !hidesStory(s.owner));
   const qs = Q.trim().toLowerCase(), tq = qs.includes('#') ? parseTags(qs).map(x => x.toLowerCase()) : null;      // «#romance #au» busca por etiquetas
   const f = live.filter(s => (GEN === 'All' || s.genre === GEN) && (tq ? tq.every(t => s.tags.some(x => x.toLowerCase() === t || x.toLowerCase().includes(t))) : `${s.title} ${s.synopsis} ${s.fandom} ${s.tags.join(' ')}`.toLowerCase().includes(qs)));
   if (f.length) { const pool = feedPool(), tg = feedTags(pool), qk = tagKey(tq && tq.length === 1 ? tq[0] : qs), gc = qs && tg[qk] && tg[qk].n >= FEED.group ? groupCard(qk, pool, tg) : '';
@@ -2829,7 +2831,10 @@ function settingsView(secId) {
       <div class="set-row"><span>${t('Música de los capítulos')}</span>${seg('music', [['ask', 'Preguntar siempre'], ['remember', 'Recordar mi elección']], cfg('music'))}</div>
       <p class="helper" style="margin:0 0 6px">${t('«Recordar» abre sola la canción del capítulo si la última vez elegiste reproducirla (el navegador puede pedirte un toque antes).')}</p>
       ${sw('skipReadAs', cfg('skipReadAs'), 'Saltar «Leer como…»', t('Usa siempre tu personaje activo{x}. Si no tienes uno activo, se te preguntará.', { x: act ? ` (${esc(act.name)})` : '' }))}</section>` },
-    contenido: { ico: '🔞', c: '#e0457b', t: 'Contenido +18', sub: isMinor(u) ? t('No disponible') : cfg('showMature') ? t('Visible') : t('Oculto'), body: () => `<section class="panel set-sec">${sw('showMature', cfg('showMature'), 'Mostrar contenido +18', isMinor(u) ? 'No está disponible para cuentas menores de 18 años.' : 'Si lo apagas, las historias para adultos se ocultan en Inicio, búsquedas y bibliotecas. Tus propias obras siempre se ven.', isMinor(u))}</section>` },
+    contenido: { ico: '🔞', c: '#e0457b', t: 'Contenido +18', sub: isMinor(u) ? t('No disponible') : cfg('showMature') ? t('Visible') : t('Oculto'), body: () => `<section class="panel set-sec">${sw('showMature', cfg('showMature'), 'Mostrar contenido +18', isMinor(u) ? 'No está disponible para cuentas menores de 18 años.' : 'Si lo apagas, las historias para adultos se ocultan en Inicio, búsquedas y bibliotecas. Tus propias obras siempre se ven.', isMinor(u))}
+      <div class="avoid-box"><h3>${t('Etiquetas que quiero evitar')}</h3><p class="helper">${t('No te mostraremos libros con estas etiquetas en Inicio, búsquedas ni recomendaciones. Tus propias obras siempre se ven.')}</p>
+      <div class="avoid-chips">${avoidList().map(x => `<span class="tag avoid-chip">#${esc(x)}<button type="button" data-act="avoid-del" data-id="${esc(x)}" aria-label="${esc(t('Quitar'))}">✕</button></span>`).join('') || `<span class="helper">${t('Aún no evitas ninguna etiqueta.')}</span>`}</div>
+      <div class="avoid-add"><input id="avoid-in" class="input" maxlength="30" placeholder="${esc(t('#etiqueta'))}" autocomplete="off"><button type="button" class="button secondary sm" data-act="avoid-add">${t('Agregar')}</button></div></div></section>` },
     intereses: { ico: '🏷️', c: '#e09a2b', t: 'Tus intereses', sub: tn((u.interests || []).length, '{n} tema', '{n} temas'), body: () => `<section class="panel set-sec"><p class="helper" style="margin:0 0 4px">${t('Los temas que te gustan (mínimo uno).')}</p>${interestChips(u.interests || [], 'int-set')}</section>` },
     bloqueos: { ico: '🚫', c: '#6b7280', t: 'Bloqueadas y silenciadas', sub: t('{a} bloqueadas · {b} silenciadas', { a: bl(S.user, 'blocked').length, b: bl(S.user, 'muted').length }), body: () => {
       const row = (e, act, lab) => `<div class="cr-row"><span class="cr-rt">${userAvatar(e)} <b>${esc(uName(e))}</b></span><span class="cr-rb"><button class="button secondary sm" data-act="${act}" data-id="${esc(e)}">${t(lab)}</button></span></div>`, b = bl(S.user, 'blocked'), m = bl(S.user, 'muted');
@@ -3130,6 +3135,11 @@ async function sbPushAccent() {
   const s = sbSes(); if (!cloud() || !s || PRES_OFF) return; const u = LS.get('auri.users', {})[String(s.email).toLowerCase()]; if (!u) return;
   await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { accent: u.accent || '' } });
 }
+function avoidAdd() {
+  const i = $('#avoid-in'); if (!i) return; const k = tagKey(i.value.replace(/^#+/, '')); if (!k) return;
+  const l = avoidList(); if (!l.includes(k)) setCfg('avoidTags', [...l, k]); KEEP = true; render(); setTimeout(() => { const j = $('#avoid-in'); if (j) j.focus(); }, 50);
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'avoid-in') { e.preventDefault(); avoidAdd(); } });
 function openLook() {
   if (roleOf(S.user) !== 'OWNER') return;
   const u = getUsers()[S.user] || {}, cur = SHAPES[u.shape] && u.shape ? u.shape : '', hc = HALOS[u.halo] ? u.halo : '';
@@ -3933,7 +3943,8 @@ document.addEventListener('click', e => {
     delete: () => { if (confirm(t('¿Eliminar este borrador? No se puede deshacer.'))) { S.stories = S.stories.filter(s => s.id !== id); persist('stories', S.stories); render(); } },
     'resume-read': () => { const p = VISIT && VISIT.pos; VISIT = null; if (p) { NAVDIR = 'next'; go('/story/' + id + '/' + (p.idx + 1)); } },
     'pf-list': () => openUserList(id, el.dataset.kind), 'pf-works': () => { const w = document.getElementById('pf-works'); if (w && w.scrollIntoView) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
-    'frames': () => openFrames(), 'look': () => openLook(), 'theme-colors': () => openThemes(), 'mod-order': () => { setCfg('modShuffle', cfg('modShuffle') === false); KEEP = true; render(); }, 'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
+    'frames': () => openFrames(), 'look': () => openLook(),
+    'avoid-add': () => avoidAdd(), 'avoid-del': () => { setCfg('avoidTags', avoidList().filter(x => x !== tagKey(id))); KEEP = true; render(); }, 'theme-colors': () => openThemes(), 'mod-order': () => { setCfg('modShuffle', cfg('modShuffle') === false); KEEP = true; render(); }, 'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
     'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
     preview: () => { collect(); WPREVIEW = true; render(); }, 'back-edit': () => { WPREVIEW = false; render(); },
