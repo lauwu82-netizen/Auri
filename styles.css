@@ -1274,10 +1274,10 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .fr.xl[data-shape=cloud],.fr.big[data-shape=cloud]{animation:shp-cloud 10s ease-in-out infinite}
 .shp-opt .fr{animation:none!important}
 }
-@keyframes shp-heart{0%,70%,100%{transform:scale(1)}78%{transform:scale(1.07)}86%{transform:scale(1)}92%{transform:scale(1.045)}98%{transform:scale(1)}}
-@keyframes shp-star{0%,70%,100%{transform:rotate(0)}80%{transform:rotate(-7deg)}90%{transform:rotate(5deg)}97%{transform:rotate(0)}}
-@keyframes shp-flower{0%,70%,100%{transform:rotate(0)}82%{transform:rotate(-9deg)}94%{transform:rotate(6deg)}99%{transform:rotate(0)}}
-@keyframes shp-cloud{0%,70%,100%{transform:translateY(0)}85%{transform:translateY(-5%)}}
+@keyframes shp-heart{0%,60%,100%{transform:scale(1)}68%{transform:scale(1.14)}76%{transform:scale(1)}84%{transform:scale(1.09)}92%{transform:scale(1)}}
+@keyframes shp-star{0%,60%,100%{transform:rotate(0) scale(1)}72%{transform:rotate(-16deg) scale(1.1)}86%{transform:rotate(12deg) scale(1.1)}96%{transform:rotate(0) scale(1)}}
+@keyframes shp-flower{0%,60%,100%{transform:rotate(0) scale(1)}72%{transform:rotate(-22deg) scale(1.06)}86%{transform:rotate(18deg) scale(1.06)}96%{transform:rotate(0) scale(1)}}
+@keyframes shp-cloud{0%,60%,100%{transform:translate(0,0)}72%{transform:translate(-5%,-11%)}86%{transform:translate(5%,-11%)}96%{transform:translate(0,0)}}
 .shp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .shp-opt{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 4px 10px;border-radius:16px;border:1.5px solid hsl(var(--border));background:transparent;color:inherit;font:600 12px var(--sans,inherit);cursor:pointer}
 .shp-opt.on{border-color:hsl(var(--primary));background:hsl(var(--primary)/.1)}
