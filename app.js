@@ -505,7 +505,7 @@ const squarePhoto = (file, size, cb) => cropPhoto(file, size, size, cb);
 const PH = { avatar: { w: 256, h: 256, q: .85, round: true, title: () => t('Ajusta tu foto'), ratio: () => t('Se ve en círculo.'), info: () => t('Se guardará a 256×256 px.'), key: 'avatar' },
   banner: { w: 960, h: 360, q: .78, wide: true, title: () => t('Ajusta tu portada de perfil'), ratio: () => t('Se guarda en proporción 8:3.'), info: () => t('Se guardará a 960×360 px.'), key: 'banner' } };
 function editPhoto(fileOrSrc, kind) {
-  const c = PH[kind], open = src => coverEditor(src, d => { const u = getUsers(); u[S.user][c.key] = d; G.set('users', u); render(); }, 0, 0, { w: c.w, h: c.h, q: c.q, round: c.round, wide: c.wide, title: c.title(), ratio: c.ratio(), info: c.info() });
+  const c = PH[kind], open = src => coverEditor(src, d => { const u = getUsers(); u[S.user][c.key] = d; G.set('users', u); render(); }, 0, 0, { w: c.w, h: c.h, q: c.q, round: c.round, shape: kind === 'avatar' && roleOf(S.user) === 'OWNER' ? (getUsers()[S.user] || {}).shape : '', wide: c.wide, title: c.title(), ratio: c.ratio(), info: c.info() });
   if (typeof fileOrSrc === 'string') return open(fileOrSrc);
   const f = fileOrSrc; if (!f || !f.type.startsWith('image/')) return toast(t('Elige un archivo de imagen.'));
   const r = new FileReader(); r.onload = () => open(r.result); r.readAsDataURL(f);
@@ -2189,7 +2189,7 @@ function coverEditor(src, done, ow, oh, o = {}) {
     let z = 1, ox = (FW - iw * kc) / 2, oy = (FH - ih * kc) / 2;
     const m = document.createElement('div'); m.className = 'modal';
     m.innerHTML = `<div class="modal-box cv-box" role="dialog" aria-modal="true" aria-label="${esc(o.title || t('Ajustar portada'))}"><h2>${o.title || t('Ajusta tu portada')}</h2><p class="helper" style="margin:0 0 10px">${t('Arrastra la imagen para moverla y usa el zoom.')} ${o.ratio || t('Se guarda en proporción 2:3.')}</p>
-    <div class="cv-frame ${o.round ? 'cv-round' : ''}" style="width:${FW}px;height:${FH}px"><img class="cv-img" alt="" draggable="false" src="${esc(src)}"></div>
+    <div class="cv-frame ${o.round ? 'cv-round' : ''}${o.shape && SHAPES[o.shape] ? ' cv-shape' : ''}" ${o.shape && SHAPES[o.shape] ? `data-shape="${o.shape}"` : ''} style="width:${FW}px;height:${FH}px"><img class="cv-img" alt="" draggable="false" src="${esc(src)}"></div>
     <label class="cv-zoom"><span>Zoom</span><input type="range" min="${zmin}" max="3" step="0.01" value="1" aria-label="Zoom"></label>
     <div class="cv-quick"><button type="button" class="button ghost sm" data-q="fill">${t('Rellenar')}</button><button type="button" class="button ghost sm" data-q="fit">${t('Ver completa')}</button><button type="button" class="button ghost sm" data-q="center">${t('Centrar')}</button></div>
     <p class="helper cv-info">${ow && oh ? t('Original: {w}×{h} px.', { w: ow, h: oh }) + ' ' : ''}${o.info || t('Se guardará a 480×720 px, el tamaño ideal para portadas (las imágenes grandes se reducen solas).')}</p>

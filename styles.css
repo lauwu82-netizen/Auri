@@ -1286,3 +1286,6 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .hal-b{display:grid;place-items:center;padding:10px 4px}
 .hal-b i{display:block;width:26px;height:26px;border-radius:50%;border:1.5px solid rgba(60,35,95,.18)}
 .hal-b i.none{background:linear-gradient(135deg,transparent 46%,#c9b9dc 46% 54%,transparent 54%)}
+
+.cv-frame.cv-shape{border-radius:0;box-shadow:none;clip-path:var(--clip)}
+.cv-frame[data-shape=cat]{--clip:url(#sh-cat)}.cv-frame[data-shape=heart]{--clip:url(#sh-heart)}.cv-frame[data-shape=star]{--clip:url(#sh-star)}.cv-frame[data-shape=flower]{--clip:url(#sh-flower)}.cv-frame[data-shape=cloud]{--clip:url(#sh-cloud)}
