@@ -1627,4 +1627,6 @@ window.I18N = { en: {
   "Nube": "Cloud",
   "Menta": "Mint",
   "Durazno": "Peach",
+  "Color de la app": "App color",
+  "Violeta": "Violet",
 } };

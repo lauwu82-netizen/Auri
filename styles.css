@@ -1289,3 +1289,76 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 
 .cv-frame.cv-shape{border-radius:0;box-shadow:none;clip-path:var(--clip)}
 .cv-frame[data-shape=cat]{--clip:url(#sh-cat)}.cv-frame[data-shape=heart]{--clip:url(#sh-heart)}.cv-frame[data-shape=star]{--clip:url(#sh-star)}.cv-frame[data-shape=flower]{--clip:url(#sh-flower)}.cv-frame[data-shape=cloud]{--clip:url(#sh-cloud)}
+
+/* 45. Color de la app: rosa (pastel de día, rosa oscuro de noche) */
+:root[data-accent=rosa]{
+  --background:340 62% 98%; --foreground:335 26% 20%; --card:0 0% 100%;
+  --primary:336 68% 62%; --accent:340 78% 94%; --accent-foreground:336 52% 36%;
+  --muted-foreground:335 12% 52%; --border:340 42% 90%;
+  --title:#5a2a42; --soft:#7d6a74; --brand:#a73c6b;
+  --btn:linear-gradient(115deg,#ee86ae,#d4578a);
+  --hero:linear-gradient(112deg,#fff 2%,#fff1f6 49%,#fbd0e1 100%);
+  --shadow:0 16px 44px rgba(120,45,80,.09);
+}
+:root[data-accent=rosa].dark{
+  --background:335 22% 11%; --foreground:340 30% 93%; --card:335 19% 16%;
+  --primary:336 72% 74%; --accent:335 22% 26%; --accent-foreground:338 68% 88%;
+  --muted-foreground:335 14% 68%; --border:335 16% 28%;
+  --title:#fadce9; --soft:#c7a9b7; --brand:#f4b8d2;
+  --hero:linear-gradient(112deg,#2b1822 2%,#35202c 49%,#52293f 100%);
+  --shadow:0 16px 44px rgba(0,0,0,.4);
+}
+:root[data-accent=rosa] .shell{background:radial-gradient(ellipse at 92% -10%,rgba(250,176,206,.26),transparent 32%),hsl(var(--background))}
+:root[data-accent=rosa] .brand-mark{background:linear-gradient(140deg,#fff0f6,#fbd3e4)}
+:root[data-accent=rosa] .button{box-shadow:0 8px 20px rgba(190,70,120,.18)}
+
+/* 45b. Rosa: colores fijos reemplazados (generado) */
+:root[data-accent=rosa].dark{ --brand:#f4b8d2}
+:root[data-accent=rosa] .brand-mark{background:linear-gradient(140deg,#fff0f6,#fbd3e4)}
+:root[data-accent=rosa] .field:focus,:root[data-accent=rosa] .select:focus,:root[data-accent=rosa] .textarea:focus{border-color:#e79ab8}
+:root[data-accent=rosa].dark .eyebrow{color:#f3b8d0}
+:root[data-accent=rosa] .switch[aria-checked="true"]{background:#c85a88}
+:root[data-accent=rosa] .toast{background:#6b2f4b}
+:root[data-accent=rosa] .cover{background:linear-gradient(120deg,#fbe6ef,#f1c6d8)}
+:root[data-accent=rosa] .cover .eyebrow{color:#8a3a5e}
+:root[data-accent=rosa] .check input{accent-color:#c85a88}
+:root[data-accent=rosa] .avatar{background:linear-gradient(140deg,#f3b8d0,#c85a88)}
+:root[data-accent=rosa] .notif.new{border-color:#e79ab8}
+:root[data-accent=rosa] .bst{background:#6b2f4b}
+:root[data-accent=rosa] .cover-title{color:#6b2f4b}
+:root[data-accent=rosa] .mini-pill{color:#8a3a5e}
+:root[data-accent=rosa] .ch-item.active{border-color:#e79ab8}
+:root[data-accent=rosa] .char-card.active{border-color:#e79ab8}
+:root[data-accent=rosa] .detail-cover{background:linear-gradient(120deg,#fbe6ef,#f1c6d8)}
+:root[data-accent=rosa] .detail-cover.ph{color:#6b2f4b}
+:root[data-accent=rosa] .pill.ph-finished{background:#fbdfeb;color:#8a3a5e}
+:root[data-accent=rosa] .char-tile.active{border-color:#e79ab8}
+:root[data-accent=rosa] .ra-img{background:linear-gradient(140deg,#f3b8d0,#c85a88)}
+:root[data-accent=rosa] .ra-card.active .ra-img{border-color:#c85a88}
+:root[data-accent=rosa] .ct-img{background:linear-gradient(140deg,#f3b8d0,#c85a88)}
+:root[data-accent=rosa] .pf-banner{background:linear-gradient(135deg,#cdb4f0,#c85a88) center/cover no-repeat}
+:root[data-accent=rosa] .chc-add:hover{border-color:#e79ab8}
+:root[data-accent=rosa] .chc-x{color:#6b2f4b}
+:root[data-accent=rosa] .qz-dot.done{background:#e79ab8}
+:root[data-accent=rosa] .qz-opt.on{border-color:#c85a88}
+:root[data-accent=rosa] .check-line input{accent-color:#c85a88}
+:root[data-accent=rosa] .set-ico{--c:#c85a88}
+:root[data-accent=rosa] .pc-quote{border-left:3px solid #e79ab8}
+:root[data-accent=rosa] .pc-spoil input{accent-color:#c85a88}
+:root[data-accent=rosa] .cv-frame{box-shadow:0 0 0 2px #e79ab8,0 8px 22px rgba(60,30,100,.25)}
+:root[data-accent=rosa] .cv-zoom input{accent-color:#c85a88}
+:root[data-accent=rosa] .poll-opt:not(:disabled):hover{border-color:#e79ab8}
+:root[data-accent=rosa] .poll-row.mine{border-color:#c85a88}
+:root[data-accent=rosa] .notif-cv{background:linear-gradient(140deg,#f3b8d0,#c85a88)}
+:root[data-accent=rosa] .pf-banner{background:linear-gradient(160deg,#b04a78,#4a1f35 70%) center/cover no-repeat}
+:root[data-accent=rosa] .ep-banner{background:linear-gradient(160deg,#b04a78,#4a1f35 70%) center/cover no-repeat}
+
+/* 45c. Rosa: restos lilas */
+:root[data-accent=rosa] .eyebrow{color:#a2406d}
+:root[data-accent=rosa] .chip.active{background:#fbe4ee}
+:root[data-accent=rosa] .chip.active{border-color:#f0bdd2}
+:root[data-accent=rosa] .chip.active{color:#8a3a5e}
+:root[data-accent=rosa] .pill.ph-finished{background:#fbdfeb}
+:root[data-accent=rosa] .chip.active{background:#fbe4ee;border-color:#f0bdd2;color:#8a3a5e}
+:root[data-accent=rosa].dark .chip.active{background:hsl(335 22% 26%);border-color:hsl(335 18% 38%);color:#fadce9}
+:root[data-accent=rosa].dark .eyebrow{color:#f4b8d2}

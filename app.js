@@ -54,10 +54,15 @@ function applyTheme() {                                 // 'light' | 'dark' | 'a
   const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
   document.documentElement.classList.toggle('dark', S.theme === 'dark' || (S.theme === 'auto' && !!(mq && mq.matches)));
   LS.set('auri.theme', S.theme);
+  applyAccent();
+}
+function applyAccent() {                                // color de la app: solo Owner por ahora (rosa)
+  let on = false; try { on = !!S.user && roleOf(S.user) === 'OWNER' && cfg('accent') === 'rosa'; } catch (e) { }
+  if (on) document.documentElement.dataset.accent = 'rosa'; else delete document.documentElement.dataset.accent;
 }
 /* --- Ajustes (se guardan por cuenta) --- */
 const APP_VERSION = '0.9 (beta)';
-const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
+const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
 const cfg = k => {
   const c = S.cfg || {};
   if (k === 'showMature') { const u = getUsers()[S.user]; if (isMinor(u)) return false; return c.showMature == null ? isAdult(u) : c.showMature; }   // por defecto: visible solo si ya declaraste ser mayor de edad
@@ -2808,7 +2813,7 @@ function settingsView(secId) {
   const u = getUsers()[S.user] || {}, n = cfg('notif'), act = S.chars.find(c => c.id === S.activeId);
   const nOn = ['chapter', 'like', 'comment', 'follow'].filter(k => n[k]).length;
   const SECS = {
-    apariencia: { ico: '🎨', c: '#8c5fc1', t: t('Apariencia'), sub: `${t('Tema')} ${t(({ light: 'claro', dark: 'oscuro', auto: 'automático' })[S.theme] || 'automático')} · ${uiLang() === 'en' ? 'English' : 'Español'}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tema')}</span>${seg('theme', [['light', '☀ ' + t('Claro')], ['dark', '🌙 ' + t('Oscuro')], ['auto', t('Automático')]], S.theme)}</div>
+    apariencia: { ico: '🎨', c: '#8c5fc1', t: t('Apariencia'), sub: `${t('Tema')} ${t(({ light: 'claro', dark: 'oscuro', auto: 'automático' })[S.theme] || 'automático')} · ${uiLang() === 'en' ? 'English' : 'Español'}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tema')}</span>${seg('theme', [['light', '☀ ' + t('Claro')], ['dark', '🌙 ' + t('Oscuro')], ['auto', t('Automático')]], S.theme)}</div>${roleOf(S.user) === 'OWNER' ? `<div class="set-row"><span>${t('Color de la app')}</span>${seg('accent', [['violeta', t('Violeta')], ['rosa', t('Rosa')]], cfg('accent'))}</div>` : ''}
       <div class="set-row"><span>${t('Tu comunidad')}</span><b>${esc(COMMS[commOf(S.user)])}</b></div>
       <div class="set-row"><span>${t('Ver también la otra comunidad')}</span>${seg('otherComm', [['no', t('No')], ['yes', t('Sí')]], cfg('otherComm'))}</div>
       <div class="set-row"><span>${t('Idioma')}</span><select class="select set-lang" aria-label="${esc(t('Idioma'))}"><option value="auto" ${uiSetting() === 'auto' ? 'selected' : ''}>${t('Automático')}</option><option value="es" ${uiSetting() === 'es' ? 'selected' : ''}>${t('Español')}</option><option value="en" ${uiSetting() === 'en' ? 'selected' : ''}>${t('English')}</option></select></div></section>` },
@@ -3835,7 +3840,7 @@ document.addEventListener('click', e => {
     'pc-del': () => { if (!PCS) return; const s = findStory(PCS.sid), cid = el.dataset.cid; confirmBox(t('¿Seguro que quieres eliminar este comentario?'), () => { const all = pcAll(), k = pcKey(PCS.sid, PCS.ci, PCS.pi); const t0 = (all[k] || []).find(c => c.id === cid); if (t0 && (t0.by === S.user || (s && s.owner === S.user) || isStaff())) all[k] = all[k].filter(c => c.id !== cid && c.parent !== cid); G.set('pcom', all); paintPcList(); if (cfg('pcom') === 'dots') { KEEP = true; render(); } }); },
     'set-back': () => { NAVDIR = 'prev'; const h = window.history; if (SETDEEP && h && h.length > 1) h.back(); else goReplace('/settings'); },   // si vienes del menú: retrocede en el historial (no apila otra copia)
     'settings-back': () => { const h = window.history; if (h && h.length > 1) h.back(); else go('/'); },
-    cfg: () => { const k = el.dataset.k, v = el.dataset.v; if (k === 'theme') { S.theme = v; LS.set('auri.themeSet', true); applyTheme(); } else setCfg(k, v); KEEP = true; render(); },
+    cfg: () => { const k = el.dataset.k, v = el.dataset.v; if (k === 'theme') { S.theme = v; LS.set('auri.themeSet', true); applyTheme(); } else { setCfg(k, v); if (k === 'accent') applyAccent(); } KEEP = true; render(); },
     'cfg-toggle': () => { const k = el.dataset.k;
       if (k === 'hideLists') { const us = getUsers(); if (!us[S.user]) return; us[S.user].hideLists = !us[S.user].hideLists; G.set('users', us); sbPushLists(); el.setAttribute('aria-checked', String(!!us[S.user].hideLists)); return; }
       if (k === 'showOnline') { setCfg(k, !cfg(k)); el.setAttribute('aria-checked', String(cfg(k) !== false)); return; }      // sin redibujar: no se pierde lo que estás escribiendo
