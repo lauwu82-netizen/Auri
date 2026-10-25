@@ -64,7 +64,7 @@ function applyAccent() {                                // color de la app: el t
 }
 /* --- Ajustes (se guardan por cuenta) --- */
 const APP_VERSION = '0.9 (beta)';
-const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
+const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], avoidWarns: [], hideDone: true, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
 const cfg = k => {
   const c = S.cfg || {};
   if (k === 'showMature') { const u = getUsers()[S.user]; if (isMinor(u)) return false; return c.showMature == null ? isAdult(u) : c.showMature; }   // por defecto: visible solo si ya declaraste ser mayor de edad
@@ -88,7 +88,7 @@ const norm = s => {
     let id = c.id; while (id == null || seen.has(id)) id = chapId(); seen.add(id);        // sin ids repetidos
     return { status: lg, ...(status === 'rejected' && reason ? { reason } : {}), ...c, id };
   });
-  return { cover: '', tags: [], mature: false, phase: 'ongoing', prev: '', ...r, chapters };
+  return { cover: '', tags: [], warns: [], mature: false, phase: 'ongoing', prev: '', ...r, chapters };
 };
 /** Con la nube activa, las cuentas que solo viven en este navegador (antiguas, de prueba o de otra persona que entró aquí) no cuentan:
  *  solo se ve tu cuenta y la copia de las demás que viene de Supabase. Así no salen personas duplicadas. */
@@ -689,7 +689,7 @@ const PHASES = ['ongoing', 'paused', 'finished'], CH_ST = ['draft', 'pending', '
 const infoSig = l => hsh(JSON.stringify([l.title || '', l.synopsis || '', l.genre || '', l.fandom || '', l.tags || [], l.cover || '', !!l.mature, l.phase || 'ongoing', l.prev || '', l.useReaderCharacter !== false, !!l.private]));
 const contSig = c => hsh([c.title || '', c.text || '', c.cover || '', c.music || ''].join('\u0001'));
 const sameCont = (c, r) => (c.title || '') === (r.title || '') && (c.text || '') === (r.text || '') && (c.cover || '') === (r.cover || '') && (c.music || '') === (r.music || '');
-const infoFromRow = r => ({ title: r.title, synopsis: r.synopsis || '', genre: r.genre || '', fandom: r.fandom || '', tags: r.tags || [], cover: r.cover || '', mature: !!r.mature, phase: r.phase || 'ongoing', prev: r.prev ? sBack(r.prev) : '', useReaderCharacter: r.use_reader_character !== false, private: !!r.private });
+const infoFromRow = r => ({ title: r.title, synopsis: r.synopsis || '', genre: r.genre || '', fandom: r.fandom || '', tags: r.tags || [], warns: Array.isArray(r.warnings) ? r.warnings : [], cover: r.cover || '', mature: !!r.mature, phase: r.phase || 'ongoing', prev: r.prev ? sBack(r.prev) : '', useReaderCharacter: r.use_reader_character !== false, private: !!r.private });
 const day = v => String(v || '').slice(0, 10);
 let SB_BUSY = false, SB_ST, SB_QUIET = false, SB_Q = { all: false, st: false, soc: new Set() };
 function sbStoriesSoon() { if (!cloud() || !sbSes() || SB_QUIET) return; SB_Q.st = true; clearTimeout(SB_ST); SB_ST = setTimeout(() => sbRefresh({ st: true }), 1500); }
@@ -734,7 +734,7 @@ async function sbSyncOwn() {
     const R = cs.get(su);
     if (!R && stS.has(su)) { changed = true; continue; }                      // la borraste en otro lugar
     const row = { id: su, owner: uid, community: comm, title: l.title || '', synopsis: l.synopsis || '', genre: l.genre || '', fandom: l.fandom || '', tags: l.tags || [], cover: l.cover || '', mature: !!l.mature,
-      phase: PHASES.includes(l.phase) ? l.phase : 'ongoing', prev: l.prev && sUuid(l.prev) ? sUuid(l.prev) : null, use_reader_character: l.useReaderCharacter !== false, terms: false, ...(l.private || (R && R.private) ? { private: !!l.private } : {}) };
+      phase: PHASES.includes(l.phase) ? l.phase : 'ongoing', prev: l.prev && sUuid(l.prev) ? sUuid(l.prev) : null, use_reader_character: l.useReaderCharacter !== false, terms: false, ...(l.private || (R && R.private) ? { private: !!l.private } : {}), ...((l.warns && l.warns.length) || (R && R.warnings && R.warnings.length) ? { warnings: l.warns || [] } : {}) };
     if (!R) putS.push(row);
     else if (sigS[su] === infoSig(l)) { const ni = infoFromRow(R); if (infoSig({ ...l, ...ni }) !== infoSig(l)) { Object.assign(l, ni); changed = true; } }   // no la tocaste: manda la nube (p. ej. cambio de moderación)
     else { const same = ['title', 'synopsis', 'genre', 'fandom', 'cover', 'phase'].every(k => (R[k] || '') === (row[k] || '')) && !!R.mature === row.mature && JSON.stringify(R.tags || []) === JSON.stringify(row.tags) && (R.prev || null) === row.prev && (R.use_reader_character !== false) === row.use_reader_character && !!R.private === !!l.private; if (!same) patchS.push(row); }
@@ -1769,9 +1769,13 @@ async function sbSearchUsers() {                         // trae de Supabase a l
 const FEED = { row: 2, group: 3 };                  // mínimo de libros para mostrar una fila o un grupo (subir cuando haya más libros)
 const tagsOf = s => [...(s.tags || []), ...(s.fandom && tagKey(s.fandom) !== 'original' ? [s.fandom] : [])];   // etiquetas + fandom (naruto, bts…)
 const tagKey = x => String(x || '').trim().toLowerCase();
+const WARNS = { violence: 'Violencia', death: 'Muerte de personajes', abuse: 'Abuso o maltrato', selfharm: 'Autolesión o suicidio', ed: 'Trastornos alimentarios', sexual: 'Contenido sexual', lang: 'Lenguaje fuerte', drugs: 'Drogas o alcohol' };
+const warnsOf = s => (s.warns || []).filter(k => WARNS[k]);
+const avoidWarns = () => (cfg('avoidWarns') || []).filter(k => WARNS[k]);
 const avoidList = () => (cfg('avoidTags') || []).map(tagKey).filter(Boolean);
-const avoidOK = s => { const a = avoidList(); return !a.length || s.owner === S.user || !tagsOf(s).some(x => a.includes(tagKey(x))); };    // oculta libros con etiquetas que la persona quiere evitar
-const feedPool = () => publishedStories().filter(matureOK).filter(storyVisible).filter(avoidOK).filter(s => !hidesStory(s.owner));
+const avoidOK = s => { const a = avoidList(), w = avoidWarns(); return s.owner === S.user || ((!a.length || !tagsOf(s).some(x => a.includes(tagKey(x)))) && (!w.length || !warnsOf(s).some(k => w.includes(k)))); };    // oculta libros con etiquetas que la persona quiere evitar
+const doneOK = s => !cfg('hideDone') || s.owner === S.user || !(S.progress[s.id] && bookProgress(s).finished);
+const feedPool = () => publishedStories().filter(matureOK).filter(storyVisible).filter(avoidOK).filter(doneOK).filter(s => !hidesStory(s.owner));
 function feedTags(pool) {                              // etiqueta (minúsculas) -> {label, n}
   const m = {}; pool.forEach(s => tagsOf(s).forEach(x => { const k = tagKey(x); if (!k) return; m[k] = m[k] || { label: String(x).trim(), n: 0 }; m[k].n++; })); return m;
 }
@@ -1957,7 +1961,7 @@ function showTerms() {
   document.body.appendChild(m);
 }
 let W = null, WPREVIEW = false, WCUR = 0;
-const newDraft = () => ({ id: 'story-' + Date.now(), title: '', synopsis: '', genre: 'Fantasy', fandom: 'Original', tags: [], cover: '', chapters: [{ id: 1, title: t('Capítulo {n}', { n: 1 }), text: '', status: 'draft' }], mature: false, phase: 'ongoing', prev: '', terms: false, useReaderCharacter: true, updatedAt: today() });
+const newDraft = () => ({ id: 'story-' + Date.now(), title: '', synopsis: '', genre: 'Fantasy', fandom: 'Original', tags: [], warns: [], cover: '', chapters: [{ id: 1, title: t('Capítulo {n}', { n: 1 }), text: '', status: 'draft' }], mature: false, phase: 'ongoing', prev: '', terms: false, useReaderCharacter: true, updatedAt: today() });
 const wc = x => t('{w} palabras · {c} caracteres', { w: x.trim() ? x.trim().split(/\s+/).length : 0, c: x.length });
 function collect() {                                   // lee solo los campos de la pantalla que está abierta
   if ($('#w-title')) {                                 // pantalla de datos de la historia
@@ -2043,6 +2047,7 @@ function infoView(existing) {
     <div class="form-group"><label for="w-genre">${t('Género')}</label><select id="w-genre" class="select">${Object.keys(GENRES).map(g => `<option value="${g}" ${W.genre === g ? 'selected' : ''}>${esc(t(GENRES[g]))}</option>`).join('')}</select></div>
     <div class="form-group"><label for="w-fandom">${t('Fandom / universo')}</label><input id="w-fandom" class="field" value="${esc(W.fandom)}"></div>
     <div class="form-group full"><label for="w-tags">${t('Etiquetas')} <span class="helper" style="display:inline">· ${t('mínimo 3 para publicar')}</span></label><input id="w-tags" class="field" value="${esc(tagsText(W.tags))}" placeholder="${esc(t('#romance lento #magia #enemies to lovers'))}" autocapitalize="none"><div id="w-tags-prev" class="tag-prev">${W.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div><div class="tag-sug"><span class="helper">${t('Sugeridas:')}</span>${[...new Set([...popTags(6), 'lgbtq+', 'yaoi', 'yuri', t('poliamor'), t('romance lento'), 'au'])].slice(0, 10).map(t => `<button type="button" class="tag tag-link" data-act="tag-add" data-id="${esc(t)}">#${esc(t)}</button>`).join('')}</div><span class="helper">${t('Escribe cada etiqueta con # al inicio. Ej: #romance lento #magia. Así la gente te encuentra al buscar por etiquetas.')}</span></div>
+    <div class="form-group full"><label>${t('Avisos de contenido')} <span class="helper" style="display:inline">· ${t('opcional, ayuda a quien lee')}</span></label><div class="warn-chips" role="group">${Object.keys(WARNS).map(k => `<button type="button" class="chip ${(W.warns || []).includes(k) ? 'active' : ''}" data-act="warn-toggle" data-id="${k}" aria-pressed="${(W.warns || []).includes(k)}">${t(WARNS[k])}</button>`).join('')}</div></div>
     <div class="form-group"><label for="w-phase">${t('Estado del libro')}</label><select id="w-phase" class="select">${Object.keys(PHASE).map(k => `<option value="${k}" ${(W.phase || 'ongoing') === k ? 'selected' : ''}>${esc(t(PHASE[k]))}</option>`).join('')}</select></div>
     ${sagaBox()}
   </div><div class="toggle-line"><div><strong>${t('Tarjeta de personaje lector')}</strong><div class="helper">${t('Reemplaza TN / T/N por el nombre de tu personaje.')}</div></div>
@@ -2290,6 +2295,7 @@ function storyDetail(s, mine) {
   <div class="detail-likes"><span class="hrt-i">${HEART}</span> ${tn(n, '{n} like', '{n} likes')}</div>${bookState(s)}
   <p class="detail-syn">${esc(s.synopsis)}</p>
   <div class="tags" style="justify-content:center">${tagChips(s.tags)}</div>
+  ${warnsOf(s).length ? `<div class="warn-box"><b>${t('Avisos de contenido')}</b><div class="warn-list">${warnsOf(s).map(k => `<span class="warn-pill ${avoidWarns().includes(k) ? 'hit' : ''}">${esc(t(WARNS[k]))}</span>`).join('')}</div></div>` : ''}
   ${staffBar(s, mine)}
   ${mine && statusNote(ownOf(s)) ? `<p class="notice">${esc(statusNote(ownOf(s)))}</p>` : ''}
   <a class="button" data-replace data-dir="next" ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} style="width:100%;max-width:420px" href="#/story/${esc(s.id)}/${next.idx + 1}">${!read.length && !at ? t('Empezar a leer') : all ? t('Leer otra vez') : t('Continuar: cap. {n}', { n: next.idx + 1 })}</a>
@@ -2834,7 +2840,10 @@ function settingsView(secId) {
     contenido: { ico: '🔞', c: '#e0457b', t: 'Ajustes de contenido', sub: isMinor(u) ? t('No disponible') : cfg('showMature') ? t('Visible') : t('Oculto'), body: () => `<section class="panel set-sec">${sw('showMature', cfg('showMature'), 'Mostrar contenido +18', isMinor(u) ? 'No está disponible para cuentas menores de 18 años.' : 'Si lo apagas, las historias para adultos se ocultan en Inicio, búsquedas y bibliotecas. Tus propias obras siempre se ven.', isMinor(u))}
       <div class="avoid-box"><h3>${t('Etiquetas que quiero evitar')}</h3><p class="helper">${t('No te mostraremos libros con estas etiquetas en Inicio, búsquedas ni recomendaciones. Tus propias obras siempre se ven.')}</p>
       <div class="avoid-chips">${avoidList().map(x => `<span class="tag avoid-chip">#${esc(x)}<button type="button" data-act="avoid-del" data-id="${esc(x)}" aria-label="${esc(t('Quitar'))}">✕</button></span>`).join('') || `<span class="helper">${t('Aún no evitas ninguna etiqueta.')}</span>`}</div>
-      <div class="avoid-add"><input id="avoid-in" class="input" maxlength="30" placeholder="${esc(t('#etiqueta'))}" autocomplete="off"><button type="button" class="button secondary sm" data-act="avoid-add">${t('Agregar')}</button></div></div></section>` },
+      <div class="avoid-add"><input id="avoid-in" class="input" maxlength="30" placeholder="${esc(t('#etiqueta'))}" autocomplete="off"><button type="button" class="button secondary sm" data-act="avoid-add">${t('Agregar')}</button></div></div>
+      <div class="avoid-box"><h3>${t('Avisos de contenido que quiero evitar')}</h3><p class="helper">${t('Las autorías marcan los avisos de sus libros. Los que elijas aquí dejan de mostrarse en Inicio, búsquedas y recomendaciones.')}</p>
+      <div class="warn-chips">${Object.keys(WARNS).map(k => `<button type="button" class="chip ${avoidWarns().includes(k) ? 'active' : ''}" data-act="avoid-warn" data-id="${k}" aria-pressed="${avoidWarns().includes(k)}">${t(WARNS[k])}</button>`).join('')}</div></div>
+      <div class="avoid-box">${sw('hideDone', cfg('hideDone'), 'Ocultar libros que ya terminé', 'No te recomendamos libros que ya terminaste de leer.')}</div></section>` },
     intereses: { ico: '🏷️', c: '#e09a2b', t: 'Tus intereses', sub: tn((u.interests || []).length, '{n} tema', '{n} temas'), body: () => `<section class="panel set-sec"><p class="helper" style="margin:0 0 4px">${t('Los temas que te gustan (mínimo uno).')}</p>${interestChips(u.interests || [], 'int-set')}</section>` },
     bloqueos: { ico: '🚫', c: '#6b7280', t: 'Bloqueadas y silenciadas', sub: t('{a} bloqueadas · {b} silenciadas', { a: bl(S.user, 'blocked').length, b: bl(S.user, 'muted').length }), body: () => {
       const row = (e, act, lab) => `<div class="cr-row"><span class="cr-rt">${userAvatar(e)} <b>${esc(uName(e))}</b></span><span class="cr-rb"><button class="button secondary sm" data-act="${act}" data-id="${esc(e)}">${t(lab)}</button></span></div>`, b = bl(S.user, 'blocked'), m = bl(S.user, 'muted');
@@ -2852,7 +2861,7 @@ function settingsView(secId) {
       <section class="panel set-sec danger-zone"><h2>${t('⚠️ Zona de peligro')}</h2><p class="helper" style="margin:8px 0 12px">${t('Eliminar tu cuenta borra tus historias (publicadas, en revisión y borradores), biblioteca, personajes, comentarios, likes y seguidores. No se puede deshacer.')}</p><button class="button danger" data-act="acct-delete">${t('Eliminar cuenta')}</button></section>` },
     acerca: { ico: 'ℹ️', c: '#7a869a', t: 'Acerca de', sub: t('Versión {v}', { v: APP_VERSION }), body: () => `<section class="panel set-sec"><div class="set-btns"><button class="button secondary" data-act="terms">${t('Términos y condiciones')}</button><button class="button secondary" data-act="privacy">${t('Política de privacidad')}</button><button class="button secondary" data-act="report">${t('Reportar un error')}</button></div>${sw('hideBugFab', !!cfg('hideBugFab'), 'Ocultar el botón flotante de errores', 'Sigue disponible aquí, en Acerca de.')}<p class="helper" style="margin:14px 0 0;text-align:center">${t('Auri · versión {v}', { v: APP_VERSION })}</p></section>` }
   };
-  const SECSUB = { apariencia: 'Tema, color e idioma', lectura: 'Letra, fuente y música', contenido: '+18, etiquetas', intereses: 'Temas que te gustan', bloqueos: 'Personas que bloqueaste o silenciaste', notificaciones: 'Qué avisos recibes', datos: 'Exportar, importar y borrar', cuenta: 'Usuario, correo y sesión', acerca: 'Términos, privacidad y versión' };
+  const SECSUB = { apariencia: 'Tema, color e idioma', lectura: 'Letra, fuente y música', contenido: '+18, etiquetas y avisos', intereses: 'Temas que te gustan', bloqueos: 'Personas que bloqueaste o silenciaste', notificaciones: 'Qué avisos recibes', datos: 'Exportar, importar y borrar', cuenta: 'Usuario, correo y sesión', acerca: 'Términos, privacidad y versión' };
   if (secId && SECS[secId]) {                                    // pantalla de una sección
     const x = SECS[secId];
     return `<main class="page story-layout settings"><div class="set-head"><button class="icon-btn" data-act="set-back" aria-label="${esc(t('Volver a Ajustes'))}">‹</button><h2><span class="set-ico" style="--c:${x.c}">${x.ico}</span><span class="set-tt">${t(x.t)}${SECSUB[secId] ? `<small>${t(SECSUB[secId])}</small>` : ''}</span></h2></div>${x.body()}</main>`;
@@ -3774,6 +3783,8 @@ document.addEventListener('click', e => {
     comments: () => { SHOWC = !SHOWC; KEEP = true; render(); if (SHOWC) { const c = $('#comments'); if (c && c.scrollIntoView) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
     'ch-add': addChapter,
     'ch-trash': () => { const c = W.chapters.find(x => x.id === +el.dataset.cid); if (c) confirmBox(t('¿Seguro que quieres eliminar «{title}»?', { title: c.title || t('capítulo') }), () => deleteChapter(c.id)); },
+    'warn-toggle': () => { W.warns = W.warns || []; const on = !W.warns.includes(id); W.warns = on ? [...W.warns, id] : W.warns.filter(x => x !== id); el.classList.toggle('active', on); el.setAttribute('aria-pressed', String(on)); },
+    'avoid-warn': () => { const l = avoidWarns(), on = !l.includes(id); setCfg('avoidWarns', on ? [...l, id] : l.filter(x => x !== id)); KEEP = true; render(); },
     'toggle-priv': () => { collect(); W.private = !W.private; el.setAttribute('aria-checked', String(!!W.private)); toast(W.private ? t('Historia privada: solo tú la ves.') : t('La historia vuelve a ser pública cuando envíes sus capítulos a revisión.')); },
     'toggle-18': () => { if (isMinor(getUsers()[S.user])) return; collect(); const st = freshStories().find(x => x.id === W.id);
       if (W.mature && st && st.mature && publicPrefix(st.chapters).length && !isStaff()) { el.setAttribute('aria-checked', 'true'); return dialog(t('Quitar +18 de una obra publicada'), t('Para proteger a las personas menores, quitar la marca +18 de una obra ya publicada necesita aprobación de moderación. Seguirá marcada +18 mientras tanto.'), t('Enviar solicitud'), t('Cancelar'), () => toast(requestUnmature(W.id, W.title))); }

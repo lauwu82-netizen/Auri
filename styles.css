@@ -1552,3 +1552,10 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .avoid-add{display:flex;gap:8px;align-items:center}.avoid-add .input{flex:1;min-width:0}
 
 .set-head .set-tt{display:flex;flex-direction:column;gap:1px}.set-head .set-tt small{font:500 13px var(--sans);color:hsl(var(--muted-foreground));letter-spacing:0}
+
+/* 48. Avisos de contenido */
+.warn-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.warn-box{width:100%;max-width:420px;margin:10px auto 4px;text-align:center}.warn-box b{font-size:12px;color:hsl(var(--muted-foreground));text-transform:uppercase;letter-spacing:.08em}
+.warn-list{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:6px}
+.warn-pill{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:hsl(var(--accent));color:hsl(var(--accent-foreground))}
+.warn-pill.hit{background:#fde0e6;color:#a1304b}.dark .warn-pill.hit{background:#4a2230;color:#f5b3c4}
