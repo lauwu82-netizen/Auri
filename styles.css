@@ -1006,7 +1006,7 @@ a.icon-btn.bell{position:relative}
 .pf-warn{position:absolute;left:12px;top:calc(12px + env(safe-area-inset-top,0px));z-index:3;width:30px;height:30px;border-radius:50%;border:0;background:#fbe08a;color:#6b4a00;padding:0;display:grid;place-items:center;box-shadow:0 4px 12px rgba(0,0,0,.3);animation:popIn .3s ease-out}
 .pf-id{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:6px;padding:0 16px}
 .pf-av{margin-top:-112px;position:relative;z-index:2}
-.pf-av .fr .avatar,.pf-av>.avatar{box-shadow:0 0 0 4px hsl(var(--primary)),0 0 0 5px rgba(255,255,255,.35),0 3px 6px rgba(0,0,0,.35),0 14px 28px rgba(0,0,0,.4),inset 0 -8px 14px rgba(0,0,0,.22),inset 0 3px 6px rgba(255,255,255,.16)}
+.pf-av .fr .avatar,.pf-av>.avatar{box-shadow:0 0 0 1.5px rgba(255,255,255,.45),0 3px 6px rgba(0,0,0,.35),0 14px 28px rgba(0,0,0,.4),inset 0 -8px 14px rgba(0,0,0,.22),inset 0 3px 6px rgba(255,255,255,.16)}
 .pf-name{font-size:26px;line-height:1.15;margin:2px 0 0;color:var(--title);overflow-wrap:anywhere}
 .pf-id .role-tag{align-self:center;margin:0}
 .pf-bio{max-width:480px;margin:2px 0 0;color:var(--soft);line-height:1.55;font-size:14px;overflow-wrap:anywhere}
@@ -1562,5 +1562,4 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 
 /* 49. Foto de perfil con relieve: se distingue sobre cualquier portada (con forma usa sombra que sigue el contorno) */
 .pf-av .fr[data-shape]{filter:drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 3px 4px rgba(0,0,0,.35)) drop-shadow(0 12px 14px rgba(0,0,0,.38))}
-.pf-av .fr[data-shape]:not([data-halo]){filter:drop-shadow(2px 0 0 hsl(var(--primary))) drop-shadow(-2px 0 0 hsl(var(--primary))) drop-shadow(0 2px 0 hsl(var(--primary))) drop-shadow(0 -2px 0 hsl(var(--primary))) drop-shadow(0 0 1px rgba(255,255,255,.7)) drop-shadow(0 3px 4px rgba(0,0,0,.35)) drop-shadow(0 12px 14px rgba(0,0,0,.38))}
 .pf-av .fr[data-shape] .avatar{box-shadow:none!important}
