@@ -502,10 +502,10 @@ function fitPhoto(file, maxW, maxH, cb, q = .85) {
 }
 const squarePhoto = (file, size, cb) => cropPhoto(file, size, size, cb);
 /** Foto de perfil (círculo) y portada del perfil: se abre el editor para mover y hacer zoom antes de guardar. src = enlace o dato de la imagen ya puesta */
-const PH = { avatar: { w: 256, h: 256, q: .85, round: true, title: () => t('Ajusta tu foto'), ratio: () => t('Se ve en círculo.'), info: () => t('Se guardará a 256×256 px.'), key: 'avatar' },
+const PH = { avatar: { w: 256, h: 256, q: .85, round: true, title: () => t('Ajusta tu foto'), info: () => t('Se guardará a 256×256 px.'), key: 'avatar' },
   banner: { w: 960, h: 360, q: .78, wide: true, title: () => t('Ajusta tu portada de perfil'), ratio: () => t('Se guarda en proporción 8:3.'), info: () => t('Se guardará a 960×360 px.'), key: 'banner' } };
 function editPhoto(fileOrSrc, kind) {
-  const c = PH[kind], open = src => coverEditor(src, d => { const u = getUsers(); u[S.user][c.key] = d; G.set('users', u); render(); }, 0, 0, { w: c.w, h: c.h, q: c.q, round: c.round, shape: kind === 'avatar' && roleOf(S.user) === 'OWNER' ? (getUsers()[S.user] || {}).shape : '', wide: c.wide, title: c.title(), ratio: c.ratio(), info: c.info() });
+  const c = PH[kind], open = src => coverEditor(src, d => { const u = getUsers(); u[S.user][c.key] = d; G.set('users', u); render(); }, 0, 0, { w: c.w, h: c.h, q: c.q, round: c.round, shape: kind === 'avatar' && roleOf(S.user) === 'OWNER' ? (getUsers()[S.user] || {}).shape : '', wide: c.wide, title: c.title(), ratio: c.ratio ? c.ratio() : ' ', info: c.info() });
   if (typeof fileOrSrc === 'string') return open(fileOrSrc);
   const f = fileOrSrc; if (!f || !f.type.startsWith('image/')) return toast(t('Elige un archivo de imagen.'));
   const r = new FileReader(); r.onload = () => open(r.result); r.readAsDataURL(f);
