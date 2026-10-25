@@ -1362,3 +1362,19 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 :root[data-accent=rosa] .chip.active{background:#fbe4ee;border-color:#f0bdd2;color:#8a3a5e}
 :root[data-accent=rosa].dark .chip.active{background:hsl(335 22% 26%);border-color:hsl(335 18% 38%);color:#fadce9}
 :root[data-accent=rosa].dark .eyebrow{color:#f4b8d2}
+
+/* 46. Selector de tema de color */
+.th-dot{display:inline-block;width:12px;height:12px;border-radius:50%;background:#9e72d9}.th-dot.rosa{background:#ee86ae}
+.tm-demo{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 4px}
+.tm-phone{position:relative;border-radius:16px;padding:8px 8px 22px;border:1px solid hsl(var(--border));overflow:hidden;min-height:196px}
+.tm-phone em{position:absolute;left:0;right:0;bottom:4px;text-align:center;font:600 10px var(--sans);font-style:normal;opacity:.7}
+.tm-top{display:flex;gap:4px;margin-bottom:6px}.tm-top i{width:14px;height:14px;border-radius:50%}.tm-top .tm-av{margin-left:auto}
+.tm-hero{border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}.tm-hero b{font:700 11px var(--serif);line-height:1.15}
+.tm-btn{font:700 8px var(--sans);color:#fff;padding:3px 8px;border-radius:99px}
+.tm-chips{display:flex;gap:4px;margin:6px 0}.tm-chips span{font:600 8px var(--sans);padding:3px 7px;border-radius:99px}
+.tm-books{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}.tm-books i{height:42px;border-radius:5px;box-shadow:0 0 0 1px rgba(128,128,128,.18)}
+.tm-nav{position:absolute;left:6px;right:6px;bottom:18px;height:16px;border-radius:99px;display:flex;align-items:center;justify-content:space-around}.tm-nav i{width:8px;height:8px;border-radius:50%;opacity:.7}.tm-nav .tm-plus{width:12px;height:12px;opacity:1}
+.tm-pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.tm-opt{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 6px;border-radius:16px;border:1.5px solid hsl(var(--border));background:transparent;color:inherit;font:600 13px var(--sans)}
+.tm-opt.on{border-color:hsl(var(--primary));background:hsl(var(--primary)/.1)}
+.tm-circ{width:46px;height:46px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(128,128,128,.3)}

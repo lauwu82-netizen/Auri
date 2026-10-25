@@ -1629,4 +1629,9 @@ window.I18N = { en: {
   "Durazno": "Peach",
   "Color de la app": "App color",
   "Violeta": "Violet",
+  "Tema de color": "Color theme",
+  "Así se ve en modo claro y en modo oscuro. Quien visite tu perfil lo verá con tu color.": "This is how it looks in light and dark mode. People who visit your profile will see it in your color.",
+  "Encuentra tu próxima emoción": "Find your next favorite",
+  "Leer": "Read",
+  "Tema cambiado": "Theme changed",
 } };

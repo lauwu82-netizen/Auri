@@ -56,9 +56,10 @@ function applyTheme() {                                 // 'light' | 'dark' | 'a
   LS.set('auri.theme', S.theme);
   applyAccent();
 }
-function applyAccent() {                                // color de la app: solo Owner por ahora (rosa)
-  let on = false; try { on = !!S.user && roleOf(S.user) === 'OWNER' && cfg('accent') === 'rosa'; } catch (e) { }
-  if (on) document.documentElement.dataset.accent = 'rosa'; else delete document.documentElement.dataset.accent;
+function accentOf(e) { const a = e === S.user ? cfg('accent') : ((getUsers()[e] || {}).accent || ''); return a === 'rosa' ? 'rosa' : ''; }
+function applyAccent() {                                // color de la app: el tuyo, o el de la persona cuyo perfil estás viendo
+  let ac = ''; try { const m = /^#\/user\/([^/?]+)/.exec(location.hash || ''), v = m ? decodeURIComponent(m[1]) : null; ac = v && v !== S.user ? accentOf(v) : (S.user ? accentOf(S.user) : ''); } catch (e) { }
+  if (ac) document.documentElement.dataset.accent = ac; else delete document.documentElement.dataset.accent;
 }
 /* --- Ajustes (se guardan por cuenta) --- */
 const APP_VERSION = '0.9 (beta)';
@@ -579,7 +580,7 @@ async function sbMirror() {
   const pv = (q.ok && Array.isArray(q.data) && q.data[0]) || {};
   const email = String(s.email || pv.email || '').toLowerCase(), us = LS.get('auri.users', {}), old = us[email] || {};
   us[email] = { ...old, uid: s.uid, cloud: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || old.bio || '', avatar: pr.avatar || old.avatar || '', banner: pr.banner || old.banner || '',
-    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
+    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
     birth: pv.birth || old.birth || '', gender: pv.gender || old.gender || '', interests: pv.interests || old.interests || [], onboarded: true,
     termsAccepted: pr.terms_accepted || old.termsAccepted, created: String(pr.created_at || '').slice(0, 10) || old.created, strikes: old.strikes || [] };
   LS.set('auri.users', us);
@@ -864,7 +865,7 @@ async function sbPullPublic() {                           // trae las obras de o
   for (const o of owners) {
     const pr = prof.find(x => x.id === o); if (!pr) continue; const key = remoteKey(o), old = us[key] || {};
     us[key] = { ...old, uid: o, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
     const list = [];
     for (const r of stories.filter(x => x.owner === o)) {
       const pubs = (pubBy.get(r.id) || []), wk = (wkBy.get(r.id) || []), cmap = new Map();
@@ -1036,7 +1037,7 @@ async function sbSyncSocial(only) {
 function sbPseudo(pr, old) {                                   // copia local de la cuenta de otra persona (sin datos privados)
   old = old || {};
   return { ...old, uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
 }
 const SOC_G = { 'auri.likes': ['likes'], 'auri.follows': ['follows'], 'auri.comments': ['comments', 'comment_likes'], 'auri.pcom': ['pcom', 'pcom_likes'], 'auri.subs': ['subscriptions'] };
 let SB_SOC_T;
@@ -1759,7 +1760,7 @@ async function sbSearchUsers() {                         // trae de Supabase a l
   const us = LS.get('auri.users', {}), me = sbSes() && sbSes().uid; let ch = false;
   r.data.filter(p => p.id !== me).forEach(pr => { const key = remoteKey(pr.id), old = us[key];
     const n = { ...(old || {}), uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
     if (JSON.stringify(old) !== JSON.stringify(n)) { us[key] = n; ch = true; } });
   if (ch) { LS.set('auri.users', us); const l = $('#list'); if (l && SM === 'users') l.innerHTML = usersList(); }
 }
@@ -2813,7 +2814,7 @@ function settingsView(secId) {
   const u = getUsers()[S.user] || {}, n = cfg('notif'), act = S.chars.find(c => c.id === S.activeId);
   const nOn = ['chapter', 'like', 'comment', 'follow'].filter(k => n[k]).length;
   const SECS = {
-    apariencia: { ico: '🎨', c: '#8c5fc1', t: t('Apariencia'), sub: `${t('Tema')} ${t(({ light: 'claro', dark: 'oscuro', auto: 'automático' })[S.theme] || 'automático')} · ${uiLang() === 'en' ? 'English' : 'Español'}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tema')}</span>${seg('theme', [['light', '☀ ' + t('Claro')], ['dark', '🌙 ' + t('Oscuro')], ['auto', t('Automático')]], S.theme)}</div>${roleOf(S.user) === 'OWNER' ? `<div class="set-row"><span>${t('Color de la app')}</span>${seg('accent', [['violeta', t('Violeta')], ['rosa', t('Rosa')]], cfg('accent'))}</div>` : ''}
+    apariencia: { ico: '🎨', c: '#8c5fc1', t: t('Apariencia'), sub: `${t('Tema')} ${t(({ light: 'claro', dark: 'oscuro', auto: 'automático' })[S.theme] || 'automático')} · ${uiLang() === 'en' ? 'English' : 'Español'}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tema')}</span>${seg('theme', [['light', '☀ ' + t('Claro')], ['dark', '🌙 ' + t('Oscuro')], ['auto', t('Automático')]], S.theme)}</div><div class="set-row"><span>${t('Tema de color')}</span><button type="button" class="button secondary sm" data-act="theme-colors"><i class="th-dot ${cfg('accent') === 'rosa' ? 'rosa' : ''}"></i>${t(cfg('accent') === 'rosa' ? 'Rosa' : 'Violeta')} · ${t('Cambiar')}</button></div>
       <div class="set-row"><span>${t('Tu comunidad')}</span><b>${esc(COMMS[commOf(S.user)])}</b></div>
       <div class="set-row"><span>${t('Ver también la otra comunidad')}</span>${seg('otherComm', [['no', t('No')], ['yes', t('Sí')]], cfg('otherComm'))}</div>
       <div class="set-row"><span>${t('Idioma')}</span><select class="select set-lang" aria-label="${esc(t('Idioma'))}"><option value="auto" ${uiSetting() === 'auto' ? 'selected' : ''}>${t('Automático')}</option><option value="es" ${uiSetting() === 'es' ? 'selected' : ''}>${t('Español')}</option><option value="en" ${uiSetting() === 'en' ? 'selected' : ''}>${t('English')}</option></select></div></section>` },
@@ -3092,6 +3093,39 @@ function openFrames() {
     if (ev.target === m || ev.target.closest('[data-no]')) m.remove();
   });
   document.body.appendChild(m);
+}
+
+const THEMES = {
+  violeta: { n: 'Violeta', L: { bg: '#faf6ff', card: '#fff', hero: 'linear-gradient(112deg,#fff,#e4d1fb)', pr: '#9e72d9', btn: 'linear-gradient(115deg,#9e72d9,#7147ac)', tx: '#3d2b50', mu: '#756b7d', ch: '#eee3fa' }, D: { bg: '#1c1830', card: '#262038', hero: 'linear-gradient(112deg,#241d36,#3a2a5c)', pr: '#b88df0', btn: 'linear-gradient(115deg,#9e72d9,#7147ac)', tx: '#eadcf8', mu: '#b3a7c0', ch: '#3a2f55' } },
+  rosa: { n: 'Rosa', L: { bg: '#fff5f9', card: '#fff', hero: 'linear-gradient(112deg,#fff,#fbd0e1)', pr: '#ee86ae', btn: 'linear-gradient(115deg,#ee86ae,#d4578a)', tx: '#5a2a42', mu: '#7d6a74', ch: '#fbe4ee' }, D: { bg: '#1f161b', card: '#2a1d24', hero: 'linear-gradient(112deg,#2b1822,#52293f)', pr: '#f08fb5', btn: 'linear-gradient(115deg,#ee86ae,#d4578a)', tx: '#fadce9', mu: '#c7a9b7', ch: '#4a2c3b' } }
+};
+function themeMock(c, label) {
+  return `<div class="tm-phone" style="background:${c.bg};color:${c.tx}"><div class="tm-top"><i style="background:${c.card}"></i><i style="background:${c.card}"></i><i class="tm-av" style="background:${c.btn}"></i></div>
+  <div class="tm-hero" style="background:${c.hero}"><b>${esc(t('Encuentra tu próxima emoción'))}</b><span class="tm-btn" style="background:${c.btn}">${esc(t('Leer'))}</span></div>
+  <div class="tm-chips"><span style="background:${c.ch};color:${c.tx}">${esc(t('Libros'))}</span><span style="background:${c.card};color:${c.mu}">${esc(t('Usuarios'))}</span></div>
+  <div class="tm-books"><i style="background:${c.card}"></i><i style="background:${c.card}"></i><i style="background:${c.card}"></i></div>
+  <div class="tm-nav" style="background:${c.card}"><i style="background:${c.pr}"></i><i style="background:${c.mu}"></i><i class="tm-plus" style="background:${c.btn}"></i><i style="background:${c.mu}"></i><i style="background:${c.mu}"></i></div><em>${esc(label)}</em></div>`;
+}
+function openThemes() {
+  let pick = cfg('accent') === 'rosa' ? 'rosa' : 'violeta';
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  const body = () => `<button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Tema de color')}</h2><p class="helper">${t('Así se ve en modo claro y en modo oscuro. Quien visite tu perfil lo verá con tu color.')}</p>
+  <div class="tm-demo">${themeMock(THEMES[pick].L, t('Claro'))}${themeMock(THEMES[pick].D, t('Oscuro'))}</div>
+  <div class="tm-pick">${Object.entries(THEMES).map(([k, v]) => `<button type="button" class="tm-opt ${pick === k ? 'on' : ''}" data-pick="${k}" aria-pressed="${pick === k}"><span class="tm-circ" style="background:linear-gradient(90deg,${v.L.pr} 50%,${v.D.bg} 50%)"></span><b>${t(v.n)}</b></button>`).join('')}</div>
+  <button type="button" class="button" data-apply style="width:100%;margin-top:14px">${t('Aplicar')}</button>`;
+  const paint = () => { m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true">${body()}</div>`; };
+  paint();
+  m.addEventListener('click', ev => {
+    const p = ev.target.closest('[data-pick]');
+    if (p) { pick = p.dataset.pick; paint(); return; }
+    if (ev.target.closest('[data-apply]')) { setCfg('accent', pick); const us = getUsers(); if (us[S.user]) { us[S.user].accent = pick === 'rosa' ? 'rosa' : ''; G.set('users', us); } sbPushAccent(); m.remove(); applyAccent(); KEEP = true; render(); toast('Tema cambiado'); return; }
+    if (ev.target === m || ev.target.closest('[data-no]')) m.remove();
+  });
+  document.body.appendChild(m);
+}
+async function sbPushAccent() {
+  const s = sbSes(); if (!cloud() || !s || PRES_OFF) return; const u = LS.get('auri.users', {})[String(s.email).toLowerCase()]; if (!u) return;
+  await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { accent: u.accent || '' } });
 }
 function openLook() {
   if (roleOf(S.user) !== 'OWNER') return;
@@ -3556,7 +3590,7 @@ function clearSearch() {
 let SETDEEP = false;                                   // true = entraste a una sección de Ajustes desde el menú (el "atrás" vuelve a él, sin bucles)
 let SHOWC = false, LASTP = '', ASV = null, KEEP = false;   // true = no volver arriba al re-dibujar (likes, comentarios…)
 function render() {
-  uiReset();
+  uiReset(); applyAccent();
   giftSweep();                                                   // vence regalos sin reclamar (24 h) y devuelve el cupo
   if (S.user && canNews() && $('#nb-list')) { if (NBFRESH) NBFRESH = false; else nbDraftSave(true); }       // si te vas de Noticias sin terminar, lo escrito queda como borrador
   if (W && S.user && ($('#w-ch-text') || $('#w-title'))) autosave();      // guarda lo que estabas escribiendo antes de cambiar de pantalla
@@ -3840,7 +3874,7 @@ document.addEventListener('click', e => {
     'pc-del': () => { if (!PCS) return; const s = findStory(PCS.sid), cid = el.dataset.cid; confirmBox(t('¿Seguro que quieres eliminar este comentario?'), () => { const all = pcAll(), k = pcKey(PCS.sid, PCS.ci, PCS.pi); const t0 = (all[k] || []).find(c => c.id === cid); if (t0 && (t0.by === S.user || (s && s.owner === S.user) || isStaff())) all[k] = all[k].filter(c => c.id !== cid && c.parent !== cid); G.set('pcom', all); paintPcList(); if (cfg('pcom') === 'dots') { KEEP = true; render(); } }); },
     'set-back': () => { NAVDIR = 'prev'; const h = window.history; if (SETDEEP && h && h.length > 1) h.back(); else goReplace('/settings'); },   // si vienes del menú: retrocede en el historial (no apila otra copia)
     'settings-back': () => { const h = window.history; if (h && h.length > 1) h.back(); else go('/'); },
-    cfg: () => { const k = el.dataset.k, v = el.dataset.v; if (k === 'theme') { S.theme = v; LS.set('auri.themeSet', true); applyTheme(); } else { setCfg(k, v); if (k === 'accent') applyAccent(); } KEEP = true; render(); },
+    cfg: () => { const k = el.dataset.k, v = el.dataset.v; if (k === 'theme') { S.theme = v; LS.set('auri.themeSet', true); applyTheme(); } else setCfg(k, v); KEEP = true; render(); },
     'cfg-toggle': () => { const k = el.dataset.k;
       if (k === 'hideLists') { const us = getUsers(); if (!us[S.user]) return; us[S.user].hideLists = !us[S.user].hideLists; G.set('users', us); sbPushLists(); el.setAttribute('aria-checked', String(!!us[S.user].hideLists)); return; }
       if (k === 'showOnline') { setCfg(k, !cfg(k)); el.setAttribute('aria-checked', String(cfg(k) !== false)); return; }      // sin redibujar: no se pierde lo que estás escribiendo
@@ -3896,7 +3930,7 @@ document.addEventListener('click', e => {
     delete: () => { if (confirm(t('¿Eliminar este borrador? No se puede deshacer.'))) { S.stories = S.stories.filter(s => s.id !== id); persist('stories', S.stories); render(); } },
     'resume-read': () => { const p = VISIT && VISIT.pos; VISIT = null; if (p) { NAVDIR = 'next'; go('/story/' + id + '/' + (p.idx + 1)); } },
     'pf-list': () => openUserList(id, el.dataset.kind), 'pf-works': () => { const w = document.getElementById('pf-works'); if (w && w.scrollIntoView) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
-    'frames': () => openFrames(), 'look': () => openLook(), 'mod-order': () => { setCfg('modShuffle', cfg('modShuffle') === false); KEEP = true; render(); }, 'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
+    'frames': () => openFrames(), 'look': () => openLook(), 'theme-colors': () => openThemes(), 'mod-order': () => { setCfg('modShuffle', cfg('modShuffle') === false); KEEP = true; render(); }, 'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
     'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
     preview: () => { collect(); WPREVIEW = true; render(); }, 'back-edit': () => { WPREVIEW = false; render(); },
