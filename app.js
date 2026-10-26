@@ -72,9 +72,19 @@ const cfg = k => {
   return c[k] ?? CFG_DEFAULTS[k];
 };
 const READ = { size: { sm: '17px', md: '19px', lg: '22px' }, lh: { compact: '1.7', normal: '1.95', relaxed: '2.25' }, font: { serif: 'var(--serif)', sans: 'var(--sans)' } };
+const FONTS = [['serif', 'Clásica', null], ['sans', 'Moderna', null], ['lora', 'Lora', 'Lora:ital,wght@0,400;0,700;1,400;1,700'], ['literata', 'Literata', 'Literata:ital,wght@0,400;0,700;1,400;1,700'], ['crimson', 'Crimson Pro', 'Crimson+Pro:ital,wght@0,400;0,700;1,400;1,700'], ['garamond', 'EB Garamond', 'EB+Garamond:ital,wght@0,400;0,700;1,400;1,700'], ['merri', 'Merriweather', 'Merriweather:ital,wght@0,400;0,700;1,400;1,700'], ['baskerville', 'Libre Baskerville', 'Libre+Baskerville:ital,wght@0,400;0,700;1,400'], ['nunito', 'Nunito', 'Nunito:ital,wght@0,400;0,700;1,400;1,700'], ['atkinson', 'Atkinson', 'Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700']];
+const FONT_CSS = { lora: "'Lora',Georgia,serif", literata: "'Literata',Georgia,serif", crimson: "'Crimson Pro',Georgia,serif", garamond: "'EB Garamond',Georgia,serif", merri: "'Merriweather',Georgia,serif", baskerville: "'Libre Baskerville',Georgia,serif", nunito: "'Nunito',system-ui,sans-serif", atkinson: "'Atkinson Hyperlegible',system-ui,sans-serif" };
+Object.assign(READ.font, FONT_CSS);
+const FONT_LOADED = new Set();
+function loadFont(k) {                                  // carga la fuente solo cuando se usa (Google Fonts)
+  const f = FONTS.find(x => x[0] === k); if (!f || !f[2] || FONT_LOADED.has(k) || !document.head) return; FONT_LOADED.add(k);
+  const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=' + f[2] + '&display=swap'; document.head.appendChild(l);
+}
+/* Formato dentro del texto: **negrita** y *cursiva* (se escribe con los botones A del editor) */
+const fmtText = h => String(h).replace(/\*\*([^\s*](?:[^*\n]*?[^\s*])?)\*\*/g, '<strong>$1</strong>').replace(/\*([^\s*](?:[^*\n]*?[^\s*])?)\*/g, '<em>$1</em>');
 function applyReading() {                               // tamaño, interlineado y tipografía del lector, como variables CSS
   const r = document.documentElement.style; if (!r || !r.setProperty) return;
-  r.setProperty('--read-size', READ.size[cfg('fontSize')]); r.setProperty('--read-lh', READ.lh[cfg('lh')]); r.setProperty('--read-font', READ.font[cfg('font')]);
+  r.setProperty('--read-size', READ.size[cfg('fontSize')]); r.setProperty('--read-lh', READ.lh[cfg('lh')]); r.setProperty('--read-font', READ.font[cfg('font')] || READ.font.serif); loadFont(cfg('font'));
   document.documentElement.lang = uiLang();
 }
 function setCfg(k, v) { S.cfg = { ...S.cfg, [k]: v }; LS.set(uk('cfg'), S.cfg); applyReading(); if (k === 'showOnline') { LAST_ON = null; sbBeat(); } }
@@ -1988,11 +1998,30 @@ const pcKey = (sid, ci, pi) => sid + '|' + ci + '|' + pi;
 const pcAll = () => G.get('pcom', {});
 const pcPara = (sid, ci, pi) => { const s = findStory(sid), ch = s && s.chapters.find(c => c.idx === ci); return ch ? paraSplit(ch.text)[pi] : undefined; };
 const pcList = (sid, ci, pi, all = pcAll()) => { const t = pcPara(sid, ci, pi); return t === undefined ? [] : (all[pcKey(sid, ci, pi)] || []).filter(c => c.q === pQ(t)); };
+function applyFmt(kind) {
+  const ta = $('#w-ch-text'); if (!ta) return; ta.focus();
+  const a = ta.selectionStart, b = ta.selectionEnd, v = ta.value, m = kind === 'bold' ? '**' : '*';
+  const done = () => { ta.dispatchEvent(new Event('input', { bubbles: true })); };
+  if (kind === 'plain') {                              // quita formato de lo seleccionado, o sale del formato si no hay selección
+    if (a !== b) { const sel = v.slice(a, b).replace(/\*+/g, ''); ta.setRangeText(sel, a, b, 'select'); return done(); }
+    let p = a; while (v[p] === '*') p++; if (p !== a) { ta.setSelectionRange(p, p); } return;
+  }
+  if (a !== b) {                                      // con selección: pone o quita el formato
+    const sel = v.slice(a, b), wrapped = sel.startsWith(m) && sel.endsWith(m) && sel.length > 2 * m.length;
+    const out = v.slice(a - m.length, a) === m && v.slice(b, b + m.length) === m && m !== '*' ? true : false;
+    if (wrapped) ta.setRangeText(sel.slice(m.length, -m.length), a, b, 'select');
+    else if (out) { ta.setRangeText(sel, a - m.length, b + m.length, 'select'); }
+    else ta.setRangeText(m + sel + m, a, b, 'select');
+    return done();
+  }
+  if (v.slice(a, a + m.length) === m && v[a + m.length] !== '*') { const p = a + m.length; ta.setSelectionRange(p, p); return; }   // ya estabas dentro: salir del formato
+  ta.setRangeText(m + m, a, a, 'end'); ta.setSelectionRange(a + m.length, a + m.length); done();   // sin selección: abre el formato y sigue escribiendo dentro
+}
 function readerText(text, on, pc) {
   const name = S.character.name || t('Lectora'), raw = paraSplit(text), all = pc && cfg('pcom') !== 'off' ? pcAll() : null;
   return `<div class="reader-text">${(on ? fillTN(text, name) : text).split(/\n\s*\n/).map((p, i) => {
     const n = all && cfg('pcom') === 'dots' ? (all[pcKey(pc.sid, pc.ci, i)] || []).filter(c => c.q === pQ(raw[i])).length : 0;
-    return `<p${all ? ` data-pi="${i}"` : ''}>${esc(p)}${n ? `<span class="pc-n" aria-label="${tn(n, '{n} comentario', '{n} comentarios')}">${n}</span>` : ''}</p>`; }).join('')}</div>`;
+    return `<p${all ? ` data-pi="${i}"` : ''}>${fmtText(esc(p))}${n ? `<span class="pc-n" aria-label="${tn(n, '{n} comentario', '{n} comentarios')}">${n}</span>` : ''}</p>`; }).join('')}</div>`;
 }
 const TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v7M14 10v7"/></svg>';
 function confirmBox(msg, onYes) {                // cuadro de confirmación propio (no usa confirm() del navegador)
@@ -2086,6 +2115,7 @@ function chapterView(cid) {
   ${chCoverBox(ch)}
   <input id="w-ch-title" class="wf-title" data-cid="${ch.id}" value="${esc(ch.title)}" placeholder="${esc(t('Título del capítulo'))}">
   <textarea id="w-ch-text" class="wf-text" data-cid="${ch.id}" placeholder="${esc(t('Érase una vez…'))}">${esc(ch.text)}</textarea>
+  <div class="fmt-bar" role="toolbar" aria-label="${esc(t('Formato del texto'))}"><button type="button" class="fmt-b" data-act="fmt" data-id="plain" aria-label="${esc(t('Texto normal'))}"><span>A</span></button><button type="button" class="fmt-b" data-act="fmt" data-id="bold" aria-label="${esc(t('Negrita'))}"><span style="font-weight:800">A</span></button><button type="button" class="fmt-b" data-act="fmt" data-id="italic" aria-label="${esc(t('Cursiva'))}"><span style="font-style:italic">A</span></button><span class="helper fmt-hint">${t('Selecciona texto o escribe para aplicar el formato')}</span></div>
   <footer class="wf-bottom"><details class="wf-music" ${ch.music ? 'open' : ''}><summary class="helper" style="cursor:pointer">🎵 ${t('Canción del capítulo (opcional)')}</summary><input id="w-ch-music" class="field" style="margin-top:8px" value="${esc(ch.music || '')}" placeholder="${esc(t('Enlace de YouTube, Spotify o un .mp3'))}"><span class="helper">${t('Quien lee decide si la reproduce. Se revisa junto con el capítulo.')} ${t('Cada capítulo tiene su propio enlace: la música se detiene al pasar al siguiente capítulo.')}</span></details>
   <div class="wf-actions"><span class="helper" id="w-count">${wc(ch.text)}</span><span class="wf-btns">${before ? `<button type="button" class="button ghost sm" data-act="ch-go" data-cid="${before.id}">‹ ${t('Cap. {n}', { n: i })}</button>` : ''}<button class="button secondary sm" data-act="save-draft">💾 ${t('Guardar borrador')}</button>${after ? `<button type="button" class="button sm" data-act="ch-go" data-cid="${after.id}">${t('Cap. {n}', { n: i + 2 })} ›</button>` : `<button type="button" class="button sm" data-act="ch-add">＋ ${t('Cap. {n}', { n: n + 1 })}</button>`}</span></div></footer></div>`;
 }
@@ -2445,7 +2475,7 @@ function modChapterView(id, cid) {
   return `<main class="page story-layout"><div class="set-head"><a class="icon-btn" href="${bk}" data-dir="prev" aria-label="${esc(t('Volver'))}">‹</a><h2>${t('Cap. {n}', { n: i + 1 })} · ${esc(s.title)}</h2></div>
   <p class="story-meta">${t('por {a}', { a: esc(s.author) })}${c.live ? ' · ' + t('versión editada') : ''}</p>
   ${st === 'flag' ? aiNote(c.ai) : `<div class="ai-note ${st === 'ok' ? 'ok' : ''}"><b>${st === 'ok' ? t('La IA no encontró problemas en este capítulo.') : t('La IA todavía no revisó este capítulo (o la revisión falló). Revísalo tú.')}</b></div>`}
-  <article class="panel mod-read">${chHero(c, 'mod-cover')}<h2 class="serif" style="margin:0 0 10px">${esc(c.title)}</h2><div class="mod-text">${esc(c.text)}</div>${c.music ? `<p class="helper" style="margin-top:10px">🎵 ${t('Canción')}: ${musicEmbed(c.music) ? `<a href="${esc(c.music)}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline">${esc(c.music)}</a>` : esc(c.music) + ' (' + t('enlace no válido') + ')'}</p>` : ''}</article>
+  <article class="panel mod-read">${chHero(c, 'mod-cover')}<h2 class="serif" style="margin:0 0 10px">${esc(c.title)}</h2><div class="mod-text">${fmtText(esc(c.text))}</div>${c.music ? `<p class="helper" style="margin-top:10px">🎵 ${t('Canción')}: ${musicEmbed(c.music) ? `<a href="${esc(c.music)}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline">${esc(c.music)}</a>` : esc(c.music) + ' (' + t('enlace no válido') + ')'}</p>` : ''}</article>
   <div class="panel mod-decide"><textarea id="rej-${esc(s.id)}-${c.id}" class="textarea" style="min-height:70px" placeholder="${esc(t('Motivo del rechazo (obligatorio para rechazar)'))}"></textarea>
   <div class="mod-actions"><button class="button" data-act="approve" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}" ${ok ? '' : 'disabled'}>${t('✓ Aprobar')}</button><button class="button danger" data-act="reject" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}">${t('✕ Rechazar')}</button></div>
   ${ok ? '' : `<p class="helper" style="margin-top:8px">${t('Aprueba antes el capítulo {n} para poder aprobar este.', { n: i })}</p>`}</div></main>`;
@@ -2827,8 +2857,8 @@ function settingsView(secId) {
       <div class="set-row"><span>${t('Tu comunidad')}</span><b>${esc(COMMS[commOf(S.user)])}</b></div>
       <div class="set-row"><span>${t('Ver también la otra comunidad')}</span>${seg('otherComm', [['no', t('No')], ['yes', t('Sí')]], cfg('otherComm'))}</div>
       <div class="set-row"><span>${t('Idioma')}</span><select class="select set-lang" aria-label="${esc(t('Idioma'))}"><option value="auto" ${uiSetting() === 'auto' ? 'selected' : ''}>${t('Automático')}</option><option value="es" ${uiSetting() === 'es' ? 'selected' : ''}>${t('Español')}</option><option value="en" ${uiSetting() === 'en' ? 'selected' : ''}>${t('English')}</option></select></div></section>` },
-    lectura: { ico: '📖', c: '#3e8fd0', t: 'Lectura', sub: `${t('Letra ' + ({ sm: 'pequeña', md: 'normal', lg: 'grande' })[cfg('fontSize')])} · ${cfg('font') === 'serif' ? t('con serifa') : t('sin serifa')}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tamaño de letra')}</span>${seg('fontSize', [['sm', 'Pequeña'], ['md', 'Normal'], ['lg', 'Grande']], cfg('fontSize'))}</div>
-      <div class="set-row"><span>${t('Tipografía')}</span>${seg('font', [['serif', 'Con serifa'], ['sans', 'Sin serifa']], cfg('font'))}</div>
+    lectura: { ico: '📖', c: '#3e8fd0', t: 'Lectura', sub: `${t('Letra ' + ({ sm: 'pequeña', md: 'normal', lg: 'grande' })[cfg('fontSize')])} · ${t((FONTS.find(f => f[0] === cfg('font')) || FONTS[0])[1])}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tamaño de letra')}</span>${seg('fontSize', [['sm', 'Pequeña'], ['md', 'Normal'], ['lg', 'Grande']], cfg('fontSize'))}</div>
+      <div class="set-col"><span>${t('Tipografía')}</span><div class="font-grid">${(FONTS.forEach(f => loadFont(f[0])), FONTS).map(f => `<button type="button" class="font-opt ${cfg('font') === f[0] ? 'on' : ''}" data-act="cfg" data-k="font" data-v="${f[0]}" style="font-family:${READ.font[f[0]]}" aria-pressed="${cfg('font') === f[0]}"><b>Aa</b><span>${esc(t(f[1]))}</span></button>`).join('')}</div></div>
       <div class="set-row"><span>${t('Interlineado')}</span>${seg('lh', [['compact', 'Compacto'], ['normal', 'Normal'], ['relaxed', 'Amplio']], cfg('lh'))}</div>
       <div class="set-row"><span>${t('Comentarios en párrafos')}</span>${seg('pcom', [['tap', 'Al tocar'], ['dots', 'Con contador'], ['off', 'Desactivados']], cfg('pcom'))}</div>
       <p class="helper" style="margin:0 0 6px">${t('«Al tocar» deja la lectura limpia: toca un párrafo y aparece «Comentar». «Con contador» muestra un número discreto en los párrafos que tienen comentarios.')}</p>
@@ -3957,6 +3987,7 @@ document.addEventListener('click', e => {
     'pf-list': () => openUserList(id, el.dataset.kind), 'pf-works': () => { const w = document.getElementById('pf-works'); if (w && w.scrollIntoView) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
     'frames': () => openFrames(), 'look': () => openLook(),
     'avoid-add': () => avoidAdd(), 'avoid-del': () => { setCfg('avoidTags', avoidList().filter(x => x !== tagKey(id))); KEEP = true; render(); }, 'theme-colors': () => openThemes(), 'mod-order': () => { setCfg('modShuffle', cfg('modShuffle') === false); KEEP = true; render(); }, 'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
+    'fmt': () => applyFmt(id),
     'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
     preview: () => { collect(); WPREVIEW = true; render(); }, 'back-edit': () => { WPREVIEW = false; render(); },
@@ -4117,3 +4148,4 @@ setInterval(() => document.querySelectorAll('.rel-t[data-ts]').forEach(t => { co
   setTimeout(() => { d.classList.add('bye'); setTimeout(() => d.remove(), 320); }, 650);
 })();
 shapeDefs();
+document.addEventListener('mousedown', e => { if (e.target.closest && e.target.closest('.fmt-bar')) e.preventDefault(); });   // no pierde el foco ni la selección del texto

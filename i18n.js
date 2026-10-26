@@ -1664,4 +1664,11 @@ window.I18N = { en: {
   "Las autorías marcan los avisos de sus libros. Los que elijas aquí dejan de mostrarse en Inicio, búsquedas y recomendaciones.": "Authors mark the warnings on their books. The ones you choose here stop showing in Home, search and recommendations.",
   "Ocultar libros que ya terminé": "Hide books I already finished",
   "No te recomendamos libros que ya terminaste de leer.": "We won't recommend books you already finished.",
+  "Clásica": "Classic",
+  "Moderna": "Modern",
+  "Formato del texto": "Text format",
+  "Texto normal": "Normal text",
+  "Negrita": "Bold",
+  "Cursiva": "Italic",
+  "Selecciona texto o escribe para aplicar el formato": "Select text or type to apply the format",
 } };

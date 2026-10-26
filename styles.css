@@ -1568,3 +1568,19 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 /* 50. Foto con forma y marco en comentarios y notificaciones */
 .fr.s38{--a:38px}.fr.s30{--a:30px}.fr.s38 .avatar{font-size:15px}.fr.s30 .avatar{font-size:12px}
 .comment>.fr{flex:none;margin-top:1px}.notif>.fr,.dm-item>.fr{flex:none}
+
+/* 51. Formato del editor y tipografías */
+.fmt-bar{display:flex;align-items:center;gap:8px;padding:2px 0}
+.fmt-b{width:40px;height:36px;border-radius:12px;border:1.5px solid hsl(var(--border));background:hsl(var(--card));color:var(--title);font:500 18px var(--serif);display:grid;place-items:center;padding:0;touch-action:manipulation}
+.fmt-b:active{transform:scale(.94);background:hsl(var(--accent))}
+.fmt-hint{font-size:11px;margin-left:4px;line-height:1.2}
+.reader-text strong,.mod-text strong{font-weight:700}.reader-text em,.mod-text em{font-style:italic}
+.wf-text{font-family:var(--read-font,var(--serif))}
+.set-col{padding:12px 0;border-top:1px solid hsl(var(--border))}.set-col>span{display:block;margin-bottom:10px}
+.font-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.font-opt{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;border:1.5px solid hsl(var(--border));background:transparent;color:inherit;text-align:left;font-size:13px}
+.font-opt b{font-size:24px;font-weight:600;line-height:1}.font-opt.on{border-color:hsl(var(--primary));background:hsl(var(--primary)/.1)}
+
+.wf.typing .fmt-bar{position:fixed;left:0;right:0;bottom:var(--kb,0px);z-index:45;padding:8px 16px calc(8px + env(safe-area-inset-bottom,0px));background:hsl(var(--background)/.98);border-top:1px solid hsl(var(--border));box-shadow:0 -6px 18px rgba(0,0,0,.08)}
+.wf.typing .fmt-hint{display:none}
+.wf:not(.typing) .fmt-bar{margin:6px 0 4px}
