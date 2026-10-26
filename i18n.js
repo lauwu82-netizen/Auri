@@ -1671,4 +1671,7 @@ window.I18N = { en: {
   "Negrita": "Bold",
   "Cursiva": "Italic",
   "Selecciona texto o escribe para aplicar el formato": "Select text or type to apply the format",
+  "Forma de la foto": "Photo shape",
+  "Solo tú las tienes por ahora. Elige cómo se ve tu foto de perfil.": "Only you have these for now. Choose how your profile photo looks.",
+  "Privacidad": "Privacy",
 } };

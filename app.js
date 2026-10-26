@@ -3019,7 +3019,7 @@ function commentsHTML(s, ci = 0) {
 const likesReceived = e => publishedStories().filter(s => s.owner === e).reduce((a, s) => a + likes(s.id).length, 0);
 /** Perfil: portada con desvanecimiento hacia abajo, foto circular con aro, cifras que se pueden tocar y la pestaña de libros publicados */
 let PFEDIT = false, EPD = null;                          // EPD: lo escrito en Editar perfil (no se pierde al cambiar una foto)
-document.addEventListener('input', ev => { if (ev.target && (ev.target.id === 'pf-name' || ev.target.id === 'pf-bio')) EPD = { name: ($('#pf-name') || {}).value || '', bio: ($('#pf-bio') || {}).value || '' }; });
+document.addEventListener('input', ev => { if (ev.target && (ev.target.id === 'pf-name' || ev.target.id === 'pf-bio')) EPD = { name: ($('#pf-name') || {}).value || '', bio: ($('#pf-bio') || {}).value || '' }; const c = $('#pf-cnt'); if (c) c.textContent = EPD.bio.length + '/300'; });
 function profileHero(e, own, acts = '') {
   const u = getUsers()[e] || {}, pubs = publishedStories().filter(s => s.owner === e), has = safeImg(u.banner), role = ROLE_LABEL[roleOf(e)], sk = own ? strikesOf(e) : [];
   const lk = !own && (getUsers()[e] || {}).hideLists, stat = (n, l, act, kind) => act && !(lk && act === 'pf-list') ? `<button type="button" class="pfs" data-act="${act}" data-id="${esc(e)}" data-kind="${kind || ''}"><b>${n}</b><small>${l}</small></button>` : `<span class="pfs"><b>${n}</b><small>${l}</small></span>`;
@@ -3103,21 +3103,38 @@ function profileView() {
   ${charsSection()}${profileExtras()}</main>`;
 }
 /** Pantalla "Editar perfil" (estilo redes sociales): portada y foto arriba, y debajo los datos en filas */
+const EPI = {
+  cam: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.2l1-1.6h6.6l1 1.6h1.2A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z"/><circle cx="12" cy="12.5" r="3.4"/></svg>',
+  user: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.2" r="3.6"/><path d="M5 20c.6-3.7 3.4-5.6 7-5.6s6.4 1.9 7 5.6"/></svg>',
+  feather: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 4.5c-6.5-.4-11 3.2-12 9.5L5 19l1.2.4 1.8-3.6c5.6.2 10.2-3.4 11.5-11.3z"/><path d="M8.2 15.4 14 9.6"/></svg>',
+  spark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 13.9 9l5.6 1.9-5.6 1.9L12 18.3 10.1 12.8 4.5 10.9 10.1 9z"/><path d="M19 3.5v3M17.5 5h3"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 5 6v5.6c0 4.2 2.9 7.2 7 8.9 4.1-1.7 7-4.7 7-8.9V6z"/><path d="m9.2 12.2 2 2 3.6-4"/></svg>',
+  frame: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4.5"/><circle cx="12" cy="12" r="3.4"/></svg>',
+  leaves: '<svg viewBox="0 0 120 200" aria-hidden="true"><path d="M60 196C58 150 62 100 78 30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><g fill="currentColor"><path d="M62 150c-16-2-26-12-28-26 15 0 27 8 28 26z"/><path d="M63 118c14-4 23-15 24-29-14 3-24 13-24 29z"/><path d="M67 86c-15-3-24-14-26-28 14 1 26 11 26 28z"/><path d="M71 58c12-5 19-15 19-28-12 4-20 13-19 28z"/><path d="M76 34c-8-8-9-18-5-28 8 8 9 18 5 28z"/></g></svg>'
+};
+const shapeIco = k => k ? `<svg viewBox="0 0 1 1" aria-hidden="true"><path d="${SHAPE_D[k]}" fill="currentColor" opacity=".85"/></svg>` : '<svg viewBox="0 0 1 1" aria-hidden="true"><circle cx=".5" cy=".5" r=".44" fill="currentColor" opacity=".85"/></svg>';
+/** Pantalla "Editar perfil": portada y foto arriba, tarjetas con los datos, personalización y privacidad */
 function editProfileView() {
-  const u = getUsers()[S.user] || {}, has = safeImg(u.banner), n = ownedFrames(S.user), locked = frameLocked(S.user), k = frameKey(S.user);
+  const u = getUsers()[S.user] || {}, has = safeImg(u.banner), n = ownedFrames(S.user), locked = frameLocked(S.user), k = frameKey(S.user), owner = roleOf(S.user) === 'OWNER';
   const frameLine = locked ? t('Tu insignia es fija') : k ? t(FR_NAME[k]) : n.length ? t('Sin insignia') : t('Aún no tienes insignias');
-  return `<main class="page story-layout ep-page"><div class="set-head"><a class="icon-btn" href="#/profile" data-dir="prev" aria-label="${esc(t('Volver'))}">‹</a><h2>${t('Editar perfil')}</h2><button type="submit" form="ep-form" class="button sm ep-save">${t('Guardar')}</button></div>
-  <section class="ep-media"><div class="ep-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}><label class="ep-cam" style="cursor:pointer" aria-label="${esc(t('Cambiar portada'))}">📷<input id="bn-file" type="file" accept="image/*" hidden></label></div>
-    <div class="ep-bn-acts">${has ? `<button type="button" class="ep-link" data-act="bn-adjust">${t('Ajustar portada')}</button><button type="button" class="ep-link" data-act="bn-clear">${t('Quitar portada')}</button>` : ''}</div>
-    <div class="ep-av">${frWrap(S.user, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}<label class="ep-cam sm" style="cursor:pointer" aria-label="${esc(t('Cambiar foto'))}">📷<input id="av-file" type="file" accept="image/*" hidden></label></div>
-    <div class="ep-av-acts"><label class="ep-link" style="cursor:pointer">${u.avatar ? t('Cambiar foto de perfil') : t('Añadir foto de perfil')}<input id="av-file2" type="file" accept="image/*" hidden></label>${u.avatar ? `<button type="button" class="ep-link" data-act="av-adjust">${t('Ajustar')}</button><button type="button" class="ep-link" data-act="av-clear">${t('Quitar')}</button>` : ''}</div></section>
+  const lk = owner ? lookOf(S.user) : null, bio = EPD ? EPD.bio : (u.bio || '');
+  const look = owner ? `<h3 class="ep-h">${EPI.spark}<span>${t('Forma de la foto')}</span></h3><p class="ep-help">${t('Solo tú las tienes por ahora. Elige cómo se ve tu foto de perfil.')}</p>
+    <div class="ep-shapes" role="group" aria-label="${esc(t('Forma'))}">${Object.keys(SHAPES).map(x => `<button type="button" class="ep-shape ${(lk.shape || '') === x ? 'on' : ''}" data-act="ep-shape" data-id="${x}" aria-pressed="${(lk.shape || '') === x}" aria-label="${esc(t(SHAPES[x]))}" title="${esc(t(SHAPES[x]))}">${shapeIco(x)}<small>${esc(t(SHAPES[x]))}</small></button>`).join('')}</div>
+    <h3 class="ep-h"><i class="ep-dot"></i><span>${t('Borde de color')}</span></h3>
+    <div class="ep-halos" role="group" aria-label="${esc(t('Borde de color'))}">${[['', 'Sin borde'], ...Object.entries(HALOS).map(([x, v]) => [x, v[1]])].map(([x, nm]) => `<button type="button" class="ep-halo ${(lk.halo || '') === x ? 'on' : ''}" data-act="ep-halo" data-id="${x}" aria-pressed="${(lk.halo || '') === x}" aria-label="${esc(t(nm))}" title="${esc(t(nm))}"><i class="${x ? '' : 'none'}" style="${x ? 'background:' + HALOS[x][0] : ''}"></i></button>`).join('')}</div>` : '';
+  return `<main class="page story-layout ep-page ep2"><div class="ep-top"><a class="icon-btn" href="#/profile" data-dir="prev" aria-label="${esc(t('Volver'))}">‹</a><h2>${t('Editar perfil')}</h2><button type="submit" form="ep-form" class="button sm ep-save">${t('Guardar')}</button></div>
+  <section class="ep-media"><div class="ep-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>${has ? '' : `<span class="ep-leaf l">${EPI.leaves}</span><span class="ep-leaf r">${EPI.leaves}</span>`}<div class="ep-bn-chips">${has ? `<button type="button" class="ep-chip" data-act="bn-adjust">${t('Ajustar portada')}</button><button type="button" class="ep-chip" data-act="bn-clear">${t('Quitar portada')}</button>` : ''}</div><label class="ep-cam" style="cursor:pointer" aria-label="${esc(t('Cambiar portada'))}">${EPI.cam}<input id="bn-file" type="file" accept="image/*" hidden></label></div>
+    <div class="ep-av">${frWrap(S.user, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}<label class="ep-cam sm" style="cursor:pointer" aria-label="${esc(t('Cambiar foto'))}">${EPI.cam}<input id="av-file" type="file" accept="image/*" hidden></label></div>
+    <div class="ep-av-acts"><label class="ep-chip" style="cursor:pointer">${u.avatar ? t('Cambiar foto de perfil') : t('Añadir foto de perfil')}<input id="av-file2" type="file" accept="image/*" hidden></label>${u.avatar ? `<button type="button" class="ep-chip" data-act="av-adjust">${t('Ajustar')}</button><button type="button" class="ep-chip" data-act="av-clear">${t('Quitar')}</button>` : ''}</div></section>
   <form id="ep-form" data-form="myprofile" class="ep-form">
-    <div class="form-group"><label for="pf-name">${t('Usuario')}</label><input id="pf-name" class="field" maxlength="30" value="${esc(EPD ? EPD.name : u.name)}"></div>
-    <div class="form-group"><label for="pf-bio">${t('Biografía')}</label><textarea id="pf-bio" class="textarea" maxlength="300" placeholder="${esc(t('Cuéntales algo sobre ti…'))}">${esc(EPD ? EPD.bio : (u.bio || ''))}</textarea></div>
+    <div class="ep-card"><label for="pf-name"><span class="ep-ico">${EPI.user}</span>${t('Usuario')}</label><input id="pf-name" class="ep-input" maxlength="30" value="${esc(EPD ? EPD.name : u.name)}"></div>
+    <div class="ep-card"><label for="pf-bio"><span class="ep-ico">${EPI.feather}</span>${t('Biografía')}<small id="pf-cnt">${bio.length}/300</small></label><textarea id="pf-bio" class="ep-input" maxlength="300" rows="3" placeholder="${esc(t('Cuéntales algo sobre ti…'))}">${esc(bio)}</textarea></div>
+    ${look}
+    <h3 class="ep-h">${EPI.frame}<span>${t('Insignias y adornos')}</span></h3>
     <button type="button" class="ep-row" data-act="frames"><span><b>${t('Marcos')}</b><small>${frameLine}</small></span><i aria-hidden="true">›</i></button>
-    ${roleOf(S.user) === 'OWNER' ? `<button type="button" class="ep-row" data-act="look"><span><b>${t('Forma y borde de la foto')}</b><small>${esc(t(SHAPES[lookOf(S.user).shape || ''] || 'Círculo'))}${lookOf(S.user).halo ? ' · ' + esc(t(HALOS[lookOf(S.user).halo][1])) : ''}</small></span><i aria-hidden="true">›</i></button>` : ''}
-    ${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}
-    ${sw('hideLists', !!u.hideLists, 'Ocultar mis listas', 'Nadie más ve quién te sigue ni a quién sigues. Los números siguen visibles.')}
+    <h3 class="ep-h">${EPI.shield}<span>${t('Privacidad')}</span></h3>
+    <div class="ep-card ep-sw">${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}${sw('hideLists', !!u.hideLists, 'Ocultar mis listas', 'Nadie más ve quién te sigue ni a quién sigues. Los números siguen visibles.')}</div>
+    <div class="ep-actions"><button type="submit" class="button ep-save-b">${t('Guardar')}</button><a class="button secondary" href="#/profile" data-dir="prev">${t('Cancelar')}</a></div>
   </form></main>`;
 }
 /** Insignias y adornos: abajo (A de Auri, Top 50) y arriba (corona de Owner o cosméticos). Moderación y administración tienen la A fija */
@@ -3986,6 +4003,8 @@ document.addEventListener('click', e => {
     'resume-read': () => { const p = VISIT && VISIT.pos; VISIT = null; if (p) { NAVDIR = 'next'; go('/story/' + id + '/' + (p.idx + 1)); } },
     'pf-list': () => openUserList(id, el.dataset.kind), 'pf-works': () => { const w = document.getElementById('pf-works'); if (w && w.scrollIntoView) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
     'frames': () => openFrames(), 'look': () => openLook(),
+    'ep-shape': () => { if (roleOf(S.user) !== 'OWNER') return; const us = getUsers(); us[S.user].shape = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
+    'ep-halo': () => { if (roleOf(S.user) !== 'OWNER') return; const us = getUsers(); us[S.user].halo = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
     'avoid-add': () => avoidAdd(), 'avoid-del': () => { setCfg('avoidTags', avoidList().filter(x => x !== tagKey(id))); KEEP = true; render(); }, 'theme-colors': () => openThemes(), 'mod-order': () => { setCfg('modShuffle', cfg('modShuffle') === false); KEEP = true; render(); }, 'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
     'fmt': () => applyFmt(id),
     'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },
