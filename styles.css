@@ -1149,6 +1149,7 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .fr.xl  { --a: 104px; }
 .fr .avatar {
   display: block;
+  width: 100%; height: 100%;
   border-radius: 50%;
   box-shadow: 0 2px 8px rgba(60, 30, 90, .12);
 }
@@ -1563,3 +1564,7 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 /* 49. Foto de perfil con relieve: se distingue sobre cualquier portada (con forma usa sombra que sigue el contorno) */
 .pf-av .fr[data-shape]{filter:drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 3px 4px rgba(0,0,0,.35)) drop-shadow(0 12px 14px rgba(0,0,0,.38))}
 .pf-av .fr[data-shape] .avatar{box-shadow:none!important}
+
+/* 50. Foto con forma y marco en comentarios y notificaciones */
+.fr.s38{--a:38px}.fr.s30{--a:30px}.fr.s38 .avatar{font-size:15px}.fr.s30 .avatar{font-size:12px}
+.comment>.fr{flex:none;margin-top:1px}.notif>.fr,.dm-item>.fr{flex:none}
