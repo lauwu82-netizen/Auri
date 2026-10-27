@@ -1704,4 +1704,9 @@ window.I18N = { en: {
   "Separador puesto aquí": "Bookmark placed here",
   "Este diseño estará disponible pronto en la tienda.": "This design will be available in the shop soon.",
   "Seguir en cap. {n}": "Continue from ch. {n}",
+  "Te quedaste aquí": "You stopped here",
+  "Marcar palabra": "Mark word",
+  "Marcar párrafo": "Mark paragraph",
+  "Quitar de la palabra": "Remove from word",
+  "Quitar del párrafo": "Remove from paragraph",
 } };

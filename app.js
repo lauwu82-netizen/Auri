@@ -3597,14 +3597,25 @@ function bmWordAt(x, y) {                               // palabra bajo el dedo:
 }
 function bmApply(scroll) {                              // dibuja la cinta y subraya la palabra guardada (si está en este capítulo)
   document.querySelectorAll('.bm-word').forEach(e => { const par = e.parentNode; while (e.firstChild) par.insertBefore(e.firstChild, e); e.remove(); par.normalize(); });
-  document.querySelectorAll('.bm-p').forEach(e => e.classList.remove('bm-p'));
+  document.querySelectorAll('.bm-p').forEach(e => e.classList.remove('bm-p', 'bm-para')); document.querySelectorAll('.bm-sepx').forEach(e => e.remove());
   const m = location.hash.match(/^#\/story\/([^/]+)\/(\d+)/); if (!m) return false; const mk = bmOf(m[1]); if (!mk || mk.idx !== +m[2] - 1) return false;
   const p = document.querySelector('.rf .reader-text p[data-bi="' + mk.pi + '"]'); if (!p) return false; p.classList.add('bm-p');
+  if (mk.w < 0) { p.classList.add('bm-para'); p.insertAdjacentHTML('afterend', sepHTML('scene-sep bm-sepx').replace('</div>', `<small class="bm-cap">${t('Te quedaste aquí')}</small></div>`)); if (scroll) p.scrollIntoView({ block: 'center', behavior: 'auto' }); return true; }
   const tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest('.pc-n') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT }); let n, pos = 0, wi = 0, target = null;
   while ((n = tw.nextNode()) && !target) { const re = /\S+/g; let q; while ((q = re.exec(n.nodeValue))) { if (wi === mk.w) { target = { n, a: q.index, b: q.index + q[0].length }; break; } wi++; } }
   if (target) { try { const rg = document.createRange(); rg.setStart(target.n, target.a); rg.setEnd(target.n, target.b); const sp = document.createElement('span'); sp.className = 'bm-word'; rg.surroundContents(sp); } catch (e) { /* queda marcado el párrafo */ } }
   if (scroll) (p.querySelector('.bm-word') || p).scrollIntoView({ block: 'center', behavior: 'auto' });
   return true;
+}
+function bmMenu(sid, idx, hit, x, y) {                 // al mantener presionado: ¿marcar la palabra o el párrafo?
+  document.querySelectorAll('.bm-menu').forEach(e => e.remove());
+  const mk = bmOf(sid), same = w => mk && mk.idx === idx && mk.pi === hit.pi && mk.w === w;
+  const m = document.createElement('div'); m.className = 'bm-menu'; m.setAttribute('role', 'menu');
+  m.innerHTML = `<button type="button" data-w="${hit.w}">${same(hit.w) ? t('Quitar de la palabra') : t('Marcar palabra')}</button><button type="button" data-w="-1">${same(-1) ? t('Quitar del párrafo') : t('Marcar párrafo')}</button>`;
+  document.body.appendChild(m); const bw = m.offsetWidth; m.style.left = Math.max(10, Math.min(innerWidth - bw - 10, x - bw / 2)) + 'px'; m.style.top = Math.max(70, y - 78) + 'px';
+  const close = () => { m.remove(); document.removeEventListener('pointerdown', away, true); }, away = e => { if (!m.contains(e.target)) close(); };
+  m.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; e.stopPropagation(); BMHOLD = Date.now(); close(); bmSet(sid, idx, { pi: hit.pi, w: +b.dataset.w }); });
+  setTimeout(() => document.addEventListener('pointerdown', away, true), 50); setTimeout(close, 7000);
 }
 function bmSet(sid, idx, hit) {
   const old = (S.pos || {})[sid] || { idx, pct: 0 }, cur = old.mk;
@@ -3615,7 +3626,7 @@ let BMT = null;
 document.addEventListener('pointerdown', e => {
   const p = e.target.closest && e.target.closest('.rf .reader-text p[data-bi]'); if (!p || e.target.closest('[data-act]')) return;
   const m = location.hash.match(/^#\/story\/([^/]+)\/(\d+)/); if (!m) return; const x = e.clientX, y = e.clientY; clearTimeout(BMT);
-  BMT = setTimeout(() => { BMT = null; const hit = bmWordAt(x, y); if (!hit) return; const sel = window.getSelection && window.getSelection(); if (sel) sel.removeAllRanges(); BMHOLD = Date.now(); bmSet(m[1], +m[2] - 1, hit); }, 520);
+  BMT = setTimeout(() => { BMT = null; const hit = bmWordAt(x, y); if (!hit) return; const sel = window.getSelection && window.getSelection(); if (sel) sel.removeAllRanges(); BMHOLD = Date.now(); if (navigator.vibrate) navigator.vibrate(10); bmMenu(m[1], +m[2] - 1, hit, x, y); }, 520);
 }, { passive: true });
 let BMHOLD = 0;
 ['pointerup', 'pointercancel', 'scroll', 'touchmove'].forEach(ev => document.addEventListener(ev, () => { clearTimeout(BMT); BMT = null; }, { passive: true, capture: true }));

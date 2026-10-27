@@ -1644,7 +1644,7 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .sp-mid{flex:none;display:block;color:hsl(var(--primary)/.85)}.sp-mid svg{display:block;width:44px;height:24px}.orn .sp-mid svg{width:30px;height:16px}
 .sp-dots i{display:none}.sp-dots{max-width:120px}
 .scene-sep{margin:2.1em auto;max-width:260px}
-[data-dropcap="1"] .rf-body .reader-text>p:first-of-type::first-letter{float:left;font-family:var(--read-font,var(--serif));font-weight:600;font-size:3.5em;line-height:.82;padding:.06em .1em 0 0;color:hsl(var(--primary))}
+[data-dropcap="1"] .rf-body .reader-text>p:first-of-type::first-letter{float:left;font-family:var(--serif);font-weight:600;font-size:3.3em;line-height:.82;padding:.06em .1em 0 0;color:hsl(var(--primary))}
 .rbg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .rbg-opt{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border-radius:14px;border:1.5px solid hsl(var(--border));background:hsl(var(--card));color:var(--title);font:500 12.5px var(--sans)}
 .rbg-opt.on{border-color:hsl(var(--primary));box-shadow:0 0 0 3px hsl(var(--primary)/.18)}
@@ -1676,3 +1676,12 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .sep-mini{display:flex;align-items:center;gap:6px;width:100%}
 .sep-mini i{flex:1;height:1px;background:linear-gradient(90deg,transparent,hsl(var(--primary)/.5))}.sep-mini i:last-child{background:linear-gradient(270deg,transparent,hsl(var(--primary)/.5))}
 .sep-mini.sp-dots i{display:none}.sep-mini .sp-mid svg{width:34px;height:20px}
+
+.bm-para{background:hsl(var(--primary)/.07);box-shadow:0 0 0 7px hsl(var(--primary)/.07);border-radius:8px}
+.bm-sepx{margin:1.6em auto .6em!important;flex-direction:row;flex-wrap:wrap;animation:bmIn .5s ease-out}
+.bm-cap{flex-basis:100%;text-align:center;margin-top:6px;font:600 10.5px var(--sans);letter-spacing:.18em;text-transform:uppercase;color:hsl(var(--primary)/.8)}
+@keyframes bmIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.bm-menu{position:fixed;z-index:90;display:flex;gap:4px;padding:5px;border-radius:999px;background:hsl(var(--card));border:1px solid hsl(var(--border));box-shadow:0 10px 30px rgba(0,0,0,.28);animation:bmIn .18s ease-out}
+.bm-menu button{border:0;background:transparent;color:var(--title);font:600 13px var(--sans);padding:9px 14px;border-radius:999px;white-space:nowrap}
+.bm-menu button:active{background:hsl(var(--accent))}
+.bm-menu button+button{border-left:1px solid hsl(var(--border))}
