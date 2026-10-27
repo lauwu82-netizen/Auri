@@ -1719,4 +1719,6 @@ window.I18N = { en: {
   "Tu MBTI se ve con el color de tu tema en lugar del suyo.": "Your MBTI uses your theme color instead of its own.",
   "Quitar mi MBTI": "Remove my MBTI",
   "Elige tu tipo de personalidad": "Choose your personality type",
+  "Añadir una biografía": "Add a bio",
+  "Ver menos": "See less",
 } };

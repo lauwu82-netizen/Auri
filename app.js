@@ -2803,7 +2803,7 @@ function applyImport(d) {
   LS.set(uk('stories'), stories); LS.set(uk('favs'), arr(x.favs)); LS.set(uk('progress'), obj(x.progress)); LS.set(uk('pos'), obj(x.pos)); LS.set(uk('lib'), arr(x.lib)); LS.set(uk('cols'), arr(x.cols));
   if (x.chars) LS.set(uk('chars'), x.chars); if (x.cfg) LS.set(uk('cfg'), obj(x.cfg));
   const users = getUsers(), p = d.profile || {}, img = v => safeImg(v);
-  if (users[S.user]) { users[S.user] = { ...users[S.user], bio: String(p.bio || '').slice(0, 300), ...(img(p.avatar) ? { avatar: p.avatar } : {}), ...(img(p.banner) ? { banner: p.banner } : {}), ...(Array.isArray(p.interests) && p.interests.some(i => INTEREST_NAMES.includes(i)) ? { interests: p.interests.filter(i => INTEREST_NAMES.includes(i)) } : {}) }; G.set('users', users); }
+  if (users[S.user]) { users[S.user] = { ...users[S.user], bio: String(p.bio || '').slice(0, 500), ...(img(p.avatar) ? { avatar: p.avatar } : {}), ...(img(p.banner) ? { banner: p.banner } : {}), ...(Array.isArray(p.interests) && p.interests.some(i => INTEREST_NAMES.includes(i)) ? { interests: p.interests.filter(i => INTEREST_NAMES.includes(i)) } : {}) }; G.set('users', users); }
   arr(x.lib).forEach(id => subscribe(id));
   loadUser(); toast(skipped ? t('Datos importados ({n} historia(s) omitidas: ya existen en otra cuenta)', { n: skipped }) : 'Datos importados ✓'); render();
 }
@@ -3054,7 +3054,7 @@ function commentsHTML(s, ci = 0) {
 const likesReceived = e => publishedStories().filter(s => s.owner === e).reduce((a, s) => a + likes(s.id).length, 0);
 /** Perfil: portada con desvanecimiento hacia abajo, foto circular con aro, cifras que se pueden tocar y la pestaña de libros publicados */
 let PFEDIT = false, EPD = null;                          // EPD: lo escrito en Editar perfil (no se pierde al cambiar una foto)
-document.addEventListener('input', ev => { if (ev.target && (ev.target.id === 'pf-name' || ev.target.id === 'pf-bio')) EPD = { name: ($('#pf-name') || {}).value || '', bio: ($('#pf-bio') || {}).value || '' }; const c = $('#pf-cnt'); if (c) c.textContent = EPD.bio.length + '/300'; });
+document.addEventListener('input', ev => { if (ev.target && (ev.target.id === 'pf-name' || ev.target.id === 'pf-bio')) EPD = { name: ($('#pf-name') || {}).value || '', bio: ($('#pf-bio') || {}).value || '' }; const c = $('#pf-cnt'); if (c) c.textContent = EPD.bio.length + '/500'; });
 function profileHero(e, own, acts = '') {
   const u = getUsers()[e] || {}, pubs = publishedStories().filter(s => s.owner === e), has = safeImg(u.banner), role = ROLE_LABEL[roleOf(e)], sk = own ? strikesOf(e) : [];
   const lk = !own && (getUsers()[e] || {}).hideLists, stat = (n, l, act, kind) => act && !(lk && act === 'pf-list') ? `<button type="button" class="pfs" data-act="${act}" data-id="${esc(e)}" data-kind="${kind || ''}"><b>${n}</b><small>${l}</small></button>` : `<span class="pfs"><b>${n}</b><small>${l}</small></span>`;
@@ -3063,9 +3063,10 @@ function profileHero(e, own, acts = '') {
     <div class="pf-fade"></div></div>
   <div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}</div>
     <div class="pf-info"><h1 class="pf-name serif ${nmCls(e)}">${esc(u.name || t('Mi perfil'))}${onlineDot(e)}</h1>${role || mbtiOf(e) ? `<div class="pf-tags">${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}${mbtiBadge(e)}</div>` : ''}
-    ${u.bio || !own ? `<p class="pf-bio">${esc(u.bio || t('Esta persona aún no escribió su biografía.'))}</p>` : ''}</div>
+</div>
     ${acts ? `<div class="pf-acts">${acts}</div>` : ''}</div>
   <div class="pf-stats-row">${stat(followers(e).length, t('Seguidores'), 'pf-list', 'followers')}${stat(following(e).length, t('Seguidos'), 'pf-list', 'following')}${stat(pubs.length, t('Libros publicados'), 'pf-works')}${stat(likesReceived(e), t('Likes'))}</div>
+  ${bioBlock(e, u, own)}
   <div class="pf-tab" id="pf-works"><span>${ICON.books} ${t('Libros publicados')}</span></div></section>`;
 }
 /** Lista de seguidores o de seguidos (al tocar la cifra) */
@@ -3130,6 +3131,12 @@ function statsView() {
     ${b.worst > 0 && b.drop > 0 ? `<p class="helper">${tn(b.drop, 'La mayor caída es entre el capítulo {a} y el {b}: {n} lector menos. Quizá valga la pena revisar ese tramo.', 'La mayor caída es entre el capítulo {a} y el {b}: {n} lectores menos. Quizá valga la pena revisar ese tramo.', { a: b.worst, b: b.worst + 1 })}</p>` : ''}</section>`; }).join('')}
   <p class="notice">${t('Por ahora se cuentan solo las cuentas de este dispositivo. Con el servidor se sumarán todas las lecturas.')}</p></main>`;
 }
+const bioBlock = (e, u, own) => {                         // biografía: bloque suave bajo las cifras, con "Ver más" si es larga
+  const b = String(u.bio || '').trim();
+  if (!b) return own ? `<a class="pf-bio-add" href="#/profile/edit" data-dir="next">${t('Añadir una biografía')}</a>` : '';
+  const long = b.length > 150 || (b.match(/\n/g) || []).length >= 3;
+  return `<section class="pf-bio-box ${long ? 'clamp' : ''}" aria-label="${esc(t('Biografía'))}"><p class="pf-bio">${esc(b)}</p>${long ? `<button type="button" class="pf-bio-more" data-act="bio-more" aria-expanded="false">${t('Ver más')}</button>` : ''}</section>`;
+};
 function profileView() {
   const u = getUsers()[S.user] || {}, works = S.stories.filter(s => storyState(s) !== 'draft').map(s => ({ ...s, owner: S.user, author: u.name }));
   const acts = `<a class="button secondary sm" href="#/profile/edit" data-dir="next">✏️ ${t('Editar perfil')}</a>`, edit = '';
@@ -3163,7 +3170,7 @@ function editProfileView() {
     <div class="ep-av-acts"><label class="ep-chip" style="cursor:pointer">${u.avatar ? t('Cambiar foto de perfil') : t('Añadir foto de perfil')}<input id="av-file2" type="file" accept="image/*" hidden></label>${u.avatar ? `<button type="button" class="ep-chip" data-act="av-adjust">${t('Ajustar')}</button><button type="button" class="ep-chip" data-act="av-clear">${t('Quitar')}</button>` : ''}</div></section>
   <form id="ep-form" data-form="myprofile" class="ep-form">
     <div class="ep-card"><label for="pf-name"><span class="ep-ico">${EPI.user}</span>${t('Usuario')}</label><input id="pf-name" class="ep-input" maxlength="30" value="${esc(EPD ? EPD.name : u.name)}"></div>
-    <div class="ep-card"><label for="pf-bio"><span class="ep-ico">${EPI.feather}</span>${t('Biografía')}<small id="pf-cnt">${bio.length}/300</small></label><textarea id="pf-bio" class="ep-input" maxlength="300" rows="3" placeholder="${esc(t('Cuéntales algo sobre ti…'))}">${esc(bio)}</textarea></div>
+    <div class="ep-card"><label for="pf-bio"><span class="ep-ico">${EPI.feather}</span>${t('Biografía')}<small id="pf-cnt">${bio.length}/500</small></label><textarea id="pf-bio" class="ep-input" maxlength="500" rows="5" placeholder="${esc(t('Cuéntales algo sobre ti…'))}">${esc(bio)}</textarea></div>
     ${look}
     <button type="button" class="ep-row" data-act="mbti"><span><b>MBTI</b><small>${mbtiOf(S.user) ? `${mbtiOf(S.user)} · ${t(mbtiGroup(mbtiOf(S.user))[1])}` : t('Elige tu tipo de personalidad')}</small></span><i aria-hidden="true">›</i></button>
     <h3 class="ep-h">${EPI.frame}<span>${t('Insignias y adornos')}</span></h3>
@@ -4121,6 +4128,7 @@ document.addEventListener('click', e => {
     'align': () => applyAlign(id),
     'scene-sep': () => insertSep(),
     'mbti': () => openMbti(),
+    'bio-more': () => { const bx = el.closest('.pf-bio-box'); const on = bx.classList.toggle('open'); el.textContent = t(on ? 'Ver menos' : 'Ver más'); el.setAttribute('aria-expanded', String(on)); },
     'sep-lock': () => toast('Este diseño estará disponible pronto en la tienda.'),
     'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
@@ -4179,7 +4187,7 @@ document.addEventListener('submit', async e => {
   if (kind === 'myprofile') {
     const name = $('#pf-name').value.trim(); if (!name) return toast('El usuario no puede estar vacío.');
     if (nameKey(name) !== nameKey((getUsers()[S.user] || {}).name) && await nameTaken(name, S.user)) return toast(t('Ese nombre de usuario ya está en uso.'));
-    const u = getUsers(); u[S.user].name = name; u[S.user].bio = $('#pf-bio').value.trim(); G.set('users', u); EPD = null; toast('Perfil guardado'); NAVDIR = 'prev'; return go('/profile');
+    const u = getUsers(); u[S.user].name = name; u[S.user].bio = $('#pf-bio').value.replace(/\r/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, 500); G.set('users', u); EPD = null; toast('Perfil guardado'); NAVDIR = 'prev'; return go('/profile');
   }
   if (kind === 'pcreply') {
     if (!PCS) return; const t = (($('#pc-reply-text') || {}).value || '').trim().slice(0, PC_MAX), top = form.dataset.top, s0 = findStory(PCS.sid), all = pcAll(), k = pcKey(PCS.sid, PCS.ci, PCS.pi), parent = (all[k] || []).find(c => String(c.id) === top);
