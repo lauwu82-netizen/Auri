@@ -64,7 +64,7 @@ function applyAccent() {                                // color de la app: el t
 }
 /* --- Ajustes (se guardan por cuenta) --- */
 const APP_VERSION = '0.9 (beta)';
-const CFG_DEFAULTS = { fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], avoidWarns: [], hideDone: true, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
+const CFG_DEFAULTS = { align: 'left', fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], avoidWarns: [], hideDone: true, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
 const cfg = k => {
   const c = S.cfg || {};
   if (k === 'showMature') { const u = getUsers()[S.user]; if (isMinor(u)) return false; return c.showMature == null ? isAdult(u) : c.showMature; }   // por defecto: visible solo si ya declaraste ser mayor de edad
@@ -84,7 +84,7 @@ function loadFont(k) {                                  // carga la fuente solo 
 const fmtText = h => String(h).replace(/\*\*([^\s*](?:[^*\n]*?[^\s*])?)\*\*/g, '<strong>$1</strong>').replace(/\*([^\s*](?:[^*\n]*?[^\s*])?)\*/g, '<em>$1</em>');
 function applyReading() {                               // tamaño, interlineado y tipografía del lector, como variables CSS
   const r = document.documentElement.style; if (!r || !r.setProperty) return;
-  r.setProperty('--read-size', READ.size[cfg('fontSize')]); r.setProperty('--read-lh', READ.lh[cfg('lh')]); r.setProperty('--read-font', READ.font[cfg('font')] || READ.font.serif); loadFont(cfg('font'));
+  r.setProperty('--read-size', READ.size[cfg('fontSize')]); r.setProperty('--read-lh', READ.lh[cfg('lh')]); r.setProperty('--read-font', READ.font[cfg('font')] || READ.font.serif); loadFont(cfg('font')); r.setProperty('--read-align', cfg('align') === 'justify' ? 'justify' : 'left');
   document.documentElement.lang = uiLang();
 }
 function setCfg(k, v) { S.cfg = { ...S.cfg, [k]: v }; LS.set(uk('cfg'), S.cfg); applyReading(); if (k === 'showOnline') { LAST_ON = null; sbBeat(); } }
@@ -1998,6 +1998,15 @@ const pcKey = (sid, ci, pi) => sid + '|' + ci + '|' + pi;
 const pcAll = () => G.get('pcom', {});
 const pcPara = (sid, ci, pi) => { const s = findStory(sid), ch = s && s.chapters.find(c => c.idx === ci); return ch ? paraSplit(ch.text)[pi] : undefined; };
 const pcList = (sid, ci, pi, all = pcAll()) => { const t = pcPara(sid, ci, pi); return t === undefined ? [] : (all[pcKey(sid, ci, pi)] || []).filter(c => c.q === pQ(t)); };
+function applyAlign(kind) {                            // alinea el párrafo (o los párrafos seleccionados): se guarda como ::c  ::r  ::j al inicio
+  const ta = $('#w-ch-text'); if (!ta) return; ta.focus();
+  const v = ta.value, a = ta.selectionStart, b = ta.selectionEnd;
+  const st = (() => { const i = v.lastIndexOf('\n\n', a - 1); return i < 0 ? 0 : i + 2; })();
+  const en = (() => { const i = v.indexOf('\n\n', b); return i < 0 ? v.length : i; })();
+  const seg = v.slice(st, en).split(/(\n\s*\n)/).map((p, i) => i % 2 ? p : (p.replace(/^::[crj] /, '') ? (kind === 'left' ? '' : '::' + kind + ' ') + p.replace(/^::[crj] /, '') : p)).join('');
+  ta.setRangeText(seg, st, en, 'preserve'); ta.setSelectionRange(Math.min(a + (seg.length - (en - st)), seg.length + st), Math.min(b + (seg.length - (en - st)), seg.length + st));
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+}
 function applyFmt(kind) {
   const ta = $('#w-ch-text'); if (!ta) return; ta.focus();
   const a = ta.selectionStart, b = ta.selectionEnd, v = ta.value, m = kind === 'bold' ? '**' : '*';
@@ -2021,7 +2030,8 @@ function readerText(text, on, pc) {
   const name = S.character.name || t('Lectora'), raw = paraSplit(text), all = pc && cfg('pcom') !== 'off' ? pcAll() : null;
   return `<div class="reader-text">${(on ? fillTN(text, name) : text).split(/\n\s*\n/).map((p, i) => {
     const n = all && cfg('pcom') === 'dots' ? (all[pcKey(pc.sid, pc.ci, i)] || []).filter(c => c.q === pQ(raw[i])).length : 0;
-    return `<p${all ? ` data-pi="${i}"` : ''}>${fmtText(esc(p))}${n ? `<span class="pc-n" aria-label="${tn(n, '{n} comentario', '{n} comentarios')}">${n}</span>` : ''}</p>`; }).join('')}</div>`;
+    const am = /^::([crj]) /.exec(p);
+    return `<p${all ? ` data-pi="${i}"` : ''}${am ? ` class="al-${am[1]}"` : ''}>${fmtText(esc(am ? p.slice(4) : p))}${n ? `<span class="pc-n" aria-label="${tn(n, '{n} comentario', '{n} comentarios')}">${n}</span>` : ''}</p>`; }).join('')}</div>`;
 }
 const TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v7M14 10v7"/></svg>';
 function confirmBox(msg, onYes) {                // cuadro de confirmación propio (no usa confirm() del navegador)
@@ -2115,7 +2125,7 @@ function chapterView(cid) {
   ${chCoverBox(ch)}
   <input id="w-ch-title" class="wf-title" data-cid="${ch.id}" value="${esc(ch.title)}" placeholder="${esc(t('Título del capítulo'))}">
   <textarea id="w-ch-text" class="wf-text" data-cid="${ch.id}" placeholder="${esc(t('Érase una vez…'))}">${esc(ch.text)}</textarea>
-  <div class="fmt-bar" role="toolbar" aria-label="${esc(t('Formato del texto'))}"><button type="button" class="fmt-b" data-act="fmt" data-id="plain" aria-label="${esc(t('Texto normal'))}"><span>A</span></button><button type="button" class="fmt-b" data-act="fmt" data-id="bold" aria-label="${esc(t('Negrita'))}"><span style="font-weight:800">A</span></button><button type="button" class="fmt-b" data-act="fmt" data-id="italic" aria-label="${esc(t('Cursiva'))}"><span style="font-style:italic">A</span></button><span class="helper fmt-hint">${t('Selecciona texto o escribe para aplicar el formato')}</span></div>
+  <div class="fmt-bar" role="toolbar" aria-label="${esc(t('Formato del texto'))}"><button type="button" class="fmt-b" data-act="fmt" data-id="plain" aria-label="${esc(t('Texto normal'))}"><span>A</span></button><button type="button" class="fmt-b" data-act="fmt" data-id="bold" aria-label="${esc(t('Negrita'))}"><span style="font-weight:800">A</span></button><button type="button" class="fmt-b" data-act="fmt" data-id="italic" aria-label="${esc(t('Cursiva'))}"><span style="font-style:italic">A</span></button><span class="fmt-sep" aria-hidden="true"></span>${[['left', 'Alinear a la izquierda', '<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>'], ['c', 'Centrar', '<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>'], ['r', 'Alinear a la derecha', '<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>'], ['j', 'Justificar', '<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>']].map(a => `<button type="button" class="fmt-b fmt-al" data-act="align" data-id="${a[0]}" aria-label="${esc(t(a[1]))}" title="${esc(t(a[1]))}"><svg viewBox="0 0 24 24" aria-hidden="true">${a[2]}</svg></button>`).join('')}<span class="helper fmt-hint">${t('Selecciona texto o escribe para aplicar el formato')}</span></div>
   <footer class="wf-bottom"><details class="wf-music" ${ch.music ? 'open' : ''}><summary class="helper" style="cursor:pointer">🎵 ${t('Canción del capítulo (opcional)')}</summary><input id="w-ch-music" class="field" style="margin-top:8px" value="${esc(ch.music || '')}" placeholder="${esc(t('Enlace de YouTube, Spotify o un .mp3'))}"><span class="helper">${t('Quien lee decide si la reproduce. Se revisa junto con el capítulo.')} ${t('Cada capítulo tiene su propio enlace: la música se detiene al pasar al siguiente capítulo.')}</span></details>
   <div class="wf-actions"><span class="helper" id="w-count">${wc(ch.text)}</span><span class="wf-btns">${before ? `<button type="button" class="button ghost sm" data-act="ch-go" data-cid="${before.id}">‹ ${t('Cap. {n}', { n: i })}</button>` : ''}<button class="button secondary sm" data-act="save-draft">💾 ${t('Guardar borrador')}</button>${after ? `<button type="button" class="button sm" data-act="ch-go" data-cid="${after.id}">${t('Cap. {n}', { n: i + 2 })} ›</button>` : `<button type="button" class="button sm" data-act="ch-add">＋ ${t('Cap. {n}', { n: n + 1 })}</button>`}</span></div></footer></div>`;
 }
@@ -2475,7 +2485,7 @@ function modChapterView(id, cid) {
   return `<main class="page story-layout"><div class="set-head"><a class="icon-btn" href="${bk}" data-dir="prev" aria-label="${esc(t('Volver'))}">‹</a><h2>${t('Cap. {n}', { n: i + 1 })} · ${esc(s.title)}</h2></div>
   <p class="story-meta">${t('por {a}', { a: esc(s.author) })}${c.live ? ' · ' + t('versión editada') : ''}</p>
   ${st === 'flag' ? aiNote(c.ai) : `<div class="ai-note ${st === 'ok' ? 'ok' : ''}"><b>${st === 'ok' ? t('La IA no encontró problemas en este capítulo.') : t('La IA todavía no revisó este capítulo (o la revisión falló). Revísalo tú.')}</b></div>`}
-  <article class="panel mod-read">${chHero(c, 'mod-cover')}<h2 class="serif" style="margin:0 0 10px">${esc(c.title)}</h2><div class="mod-text">${fmtText(esc(c.text))}</div>${c.music ? `<p class="helper" style="margin-top:10px">🎵 ${t('Canción')}: ${musicEmbed(c.music) ? `<a href="${esc(c.music)}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline">${esc(c.music)}</a>` : esc(c.music) + ' (' + t('enlace no válido') + ')'}</p>` : ''}</article>
+  <article class="panel mod-read">${chHero(c, 'mod-cover')}<h2 class="serif" style="margin:0 0 10px">${esc(c.title)}</h2><div class="mod-text">${fmtText(esc(String(c.text || '').replace(/^::[crj] /gm, '')))}</div>${c.music ? `<p class="helper" style="margin-top:10px">🎵 ${t('Canción')}: ${musicEmbed(c.music) ? `<a href="${esc(c.music)}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline">${esc(c.music)}</a>` : esc(c.music) + ' (' + t('enlace no válido') + ')'}</p>` : ''}</article>
   <div class="panel mod-decide"><textarea id="rej-${esc(s.id)}-${c.id}" class="textarea" style="min-height:70px" placeholder="${esc(t('Motivo del rechazo (obligatorio para rechazar)'))}"></textarea>
   <div class="mod-actions"><button class="button" data-act="approve" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}" ${ok ? '' : 'disabled'}>${t('✓ Aprobar')}</button><button class="button danger" data-act="reject" data-id="${esc(s.id)}" data-owner="${esc(s.owner)}" data-cid="${c.id}">${t('✕ Rechazar')}</button></div>
   ${ok ? '' : `<p class="helper" style="margin-top:8px">${t('Aprueba antes el capítulo {n} para poder aprobar este.', { n: i })}</p>`}</div></main>`;
@@ -2859,6 +2869,7 @@ function settingsView(secId) {
       <div class="set-row"><span>${t('Idioma')}</span><select class="select set-lang" aria-label="${esc(t('Idioma'))}"><option value="auto" ${uiSetting() === 'auto' ? 'selected' : ''}>${t('Automático')}</option><option value="es" ${uiSetting() === 'es' ? 'selected' : ''}>${t('Español')}</option><option value="en" ${uiSetting() === 'en' ? 'selected' : ''}>${t('English')}</option></select></div></section>` },
     lectura: { ico: '📖', c: '#3e8fd0', t: 'Lectura', sub: `${t('Letra ' + ({ sm: 'pequeña', md: 'normal', lg: 'grande' })[cfg('fontSize')])} · ${t((FONTS.find(f => f[0] === cfg('font')) || FONTS[0])[1])}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tamaño de letra')}</span>${seg('fontSize', [['sm', 'Pequeña'], ['md', 'Normal'], ['lg', 'Grande']], cfg('fontSize'))}</div>
       <div class="set-col"><span>${t('Tipografía')}</span><div class="font-grid">${(FONTS.forEach(f => loadFont(f[0])), FONTS).map(f => `<button type="button" class="font-opt ${cfg('font') === f[0] ? 'on' : ''}" data-act="cfg" data-k="font" data-v="${f[0]}" style="font-family:${READ.font[f[0]]}" aria-pressed="${cfg('font') === f[0]}"><b>Aa</b><span>${esc(t(f[1]))}</span></button>`).join('')}</div></div>
+      <div class="set-row"><span>${t('Alineación del texto')}</span>${seg('align', [['left', 'Izquierda'], ['justify', 'Justificado']], cfg('align'))}</div>
       <div class="set-row"><span>${t('Interlineado')}</span>${seg('lh', [['compact', 'Compacto'], ['normal', 'Normal'], ['relaxed', 'Amplio']], cfg('lh'))}</div>
       <div class="set-row"><span>${t('Comentarios en párrafos')}</span>${seg('pcom', [['tap', 'Al tocar'], ['dots', 'Con contador'], ['off', 'Desactivados']], cfg('pcom'))}</div>
       <p class="helper" style="margin:0 0 6px">${t('«Al tocar» deja la lectura limpia: toca un párrafo y aparece «Comentar». «Con contador» muestra un número discreto en los párrafos que tienen comentarios.')}</p>
@@ -4007,6 +4018,7 @@ document.addEventListener('click', e => {
     'ep-halo': () => { if (roleOf(S.user) !== 'OWNER') return; const us = getUsers(); us[S.user].halo = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
     'avoid-add': () => avoidAdd(), 'avoid-del': () => { setCfg('avoidTags', avoidList().filter(x => x !== tagKey(id))); KEEP = true; render(); }, 'theme-colors': () => openThemes(), 'mod-order': () => { setCfg('modShuffle', cfg('modShuffle') === false); KEEP = true; render(); }, 'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
     'fmt': () => applyFmt(id),
+    'align': () => applyAlign(id),
     'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
     preview: () => { collect(); WPREVIEW = true; render(); }, 'back-edit': () => { WPREVIEW = false; render(); },

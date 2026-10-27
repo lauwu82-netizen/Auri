@@ -1620,3 +1620,10 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .ep2 .ep-row{background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:20px;padding:14px 16px;box-shadow:0 6px 18px hsl(var(--primary)/.06)}
 .ep-sw{padding:4px 16px}.ep-sw .toggle-line:first-child{border-top:0}
 .ep-actions{display:grid;grid-template-columns:1.3fr 1fr;gap:10px;margin:14px 0 20px}.ep-actions .button{width:100%;padding:13px}
+
+/* 53. Alineación del texto */
+.reader-text p{text-align:var(--read-align,left)}.reader-text p{hyphens:auto;-webkit-hyphens:auto}
+.reader-text p.al-c{text-align:center}.reader-text p.al-r{text-align:right}.reader-text p.al-j{text-align:justify}
+.fmt-sep{width:1px;height:22px;background:hsl(var(--border));margin:0 2px}
+.fmt-al svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.fmt-bar{overflow-x:auto;scrollbar-width:none}.fmt-bar::-webkit-scrollbar{display:none}.fmt-b{flex:none}

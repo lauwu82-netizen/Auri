@@ -1674,4 +1674,10 @@ window.I18N = { en: {
   "Forma de la foto": "Photo shape",
   "Solo tú las tienes por ahora. Elige cómo se ve tu foto de perfil.": "Only you have these for now. Choose how your profile photo looks.",
   "Privacidad": "Privacy",
+  "Alineación del texto": "Text alignment",
+  "Izquierda": "Left",
+  "Justificado": "Justified",
+  "Alinear a la izquierda": "Align left",
+  "Alinear a la derecha": "Align right",
+  "Justificar": "Justify",
 } };
