@@ -3131,11 +3131,24 @@ function statsView() {
     ${b.worst > 0 && b.drop > 0 ? `<p class="helper">${tn(b.drop, 'La mayor caída es entre el capítulo {a} y el {b}: {n} lector menos. Quizá valga la pena revisar ese tramo.', 'La mayor caída es entre el capítulo {a} y el {b}: {n} lectores menos. Quizá valga la pena revisar ese tramo.', { a: b.worst, b: b.worst + 1 })}</p>` : ''}</section>`; }).join('')}
   <p class="notice">${t('Por ahora se cuentan solo las cuentas de este dispositivo. Con el servidor se sumarán todas las lecturas.')}</p></main>`;
 }
+function bioFit() {                                      // biografía larga: 3 líneas con «… Ver más» al final del texto; abierta: todo + «Ver menos»
+  document.querySelectorAll('.pf-bio[data-full]').forEach(p => {
+    const full = p.dataset.full, open = p.closest('.pf-bio-box').classList.contains('open');
+    const put = (txt, label) => { p.textContent = txt; if (label) { const b = document.createElement('button'); b.type = 'button'; b.className = 'pf-bio-more'; b.dataset.act = 'bio-more'; b.textContent = t(label); p.appendChild(b); } };
+    if (open) return put(full + ' ', 'Ver menos');
+    const lh = parseFloat(getComputedStyle(p).lineHeight) || 22, max = lh * 3 + 3;
+    put(full, ''); if (p.scrollHeight <= max) return;
+    let lo = 0, hi = full.length;
+    while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); put(full.slice(0, mid).replace(/[.,;:\s]+$/, '') + '… ', 'Ver más'); if (p.scrollHeight <= max) lo = mid; else hi = mid - 1; }
+    put(full.slice(0, lo).replace(/[.,;:\s]+$/, '') + '… ', 'Ver más');
+  });
+}
+window.addEventListener('resize', () => bioFit());
 const bioBlock = (e, u, own) => {                         // biografía: bloque suave bajo las cifras, con "Ver más" si es larga
   const b = String(u.bio || '').trim();
   if (!b) return own ? `<a class="pf-bio-add" href="#/profile/edit" data-dir="next">${t('Añadir una biografía')}</a>` : '';
   const long = b.length > 150 || (b.match(/\n/g) || []).length >= 3;
-  return `<section class="pf-bio-box ${long ? 'clamp' : ''}" aria-label="${esc(t('Biografía'))}"><p class="pf-bio">${esc(b)}</p>${long ? `<button type="button" class="pf-bio-more" data-act="bio-more" aria-expanded="false">${t('Ver más')}</button>` : ''}</section>`;
+  return `<section class="pf-bio-box" aria-label="${esc(t('Biografía'))}"><p class="pf-bio" ${long ? `data-full="${esc(b)}"` : ''}>${long ? '' : esc(b)}</p></section>`;
 };
 function profileView() {
   const u = getUsers()[S.user] || {}, works = S.stories.filter(s => storyState(s) !== 'draft').map(s => ({ ...s, owner: S.user, author: u.name }));
@@ -3828,7 +3841,7 @@ function render() {
     if (nx && b === MUSIC.sid && nx.music && nx.music === MUSIC.url) MUSIC.ch = String(c); else closeMusic(); }
   if (HLC) { const hid = HLC; HLC = ''; const cm0 = comments(b).find(x => String(x.id) === hid); if (cm0) { setTimeout(() => { const el = document.getElementById('cm-' + hid); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('cm-hl'); setTimeout(() => el.classList.remove('cm-hl'), 3200); } }, 120); } else toast(t('Ese comentario ya no está.')); }
   else if (!KEEP) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); }
-  bmApply(false); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
+  bmApply(false); bioFit(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
   if (nav && a === 'story' && c && c !== 'fin') pcHintOnce();
   if (S.user) { showModOverlay(); showGiftOverlay(); }                                      // moderador/a sin marco puesto: el aviso reaparece hasta que se lo ponga
@@ -4128,7 +4141,7 @@ document.addEventListener('click', e => {
     'align': () => applyAlign(id),
     'scene-sep': () => insertSep(),
     'mbti': () => openMbti(),
-    'bio-more': () => { const bx = el.closest('.pf-bio-box'); const on = bx.classList.toggle('open'); el.textContent = t(on ? 'Ver menos' : 'Ver más'); el.setAttribute('aria-expanded', String(on)); },
+    'bio-more': () => { el.closest('.pf-bio-box').classList.toggle('open'); bioFit(); },
     'sep-lock': () => toast('Este diseño estará disponible pronto en la tienda.'),
     'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
