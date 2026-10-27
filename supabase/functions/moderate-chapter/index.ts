@@ -19,7 +19,7 @@ export const MODEL = 'omni-moderation-latest';
 
 /** Umbrales (0 a 1): si la IA da un puntaje igual o mayor, el capítulo se marca para revisión humana */
 export const T_GENERAL: Record<string, number> = {          // libros SIN marca +18
-  'sexual': 0.08, 'sexual/minors': 0.1, 'violence': 0.85, 'violence/graphic': 0.3,
+  'sexual': 0.35, 'sexual/minors': 0.1, 'violence': 0.85, 'violence/graphic': 0.3,
   'self-harm': 0.6, 'self-harm/intent': 0.5, 'self-harm/instructions': 0.3,
   'hate': 0.6, 'hate/threatening': 0.4, 'harassment/threatening': 0.6, 'illicit/violent': 0.6,
 };
