@@ -1687,7 +1687,8 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .bm-menu button+button{border-left:1px solid hsl(var(--border))}
 
 /* 57. MBTI */
-.mbti-chip{display:inline-block;margin:8px 0 0 6px;vertical-align:middle;padding:5px 14px 5px;border-radius:12px;font:700 12.5px var(--sans);letter-spacing:.14em;color:var(--title);border:1px solid color-mix(in srgb,var(--mb) 45%,transparent);background:linear-gradient(180deg,transparent 0%,color-mix(in srgb,var(--mb) 22%,transparent) 55%,color-mix(in srgb,var(--mb) 52%,transparent) 100%)}
+.pf-tags{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.pf-tags .role-tag{margin:0}
+.mbti-chip{display:inline-block;margin:0;vertical-align:middle;padding:4px 12px;border-radius:999px;font:700 12.5px var(--sans);letter-spacing:.14em;color:var(--title);border:1px solid color-mix(in srgb,var(--mb) 45%,transparent);background:linear-gradient(180deg,transparent 0%,color-mix(in srgb,var(--mb) 22%,transparent) 55%,color-mix(in srgb,var(--mb) 52%,transparent) 100%)}
 .mb-row{margin-top:12px}.mb-g{display:block;font:700 11px var(--sans);letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px}
 .mb-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .mb-opt{padding:11px 0 10px;border-radius:13px;font:700 13px var(--sans);letter-spacing:.08em;color:var(--title);border:1.5px solid color-mix(in srgb,var(--mb) 40%,transparent);background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--mb) 28%,transparent))}
