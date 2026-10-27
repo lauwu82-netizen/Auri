@@ -64,7 +64,7 @@ function applyAccent() {                                // color de la app: el t
 }
 /* --- Ajustes (se guardan por cuenta) --- */
 const APP_VERSION = '0.9 (beta)';
-const CFG_DEFAULTS = { align: 'left', rbg: 'auto', dropcap: true, fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], avoidWarns: [], hideDone: true, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
+const CFG_DEFAULTS = { align: 'left', sepStyle: 'classic', rbg: 'auto', dropcap: true, fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], avoidWarns: [], hideDone: true, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
 const cfg = k => {
   const c = S.cfg || {};
   if (k === 'showMature') { const u = getUsers()[S.user]; if (isMinor(u)) return false; return c.showMature == null ? isAdult(u) : c.showMature; }   // por defecto: visible solo si ya declaraste ser mayor de edad
@@ -1530,7 +1530,8 @@ function shell(path, html) {
 }
 const empty = (title, copy, action = '') => `<div class="empty">${mascot()}<h3>${esc(t(title))}</h3><p>${esc(t(copy))}</p>${action}</div>`;
 const badgeText = s => { const st = storyState(s), p = s.chapters.filter(c => c.status === 'pending').length; return st !== 'published' ? t(STATUS[st]) : p ? t('{n} cap. en revisión', { n: p }) : ''; };
-const coverHTML = (s, i) => `<div class="cover c${(i % 5) + 1}">${s.cover ? `<img class="cover-img" src="${esc(s.cover)}" alt="${esc(t('Portada de {title}', { title: s.title }))}" loading="lazy">` : `<span class="cover-title">${esc(s.title || t('Sin título'))}</span>`}</div>`;
+const bmRib = s => bmOf(s.id) ? '<span class="bm-rib" aria-hidden="true"></span>' : '';
+const coverHTML = (s, i) => `<div class="cover c${(i % 5) + 1}">${bmRib(s)}${s.cover ? `<img class="cover-img" src="${esc(s.cover)}" alt="${esc(t('Portada de {title}', { title: s.title }))}" loading="lazy">` : `<span class="cover-title">${esc(s.title || t('Sin título'))}</span>`}</div>`;
 
 /* --- Auth --- */
 function authView(mode) {
@@ -2037,9 +2038,9 @@ function readerText(text, on, pc) {
   const name = S.character.name || t('Lectora'), raw = paraSplit(text), all = pc && cfg('pcom') !== 'off' ? pcAll() : null;
   return `<div class="reader-text">${(on ? fillTN(text, name) : text).split(/\n\s*\n/).map((p, i) => {
     const n = all && cfg('pcom') === 'dots' ? (all[pcKey(pc.sid, pc.ci, i)] || []).filter(c => c.q === pQ(raw[i])).length : 0;
-    if (/^\s*::sep\s*$/.test(p)) return '<div class="scene-sep" role="separator" aria-hidden="true"><i></i><b></b><i></i></div>';
+    if (/^\s*::sep\s*$/.test(p)) return sepHTML('scene-sep');
     const am = /^::([crj]) /.exec(p);
-    return `<p${all ? ` data-pi="${i}"` : ''}${am ? ` class="al-${am[1]}"` : ''}>${fmtText(esc(am ? p.slice(4) : p))}${n ? `<span class="pc-n" aria-label="${tn(n, '{n} comentario', '{n} comentarios')}">${n}</span>` : ''}</p>`; }).join('')}</div>`;
+    return `<p data-bi="${i}"${all ? ` data-pi="${i}"` : ''}${am ? ` class="al-${am[1]}"` : ''}>${fmtText(esc(am ? p.slice(4) : p))}${n ? `<span class="pc-n" aria-label="${tn(n, '{n} comentario', '{n} comentarios')}">${n}</span>` : ''}</p>`; }).join('')}</div>`;
 }
 const TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v7M14 10v7"/></svg>';
 function confirmBox(msg, onYes) {                // cuadro de confirmación propio (no usa confirm() del navegador)
@@ -2116,7 +2117,17 @@ function chaptersView() {
 }
 
 const safeImg = u => typeof u === 'string' && (/^data:image\//.test(u) || isStoreUrl(u));
-const chHead = (num, title) => { const plain = /^\s*cap[ií]tulo\s*\d+\s*$/i.test(title || '') || !(title || '').trim(); return `<div class="ch-head">${plain ? '' : `<span class="ch-no">${t('Capítulo {n}', { n: num })}</span>`}<h1 class="rf-h">${esc(plain ? (title || '').trim() || t('Capítulo {n}', { n: num }) : title)}</h1><div class="orn" aria-hidden="true"><i></i><b></b><i></i></div></div>`; };
+const SEPS = { classic: ['Clásico', 'free', '<rect x="17" y="7" width="10" height="10" rx="2" transform="rotate(45 22 12)"/><circle cx="8" cy="12" r="1.8" opacity=".45"/><circle cx="36" cy="12" r="1.8" opacity=".45"/>'],
+  dots: ['Puntos', 'free', '<circle cx="8" cy="12" r="2.4" opacity=".55"/><circle cx="22" cy="12" r="2.8"/><circle cx="36" cy="12" r="2.4" opacity=".55"/>'],
+  moon: ['Luna y estrellas', 'shop', '<path d="M22 2a10 10 0 1 0 0 20a13 13 0 0 1 0-20z"/><circle cx="35" cy="7" r="1.6" opacity=".6"/><circle cx="9" cy="15" r="1.2" opacity=".5"/>'],
+  leaves: ['Hojas', 'shop', '<path d="M22 2c-8 4-9 13 0 20c9-7 8-16 0-20z"/><path d="M22 6v14" stroke="#fff" stroke-opacity=".55" stroke-width="1" fill="none"/><circle cx="8" cy="13" r="1.4" opacity=".45"/><circle cx="36" cy="13" r="1.4" opacity=".45"/>'],
+  paws: ['Huellitas', 'shop', '<g><ellipse cx="11" cy="15.5" rx="4" ry="3.2"/><circle cx="6" cy="9.6" r="1.7"/><circle cx="11" cy="7.6" r="1.7"/><circle cx="16" cy="9.6" r="1.7"/></g><g><ellipse cx="33" cy="15.5" rx="4" ry="3.2"/><circle cx="28" cy="9.6" r="1.7"/><circle cx="33" cy="7.6" r="1.7"/><circle cx="38" cy="9.6" r="1.7"/></g>'],
+  bow: ['Moño', 'pass', '<path d="M22 12c-5-8-15-6-12 1c3 5 12 0 12-1zM22 12c5-8 15-6 12 1c-3 5-12 0-12-1z"/><circle cx="22" cy="12" r="3"/>'] };
+const sepOK = k => !SEPS[k] ? false : SEPS[k][1] === 'free' || isStaff(S.user);      // los de tienda/pase se desbloquean con compra (por ahora solo el equipo los ve)
+const sepKey = () => sepOK(cfg('sepStyle')) ? cfg('sepStyle') : 'classic';
+const sepSvg = k => `<svg viewBox="0 0 44 24" aria-hidden="true" fill="currentColor">${SEPS[k][2]}</svg>`;
+const sepHTML = (cls, k = sepKey()) => `<div class="${cls} sp-${k}" aria-hidden="true"><i></i><span class="sp-mid">${sepSvg(k)}</span><i></i></div>`;
+const chHead = (num, title) => { const plain = /^\s*cap[ií]tulo\s*\d+\s*$/i.test(title || '') || !(title || '').trim(); return `<div class="ch-head">${plain ? '' : `<span class="ch-no">${t('Capítulo {n}', { n: num })}</span>`}<h1 class="rf-h">${esc(plain ? (title || '').trim() || t('Capítulo {n}', { n: num }) : title)}</h1>${sepHTML('orn')}</div>`; };
 const chHero = (c, cls = 'ch-hero') => safeImg(c.cover) ? `<img class="${cls}" src="${esc(c.cover)}" alt="${esc(t('Portada del capítulo'))}">` : '';
 const chCoverBox = ch => `<div class="chc-box">${safeImg(ch.cover)
   ? `<div class="chc-prev"><img src="${esc(ch.cover)}" alt="${esc(t('Portada del capítulo'))}"><label class="button secondary sm chc-change">${t('Cambiar')}<input id="chc-file" type="file" accept="image/*" hidden></label><button type="button" class="icon-btn chc-x" data-act="chc-clear" aria-label="${esc(t('Quitar portada del capítulo'))}">✕</button></div>`
@@ -2880,6 +2891,7 @@ function settingsView(secId) {
     lectura: { ico: '📖', c: '#3e8fd0', t: 'Lectura', sub: `${t('Letra ' + ({ sm: 'pequeña', md: 'normal', lg: 'grande' })[cfg('fontSize')])} · ${t((FONTS.find(f => f[0] === cfg('font')) || FONTS[0])[1])}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tamaño de letra')}</span>${seg('fontSize', [['sm', 'Pequeña'], ['md', 'Normal'], ['lg', 'Grande']], cfg('fontSize'))}</div>
       <div class="set-col"><span>${t('Tipografía')}</span><div class="font-grid">${(FONTS.forEach(f => loadFont(f[0])), FONTS).map(f => `<button type="button" class="font-opt ${cfg('font') === f[0] ? 'on' : ''}" data-act="cfg" data-k="font" data-v="${f[0]}" style="font-family:${READ.font[f[0]]}" aria-pressed="${cfg('font') === f[0]}"><b>Aa</b><span>${esc(t(f[1]))}</span></button>`).join('')}</div></div>
       <div class="set-col"><span>${t('Fondo de lectura')}</span><div class="rbg-grid">${[['auto', 'Del tema'], ['cream', 'Crema'], ['sepia', 'Sepia'], ['night', 'Noche'], ['paper', 'Papel']].map(b => `<button type="button" class="rbg-opt ${cfg('rbg') === b[0] ? 'on' : ''}" data-act="cfg" data-k="rbg" data-v="${b[0]}" data-rbg="${b[0]}" aria-pressed="${cfg('rbg') === b[0]}"><span class="rbg-sw"></span>${t(b[1])}</button>`).join('')}</div></div>
+      <div class="set-col"><span>${t('Separador de escena')}</span><div class="sep-prev">${sepHTML('scene-sep')}</div><div class="sep-grid">${Object.entries(SEPS).map(([k, v]) => `<button type="button" class="sep-opt ${sepKey() === k ? 'on' : ''} ${sepOK(k) ? '' : 'lock'}" ${sepOK(k) ? `data-act="cfg" data-k="sepStyle" data-v="${k}"` : 'data-act="sep-lock"'} aria-pressed="${sepKey() === k}">${sepHTML('sep-mini', k)}<span>${t(v[0])}</span><em>${t(v[1] === 'free' ? 'Gratis' : v[1] === 'shop' ? 'Tienda' : 'Pase')}</em></button>`).join('')}</div></div>
       ${sw('dropcap', cfg('dropcap'), 'Letra capital', 'La primera letra de cada capítulo se ve grande y decorada.')}
       <div class="set-row"><span>${t('Alineación del texto')}</span>${seg('align', [['left', 'Izquierda'], ['justify', 'Justificado']], cfg('align'))}</div>
       <div class="set-row"><span>${t('Interlineado')}</span>${seg('lh', [['compact', 'Compacto'], ['normal', 'Normal'], ['relaxed', 'Amplio']], cfg('lh'))}</div>
@@ -2988,7 +3000,7 @@ function libRow(s, i) {                           // fila de la biblioteca / col
     : p.finished ? `<button class="button secondary sm" data-act="lib-del" data-id="${id}">${t('🗑️ Borrar de la biblioteca')}</button><button class="button sm" data-act="col-add" data-id="${id}">${t('⭐ Guardar en colecciones')}</button>`
     : `<button class="icon-btn" data-act="lib-del" data-id="${id}" aria-label="${esc(t('Quitar de la biblioteca'))}" title="${esc(t('Quitar de la biblioteca'))}">🗑</button>`;
   return `<article class="row-card">${coverHTML(s, i)}<div class="row-info"><a href="#/story/${id}"><strong class="serif">${esc(s.title)}</strong></a>
-    <div class="story-meta">${esc(s.author || '')} · <span class="pill ph-${ph}">${t(PHASE[ph])}</span></div><div class="pbar"><i data-key="b-${esc(s.id)}" data-w="${p.pct}" style="width:${p.pct}%"></i></div>
+    <div class="story-meta">${esc(s.author || '')} · <span class="pill ph-${ph}">${t(PHASE[ph])}</span></div><div class="pbar"><i data-key="b-${esc(s.id)}" data-w="${p.pct}" style="width:${p.pct}%"></i></div>${bmOf(s.id) ? `<a class="pill bm-pill" href="#/story/${id}/${bmOf(s.id).idx + 1}">${t('Seguir en cap. {n}', { n: bmOf(s.id).idx + 1 })}</a>` : ''}
     <div class="story-meta"><b class="plabel ${p.finished ? 'done' : p.caught ? 'caught' : ''}">${t(p.label)}</b>${!p.caught && p.done ? ` · ${t('{n} por leer', { n: p.left })}` : ''} · ${t('{d}/{n} cap.', { d: p.done, n: p.total })}</div>
     ${p.caught && !p.finished && TAB === 'lib' ? `<p class="notice">${esc(moreNotice(s, true))}</p>` : ''}
     <div class="card-footer" style="justify-content:flex-start;flex-wrap:wrap"><a class="button secondary sm" href="#/story/${id}">${t('Abrir')}</a>${acts}</div></div></article>`;
@@ -3572,16 +3584,53 @@ function readAs(path) {
   const on = m.querySelector('.ra-card.active'); if (on && on.scrollIntoView) on.scrollIntoView({ inline: 'center', block: 'nearest' });
 }
 
+/* Separador de lectura: mantén presionada una palabra y queda guardada (una por libro). Al volver, el libro se abre en esa palabra. */
+const bmOf = sid => { const p = (S.pos || {})[sid]; return p && p.mk ? p.mk : null; };
+function bmWordAt(x, y) {                               // palabra bajo el dedo: { p, pi, w, node, a, b }
+  let node, off; if (document.caretPositionFromPoint) { const c = document.caretPositionFromPoint(x, y); if (c) { node = c.offsetNode; off = c.offset; } } else if (document.caretRangeFromPoint) { const c = document.caretRangeFromPoint(x, y); if (c) { node = c.startContainer; off = c.startOffset; } }
+  if (!node || node.nodeType !== 3) return null; const p = node.parentElement && node.parentElement.closest('.rf .reader-text p[data-bi]'); if (!p) return null;
+  const tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest('.pc-n') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT }); let n, pos = 0, at = -1;
+  let txt = ''; while ((n = tw.nextNode())) { if (n === node) at = pos + off; pos += n.nodeValue.length; txt += n.nodeValue; }
+  if (at < 0) return null; let w = -1, m, re = /\S+/g, wi = 0;
+  while ((m = re.exec(txt))) { if (at >= m.index && at <= m.index + m[0].length) { w = wi; break; } wi++; }
+  return w < 0 ? null : { p, pi: +p.dataset.bi, w };
+}
+function bmApply(scroll) {                              // dibuja la cinta y subraya la palabra guardada (si está en este capítulo)
+  document.querySelectorAll('.bm-word').forEach(e => { const par = e.parentNode; while (e.firstChild) par.insertBefore(e.firstChild, e); e.remove(); par.normalize(); });
+  document.querySelectorAll('.bm-p').forEach(e => e.classList.remove('bm-p'));
+  const m = location.hash.match(/^#\/story\/([^/]+)\/(\d+)/); if (!m) return false; const mk = bmOf(m[1]); if (!mk || mk.idx !== +m[2] - 1) return false;
+  const p = document.querySelector('.rf .reader-text p[data-bi="' + mk.pi + '"]'); if (!p) return false; p.classList.add('bm-p');
+  const tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest('.pc-n') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT }); let n, pos = 0, wi = 0, target = null;
+  while ((n = tw.nextNode()) && !target) { const re = /\S+/g; let q; while ((q = re.exec(n.nodeValue))) { if (wi === mk.w) { target = { n, a: q.index, b: q.index + q[0].length }; break; } wi++; } }
+  if (target) { try { const rg = document.createRange(); rg.setStart(target.n, target.a); rg.setEnd(target.n, target.b); const sp = document.createElement('span'); sp.className = 'bm-word'; rg.surroundContents(sp); } catch (e) { /* queda marcado el párrafo */ } }
+  if (scroll) (p.querySelector('.bm-word') || p).scrollIntoView({ block: 'center', behavior: 'auto' });
+  return true;
+}
+function bmSet(sid, idx, hit) {
+  const old = (S.pos || {})[sid] || { idx, pct: 0 }, cur = old.mk;
+  if (cur && cur.idx === idx && cur.pi === hit.pi && cur.w === hit.w) { const { mk, ...rest } = old; S.pos = { ...S.pos, [sid]: rest }; LS.set(uk('pos'), S.pos); bmApply(); return toast('Separador quitado'); }
+  S.pos = { ...S.pos, [sid]: { ...old, mk: { idx, pi: hit.pi, w: hit.w } } }; LS.set(uk('pos'), S.pos); bmApply(); if (navigator.vibrate) navigator.vibrate(12); toast('Separador puesto aquí');
+}
+let BMT = null;
+document.addEventListener('pointerdown', e => {
+  const p = e.target.closest && e.target.closest('.rf .reader-text p[data-bi]'); if (!p || e.target.closest('[data-act]')) return;
+  const m = location.hash.match(/^#\/story\/([^/]+)\/(\d+)/); if (!m) return; const x = e.clientX, y = e.clientY; clearTimeout(BMT);
+  BMT = setTimeout(() => { BMT = null; const hit = bmWordAt(x, y); if (!hit) return; const sel = window.getSelection && window.getSelection(); if (sel) sel.removeAllRanges(); BMHOLD = Date.now(); bmSet(m[1], +m[2] - 1, hit); }, 520);
+}, { passive: true });
+let BMHOLD = 0;
+['pointerup', 'pointercancel', 'scroll', 'touchmove'].forEach(ev => document.addEventListener(ev, () => { clearTimeout(BMT); BMT = null; }, { passive: true, capture: true }));
+document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('.rf .reader-text')) e.preventDefault(); });
 /* 6. ROUTER ------------------------------------------------------- */
 const go = p => { location.hash = '#' + p; if (location.hash === '#' + p) render(); };
 const goReplace = p => { if (location.replace) location.replace('#' + p); else location.hash = '#' + p; };   // no apila historial: "atrás" sale del libro
 /* Progreso de lectura: capítulo + posición de scroll por historia */
 const scrollPct = () => { const de = document.documentElement, max = Math.max(1, (de.scrollHeight || 0) - (window.innerHeight || 0)); return Math.min(1, Math.max(0, (window.scrollY || 0) / max)); };
 let VISIT = null, HLC = '';                            // VISIT: vienes de un aviso a un comentario de un capítulo anterior: el progreso no retrocede
-function savePos(sid, idx, pct) { if (VISIT && VISIT.sid === sid && VISIT.pos && idx < VISIT.pos.idx) return; S.pos = { ...S.pos, [sid]: { idx, pct } }; LS.set(uk('pos'), S.pos); }
+function savePos(sid, idx, pct) { if (VISIT && VISIT.sid === sid && VISIT.pos && idx < VISIT.pos.idx) return; const old = (S.pos || {})[sid]; S.pos = { ...S.pos, [sid]: { idx, pct, ...(old && old.mk ? { mk: old.mk } : {}) } }; LS.set(uk('pos'), S.pos); }
 const saveReadPos = (sid, idx) => savePos(sid, idx, scrollPct());
 function restoreReadPos(sid, idx) {
   const p = (S.pos || {})[sid];
+  if (p && p.mk && p.mk.idx === idx) { setTimeout(() => { const w = bmApply(true); if (!w) { const de = document.documentElement; if (p.idx === idx && p.pct > 0.02) window.scrollTo(0, p.pct * Math.max(1, (de.scrollHeight || 0) - (window.innerHeight || 0))); } }, 60); return; }
   if (p && p.idx === idx && p.pct > 0.02) setTimeout(() => { const de = document.documentElement; window.scrollTo(0, p.pct * Math.max(1, (de.scrollHeight || 0) - (window.innerHeight || 0))); }, 40);
 }
 function autoGrow() {                                  // el cuadro crece con el texto; se conserva el scroll para que la pantalla no salte
@@ -3734,7 +3783,7 @@ function render() {
     if (nx && b === MUSIC.sid && nx.music && nx.music === MUSIC.url) MUSIC.ch = String(c); else closeMusic(); }
   if (HLC) { const hid = HLC; HLC = ''; const cm0 = comments(b).find(x => String(x.id) === hid); if (cm0) { setTimeout(() => { const el = document.getElementById('cm-' + hid); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('cm-hl'); setTimeout(() => el.classList.remove('cm-hl'), 3200); } }, 120); } else toast(t('Ese comentario ya no está.')); }
   else if (!KEEP) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); }
-  KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
+  bmApply(false); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
   if (nav && a === 'story' && c && c !== 'fin') pcHintOnce();
   if (S.user) { showModOverlay(); showGiftOverlay(); }                                      // moderador/a sin marco puesto: el aviso reaparece hasta que se lo ponga
@@ -3810,6 +3859,7 @@ document.addEventListener('click', e => {
   const rl = e.target.closest('a[data-replace]');
   if (rl) { e.preventDefault(); goReplace(rl.getAttribute('href').slice(1)); return; }
   const pp = e.target.closest('.rf .reader-text p[data-pi]');                     // tocar un párrafo al leer
+  if (pp && Date.now() - BMHOLD < 700) return;                                       // el toque que suelta un separador no abre «Comentar»
   if (pp && !e.target.closest('[data-act]')) { pcTap(pp); return; }
   if (!e.target.closest('[data-act]')) pcClear();
   const el = e.target.closest('[data-act]'); if (!el) return;
@@ -4032,6 +4082,7 @@ document.addEventListener('click', e => {
     'fmt': () => applyFmt(id),
     'align': () => applyAlign(id),
     'scene-sep': () => insertSep(),
+    'sep-lock': () => toast('Este diseño estará disponible pronto en la tienda.'),
     'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
     preview: () => { collect(); WPREVIEW = true; render(); }, 'back-edit': () => { WPREVIEW = false; render(); },
