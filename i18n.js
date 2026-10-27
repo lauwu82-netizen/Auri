@@ -1680,4 +1680,6 @@ window.I18N = { en: {
   "Alinear a la izquierda": "Align left",
   "Alinear a la derecha": "Align right",
   "Justificar": "Justify",
+  "Contenido para adultos": "Adult content",
+  "Esta historia es solo para mayores de 18 años.": "This story is for readers 18 and over.",
 } };

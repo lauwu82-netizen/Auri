@@ -1745,7 +1745,7 @@ function storyCard(s, i) {                       // portada limpia; título + fa
   const fav = S.favs.includes(s.id), b = badgeText(s);
   return `<article class="mini"><a href="#/story/${esc(s.id)}" aria-label="${esc(s.title)}">${coverHTML(s, i)}</a>
   <div class="mini-row"><a class="mini-title" href="#/story/${esc(s.id)}">${esc(s.title)}</a><button class="mini-fav" data-act="fav" data-id="${esc(s.id)}" aria-label="${esc(t('Favorito'))}" aria-pressed="${fav}">${fav ? '♥' : '♡'}</button></div>
-  <div class="mini-meta">${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : `<span>${esc(userName())}</span>`}${s.mature ? `<span class="dot18" title="${esc(t('Contenido +18'))}">+18</span>` : ''}</div>${b ? `<div class="mini-pill">${esc(b)}</div>` : ''}</article>`;
+  <div class="mini-meta">${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : `<span>${esc(userName())}</span>`}</div>${b ? `<div class="mini-pill">${esc(b)}</div>` : ''}</article>`;
 }
 /* --- Nombres de usuario únicos --- */
 const nameKey = n => String(n || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -2330,10 +2330,11 @@ function storyDetail(s, mine) {
   const next = at || s.chapters.find(c => !read.includes(c.idx)) || first, all = !at && s.chapters.every(c => read.includes(c.idx));
   return `<main class="page story-layout"><a class="button ghost" href="#/">${t('‹ Todas las historias')}</a>
   <section class="detail">${sagaNav(s)}${sagaCovers(s)}
-  <span class="eyebrow">${esc(genreName(s.genre))} · ${esc(s.fandom)}${s.mature ? ' · +18' : ''}</span><h1>${esc(s.title)}</h1>
+  <span class="eyebrow">${esc(genreName(s.genre))} · ${esc(s.fandom)}</span><h1>${esc(s.title)}</h1>
   <div class="detail-by">${t('por')} ${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : esc(userName())}</div>${s.publishedAt ? `<div class="detail-date">📅 ${t('Publicado el {d}', { d: fmtDate(s.publishedAt) })}</div>` : ''}
   <div class="detail-likes"><span class="hrt-i">${HEART}</span> ${tn(n, '{n} like', '{n} likes')}</div>${bookState(s)}
   <p class="detail-syn">${esc(s.synopsis)}</p>
+  ${s.mature ? `<div class="adult-box"><span class="adult-badge">+18</span><div><b>${t('Contenido para adultos')}</b><small>${t('Esta historia es solo para mayores de 18 años.')}</small></div></div>` : ''}
   <div class="tags" style="justify-content:center">${tagChips(s.tags)}</div>
   ${warnsOf(s).length ? `<div class="warn-box"><b>${t('Avisos de contenido')}</b><div class="warn-list">${warnsOf(s).map(k => `<span class="warn-pill ${avoidWarns().includes(k) ? 'hit' : ''}">${esc(t(WARNS[k]))}</span>`).join('')}</div></div>` : ''}
   ${staffBar(s, mine)}
@@ -2991,7 +2992,7 @@ function libraryView() {
   const lockCard = x => `<article class="row-card locked"><div class="lock-cv">+18</div><div class="row-info"><strong class="serif">${t('Obra no disponible')}</strong><p class="helper" style="margin:2px 0 8px">${minor ? t('Esta obra cambió de clasificación y ya no está disponible.') : t('Obra +18 oculta por la configuración de contenido.')}</p><button type="button" class="button ghost sm" data-act="lock-remove" data-id="${esc(x.id)}">${t('Quitar de aquí')}</button></div></article>`;
   const body = !l.length && !lockedL.length ? empty(TAB === 'draft' ? 'Aún no tienes borradores' : 'Este estante está vacío', 'Cuando guardes historias aparecerán aquí.', `<a class="button secondary" href="${TAB === 'draft' ? '#/write' : '#/'}">${TAB === 'draft' ? t('Escribir una historia') : t('Buscar una historia')}</a>`)
     : `<div class="story-grid">${l.map((s, i) => TAB === 'draft' ? `<article class="row-card">${coverHTML(s, i)}<div class="row-info"><a href="#/write/${esc(s.id)}/chapters"><strong class="serif">${esc(s.title || t('Sin título'))}</strong></a>
-      <div class="story-meta">${t(STATUS[storyState(s)])} · ${t('{n} cap.', { n: s.chapters.length })} · ${t('actualizado el {d}', { d: esc(s.updatedAt) })} ${s.mature ? '<span class="dot18" style="display:inline-grid;vertical-align:middle">+18</span>' : ''}</div>${statusNote(s) ? `<p class="notice">${esc(statusNote(s))}</p>` : ''}
+      <div class="story-meta">${t(STATUS[storyState(s)])} · ${t('{n} cap.', { n: s.chapters.length })} · ${t('actualizado el {d}', { d: esc(s.updatedAt) })} </div>${statusNote(s) ? `<p class="notice">${esc(statusNote(s))}</p>` : ''}
       <div class="card-footer" style="justify-content:flex-start"><a class="button secondary sm" href="#/write/${esc(s.id)}/chapters">${t('Seguir escribiendo')}</a>${storyState(s) !== 'published' ? `<button class="icon-btn" data-act="delete" data-id="${esc(s.id)}" aria-label="${esc(t('Eliminar'))}">🗑</button>` : ''}</div></div></article>` : TAB === 'lib' || TAB === 'col' ? libRow(s, i) : storyCard(s, i)).join('')}${lockedL.map(lockCard).join('')}</div>`;
   return `<main class="page"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('Tus estantes')}</span><h2 style="margin-top:8px">${t('Un lugar para lo que te gusta')}</h2></div><a class="button" href="#/write">${t('Empezar a escribir')}</a></div>
   <div class="tabs" role="tablist">${tabs.map(([k, n]) => `<button class="tab ${TAB === k ? 'active' : ''}" data-act="tab" data-id="${k}">${t(n)}</button>`).join('')}</div>${body}</main>`;

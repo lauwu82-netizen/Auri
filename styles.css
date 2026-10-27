@@ -1627,3 +1627,8 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .fmt-sep{width:1px;height:22px;background:hsl(var(--border));margin:0 2px}
 .fmt-al svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
 .fmt-bar{overflow-x:auto;scrollbar-width:none}.fmt-bar::-webkit-scrollbar{display:none}.fmt-b{flex:none}
+
+/* 54. Aviso +18 dentro del libro (no en portadas) */
+.adult-box{display:flex;align-items:center;gap:12px;margin:2px auto 14px;max-width:420px;padding:10px 14px;border-radius:16px;text-align:left;background:linear-gradient(135deg,rgba(224,69,123,.12),rgba(224,69,123,.05));border:1px solid rgba(224,69,123,.28)}
+.adult-badge{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:#e0457b;color:#fff;font-weight:800;font-size:14px;letter-spacing:-.02em;box-shadow:0 4px 12px rgba(224,69,123,.35),inset 0 1px 0 rgba(255,255,255,.3)}
+.adult-box b{display:block;font-size:14px;color:hsl(var(--foreground))}.adult-box small{display:block;margin-top:1px;font-size:12.5px;color:hsl(var(--muted-foreground));line-height:1.35}
