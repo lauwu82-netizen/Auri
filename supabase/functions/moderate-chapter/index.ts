@@ -24,7 +24,7 @@ export const T_GENERAL: Record<string, number> = {          // libros SIN marca 
   'hate': 0.6, 'hate/threatening': 0.4, 'harassment/threatening': 0.6, 'illicit/violent': 0.6,
 };
 export const T_MATURE: Record<string, number> = {           // libros CON marca +18
-  'sexual': 0.9, 'sexual/minors': 0.15, 'violence/graphic': 0.85,
+  'sexual': 0.97, 'sexual/minors': 0.15, 'violence/graphic': 0.85,
   'self-harm/intent': 0.7, 'self-harm/instructions': 0.3,
   'hate': 0.8, 'hate/threatening': 0.5, 'harassment/threatening': 0.8, 'illicit/violent': 0.8,
 };
