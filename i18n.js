@@ -1682,4 +1682,13 @@ window.I18N = { en: {
   "Justificar": "Justify",
   "Contenido para adultos": "Adult content",
   "Esta historia es solo para mayores de 18 años.": "This story is for readers 18 and over.",
+  "Separador de escena": "Scene break",
+  "Fondo de lectura": "Reading background",
+  "Del tema": "From theme",
+  "Crema": "Cream",
+  "Sepia": "Sepia",
+  "Noche": "Night",
+  "Papel": "Paper",
+  "Letra capital": "Drop cap",
+  "La primera letra de cada capítulo se ve grande y decorada.": "The first letter of each chapter appears large and decorated.",
 } };

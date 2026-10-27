@@ -1632,3 +1632,28 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .adult-box{display:flex;align-items:center;gap:12px;margin:2px auto 14px;max-width:420px;padding:10px 14px;border-radius:16px;text-align:left;background:linear-gradient(135deg,rgba(224,69,123,.12),rgba(224,69,123,.05));border:1px solid rgba(224,69,123,.28)}
 .adult-badge{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:#e0457b;color:#fff;font-weight:800;font-size:14px;letter-spacing:-.02em;box-shadow:0 4px 12px rgba(224,69,123,.35),inset 0 1px 0 rgba(255,255,255,.3)}
 .adult-box b{display:block;font-size:14px;color:hsl(var(--foreground))}.adult-box small{display:block;margin-top:1px;font-size:12.5px;color:hsl(var(--muted-foreground));line-height:1.35}
+
+/* 55. Encabezado de capítulo, letra capital, separadores y fondos de lectura */
+.ch-head{text-align:center;margin:6px 0 26px}
+.ch-no{display:block;font:600 11.5px var(--sans);letter-spacing:.22em;text-transform:uppercase;color:hsl(var(--primary));margin-bottom:10px}
+.ch-head .rf-h{margin:0 0 14px}
+.orn,.scene-sep{display:flex;align-items:center;justify-content:center;gap:12px}
+.orn{margin:0 auto;max-width:200px}
+.orn i,.scene-sep i{flex:1;height:1px;background:linear-gradient(90deg,transparent,hsl(var(--primary)/.55))}
+.orn i:last-child,.scene-sep i:last-child{background:linear-gradient(270deg,transparent,hsl(var(--primary)/.55))}
+.orn b,.scene-sep b{flex:none;width:8px;height:8px;transform:rotate(45deg);background:hsl(var(--primary)/.75);border-radius:2px;box-shadow:-13px 0 0 -2px hsl(var(--primary)/.4),13px 0 0 -2px hsl(var(--primary)/.4)}
+.scene-sep{margin:2.1em auto;max-width:260px}
+[data-dropcap="1"] .rf-body .reader-text>p:first-of-type::first-letter{float:left;font-family:var(--read-font,var(--serif));font-weight:600;font-size:3.5em;line-height:.82;padding:.06em .1em 0 0;color:hsl(var(--primary))}
+.rbg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rbg-opt{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border-radius:14px;border:1.5px solid hsl(var(--border));background:hsl(var(--card));color:var(--title);font:500 12.5px var(--sans)}
+.rbg-opt.on{border-color:hsl(var(--primary));box-shadow:0 0 0 3px hsl(var(--primary)/.18)}
+.rbg-sw{width:34px;height:34px;border-radius:50%;border:1px solid rgba(0,0,0,.08);background:hsl(var(--background))}
+.rbg-opt[data-rbg=cream] .rbg-sw{background:#fbf4e4}.rbg-opt[data-rbg=sepia] .rbg-sw{background:#eadcbf}.rbg-opt[data-rbg=night] .rbg-sw{background:#15161d}
+.rbg-opt[data-rbg=paper] .rbg-sw{background:#f6efe0 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .4 0 0 0 0 .25 0 0 0 .12 0'/%3E%3C/filter%3E%3Crect width='60' height='60' filter='url(%23n)'/%3E%3C/svg%3E")}
+[data-rbg=cream] .rf,[data-rbg=cream] .read-prev{--background:42 62% 94%;--card:42 50% 97%;--border:38 28% 82%;--accent:40 45% 88%;--muted-foreground:35 18% 40%;--title:#4a3b2a;--soft:#7a6a55;--foreground:30 25% 18%}
+[data-rbg=sepia] .rf,[data-rbg=sepia] .read-prev{--background:39 42% 83%;--card:39 40% 88%;--border:36 25% 68%;--accent:38 35% 76%;--muted-foreground:32 22% 34%;--title:#3c2d1c;--soft:#6c5a43;--foreground:28 30% 15%}
+[data-rbg=night] .rf,[data-rbg=night] .read-prev{--background:232 20% 8%;--card:232 18% 13%;--border:232 14% 22%;--accent:232 18% 20%;--muted-foreground:230 10% 62%;--title:#e9e6f2;--soft:#a9a6b8;--foreground:230 20% 88%}
+[data-rbg=paper] .rf,[data-rbg=paper] .read-prev{--background:40 50% 93%;--card:40 45% 96%;--border:36 26% 80%;--accent:38 40% 86%;--muted-foreground:33 18% 38%;--title:#45372a;--soft:#76664f;--foreground:30 25% 18%;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .35 0 0 0 0 .2 0 0 0 .1 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
+[data-rbg] .rf-body,[data-rbg] .read-prev{color:hsl(var(--foreground))}
+[data-rbg=auto] .rf-body{color:inherit}
+.read-prev{background:hsl(var(--background));border-radius:14px;padding:14px;color:hsl(var(--foreground))}
