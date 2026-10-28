@@ -2119,10 +2119,10 @@ function chaptersView() {
 const safeImg = u => typeof u === 'string' && (/^data:image\//.test(u) || isStoreUrl(u));
 const SEPS = { classic: ['Clásico', 'free', '<rect x="17" y="7" width="10" height="10" rx="2" transform="rotate(45 22 12)"/><circle cx="8" cy="12" r="1.8" opacity=".45"/><circle cx="36" cy="12" r="1.8" opacity=".45"/>'],
   dots: ['Puntos', 'free', '<circle cx="8" cy="12" r="2.4" opacity=".55"/><circle cx="22" cy="12" r="2.8"/><circle cx="36" cy="12" r="2.4" opacity=".55"/>'],
-  moon: ['Luna y estrellas', 'shop', '<path d="M22 2a10 10 0 1 0 0 20a13 13 0 0 1 0-20z"/><circle cx="35" cy="7" r="1.6" opacity=".6"/><circle cx="9" cy="15" r="1.2" opacity=".5"/>'],
-  leaves: ['Hojas', 'shop', '<path d="M22 2c-8 4-9 13 0 20c9-7 8-16 0-20z"/><path d="M22 6v14" stroke="#fff" stroke-opacity=".55" stroke-width="1" fill="none"/><circle cx="8" cy="13" r="1.4" opacity=".45"/><circle cx="36" cy="13" r="1.4" opacity=".45"/>'],
-  paws: ['Huellitas', 'shop', '<g><ellipse cx="11" cy="15.5" rx="4" ry="3.2"/><circle cx="6" cy="9.6" r="1.7"/><circle cx="11" cy="7.6" r="1.7"/><circle cx="16" cy="9.6" r="1.7"/></g><g><ellipse cx="33" cy="15.5" rx="4" ry="3.2"/><circle cx="28" cy="9.6" r="1.7"/><circle cx="33" cy="7.6" r="1.7"/><circle cx="38" cy="9.6" r="1.7"/></g>'],
-  bow: ['Moño', 'pass', '<path d="M22 12c-5-8-15-6-12 1c3 5 12 0 12-1zM22 12c5-8 15-6 12 1c-3 5-12 0-12-1z"/><circle cx="22" cy="12" r="3"/>'] };
+  moon: ['Luna y estrellas', 'free', '<path d="M22 2a10 10 0 1 0 0 20a13 13 0 0 1 0-20z"/><circle cx="35" cy="7" r="1.6" opacity=".6"/><circle cx="9" cy="15" r="1.2" opacity=".5"/>'],
+  leaves: ['Hojas', 'free', '<path d="M22 2c-8 4-9 13 0 20c9-7 8-16 0-20z"/><path d="M22 6v14" stroke="#fff" stroke-opacity=".55" stroke-width="1" fill="none"/><circle cx="8" cy="13" r="1.4" opacity=".45"/><circle cx="36" cy="13" r="1.4" opacity=".45"/>'],
+  paws: ['Huellitas', 'free', '<g><ellipse cx="11" cy="15.5" rx="4" ry="3.2"/><circle cx="6" cy="9.6" r="1.7"/><circle cx="11" cy="7.6" r="1.7"/><circle cx="16" cy="9.6" r="1.7"/></g><g><ellipse cx="33" cy="15.5" rx="4" ry="3.2"/><circle cx="28" cy="9.6" r="1.7"/><circle cx="33" cy="7.6" r="1.7"/><circle cx="38" cy="9.6" r="1.7"/></g>'],
+  bow: ['Moño', 'free', '<path d="M22 12c-5-8-15-6-12 1c3 5 12 0 12-1zM22 12c5-8 15-6 12 1c-3 5-12 0-12-1z"/><circle cx="22" cy="12" r="3"/>'] };
 const sepOK = k => !SEPS[k] ? false : SEPS[k][1] === 'free' || isStaff(S.user);      // los de tienda/pase se desbloquean con compra (por ahora solo el equipo los ve)
 const sepKey = () => sepOK(cfg('sepStyle')) ? cfg('sepStyle') : 'classic';
 const sepSvg = k => `<svg viewBox="0 0 44 24" aria-hidden="true" fill="currentColor">${SEPS[k][2]}</svg>`;
