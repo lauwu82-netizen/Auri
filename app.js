@@ -64,14 +64,14 @@ function applyAccent() {                                // color de la app: el t
 }
 /* --- Ajustes (se guardan por cuenta) --- */
 const APP_VERSION = '0.9 (beta)';
-const CFG_DEFAULTS = { align: 'left', sepStyle: 'classic', rbg: 'auto', dropcap: true, fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], avoidWarns: [], hideDone: true, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
+const CFG_DEFAULTS = { align: 'left', margin: 'md', sepStyle: 'classic', rbg: 'auto', dropcap: true, fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], avoidWarns: [], hideDone: true, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
 const cfg = k => {
   const c = S.cfg || {};
   if (k === 'showMature') { const u = getUsers()[S.user]; if (isMinor(u)) return false; return c.showMature == null ? isAdult(u) : c.showMature; }   // por defecto: visible solo si ya declaraste ser mayor de edad
   if (k === 'notif') return { ...CFG_DEFAULTS.notif, ...(c.notif || {}) };
   return c[k] ?? CFG_DEFAULTS[k];
 };
-const READ = { size: { sm: '17px', md: '19px', lg: '22px' }, lh: { compact: '1.7', normal: '1.95', relaxed: '2.25' }, font: { serif: 'var(--serif)', sans: 'var(--sans)' } };
+const READ = { pad: { sm: '12px', md: '20px', lg: '34px' }, wd: { sm: '760px', md: '680px', lg: '600px' }, size: { sm: '17px', md: '19px', lg: '22px' }, lh: { compact: '1.7', normal: '1.95', relaxed: '2.25' }, font: { serif: 'var(--serif)', sans: 'var(--sans)' } };
 const FONTS = [['serif', 'Clásica', null], ['sans', 'Moderna', null], ['lora', 'Lora', 'Lora:ital,wght@0,400;0,700;1,400;1,700'], ['literata', 'Literata', 'Literata:ital,wght@0,400;0,700;1,400;1,700'], ['crimson', 'Crimson Pro', 'Crimson+Pro:ital,wght@0,400;0,700;1,400;1,700'], ['garamond', 'EB Garamond', 'EB+Garamond:ital,wght@0,400;0,700;1,400;1,700'], ['merri', 'Merriweather', 'Merriweather:ital,wght@0,400;0,700;1,400;1,700'], ['baskerville', 'Libre Baskerville', 'Libre+Baskerville:ital,wght@0,400;0,700;1,400'], ['nunito', 'Nunito', 'Nunito:ital,wght@0,400;0,700;1,400;1,700'], ['atkinson', 'Atkinson', 'Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700']];
 const FONT_CSS = { lora: "'Lora',Georgia,serif", literata: "'Literata',Georgia,serif", crimson: "'Crimson Pro',Georgia,serif", garamond: "'EB Garamond',Georgia,serif", merri: "'Merriweather',Georgia,serif", baskerville: "'Libre Baskerville',Georgia,serif", nunito: "'Nunito',system-ui,sans-serif", atkinson: "'Atkinson Hyperlegible',system-ui,sans-serif" };
 Object.assign(READ.font, FONT_CSS);
@@ -84,7 +84,7 @@ function loadFont(k) {                                  // carga la fuente solo 
 const fmtText = h => String(h).replace(/\*\*([^\s*](?:[^*\n]*?[^\s*])?)\*\*/g, '<strong>$1</strong>').replace(/\*([^\s*](?:[^*\n]*?[^\s*])?)\*/g, '<em>$1</em>');
 function applyReading() {                               // tamaño, interlineado y tipografía del lector, como variables CSS
   const r = document.documentElement.style; if (!r || !r.setProperty) return;
-  r.setProperty('--read-size', READ.size[cfg('fontSize')]); r.setProperty('--read-lh', READ.lh[cfg('lh')]); r.setProperty('--read-font', READ.font[cfg('font')] || READ.font.serif); loadFont(cfg('font')); document.documentElement.dataset.rbg = cfg('rbg'); document.documentElement.dataset.dropcap = cfg('dropcap') ? '1' : '0'; r.setProperty('--read-align', cfg('align') === 'justify' ? 'justify' : 'left');
+  r.setProperty('--read-size', READ.size[cfg('fontSize')]); r.setProperty('--read-lh', READ.lh[cfg('lh')]); r.setProperty('--read-font', READ.font[cfg('font')] || READ.font.serif); loadFont(cfg('font')); r.setProperty('--read-pad', READ.pad[cfg('margin')] || '20px'); r.setProperty('--read-w', READ.wd[cfg('margin')] || '680px'); document.documentElement.dataset.rbg = cfg('rbg'); document.documentElement.dataset.dropcap = cfg('dropcap') ? '1' : '0'; r.setProperty('--read-align', cfg('align') === 'justify' ? 'justify' : 'left');
   document.documentElement.lang = uiLang();
 }
 function setCfg(k, v) { S.cfg = { ...S.cfg, [k]: v }; LS.set(uk('cfg'), S.cfg); applyReading(); if (k === 'showOnline') { LAST_ON = null; sbBeat(); } }
@@ -2431,9 +2431,11 @@ function chapterRead(s, N) {
   if (!ch) return `<main class="page">${empty(t('Aún no hay capítulos'), t('Esta historia todavía no tiene capítulos publicados.'), `<a class="button" href="#/story/${esc(s.id)}">${t('Volver a la historia')}</a>`)}</main>`;
   const nc = comments(s.id, ch.idx).length, exit = `data-act="exit-book" data-id="${esc(s.id)}" data-n="${ch.idx}"`;
   return `<div class="rf"><div class="rf-bar"><i id="rf-bar-i"></i></div>
-  <header class="rf-top"><button class="button ghost sm" ${exit} aria-label="${esc(t('Guardar progreso y salir del libro'))}">✕ ${t('Salir')}</button><div class="rf-title"><b>${t('Cap. {n}', { n: ch.idx + 1 })}</b> · ${esc(ch.title)}</div><button class="icon-btn" data-act="comments" aria-label="${esc(t('Comentarios'))}">💬</button></header>
+  <header class="rf-top"><button class="button ghost sm" ${exit} aria-label="${esc(t('Guardar progreso y salir del libro'))}">✕ ${t('Salir')}</button><div class="rf-title"><b>${t('Cap. {n}', { n: ch.idx + 1 })}</b> · ${esc(ch.title)}<small class="rf-left" id="rf-left" data-tot="${readMin(ch.text)}"></small></div><button class="icon-btn" data-act="comments" aria-label="${esc(t('Comentarios'))}">💬</button></header>
   <article class="rf-body">${chHero(ch)}${chHead(ch.idx + 1, ch.title)}${s.useReaderCharacter && S.chars.length > 1 ? `<label class="helper" style="display:flex;align-items:center;gap:8px;margin-bottom:14px">${t('Leyendo como')} <select id="char-sel" class="select" style="max-width:200px">${S.chars.map((x, k) => `<option value="${x.id}" ${x.id === S.activeId ? 'selected' : ''}>${esc(x.name || t('Personaje {n}', { n: k + 1 }))}</option>`).join('')}</select></label>` : ''}${ch.music && musicEmbed(ch.music) ? `<button class="button secondary sm" data-act="music" data-url="${esc(ch.music)}" style="margin-bottom:14px">🎵 ${t('Escuchar la canción de este capítulo')}</button>` : ''}${readerText(ch.text, s.useReaderCharacter, { sid: s.id, ci: ch.idx })}</article>
-  <footer class="rf-end"><div class="ch-nav">${before ? `<a class="button secondary" data-replace data-dir="prev" href="#/story/${esc(s.id)}/${before.idx + 1}">${t('‹ Anterior')}</a>` : '<span></span>'}<button class="button" data-act="read" data-id="${esc(s.id)}" data-n="${ch.idx}">${read.includes(ch.idx) ? t('Leído ✓') : t('Marcar como leído')}</button>${after ? `<a class="button secondary" data-replace data-dir="next" href="#/story/${esc(s.id)}/${after.idx + 1}">${t('Siguiente ›')}</a>` : '<span></span>'}</div>
+  <footer class="rf-end"><div class="ch-end">${sepHTML('scene-sep')}<b class="ch-fin">${after ? t('Fin del capítulo') : t('Fin del último capítulo disponible')}</b><small class="ch-min">${t('Lectura de ~{n} min', { n: readMin(ch.text) })}</small>
+  <button class="read-btn ${read.includes(ch.idx) ? 'done' : ''}" data-act="read" data-id="${esc(s.id)}" data-n="${ch.idx}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7.5"/></svg>${read.includes(ch.idx) ? t('Leído') : t('Marcar como leído')}</button>
+  <div class="nav2">${before ? `<a class="nav-card prev" data-replace data-dir="prev" href="#/story/${esc(s.id)}/${before.idx + 1}"><small>${t('Anterior')}</small><b>${esc(before.title || t('Capítulo {n}', { n: before.idx + 1 }))}</b></a>` : ''}${after ? `<a class="nav-card next" data-replace data-dir="next" href="#/story/${esc(s.id)}/${after.idx + 1}"><small>${t('Siguiente')}</small><b>${esc(after.title || t('Capítulo {n}', { n: after.idx + 1 }))}</b></a>` : ''}</div></div>
   <label class="helper" style="display:flex;align-items:center;gap:8px;margin-top:16px">${t('Ir a')} <select id="ch-sel" class="select" aria-label="${esc(t('Elegir capítulo'))}">${s.chapters.map(c => `<option value="${c.idx + 1}" ${c === ch ? 'selected' : ''}>${read.includes(c.idx) ? '✓ ' : ''}${esc(c.title || t('Capítulo {n}', { n: c.idx + 1 }))}${mine && c.status !== 'approved' ? ` (${t(CH_STATUS[c.status]).toLowerCase()})` : ''}</option>`).join('')}</select></label>
   <button class="button secondary" style="width:100%;margin-top:14px" data-act="comments">💬 ${SHOWC ? t('Ocultar comentarios') : t('Comentarios ({n})', { n: nc })}</button>${SHOWC ? `<div id="comments">${commentsHTML(s, ch.idx)}</div>` : ''}
   <button class="button ghost" style="width:100%;margin-top:18px" ${exit}>${t('Guardar progreso y salir del libro')}</button></footer>${VISIT && VISIT.sid === s.id && VISIT.pos && VISIT.pos.idx > ch.idx ? `<button class="button resume-fab" data-act="resume-read" data-id="${esc(s.id)}">${t('Continuar mi progreso')} · ${t('Cap. {n}', { n: VISIT.pos.idx + 1 })} ›</button>` : ''}</div>`;
@@ -2893,6 +2895,7 @@ function settingsView(secId) {
       <div class="set-col"><span>${t('Fondo de lectura')}</span><div class="rbg-grid">${[['auto', 'Del tema'], ['cream', 'Crema'], ['sepia', 'Sepia'], ['night', 'Noche'], ['paper', 'Papel']].map(b => `<button type="button" class="rbg-opt ${cfg('rbg') === b[0] ? 'on' : ''}" data-act="cfg" data-k="rbg" data-v="${b[0]}" data-rbg="${b[0]}" aria-pressed="${cfg('rbg') === b[0]}"><span class="rbg-sw"></span>${t(b[1])}</button>`).join('')}</div></div>
       <div class="set-col"><span>${t('Separador de escena')}</span><div class="sep-prev">${sepHTML('scene-sep')}</div><div class="sep-grid">${Object.entries(SEPS).map(([k, v]) => `<button type="button" class="sep-opt ${sepKey() === k ? 'on' : ''} ${sepOK(k) ? '' : 'lock'}" ${sepOK(k) ? `data-act="cfg" data-k="sepStyle" data-v="${k}"` : 'data-act="sep-lock"'} aria-pressed="${sepKey() === k}">${sepHTML('sep-mini', k)}<span>${t(v[0])}</span><em>${t(v[1] === 'free' ? 'Gratis' : v[1] === 'shop' ? 'Tienda' : 'Pase')}</em></button>`).join('')}</div></div>
       ${sw('dropcap', cfg('dropcap'), 'Letra capital', 'La primera letra de cada capítulo se ve grande y decorada.')}
+      <div class="set-row"><span>${t('Márgenes del texto')}</span>${seg('margin', [['sm', 'Pequeños'], ['md', 'Normales'], ['lg', 'Amplios']], cfg('margin'))}</div>
       <div class="set-row"><span>${t('Alineación del texto')}</span>${seg('align', [['left', 'Izquierda'], ['justify', 'Justificado']], cfg('align'))}</div>
       <div class="set-row"><span>${t('Interlineado')}</span>${seg('lh', [['compact', 'Compacto'], ['normal', 'Normal'], ['relaxed', 'Amplio']], cfg('lh'))}</div>
       <div class="set-row"><span>${t('Comentarios en párrafos')}</span>${seg('pcom', [['tap', 'Al tocar'], ['dots', 'Con contador'], ['off', 'Desactivados']], cfg('pcom'))}</div>
@@ -3130,6 +3133,11 @@ function statsView() {
     <h4>${t('Lectores por capítulo')}</h4>${b.ps.map((c, i) => `<div class="st-row"><span class="st-l">${t('Cap. {n}', { n: i + 1 })}</span><span class="st-bar"><i style="width:${Math.round(b.per[i] / mx * 100)}%"></i></span><span class="st-n">${b.per[i]}</span></div>`).join('')}
     ${b.worst > 0 && b.drop > 0 ? `<p class="helper">${tn(b.drop, 'La mayor caída es entre el capítulo {a} y el {b}: {n} lector menos. Quizá valga la pena revisar ese tramo.', 'La mayor caída es entre el capítulo {a} y el {b}: {n} lectores menos. Quizá valga la pena revisar ese tramo.', { a: b.worst, b: b.worst + 1 })}</p>` : ''}</section>`; }).join('')}
   <p class="notice">${t('Por ahora se cuentan solo las cuentas de este dispositivo. Con el servidor se sumarán todas las lecturas.')}</p></main>`;
+}
+const readMin = txt => Math.max(1, Math.ceil(String(txt || '').replace(/::\w+ ?/g, '').trim().split(/\s+/).filter(Boolean).length / 200));
+function rfLeft() {                                      // «quedan N min» en la cabecera del lector, según lo que llevas leído
+  const e = $('#rf-left'); if (!e) return; const tot = +e.dataset.tot || 1, left = Math.ceil(tot * (1 - scrollPct()));
+  e.textContent = left <= 0 || scrollPct() > 0.97 ? t('Fin del capítulo') : t('{n} min restantes', { n: left });
 }
 function bioFit() {                                      // biografía larga: 3 líneas con «… Ver más» al final del texto; abierta: todo + «Ver menos»
   document.querySelectorAll('.pf-bio[data-full]').forEach(p => {
@@ -3841,7 +3849,7 @@ function render() {
     if (nx && b === MUSIC.sid && nx.music && nx.music === MUSIC.url) MUSIC.ch = String(c); else closeMusic(); }
   if (HLC) { const hid = HLC; HLC = ''; const cm0 = comments(b).find(x => String(x.id) === hid); if (cm0) { setTimeout(() => { const el = document.getElementById('cm-' + hid); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('cm-hl'); setTimeout(() => el.classList.remove('cm-hl'), 3200); } }, 120); } else toast(t('Ese comentario ya no está.')); }
   else if (!KEEP) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); }
-  bmApply(false); bioFit(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
+  bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
   if (nav && a === 'story' && c && c !== 'fin') pcHintOnce();
   if (S.user) { showModOverlay(); showGiftOverlay(); }                                      // moderador/a sin marco puesto: el aviso reaparece hasta que se lo ponga
@@ -4285,7 +4293,7 @@ document.addEventListener('click', e => { if (NOCLICK) { e.preventDefault(); e.s
 let POSQ;
 window.addEventListener('scroll', () => {                         // barra de avance y guardado automático del progreso al leer
   const m = (location.hash || '').match(/^#\/story\/([^/]+)\/(\d+)/); if (!m || !S.user) return;
-  const bar = $('#rf-bar-i'); if (bar && bar.style) bar.style.width = (scrollPct() * 100) + '%';
+  const bar = $('#rf-bar-i'); if (bar && bar.style) bar.style.width = (scrollPct() * 100) + '%'; rfLeft();
   clearTimeout(POSQ); POSQ = setTimeout(() => { const n = (location.hash || '').match(/^#\/story\/([^/]+)\/(\d+)/); if (n && n[1] === m[1] && n[2] === m[2]) saveReadPos(decodeURIComponent(m[1]), +m[2] - 1); }, 500);
 }, { passive: true });
 
