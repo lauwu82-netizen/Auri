@@ -1704,3 +1704,13 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .pf-bio-box .pf-bio{margin:0 auto;max-width:520px;white-space:pre-line;font-size:14.5px;line-height:1.6;color:var(--soft);overflow-wrap:anywhere;text-align:center}
 .pf-bio-more{display:inline;margin:0 0 0 2px;border:0;background:transparent;color:hsl(var(--primary));font:700 13px var(--sans);padding:0}
 .pf-bio-add{display:block;margin:8px 16px 0;text-align:center;font:600 13px var(--sans);color:hsl(var(--primary));text-decoration:none;padding:10px;border-radius:16px;border:1.5px dashed hsl(var(--border))}
+
+/* 59. Portadas con forma de libro (opción B, sutil): lomo a la izquierda y borde de hojas a la derecha */
+.cover{overflow:visible;isolation:isolate;border-radius:3px 10px 10px 3px}
+.fg-covers .cover,.end-cover .cover,.sc .cover{border-radius:3px 10px 10px 3px}
+.cover>.cover-img{border-radius:inherit}
+.cover::before{content:"";position:absolute;inset:0 auto 0 0;width:7px;border-radius:3px 0 0 3px;background:linear-gradient(90deg,rgba(0,0,0,.2),rgba(255,255,255,.18) 55%,transparent);z-index:2;pointer-events:none}
+.cover::after{content:"";position:absolute;right:-4px;top:3px;bottom:3px;width:4px;border-radius:0 4px 4px 0;background:linear-gradient(90deg,#e9dfd2,#fffaf3);box-shadow:0 3px 6px rgba(90,42,66,.14);z-index:-1;pointer-events:none}
+.bp-cv .cover::after,.dm-cv .cover::after,.bp-cv .cover::before,.dm-cv .cover::before{display:none}
+.dm-cv .cover,.bp-cv .cover{border-radius:8px}
+.row-card .cover{margin-right:4px}
