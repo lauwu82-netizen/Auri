@@ -402,7 +402,7 @@ function giftsView(tabs) {                              // pestaña de la Owner 
   <h3 style="margin:18px 0 8px">${t('Reclamados')} (${got.length})</h3>${got.length ? got.map(g => row(g, t('Reclamado {d}', { d: fd(g.claimedDate) }), `<button class="button secondary sm" data-act="gift-cancel" data-id="${esc(g.id)}">${t('Quitar marco')}</button>`)).join('') : '<p class="helper">' + t('Ninguno.') + '</p>'}
   <h3 style="margin:18px 0 8px">${t('Historial')}</h3>${hist.length ? hist.map(g => row(g, (g.status === 'expired' ? t('Venció sin reclamar') : t('Retirado')) + ' · ' + fd(g.endDate), '')).join('') : '<p class="helper">' + t('Aún no hay movimientos.') + '</p>'}</main>`;
 }
-const avatarHTML = (src, name, cls = '') => `<span class="avatar ${cls}">${src ? `<img src="${esc(src)}" alt="">` : esc([...(name || '?')][0].toUpperCase())}</span>`;
+const avatarHTML = (src, name, cls = '') => `<span class="avatar ${cls}">${src ? `<img src="${esc(src)}" alt="" data-i="${esc([...(name || '?')][0].toUpperCase())}">` : esc([...(name || '?')][0].toUpperCase())}</span>`;
 const userAvatar = (e, cls = '') => avatarHTML((getUsers()[e] || {}).avatar, uName(e), cls);
 /* Bloquear y silenciar: cada cuenta guarda sus listas (auri.u.<correo>.blocked / .muted) */
 const bl = (e, k) => LS.get('auri.u.' + e + '.' + k, []);
@@ -1364,7 +1364,7 @@ function sbUpImg(d) {
       const tok = await sbToken(); if (!tok) return null;
       const r = await fetch(SB_URL + '/storage/v1/object/images/' + path, { method: 'POST', headers: { apikey: SB_KEY, Authorization: 'Bearer ' + tok, 'Content-Type': blob.type || 'image/jpeg', 'x-upsert': 'true', 'cache-control': 'max-age=31536000' }, body: blob });
       if (!r.ok) return null;
-      done[path] = 1; LS.set(K, done); return IMG_PUB() + path;
+      done[path] = 1; LS.set(K, done); imgSweepSoon(); return IMG_PUB() + path;
     } catch (e) { return null; }
   })();
   IMG_UP.set(d, pr); pr.then(u => { if (!u) IMG_UP.delete(d); });
@@ -1531,7 +1531,7 @@ function shell(path, html) {
 const empty = (title, copy, action = '') => `<div class="empty">${mascot()}<h3>${esc(t(title))}</h3><p>${esc(t(copy))}</p>${action}</div>`;
 const badgeText = s => { const st = storyState(s), p = s.chapters.filter(c => c.status === 'pending').length; return st !== 'published' ? t(STATUS[st]) : p ? t('{n} cap. en revisión', { n: p }) : ''; };
 const bmRib = s => bmOf(s.id) ? '<span class="bm-rib" aria-hidden="true"></span>' : '';
-const coverHTML = (s, i) => `<div class="cover c${(i % 5) + 1}">${bmRib(s)}${s.cover ? `<img class="cover-img" src="${esc(s.cover)}" alt="${esc(t('Portada de {title}', { title: s.title }))}" loading="lazy">` : `<span class="cover-title">${esc(s.title || t('Sin título'))}</span>`}</div>`;
+const coverHTML = (s, i) => `<div class="cover c${(i % 5) + 1}">${bmRib(s)}${s.cover ? `<img class="cover-img" src="${esc(s.cover)}" alt="${esc(t('Portada de {title}', { title: s.title }))}" loading="lazy" data-t="${esc(s.title || t('Sin título'))}">` : `<span class="cover-title">${esc(s.title || t('Sin título'))}</span>`}</div>`;
 
 /* --- Auth --- */
 function authView(mode) {
@@ -2498,6 +2498,7 @@ function modBookView(id) {
     <p class="story-meta">${t('por {a}', { a: esc(s.author) })}${s.mature ? ' · +18' : ''} · <a href="#/user/${encodeURIComponent(s.owner)}" data-dir="next" style="text-decoration:underline">${t('ver perfil')}</a></p><p class="story-meta">${esc(genreName(s.genre))} · ${esc(s.fandom)}</p>
     ${first ? `<span class="pill">${t('Historia nueva')}</span>` : ''}${cl ? ` <span class="pill claim">👀 ${t('{n} lo está revisando', { n: esc(cl.name || uName(cl.by)) })}</span>` : ''}</div></section>
   ${first && s.synopsis ? `<p class="mod-syn">${esc(s.synopsis)}</p>` : ''}
+  ${modBookImgs(s)}
   <h3 style="margin:18px 0 8px">${t('Capítulos')}</h3><p class="helper" style="margin:0 0 10px">${t('Los marcados en amarillo llamaron la atención de la IA. Toca un capítulo en revisión para leerlo.')}</p><div class="mod-rows">${rows}</div></main>`;
 }
 function modChapterView(id, cid) {
@@ -2528,10 +2529,118 @@ async function releaseClaim(id) {
   const ses = sbSes(), su = sUuid(id); if (CLAIMS[id] && CLAIMS[id].by === S.user) delete CLAIMS[id]; if (!cloud() || !ses || !su) return;
   await sbApi('/rest/v1/review_claims?story_id=eq.' + su + '&user_id=eq.' + ses.uid, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
 }
+/* ---------- Imágenes marcadas por la IA ----------
+   La función "moderate-image" revisa las imágenes subidas. Si marca una, queda oculta para todos (relleno en su lugar).
+   La autoría puede pedir revisión humana ("es un error"); el equipo la aprueba o rechaza en Moderación › Imágenes. */
+const IMGK = 'auri.imghid', IMGC = 'auri.imgchk';
+let IMG_HID = new Set(LS.get(IMGK, [])), IMG_MINE = [], IMG_Q = [], IMG_BUSY = false, IMG_SW = 0, IMG_QL = 0;
+const imgOn = () => !!(cloud() && sbSes() && S.user && !isGuest());
+const IMG_KIND = { avatar: 'Foto de perfil', banner: 'Portada del perfil', cover: 'Portada de libro', chapter: 'Portada de capítulo' };
+/** Cambia en la pantalla las imágenes ocultas por su relleno (se llama después de dibujar) */
+function imgGuard(root) {
+  if (!IMG_HID.size) return; root = root || document;
+  root.querySelectorAll('img').forEach(im => {
+    if (im.closest('[data-noguard]') || !IMG_HID.has(im.getAttribute('src'))) return;
+    if (im.closest('.avatar')) { im.replaceWith(document.createTextNode(im.dataset.i || '?')); return; }
+    if (im.classList.contains('cover-img')) { const sp = document.createElement('span'); sp.className = 'cover-title'; sp.textContent = im.dataset.t || ''; im.replaceWith(sp); return; }
+    im.remove();
+  });
+  root.querySelectorAll('[style*="url("]').forEach(el => {
+    if (el.closest('[data-noguard]')) return; const st = el.getAttribute('style') || '';
+    for (const u of IMG_HID) if (st.includes(u)) { el.style.backgroundImage = 'none'; break; }
+  });
+}
+async function imgSyncHidden() {
+  const r = await sbApi('/rest/v1/rpc/img_hidden', { method: 'POST', body: {} }); if (!r.ok || !Array.isArray(r.data)) return false;
+  const a = [...r.data].sort().join('|'), b = [...IMG_HID].sort().join('|'); if (a === b) return false;
+  IMG_HID = new Set(r.data); LS.set(IMGK, r.data); return true;
+}
+function imgOwnUrls() {
+  const ses = sbSes(), pre = IMG_PUB() + (ses && ses.uid) + '/', u = getUsers()[S.user] || {}, l = [u.avatar, u.banner];
+  allStories().filter(s => s.owner === S.user).forEach(s => { l.push(s.cover); (s.chapters || []).forEach(c => l.push(c.cover)); });
+  return [...new Set(l.filter(x => typeof x === 'string' && x.startsWith(pre)))];
+}
+/** Manda a revisar las imágenes propias que aún no se revisaron */
+async function imgSweep() {
+  if (IMG_BUSY || !imgOn()) return; const done = LS.get(IMGC, {}), need = imgOwnUrls().filter(x => !done[x]); if (!need.length) return;
+  IMG_BUSY = true; let bad = false;
+  try {
+    for (let i = 0; i < need.length; i += 8) {
+      const r = await sbApi('/functions/v1/moderate-image', { method: 'POST', body: { urls: need.slice(i, i + 8) } });
+      if (!r.ok || !r.data || !r.data.results) break; if (r.data.off) break;
+      for (const [u, v] of Object.entries(r.data.results)) { if (v === 'unlinked' || v === 'error') continue; done[u] = 1; if (v !== 'ok') bad = true; }
+    }
+    LS.set(IMGC, done);
+  } catch (e) { /* se reintenta luego */ }
+  IMG_BUSY = false;
+  if (bad) { await imgSyncHidden(); await imgLoadMine(); toast(t('Una de tus imágenes fue marcada. Revisa el aviso en tu perfil.')); softRender(true); }
+}
+const imgSweepSoon = () => { clearTimeout(IMG_SW); IMG_SW = setTimeout(imgSweep, 6000); };
+async function imgLoadMine() { if (!imgOn()) return; const r = await sbApi('/rest/v1/rpc/img_mine', { method: 'POST', body: {} }); if (r.ok && Array.isArray(r.data)) IMG_MINE = r.data; }
+const imgOpen = () => IMG_MINE.filter(r => r.status === 'flagged' || r.status === 'appealed' || r.status === 'rejected');
+async function imgLoadQueue(force) {
+  if (!imgOn() || !isStaff()) { IMG_Q = []; return; } if (!force && Date.now() - IMG_QL < 30000) return; IMG_QL = Date.now();
+  const r = await sbApi('/rest/v1/rpc/img_queue', { method: 'POST', body: {} }); if (!r.ok || !Array.isArray(r.data)) return;
+  if (JSON.stringify(r.data) !== JSON.stringify(IMG_Q)) { IMG_Q = r.data; softRender(); }
+}
+const imgPending = () => IMG_Q.filter(r => r.status === 'appealed' || (r.severity === 'hard' && !r.handled_at)).length;
+const imgReasons = r => ((r.reasons && r.reasons.reasons) || []).map(x => esc(t(x.label))).join(', ');
+const imgPrev = r => `<span class="img-prev" data-noguard><img src="${esc(r.url)}" alt="" loading="lazy"></span>`;
+/** Ficha de una imagen para el equipo */
+function imgStaffCard(r) {
+  const done = !!r.handled_at, st = r.status === 'approved' ? t('Aprobada') : r.status === 'rejected' ? (done ? t('Rechazada') : t('Rechazada por la IA (muy grave)')) : t('Apelada');
+  const own = r.owner === (sbSes() && sbSes().uid) && !isOwner();
+  return `<article class="panel img-card">${imgPrev(r)}<div class="img-info"><b>${esc(r.owner_name || '')}</b><span class="story-meta">${t(IMG_KIND[r.kind] || 'Imagen')} · ${st}</span>
+  ${imgReasons(r) ? `<small class="helper">${t('La IA marcó:')} ${imgReasons(r)}</small>` : ''}${r.note ? `<p class="img-note">“${esc(r.note)}”</p>` : ''}${done && r.reason ? `<small class="helper">${t('Motivo:')} ${esc(r.reason)}</small>` : ''}
+  ${own ? `<small class="helper">${t('Es tu imagen: la revisa otra persona del equipo.')}</small>` : `<div class="mod-actions"><button class="button" data-act="img-ok" data-id="${encodeURIComponent(r.url)}">${t('✓ Aprobar')}</button><button class="button danger" data-act="img-no" data-id="${encodeURIComponent(r.url)}">${t('✕ Rechazar')}</button></div>`}</div></article>`;
+}
+function imagesView(tabs) {
+  imgLoadQueue(true); const open = IMG_Q.filter(r => !r.handled_at), done = IMG_Q.filter(r => r.handled_at);
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('Imágenes')}</span><h2 style="margin-top:8px">${t('Imágenes por revisar')} (${open.length})</h2><p>${t('La IA ocultó estas imágenes. Si la autoría dice que fue un error, decide tú: aprobar la muestra para todos o rechazarla con un motivo.')}</p></div></div>
+  ${open.length ? open.map(imgStaffCard).join('') : empty('Nada por revisar', 'Cuando alguien marque una imagen como error, aparecerá aquí.')}
+  ${done.length ? `<h3 style="margin:22px 0 8px">${t('Atendidas (últimos 14 días)')}</h3>${done.map(imgStaffCard).join('')}` : ''}</main>`;
+}
+/** Dentro de la revisión de un libro: sus imágenes apeladas */
+function modBookImgs(s) {
+  const l = IMG_Q.filter(r => !r.handled_at && r.story_id && sBack(r.story_id) === s.id); if (!l.length) return '';
+  return `<h3 style="margin:18px 0 8px">${t('Imágenes apeladas de este libro')} (${l.length})</h3>${l.map(imgStaffCard).join('')}`;
+}
+function imgDecide(url, ok) {
+  const go1 = async reason => {
+    const r = await sbApi('/rest/v1/rpc/img_decide', { method: 'POST', body: { p_url: url, p_ok: ok, p_reason: reason || '' } });
+    if (!r.ok) return modErr(r);
+    toast(ok ? t('Imagen aprobada') : t('Imagen rechazada')); IMG_QL = 0; await Promise.all([imgSyncHidden(), imgLoadQueue(true)]); KEEP = true; render(); return '';
+  };
+  if (ok) return go1('');
+  formModal(t('Rechazar imagen'), `<p class="helper">${t('La persona verá este motivo.')}</p><textarea class="textarea" data-reason maxlength="300" placeholder="${esc(t('Escribe el motivo del rechazo…'))}"></textarea>`, 'Rechazar', m => go1(m.querySelector('[data-reason]').value), true);
+}
+/** Pantalla de la autoría: sus imágenes marcadas */
+function imagesMineView() {
+  imgLoadMine().then(() => { if (/^#\/images/.test(location.hash) && JSON.stringify(imgOpen()) !== IMG_SHOWN) softRender(); });
+  const l = imgOpen(); IMG_SHOWN = JSON.stringify(l);
+  const row = r => {
+    const hard = r.severity === 'hard', st = r.status === 'appealed' ? t('En revisión por una persona del equipo') : r.status === 'rejected' ? (hard && !r.handled_at ? t('Rechazada por la IA') : t('Rechazada por el equipo')) : t('Oculta por la IA');
+    return `<article class="panel img-card">${imgPrev(r)}<div class="img-info"><span class="story-meta">${t(IMG_KIND[r.kind] || 'Imagen')}</span><b class="img-st">${st}</b>
+    ${imgReasons(r) ? `<small class="helper">${t('Motivo:')} ${imgReasons(r)}</small>` : ''}${r.reason ? `<small class="helper">${t('Motivo del equipo:')} ${esc(r.reason)}</small>` : ''}
+    ${r.status === 'flagged' && !hard ? `<button class="button" data-act="img-appeal" data-id="${encodeURIComponent(r.url)}">${t('Es un error, que la revise una persona')}</button>` : ''}
+    ${r.status === 'flagged' && hard ? `<small class="helper">${t('Esta imagen no se puede apelar. Puedes subir otra.')}</small>` : ''}</div></article>`;
+  };
+  return `<main class="page story-layout"><div class="set-head"><a class="icon-btn" href="#/profile" data-dir="prev" aria-label="${esc(t('Volver'))}">‹</a><h2>${t('Mis imágenes')}</h2></div>
+  <p class="helper" style="margin-bottom:12px">${t('Estas imágenes no se muestran a nadie hasta que se revisen. Tus libros y capítulos siguen su camino normal, solo sin la imagen.')}</p>
+  ${l.length ? l.map(row).join('') : empty('Todo en orden', 'No tienes imágenes marcadas.')}</main>`;
+}
+let IMG_SHOWN = '';
+function imgAppeal(url) {
+  formModal(t('Pedir revisión'), `<p class="helper">${t('Una persona del equipo verá la imagen y decidirá. Solo puedes pedirlo una vez por imagen.')}</p><textarea class="textarea" data-note maxlength="300" placeholder="${esc(t('Cuéntanos qué es (opcional)…'))}"></textarea>`, 'Enviar',
+    async m => { const r = await sbApi('/rest/v1/rpc/img_appeal', { method: 'POST', body: { p_url: url, p_note: m.querySelector('[data-note]').value } }); if (!r.ok) return modErr(r); toast(t('Enviado. Te avisaremos cuando se revise.')); await imgLoadMine(); await imgSyncHidden(); KEEP = true; render(); return ''; });
+}
+setInterval(() => { if (document.visibilityState === 'visible' && imgOn()) { imgSweep(); imgSyncHidden().then(c => c && softRender(true)); if (isStaff()) imgLoadQueue(); } }, 60000);
+setTimeout(() => { if (imgOn()) { imgSyncHidden().then(c => c && softRender(true)); imgLoadMine(); imgSweep(); if (isStaff()) imgLoadQueue(true); } }, 3500);
 function modView(sub) {
   if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">' + t('Volver') + '</a>')}</main>`;
   const shuf = cfg('modShuffle') !== false, hs = x => { let h = 2166136261; for (const ch of String(x)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };      // orden aleatorio propio de cada persona del equipo (estable al redibujar)
-  const books = pendingBooks().filter(s => inScope(commOf(s.owner))).reverse().map(b => [b, hs(S.user + '|' + b.id)]).sort((a, b) => shuf ? a[1] - b[1] : 0).map(x => x[0]).sort((x, y) => (claimOf(x.id) ? 1 : 0) - (claimOf(y.id) ? 1 : 0)), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, npo = pendingPosts().length, nb = openBugs(), tabs = commBar() + `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log', 'posts', 'gifts', 'bugs'].includes(sub) ? '' : 'active'}" href="#/moderation">${t('📚 Libros')} ${redN(books.length)}</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">${t('🚩 Reportes')} ${redN(nr)}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">${t('👥 Cuentas')} ${redN(nacc)}</a>${canBan() ? `<a class="tab ${sub === 'posts' ? 'active' : ''}" href="#/moderation/posts">${t('📣 Publicaciones')} ${redN(npo)}</a>` : ''}${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">${t('📨 Apelaciones')} ${redN(na)}</a>` : ''}${isOwner() ? `<a class="tab ${sub === 'bugs' ? 'active' : ''}" href="#/moderation/bugs">${t('🐞 Errores')} ${redN(nb)}</a><a class="tab ${sub === 'gifts' ? 'active' : ''}" href="#/moderation/gifts">${t('🎁 Regalos')}</a><a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">${t('📋 Registro')}</a>` : ''}</div>`;
+  const books = pendingBooks().filter(s => inScope(commOf(s.owner))).reverse().map(b => [b, hs(S.user + '|' + b.id)]).sort((a, b) => shuf ? a[1] - b[1] : 0).map(x => x[0]).sort((x, y) => (claimOf(x.id) ? 1 : 0) - (claimOf(y.id) ? 1 : 0)), nr = openReports(), na = openAppeals(), nacc = accRows().filter(a => a.open).length, npo = pendingPosts().length, nb = openBugs(), tabs = commBar() + `<div class="tabs" role="tablist"><a class="tab ${['reports', 'appeals', 'accounts', 'log', 'posts', 'gifts', 'bugs', 'images'].includes(sub) ? '' : 'active'}" href="#/moderation">${t('📚 Libros')} ${redN(books.length)}</a><a class="tab ${sub === 'reports' ? 'active' : ''}" href="#/moderation/reports">${t('🚩 Reportes')} ${redN(nr)}</a><a class="tab ${sub === 'accounts' ? 'active' : ''}" href="#/moderation/accounts">${t('👥 Cuentas')} ${redN(nacc)}</a><a class="tab ${sub === 'images' ? 'active' : ''}" href="#/moderation/images">${t('🖼 Imágenes')} ${redN(imgPending())}</a>${canBan() ? `<a class="tab ${sub === 'posts' ? 'active' : ''}" href="#/moderation/posts">${t('📣 Publicaciones')} ${redN(npo)}</a>` : ''}${canBan() ? `<a class="tab ${sub === 'appeals' ? 'active' : ''}" href="#/moderation/appeals">${t('📨 Apelaciones')} ${redN(na)}</a>` : ''}${isOwner() ? `<a class="tab ${sub === 'bugs' ? 'active' : ''}" href="#/moderation/bugs">${t('🐞 Errores')} ${redN(nb)}</a><a class="tab ${sub === 'gifts' ? 'active' : ''}" href="#/moderation/gifts">${t('🎁 Regalos')}</a><a class="tab ${sub === 'log' ? 'active' : ''}" href="#/moderation/log">${t('📋 Registro')}</a>` : ''}</div>`;
+  if (sub === 'images') return imagesView(tabs);
   if (sub === 'reports') return reportsView(tabs);
   if (sub === 'appeals' && canBan()) return appealsView(tabs);
   if (sub === 'accounts') return accountsView(tabs);
@@ -3186,6 +3295,7 @@ function editProfileView() {
     <h3 class="ep-h"><i class="ep-dot"></i><span>${t('Borde de color')}</span></h3>
     <div class="ep-halos" role="group" aria-label="${esc(t('Borde de color'))}">${[['', 'Sin borde'], ...Object.entries(HALOS).map(([x, v]) => [x, v[1]])].map(([x, nm]) => `<button type="button" class="ep-halo ${(lk.halo || '') === x ? 'on' : ''}" data-act="ep-halo" data-id="${x}" aria-pressed="${(lk.halo || '') === x}" aria-label="${esc(t(nm))}" title="${esc(t(nm))}"><i class="${x ? '' : 'none'}" style="${x ? 'background:' + HALOS[x][0] : ''}"></i></button>`).join('')}</div>` : '';
   return `<main class="page story-layout ep-page ep2"><div class="ep-top"><a class="icon-btn" href="#/profile" data-dir="prev" aria-label="${esc(t('Volver'))}">‹</a><h2>${t('Editar perfil')}</h2><button type="submit" form="ep-form" class="button sm ep-save">${t('Guardar')}</button></div>
+  ${imgOpen().length ? `<a class="img-alert" href="#/images" data-dir="next"><b>${t('Una de tus imágenes fue ocultada')}</b><span>${t('Ver qué pasó y pedir revisión')}</span><i aria-hidden="true">›</i></a>` : ''}
   <section class="ep-media"><div class="ep-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>${has ? '' : `<span class="ep-leaf l">${EPI.leaves}</span><span class="ep-leaf r">${EPI.leaves}</span>`}<div class="ep-bn-chips">${has ? `<button type="button" class="ep-chip" data-act="bn-adjust">${t('Ajustar portada')}</button><button type="button" class="ep-chip" data-act="bn-clear">${t('Quitar portada')}</button>` : ''}</div><label class="ep-cam" style="cursor:pointer" aria-label="${esc(t('Cambiar portada'))}">${EPI.cam}<input id="bn-file" type="file" accept="image/*" hidden></label></div>
     <div class="ep-av">${frWrap(S.user, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}<label class="ep-cam sm" style="cursor:pointer" aria-label="${esc(t('Cambiar foto'))}">${EPI.cam}<input id="av-file" type="file" accept="image/*" hidden></label></div>
     <div class="ep-av-acts"><label class="ep-chip" style="cursor:pointer">${u.avatar ? t('Cambiar foto de perfil') : t('Añadir foto de perfil')}<input id="av-file2" type="file" accept="image/*" hidden></label>${u.avatar ? `<button type="button" class="ep-chip" data-act="av-adjust">${t('Ajustar')}</button><button type="button" class="ep-chip" data-act="av-clear">${t('Quitar')}</button>` : ''}</div></section>
@@ -3834,6 +3944,7 @@ function render() {
   else if (a === 'moderation' && b === 'book' && c && d) app.innerHTML = shell('/moderation', modChapterView(decodeURIComponent(c), decodeURIComponent(d)));
   else if (a === 'moderation' && b === 'book' && c) app.innerHTML = shell('/moderation', modBookView(decodeURIComponent(c)));
   else if (a === 'moderation') app.innerHTML = shell('/moderation', modView(b));
+  else if (a === 'images') app.innerHTML = shell('', imagesMineView());
   else if (a === 'gift') app.innerHTML = shell('', giftView());
   else if (a === 'stats') app.innerHTML = shell('', statsView());
   else if (a === 'messages') app.innerHTML = b ? dmView(b) : shell('', dmView(''));
@@ -3849,7 +3960,7 @@ function render() {
     if (nx && b === MUSIC.sid && nx.music && nx.music === MUSIC.url) MUSIC.ch = String(c); else closeMusic(); }
   if (HLC) { const hid = HLC; HLC = ''; const cm0 = comments(b).find(x => String(x.id) === hid); if (cm0) { setTimeout(() => { const el = document.getElementById('cm-' + hid); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('cm-hl'); setTimeout(() => el.classList.remove('cm-hl'), 3200); } }, 120); } else toast(t('Ese comentario ya no está.')); }
   else if (!KEEP) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); }
-  bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
+  imgGuard(app); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
   if (nav && a === 'story' && c && c !== 'fin') pcHintOnce();
   if (S.user) { showModOverlay(); showGiftOverlay(); }                                      // moderador/a sin marco puesto: el aviso reaparece hasta que se lo ponga
@@ -4149,6 +4260,9 @@ document.addEventListener('click', e => {
     'align': () => applyAlign(id),
     'scene-sep': () => insertSep(),
     'mbti': () => openMbti(),
+    'img-appeal': () => imgAppeal(decodeURIComponent(id)),
+    'img-ok': () => imgDecide(decodeURIComponent(id), true),
+    'img-no': () => imgDecide(decodeURIComponent(id), false),
     'bio-more': () => { el.closest('.pf-bio-box').classList.toggle('open'); bioFit(); },
     'sep-lock': () => toast('Este diseño estará disponible pronto en la tienda.'),
     'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },

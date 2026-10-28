@@ -1735,3 +1735,15 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .nav-card.prev small::before{content:"‹  "}.nav-card.next{text-align:right}.nav-card.next small::after{content:"  ›"}
 .nav-card.next{background:linear-gradient(135deg,hsl(var(--primary)/.14),hsl(var(--card)/.8));border-color:hsl(var(--primary)/.35)}
 .nav-card:only-child{grid-column:1/-1;text-align:center}
+
+/* 61 · Imágenes marcadas por la IA */
+.img-card{display:flex;gap:14px;align-items:flex-start;margin-bottom:12px}
+.img-prev{flex:0 0 96px;height:96px;border-radius:14px;overflow:hidden;background:hsl(var(--muted));display:block}
+.img-prev img{width:100%;height:100%;object-fit:cover;display:block}
+.img-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.img-info .button{align-self:flex-start;white-space:normal;text-align:left}
+.img-st{font-size:15px}
+.img-note{margin:0;font-size:14px;font-style:italic;color:hsl(var(--muted-foreground))}
+.img-alert{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px;padding:12px 14px;border-radius:16px;background:hsl(var(--card));border:1px solid hsl(var(--border));color:inherit;text-decoration:none}
+.img-alert b{flex:1 1 100%;font-size:14.5px}
+.img-alert span{flex:1;font-size:13px;color:hsl(var(--muted-foreground))}
