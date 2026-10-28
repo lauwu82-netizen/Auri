@@ -1771,4 +1771,5 @@ window.I18N = { en: {
   "Portada de libro": "Book cover",
   "Portada de capítulo": "Chapter cover",
   "Imagen": "Image",
+  "<b>Revisión automática con IA.</b> Los capítulos que envías a revisión y las imágenes que subes (foto de perfil, banner y portadas) se envían a un servicio externo de moderación (OpenAI) solo para detectar contenido no permitido. Si una imagen se marca por error, puedes pedir que la revise una persona del equipo. No se usan para entrenar modelos ni para publicidad.": "<b>Automatic AI review.</b> Chapters you submit for review and images you upload (profile photo, banner and covers) are sent to an external moderation service (OpenAI) only to detect disallowed content. If an image is flagged by mistake, you can ask a team member to review it. They are not used to train models or for advertising.",
 } };

@@ -2675,6 +2675,7 @@ const PRIVACY = `<ol><li><b>Dónde se guardan tus datos.</b> Por ahora Auri guar
 <li><b>Anuncios y seguimiento.</b> Auri no muestra anuncios ni te rastrea.</li>
 <li><b>Tus derechos.</b> Puedes exportar tus datos, borrar los de este dispositivo o eliminar tu cuenta desde Ajustes, cuando quieras.</li>
 <li><b>Cuando haya servidor y funciones con IA.</b> Te avisaremos antes de enviar tus textos a un servicio externo y te pediremos permiso.</li>
+<li><b>Revisión automática con IA.</b> Los capítulos que envías a revisión y las imágenes que subes (foto de perfil, banner y portadas) se envían a un servicio externo de moderación (OpenAI) solo para detectar contenido no permitido. Si una imagen se marca por error, puedes pedir que la revise una persona del equipo. No se usan para entrenar modelos ni para publicidad.</li>
 <li><b>Menores.</b> El contenido +18 es solo para personas adultas; por ahora se basa en una declaración.</li></ol>`;
 function showPrivacy() {
   const m = document.createElement('div'); m.className = 'modal';
