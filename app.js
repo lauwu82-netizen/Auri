@@ -1962,6 +1962,8 @@ const TERMS = `<ol>
 <li><b>Menores.</b> Está prohibido sexualizar a personajes menores de 18 años, incluso en ficción. Esas historias se rechazan y pueden causar la suspensión de la cuenta.</li>
 <li><b>Contenido prohibido.</b> Contenido sexual explícito, apología del odio, acoso, violencia extrema gratuita, datos personales de terceras personas y plagio.</li>
 <li><b>Revisión.</b> Toda historia pasa por moderación antes de aparecer en Descubrir. Puede aprobarse, rechazarse con un motivo o retirarse después si incumple estas reglas.</li>
+<li><b>Revisión con IA.</b> Una IA hace una primera revisión de tus capítulos. Si marca uno, queda oculto hasta que una persona del equipo lo revise y decida. La IA puede equivocarse: la decisión final siempre es de una persona.</li>
+<li><b>Imágenes.</b> Las fotos de perfil, banners y portadas (de libros y capítulos) cumplen las mismas reglas. Una IA las revisa; si marca una por error, puedes pedir que la revise una persona del equipo. Las imágenes de gravedad extrema se rechazan sin apelación y pueden causar la suspensión de la cuenta.</li>
 <li><b>Responsabilidad.</b> Eres responsable de tu contenido y de etiquetarlo bien. Una etiqueta incorrecta puede ser motivo de rechazo.</li>
 <li><b>Lectores.</b> Las historias +18 solo se muestran a cuentas que declaren ser mayores de 18 años. Por ahora es una declaración, no una verificación de identidad.</li>
 <li><b>Convivencia.</b> Trata bien a las demás personas: el acoso, el odio y el spam no están permitidos en comentarios ni perfiles. Puedes reportar contenido y bloquear o silenciar cuentas.</li>
@@ -1991,6 +1993,15 @@ function collect() {                                   // lee solo los campos de
 const coverPrev = () => W.cover ? `<img src="${esc(W.cover)}" alt="${esc(t('Vista previa de la portada'))}">` : t('Sin portada');
 const TN_RE = /[\[(]\s*(?:T\/N|Y\/N|TN|YN)\s*[\])]|\b(?:T\/N|Y\/N)\b|\b(?:TN|YN)\b/gi;
 /** TN / T/N / [TN] / (T/N) → nombre del personaje. "TN" en MAYÚSCULAS da el nombre en MAYÚSCULAS; "tn" o "Tn" lo dan tal cual */
+/** Color de cabello y de ojos: T/P, T/C, T/CP, T/C/P, T/O, T/CO, T/C/O… (español) y H/C, Y/H/C, E/C, Y/E/C (inglés). Se reemplazan con los datos del personaje; si no hay dato, queda tal cual. */
+const HE_TOK = { h: ['T/C/P', 'T/C/C', 'T/CP', 'T/CC', 'T/P', 'T/C', 'Y/H/C', 'H/C', 'TCP', 'TCC', 'YHC'], e: ['T/C/OJ', 'T/C/O', 'T/COJ', 'T/CO', 'T/OJ', 'T/O', 'Y/E/C', 'E/C', 'TCOJ', 'TCO', 'YEC'] };
+const HE_KEY = Object.fromEntries([...HE_TOK.h.map(k => [k, 'hair']), ...HE_TOK.e.map(k => [k, 'eyes']), ['TP', 'hair'], ['HC', 'hair'], ['TO', 'eyes'], ['EC', 'eyes']]);
+const HE_ALL = [...HE_TOK.h, ...HE_TOK.e].sort((a, b) => b.length - a.length).map(k => k.replace(/\//g, '\\/')).join('|');
+const HE_RE = new RegExp('(^|[^\\w/])(' + HE_ALL + ')(?![\\w/])|[\\[(]\\s*(' + HE_ALL + '|TP|TO|HC|EC)\\s*[\\])]', 'gi');
+const fillHE = (text, ch) => { const v = { hair: String((ch && ch.hair) || '').trim(), eyes: String((ch && ch.eyes) || '').trim() }; if (!v.hair && !v.eyes) return text;
+  return text.replace(HE_RE, (m, pre, bare, br) => { const tok = (bare || br).replace(/\s/g, ''), up = tok.toUpperCase(), k = HE_KEY[up];
+    if (!k || !v[k]) return m; if (br && /^(TP|TO|HC|EC)$/i.test(tok) && tok !== up) return m;      // «(to)» en minúsculas es la palabra inglesa, no un marcador
+    return (bare ? pre : '') + v[k]; }); };
 const fillTN = (text, name) => text.replace(TN_RE, m => ['TN', 'YN'].includes(m.replace(/[^A-Za-z]/g, '')) ? name.toLocaleUpperCase(LOC()) : name);
 /* Comentarios por párrafo: ocultos al leer; se tocan los párrafos para comentar. Se guardan por libro + capítulo + párrafo (con una "huella" del párrafo) */
 const PC_MAX = 400, paraSplit = t => String(t || '').split(/\n\s*\n/);
@@ -2036,7 +2047,7 @@ function applyFmt(kind) {
 }
 function readerText(text, on, pc) {
   const name = S.character.name || t('Lectora'), raw = paraSplit(text), all = pc && cfg('pcom') !== 'off' ? pcAll() : null;
-  return `<div class="reader-text">${(on ? fillTN(text, name) : text).split(/\n\s*\n/).map((p, i) => {
+  return `<div class="reader-text">${(on ? fillHE(fillTN(text, name), S.character) : text).split(/\n\s*\n/).map((p, i) => {
     const n = all && cfg('pcom') === 'dots' ? (all[pcKey(pc.sid, pc.ci, i)] || []).filter(c => c.q === pQ(raw[i])).length : 0;
     if (/^\s*::sep\s*$/.test(p)) return sepHTML('scene-sep');
     const am = /^::([crj]) /.exec(p);
@@ -2670,11 +2681,11 @@ function typeConfirm(title, text, word, yes, onYes) {
   m.querySelector('[data-no]').onclick = () => m.remove();
   document.body.appendChild(m);
 }
-const PRIVACY = `<ol><li><b>Dónde se guardan tus datos.</b> Por ahora Auri guarda todo en este navegador (almacenamiento local): tu cuenta, historias, biblioteca, personajes y ajustes. No se envían a ningún servidor.</li>
-<li><b>Qué guardamos.</b> Correo, nombre de usuario, biografía, fotos que subas, tus historias y lo que haces en la app (favoritos, progreso, comentarios, likes y seguidores).</li>
+const PRIVACY = `<ol><li><b>Dónde se guardan tus datos.</b> Tu cuenta, historias, biblioteca, personajes y ajustes se guardan en este dispositivo y en los servidores de Auri (Supabase), para que puedas entrar desde otros dispositivos y para que otras personas vean lo que publicas.</li>
+<li><b>Qué guardamos.</b> Correo, nombre de usuario, biografía, fotos que subas, tus historias y lo que haces en la app (favoritos, progreso, comentarios, likes, seguidores y mensajes). Las imágenes que subes se guardan en el almacenamiento de Auri y se pueden abrir con su enlace.</li>
 <li><b>Anuncios y seguimiento.</b> Auri no muestra anuncios ni te rastrea.</li>
 <li><b>Tus derechos.</b> Puedes exportar tus datos, borrar los de este dispositivo o eliminar tu cuenta desde Ajustes, cuando quieras.</li>
-<li><b>Cuando haya servidor y funciones con IA.</b> Te avisaremos antes de enviar tus textos a un servicio externo y te pediremos permiso.</li>
+<li><b>Otras funciones con IA.</b> Para funciones de IA distintas de la moderación (como el asistente para escribir) te avisaremos antes de enviar tus textos a un servicio externo y te pediremos permiso.</li>
 <li><b>Revisión automática con IA.</b> Los capítulos que envías a revisión y las imágenes que subes (foto de perfil, banner y portadas) se envían a un servicio externo de moderación (OpenAI) solo para detectar contenido no permitido. Si una imagen se marca por error, puedes pedir que la revise una persona del equipo. No se usan para entrenar modelos ni para publicidad.</li>
 <li><b>Menores.</b> El contenido +18 es solo para personas adultas; por ahora se basa en una declaración.</li></ol>`;
 function showPrivacy() {
@@ -3713,16 +3724,18 @@ function openCharForm(id, after) {
   m.innerHTML = `<div class="modal-box char-form" role="dialog" aria-modal="true" aria-label="${cur ? t('Editar personaje') : t('Crear personaje')}"><button class="icon-btn close-x" data-x aria-label="${esc(t('Cerrar'))}">✕</button><h2>${cur ? t('Editar personaje') : t('Nuevo personaje')}</h2>
   <div class="cf-photo"><span class="cf-prev" data-prev>${photo ? `<img src="${esc(photo)}" alt="">` : '🐱'}</span><div class="cover-fields"><label class="button secondary sm" style="cursor:pointer">${t('📷 Subir foto (opcional)')}<input type="file" accept="image/*" hidden data-file></label><button type="button" class="button ghost sm" data-nophoto ${photo ? '' : 'hidden'}>${t('Quitar foto')}</button></div></div>
   <div class="form-group"><label>${t('Nombre del personaje')}</label><input class="field" data-name maxlength="30" placeholder="${esc(t('Ej: Aiko'))}" value="${esc(cur ? cur.name : '')}"></div>
+  <div class="cf-two"><div class="form-group"><label>${t('Color de cabello')}</label><input class="field" data-hair maxlength="40" placeholder="${esc(t('Ej: castaño oscuro'))}" value="${esc(cur ? cur.hair || '' : '')}"></div><div class="form-group"><label>${t('Color de ojos')}</label><input class="field" data-eyes maxlength="40" placeholder="${esc(t('Ej: verdes'))}" value="${esc(cur ? cur.eyes || '' : '')}"></div></div>
+  <p class="helper">${t('En las historias que lo permiten, T/P (cabello) y T/O (ojos) se reemplazan con estos datos.')}</p>
   <p class="error" data-err></p><div class="cf-btns"><button class="button ghost" data-cancel>${t('Cancelar')}</button><button class="button" data-save>${t('Guardar')}</button></div></div>`;
   const q = sel => m.querySelector(sel), close = () => m.remove(), setPrev = () => { q('[data-prev]').innerHTML = photo ? `<img src="${esc(photo)}" alt="">` : '🐱'; q('[data-nophoto]').hidden = !photo; };
   q('[data-x]').onclick = close; q('[data-cancel]').onclick = close; m.onclick = ev => { if (ev.target === m) close(); };
   q('[data-file]').onchange = () => fitPhoto(q('[data-file]').files[0], 600, 800, d => { photo = d; setPrev(); });
   q('[data-nophoto]').onclick = () => { photo = ''; setPrev(); };
   q('[data-save]').onclick = () => {
-    const name = q('[data-name]').value.trim(); if (!name) { q('[data-err]').textContent = t('Escribe un nombre para tu personaje.'); return; }
-    if (cur) { S.chars = S.chars.map(c => c.id === cur.id ? { ...c, name, photo } : c); if (cur.id === S.activeId) setActive(cur.id); saveChars(); close(); toast('Personaje actualizado'); return render(); }
+    const name = q('[data-name]').value.trim(), hair = q('[data-hair]').value.trim(), eyes = q('[data-eyes]').value.trim(); if (!name) { q('[data-err]').textContent = t('Escribe un nombre para tu personaje.'); return; }
+    if (cur) { S.chars = S.chars.map(c => c.id === cur.id ? { ...c, name, photo, hair, eyes } : c); if (cur.id === S.activeId) setActive(cur.id); saveChars(); close(); toast('Personaje actualizado'); return render(); }
     let nid; do { nid = chapId(); } while (S.chars.some(c => c.id === nid));
-    S.chars = [...S.chars, { id: nid, ...emptyChar(), name, photo }];
+    S.chars = [...S.chars, { id: nid, ...emptyChar(), name, photo, hair, eyes }];
     if (S.chars.length === 1) setActive(nid); else saveChars();                 // el primero queda en uso automáticamente
     close(); toast('Personaje creado ✨'); if (after) after(nid); else { KEEP = true; render(); }
   };
