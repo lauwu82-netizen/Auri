@@ -1907,3 +1907,6 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .imgr-row .img-prev{flex:none;width:52px;height:52px;border-radius:12px;overflow:hidden}.imgr-row .img-prev img{width:100%;height:100%;object-fit:cover}
 .imgr-item{padding:10px 0;border-top:1px solid hsl(var(--border))}.imgr-item:first-of-type{border-top:0}
 .page.pf-page{padding-top:0}
+/* 72 · Lazo más grande y pegado a la foto */
+.orn-top.bow{right:-44%;top:-38%;width:140%}
+.fr.sm .orn-top.bow{right:-50%;top:-44%;width:155%}
