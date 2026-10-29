@@ -1788,4 +1788,11 @@ window.I18N = { en: {
   "Solo para ti. No espera los 3 días.": "Only for you. Doesn't wait the 3 days.",
   "Reproducir: Auri mareado": "Play: dizzy Auri",
   "Ojos de espiral.": "Spiral eyes.",
+  "Paso 1 de 2 · Tu libro nuevo": "Step 1 of 2 · Your new book",
+  "Cambia lo que quieras: se guarda al tocar el botón de abajo.": "Change whatever you like: it saves when you tap the button below.",
+  "Dale cara a tu libro. Después escribirás el capítulo 1.": "Give your book a face. Then you'll write chapter 1.",
+  "Portada y título": "Cover and title",
+  "De qué trata": "What it's about",
+  "Cómo te van a encontrar": "How people will find it",
+  "Ajustes del libro": "Book settings",
 } };

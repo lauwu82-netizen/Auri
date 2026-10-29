@@ -2092,28 +2092,41 @@ const chaptersEntry = () => { const n = W.chapters.length, pend = W.chapters.fil
   return `<section class="panel ch-entry"><div><strong>${t('Capítulos')}</strong><div class="helper">${tn(n, '{n} capítulo', '{n} capítulos')}${pend ? ' · ' + t('{n} en revisión', { n: pend }) : ''}. ${t('Cada uno se edita en su propia pantalla.')}</div></div><button class="button secondary" data-act="ch-list">${t('Editar capítulos')}</button></section>`; };
 /* Paso 1: datos de la historia */
 function infoView(existing) {
-  return `<main class="page story-layout"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">✎ ${existing ? t('Datos de la historia') : t('Paso 1 · Datos de la historia')}</span><h2 style="margin-top:8px">${existing ? t('Edita los datos') : t('Aquí empieza una historia')}</h2><p>${t('Portada, título y sinopsis. Después escribirás cada capítulo en su propia pantalla.')}</p></div></div>
-  <section class="panel"><div class="form-grid">
-    <div class="form-group full"><label>${t('Portada del libro')}</label><div class="cover-picker"><div class="cover-prev" id="cover-prev">${coverPrev()}</div>
-      <div class="cover-fields"><label class="button secondary sm" style="cursor:pointer">📷 ${t('Subir imagen')}<input id="cover-file" type="file" accept="image/*" hidden></label><button class="button ghost sm" data-act="cover-adjust" type="button">✂ ${t('Ajustar imagen')}</button>
-      <input id="cover-url" class="field" placeholder="${esc(t('…o pega la URL de una imagen'))}" value="${W.cover.startsWith('data:') ? '' : esc(W.cover)}">
-      <button class="button ghost sm" data-act="clear-cover" type="button">${t('Quitar portada')}</button>
-      <span class="helper">${t('Puedes subir cualquier tamaño: después la ajustas (mover y zoom) a la proporción 2:3 de las tarjetas.')}</span></div></div></div>
-    <div class="form-group full"><label for="w-title">${t('Título')}</label><input id="w-title" class="field" value="${esc(W.title)}" placeholder="${esc(t('Ponle un nombre…'))}"></div>
+  const g0 = W.genre || 'Fantasy';
+  return `<main class="page story-layout nb">
+  <section class="nb-hero"><span class="nb-spark s1" aria-hidden="true"></span><span class="nb-spark s2" aria-hidden="true"></span><span class="nb-spark s3" aria-hidden="true"></span>
+    <span class="nb-eye">${existing ? t('Datos de la historia') : t('Paso 1 de 2 · Tu libro nuevo')}</span>
+    <h2>${existing ? t('Edita los datos') : t('Aquí empieza una historia')}</h2>
+    <p>${existing ? t('Cambia lo que quieras: se guarda al tocar el botón de abajo.') : t('Dale cara a tu libro. Después escribirás el capítulo 1.')}</p>
+    <div class="nb-stage"><div class="nb-book" data-g="${esc(g0)}"><div class="cover-prev" id="cover-prev">${coverPrev()}</div><span class="nb-bt" id="nb-bt">${esc(W.title)}</span></div></div>
+    <div class="nb-cover-btns"><label class="button secondary sm" style="cursor:pointer">${t('Subir imagen')}<input id="cover-file" type="file" accept="image/*" hidden></label><button class="button ghost sm" data-act="cover-adjust" type="button">${t('Ajustar imagen')}</button><button class="button ghost sm" data-act="clear-cover" type="button">${t('Quitar portada')}</button></div>
+    <input id="cover-url" class="field nb-url" placeholder="${esc(t('…o pega la URL de una imagen'))}" value="${W.cover.startsWith('data:') ? '' : esc(W.cover)}">
+    <span class="helper nb-help">${t('Puedes subir cualquier tamaño: después la ajustas (mover y zoom) a la proporción 2:3 de las tarjetas.')}</span>
+  </section>
+  <section class="panel nb-sec"><h3 class="nb-h"><b>1</b>${t('Portada y título')}</h3><div class="form-grid">
+    <div class="form-group full"><label for="w-title">${t('Título')}</label><input id="w-title" class="field nb-title" value="${esc(W.title)}" placeholder="${esc(t('Ponle un nombre…'))}"></div>
     <div class="form-group full"><label for="w-syn">${t('Sinopsis')}</label><textarea id="w-syn" class="textarea" placeholder="${esc(t('Unas líneas para invitar a leer…'))}">${esc(W.synopsis)}</textarea></div>
-    <div class="form-group"><label for="w-genre">${t('Género')}</label><select id="w-genre" class="select">${Object.keys(GENRES).map(g => `<option value="${g}" ${W.genre === g ? 'selected' : ''}>${esc(t(GENRES[g]))}</option>`).join('')}</select></div>
-    <div class="form-group"><label for="w-fandom">${t('Fandom / universo')}</label><input id="w-fandom" class="field" value="${esc(W.fandom)}"></div>
+  </div></section>
+  <section class="panel nb-sec"><h3 class="nb-h"><b>2</b>${t('De qué trata')}</h3><div class="form-grid">
+    <div class="form-group full"><label class="nb-lab">${t('Género')}</label><div class="nb-genres" role="group" aria-label="${esc(t('Género'))}">${Object.keys(GENRES).map(g => `<button type="button" class="nb-g ${g0 === g ? 'on' : ''}" data-act="w-genre" data-id="${esc(g)}" aria-pressed="${g0 === g}">${esc(t(GENRES[g]))}</button>`).join('')}</div>
+      <select id="w-genre" hidden>${Object.keys(GENRES).map(g => `<option value="${g}" ${g0 === g ? 'selected' : ''}>${esc(t(GENRES[g]))}</option>`).join('')}</select></div>
+    <div class="form-group full"><label for="w-fandom">${t('Fandom / universo')}</label><input id="w-fandom" class="field" value="${esc(W.fandom)}"></div>
+    <div class="form-group full"><label for="w-phase">${t('Estado del libro')}</label><select id="w-phase" class="select">${Object.keys(PHASE).map(k => `<option value="${k}" ${(W.phase || 'ongoing') === k ? 'selected' : ''}>${esc(t(PHASE[k]))}</option>`).join('')}</select></div>
+  </div></section>
+  <section class="panel nb-sec"><h3 class="nb-h"><b>3</b>${t('Cómo te van a encontrar')}</h3><div class="form-grid">
     <div class="form-group full"><label for="w-tags">${t('Etiquetas')} <span class="helper" style="display:inline">· ${t('mínimo 3 para publicar')}</span></label><input id="w-tags" class="field" value="${esc(tagsText(W.tags))}" placeholder="${esc(t('#romance lento #magia #enemies to lovers'))}" autocapitalize="none"><div id="w-tags-prev" class="tag-prev">${W.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div><div class="tag-sug"><span class="helper">${t('Sugeridas:')}</span>${[...new Set([...popTags(6), 'lgbtq+', 'yaoi', 'yuri', t('poliamor'), t('romance lento'), 'au'])].slice(0, 10).map(t => `<button type="button" class="tag tag-link" data-act="tag-add" data-id="${esc(t)}">#${esc(t)}</button>`).join('')}</div><span class="helper">${t('Escribe cada etiqueta con # al inicio. Ej: #romance lento #magia. Así la gente te encuentra al buscar por etiquetas.')}</span></div>
     <div class="form-group full"><label>${t('Avisos de contenido')} <span class="helper" style="display:inline">· ${t('opcional, ayuda a quien lee')}</span></label><div class="warn-chips" role="group">${Object.keys(WARNS).map(k => `<button type="button" class="chip ${(W.warns || []).includes(k) ? 'active' : ''}" data-act="warn-toggle" data-id="${k}" aria-pressed="${(W.warns || []).includes(k)}">${t(WARNS[k])}</button>`).join('')}</div></div>
-    <div class="form-group"><label for="w-phase">${t('Estado del libro')}</label><select id="w-phase" class="select">${Object.keys(PHASE).map(k => `<option value="${k}" ${(W.phase || 'ongoing') === k ? 'selected' : ''}>${esc(t(PHASE[k]))}</option>`).join('')}</select></div>
-    ${sagaBox()}
-  </div><div class="toggle-line"><div><strong>${t('Tarjeta de personaje lector')}</strong><div class="helper">${t('Reemplaza TN / T/N por el nombre de tu personaje.')}</div></div>
+  ${sagaBox()}
+  </div></section>
+  <section class="panel nb-sec nb-tg"><h3 class="nb-h"><b>4</b>${t('Ajustes del libro')}</h3>
+  <div class="toggle-line"><div><strong>${t('Tarjeta de personaje lector')}</strong><div class="helper">${t('Reemplaza TN / T/N por el nombre de tu personaje.')}</div></div>
   <button type="button" role="switch" class="switch" aria-checked="${W.useReaderCharacter}" data-act="toggle-tn" aria-label="${esc(t('Usar tarjeta de personaje lector'))}"></button></div>
-  <div class="toggle-line"><div><strong>🔒 ${t('Historia privada')}</strong><div class="helper">${t('Solo tú la ves: no aparece en Descubrir, búsquedas ni tu perfil público, y no pasa por moderación.')}</div></div>
+  <div class="toggle-line"><div><strong>${t('Historia privada')}</strong><div class="helper">${t('Solo tú la ves: no aparece en Descubrir, búsquedas ni tu perfil público, y no pasa por moderación.')}</div></div>
   <button type="button" role="switch" class="switch" aria-checked="${!!W.private}" data-act="toggle-priv" aria-label="${esc(t('Historia privada'))}"></button></div>
   ${isMinor(getUsers()[S.user]) ? '' : `<div class="toggle-line"><div><strong>${t('Historia +18')}</strong><div class="helper">${t('Actívalo si tiene contenido sugerente o temas para mayores de edad. Una vez publicada, quitar la marca +18 necesita aprobación de moderación.')}</div></div>
   <button type="button" role="switch" class="switch" aria-checked="${W.mature}" data-act="toggle-18" aria-label="${esc(t('Historia +18'))}"></button></div>`}
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px">${existing ? '<button class="button" data-act="info-save">' + t('Guardar cambios') + '</button>' : '<button class="button" data-act="save-next">' + t('Guardar y siguiente ›') + '</button>'}</div></section>${existing ? chaptersEntry() : ''}</main>`;
+  </section>
+  <div class="nb-go">${existing ? '<button class="button" data-act="info-save">' + t('Guardar cambios') + '</button>' : '<button class="button" data-act="save-next">' + t('Guardar y siguiente ›') + '</button>'}</div>${existing ? chaptersEntry() : ''}</main>`;
 }
 
 /* Lista de capítulos de la historia */
@@ -2649,6 +2662,7 @@ function isleSync() {
   isleSleepInit(); isleSeen(); el.classList.toggle('off', hide); el.inert = hide; if (hide) return;
   el.classList.toggle('ping', (unread() + dmUnread()) > 0); isleLayout();
 }
+document.addEventListener('input', e => { if (e.target && e.target.id === 'w-title') { const bt = document.getElementById('nb-bt'); if (bt) bt.textContent = e.target.value; } });
 /* ---------- Imágenes marcadas por la IA ----------
    La función "moderate-image" revisa las imágenes subidas. Si marca una, queda oculta para todos (relleno en su lugar).
    La autoría puede pedir revisión humana ("es un error"); el equipo la aprueba o rechaza en Moderación › Imágenes. */
@@ -4384,6 +4398,7 @@ document.addEventListener('click', e => {
     'align': () => applyAlign(id),
     'scene-sep': () => insertSep(),
     'mbti': () => openMbti(),
+    'w-genre': () => { const sel = $('#w-genre'); if (!sel) return; sel.value = id; if (W) W.genre = id; document.querySelectorAll('.nb-g').forEach(b => { const on = b.dataset.id === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); const bk = $('.nb-book'); if (bk) bk.dataset.g = id; },
     'isle-test': () => { if (isOwner()) isleTest(id); },
     'img-appeal': () => imgAppeal(decodeURIComponent(id)),
     'img-ok': () => imgDecide(decodeURIComponent(id), true),
