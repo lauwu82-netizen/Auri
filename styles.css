@@ -1755,3 +1755,27 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .cr-slide:has(.cr-bg)::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background:linear-gradient(0deg,rgba(20,10,40,.14),transparent 45%)}
 .cr-txt,.cr-cv{position:relative;z-index:1}
 @media(prefers-reduced-motion:reduce){.cr-bg{filter:blur(20px)}}
+
+/* 63 · La isla de Auri (cabecita flotante que se extiende) */
+.isle{position:fixed;z-index:70;border-radius:26px;background:transparent;color:#fff;overflow:visible;touch-action:none;
+  transition:left .6s cubic-bezier(.32,1.35,.45,1),top .6s cubic-bezier(.32,1.35,.45,1),width .6s cubic-bezier(.32,1.35,.45,1),height .6s cubic-bezier(.32,1.35,.45,1),background .35s ease,box-shadow .35s ease,opacity .3s ease,transform .3s ease}
+.isle.drag{transition:opacity .2s ease,transform .2s ease;transform:scale(1.08)}
+.isle.off{opacity:0;pointer-events:none;transform:scale(.6)}
+.isle.open{background:rgba(26,19,48,.93);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:0 18px 44px rgba(18,10,40,.55),inset 0 0 0 1px rgba(190,160,255,.22),0 0 30px rgba(140,100,240,.25);border-radius:30px;overflow:hidden}
+.isle-head{position:absolute;left:0;top:0;width:52px;height:46px;padding:0;border:0;background:none;cursor:grab;display:block;
+  transition:left .6s cubic-bezier(.32,1.35,.45,1),top .6s cubic-bezier(.32,1.35,.45,1);filter:drop-shadow(0 5px 9px rgba(80,40,170,.45));-webkit-tap-highlight-color:transparent;touch-action:none}
+.isle-head svg{width:52px;height:46px;display:block;overflow:visible}
+.isle.open .isle-head{left:calc(50% - 26px);top:6px;cursor:pointer}
+.isle-body{position:absolute;left:0;right:0;top:50px;display:flex;justify-content:center;gap:2px;padding:6px 6px 12px;opacity:0;transform:translateY(-8px) scale(.96);pointer-events:none;transition:opacity .2s ease,transform .3s ease}
+.isle.open .isle-body{opacity:1;transform:none;pointer-events:auto;transition:opacity .35s ease .16s,transform .5s cubic-bezier(.32,1.35,.45,1) .12s}
+.isle-op{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 2px 8px;border:0;border-radius:18px;background:none;color:rgba(255,255,255,.88);font:600 10px var(--sans);letter-spacing:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.isle-op:active{background:rgba(255,255,255,.1);transform:scale(.95)}
+.isle-ic{color:var(--nc);filter:drop-shadow(0 0 3px var(--nc)) drop-shadow(0 0 9px var(--nc));display:grid;place-items:center}
+.isle-ic svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.8}
+.isle-l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:.01em}
+.isle-n{min-width:20px;padding:1px 7px;border-radius:99px;background:rgba(255,255,255,.16);font:700 11px var(--sans);color:#efe6ff;text-align:center}
+.isle.ping:not(.open) .isle-head{animation:isleShake 5.5s ease-in-out infinite}
+@keyframes isleShake{0%,86%,100%{transform:rotate(0)}89%{transform:rotate(-12deg)}92%{transform:rotate(10deg)}95%{transform:rotate(-7deg)}98%{transform:rotate(4deg)}}
+.isle .ih-eyes{transform-origin:26px 26px;animation:isleBlink 6s infinite}
+@keyframes isleBlink{0%,94%,100%{transform:scaleY(1)}96.5%{transform:scaleY(.08)}}
+@media(prefers-reduced-motion:reduce){.isle,.isle-head,.isle-body{transition-duration:.01s!important}.isle.ping .isle-head,.isle .ih-eyes{animation:none!important}}

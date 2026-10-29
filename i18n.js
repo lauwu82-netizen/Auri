@@ -1782,4 +1782,5 @@ window.I18N = { en: {
   "Ej: castaño oscuro": "E.g. dark brown",
   "Ej: verdes": "E.g. green",
   "En las historias que lo permiten, T/P (cabello) y T/O (ojos) se reemplazan con estos datos.": "In stories that allow it, Y/H/C (hair) and Y/E/C (eyes) are replaced with these details.",
+  "Menú de Auri": "Auri menu",
 } };

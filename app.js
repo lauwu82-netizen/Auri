@@ -2540,6 +2540,78 @@ async function releaseClaim(id) {
   const ses = sbSes(), su = sUuid(id); if (CLAIMS[id] && CLAIMS[id].by === S.user) delete CLAIMS[id]; if (!cloud() || !ses || !su) return;
   await sbApi('/rest/v1/review_claims?story_id=eq.' + su + '&user_id=eq.' + ses.uid, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
 }
+/* ---------- La isla de Auri (prueba: solo la Owner) ----------
+   Una cabecita de gato flotante: se arrastra a un borde, se extiende al tocarla (como la Dynamic Island) y se cierra al tocar fuera.
+   Los números no se ven hasta abrirla; si llega algo, solo se mueve un poquito. Se esconde al leer o escribir un capítulo. */
+const ISLE_W = 52, ISLE_H = 46, ISLE_K = 'auri.isle';
+let ISLE = null, ISLE_ST = { open: false, drag: null };
+const ISLE_HEAD = `<svg viewBox="0 0 52 46" aria-hidden="true"><defs><linearGradient id="ih-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b393ff"/><stop offset="1" stop-color="#6b45c9"/></linearGradient><radialGradient id="ih-e" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#d8ffe4"/><stop offset="1" stop-color="#43e07a"/></radialGradient></defs>
+  <g class="ih-an"><path d="M20 12 16 3M32 12 36 3" stroke="#8a63e6" stroke-width="2" stroke-linecap="round" fill="none"/><circle cx="16" cy="3" r="2.2" fill="#b9f5cf"/><circle cx="36" cy="3" r="2.2" fill="#b9f5cf"/></g>
+  <path d="M5 21 8 5l13 8zM47 21 44 5 31 13z" fill="url(#ih-g)" stroke="#5a38b0" stroke-width="1.2" stroke-linejoin="round"/><path d="M9 17l1.2-8 6 4zM43 17l-1.2-8-6 4z" fill="#d7c6ff" opacity=".75"/>
+  <ellipse cx="26" cy="27" rx="21" ry="15.5" fill="url(#ih-g)" stroke="#5a38b0" stroke-width="1.2"/>
+  <g class="ih-eyes"><ellipse cx="18" cy="26" rx="4.2" ry="4.8" fill="url(#ih-e)"/><ellipse cx="34" cy="26" rx="4.2" ry="4.8" fill="url(#ih-e)"/><ellipse cx="18.4" cy="26.4" rx="1.3" ry="3" fill="#0f3320"/><ellipse cx="34.4" cy="26.4" rx="1.3" ry="3" fill="#0f3320"/></g>
+  <path d="M23.5 33.2q2.5 2 5 0" stroke="#3d2480" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>`;
+const ISLE_OPS = [
+  { k: 'msg', c: '#7fdcff', ic: () => ICON.mail, l: 'Mensajes', n: () => dmUnread() },
+  { k: 'noti', c: '#ffb36b', ic: () => ICON.bell, l: 'Notificaciones', n: () => unread() },
+  { k: 'find', c: '#7dffb0', ic: () => ICON.search, l: 'Buscar', n: () => 0 },
+  { k: 'set', c: '#d2b8ff', ic: () => ICON.gear, l: 'Ajustes', n: () => 0 },
+];
+const isleSaved = () => { const v = LS.get(ISLE_K, null); return v && (v.side === 'l' || v.side === 'r') ? v : { side: 'r', y: 96 }; };
+const isleHidden = () => {
+  const p = location.hash.slice(1) || '/', [, a, b, c] = p.split('/');
+  return !S.user || isGuest() || !isOwner() || (a === 'story' && /^\d+$|^fin$/.test(c || '')) || (a === 'write' && c === 'ch') || !!document.querySelector('.modal');
+};
+function isleBuild() {
+  if (ISLE) return ISLE;
+  const el = document.createElement('div'); el.className = 'isle'; el.id = 'isle';
+  el.innerHTML = `<button type="button" class="isle-head" aria-label="${esc(t('Menú de Auri'))}" aria-expanded="false" aria-haspopup="true">${ISLE_HEAD}</button><div class="isle-body" role="menu" aria-hidden="true"></div>`;
+  document.body.appendChild(el); ISLE = el;
+  const head = el.querySelector('.isle-head');
+  head.addEventListener('pointerdown', ev => { if (ISLE_ST.open) return; ISLE_ST.drag = { x: ev.clientX, y: ev.clientY, l: el.offsetLeft, t: el.offsetTop, moved: false, id: ev.pointerId }; try { head.setPointerCapture(ev.pointerId); } catch (e) { /* */ } });
+  head.addEventListener('pointermove', ev => { const d = ISLE_ST.drag; if (!d || d.id !== ev.pointerId) return; const dx = ev.clientX - d.x, dy = ev.clientY - d.y;
+    if (!d.moved && Math.hypot(dx, dy) > 7) { d.moved = true; el.classList.add('drag'); } if (!d.moved) return;
+    el.style.left = Math.max(4, Math.min(innerWidth - ISLE_W - 4, d.l + dx)) + 'px'; el.style.top = Math.max(isleTop(), Math.min(isleBottom(), d.t + dy)) + 'px'; });
+  const up = ev => { const d = ISLE_ST.drag; if (!d || d.id !== ev.pointerId) return; ISLE_ST.drag = null; el.classList.remove('drag');
+    if (d.moved) { const cx = el.offsetLeft + ISLE_W / 2; LS.set(ISLE_K, { side: cx < innerWidth / 2 ? 'l' : 'r', y: el.offsetTop }); isleLayout(); } else isleToggle(!ISLE_ST.open); };
+  head.addEventListener('pointerup', up); head.addEventListener('pointercancel', ev => { const d = ISLE_ST.drag; if (d) { ISLE_ST.drag = null; el.classList.remove('drag'); isleLayout(); } });
+  head.addEventListener('click', ev => { if (ev.detail === 0) isleToggle(!ISLE_ST.open); });          // teclado
+  document.addEventListener('pointerdown', ev => { if (ISLE_ST.open && !el.contains(ev.target)) isleToggle(false); }, true);
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && ISLE_ST.open) { isleToggle(false); head.focus(); } });
+  el.querySelector('.isle-body').addEventListener('click', ev => { const b = ev.target.closest('[data-isle]'); if (!b) return; isleToggle(false); isleGo(b.dataset.isle); });
+  addEventListener('resize', () => isleLayout());
+  return el;
+}
+const isleTop = () => 8 + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0) + 36;
+const isleBottom = () => innerHeight - 140;
+function isleGo(k) {
+  if (k === 'msg') go('/messages'); else if (k === 'noti') go('/notifications'); else if (k === 'set') go('/settings');
+  else if (k === 'find') { go('/'); setTimeout(() => { SEARCH_OPEN = true; syncSearch(); focusSearch(); const b = $('[data-act=search-toggle]'); if (b) b.setAttribute('aria-expanded', 'true'); }, 60); }
+}
+function isleFill() {
+  const body = ISLE.querySelector('.isle-body');
+  body.innerHTML = ISLE_OPS.map(o => { const n = o.n(); return `<button type="button" class="isle-op" role="menuitem" data-isle="${o.k}" style="--nc:${o.c}"><span class="isle-ic">${o.ic()}</span><span class="isle-l">${esc(t(o.l))}</span>${n ? `<b class="isle-n">${n > 99 ? '99+' : n}</b>` : '<b class="isle-n" style="visibility:hidden">0</b>'}</button>`; }).join('');
+}
+function isleLayout() {
+  if (!ISLE) return; const s = isleSaved(), W = Math.min(330, innerWidth - 20), st = ISLE_ST;
+  const y = Math.max(isleTop(), Math.min(isleBottom(), s.y)), x = s.side === 'l' ? 8 : innerWidth - ISLE_W - 8;
+  ISLE.classList.toggle('left', s.side === 'l');
+  if (!st.open) { ISLE.style.cssText = `left:${x}px;top:${y}px;width:${ISLE_W}px;height:${ISLE_H}px`; return; }
+  const H = ISLE_H + ISLE.querySelector('.isle-body').scrollHeight + 6, left = Math.max(10, Math.min(innerWidth - W - 10, x + ISLE_W / 2 - W / 2)), top = y + H > innerHeight - 80 ? Math.max(isleTop(), y + ISLE_H - H) : y;
+  ISLE.style.cssText = `left:${left}px;top:${top}px;width:${W}px;height:${H}px`;
+}
+function isleToggle(open) {
+  if (!ISLE) return; ISLE_ST.open = open; if (open) { isleFill(); }
+  ISLE.classList.toggle('open', open); const head = ISLE.querySelector('.isle-head'); head.setAttribute('aria-expanded', open); ISLE.querySelector('.isle-body').setAttribute('aria-hidden', !open);
+  isleLayout();
+}
+/** Se llama después de cada dibujado: muestra u oculta la isla y refresca el aviso */
+function isleSync() {
+  const hide = isleHidden(); if (hide && !ISLE) return; const el = isleBuild();
+  if (ISLE_ST.open) isleToggle(false);
+  el.classList.toggle('off', hide); el.inert = hide; if (hide) return;
+  el.classList.toggle('ping', (unread() + dmUnread()) > 0); isleLayout();
+}
 /* ---------- Imágenes marcadas por la IA ----------
    La función "moderate-image" revisa las imágenes subidas. Si marca una, queda oculta para todos (relleno en su lugar).
    La autoría puede pedir revisión humana ("es un error"); el equipo la aprueba o rechaza en Moderación › Imágenes. */
@@ -3974,7 +4046,7 @@ function render() {
     if (nx && b === MUSIC.sid && nx.music && nx.music === MUSIC.url) MUSIC.ch = String(c); else closeMusic(); }
   if (HLC) { const hid = HLC; HLC = ''; const cm0 = comments(b).find(x => String(x.id) === hid); if (cm0) { setTimeout(() => { const el = document.getElementById('cm-' + hid); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('cm-hl'); setTimeout(() => el.classList.remove('cm-hl'), 3200); } }, 120); } else toast(t('Ese comentario ya no está.')); }
   else if (!KEEP) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); }
-  imgGuard(app); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
+  imgGuard(app); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
   if (nav && a === 'story' && c && c !== 'fin') pcHintOnce();
   if (S.user) { showModOverlay(); showGiftOverlay(); }                                      // moderador/a sin marco puesto: el aviso reaparece hasta que se lo ponga
