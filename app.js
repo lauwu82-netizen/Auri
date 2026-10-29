@@ -2542,14 +2542,17 @@ async function releaseClaim(id) {
    Una cabecita de gato flotante: se arrastra a un borde, se extiende al tocarla (como la Dynamic Island) y se cierra al tocar fuera.
    Los números no se ven hasta abrirla; si llega algo, solo se mueve un poquito. Se esconde al leer o escribir un capítulo. */
 const ISLE_W = 54, ISLE_H = 47, ISLE_K = 'auri.isle';
-let ISLE = null, ISLE_ST = { open: false, drag: null };
+let ISLE = null, ISLE_ST = { open: false, drag: null, sleep: false, taps: 0, u: '', trail: [], dz: 0, seenAt: 0 };
+const ISLE_SP = (cx, cy) => { let d = ''; for (let i = 0; i <= 30; i++) { const a = i * .45, r = .3 + a * .3; d += (i ? 'L' : 'M') + (cx + Math.cos(a) * r).toFixed(2) + ' ' + (cy + Math.sin(a) * r).toFixed(2); } return `<path class="sp" d="${d}"/>`; };
 const ISLE_HEAD = `<svg viewBox="0 0 64 56" aria-hidden="true"><defs>
   <radialGradient id="ih-hi" cx=".38" cy=".2" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".55" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
   <linearGradient id="ih-sh" x1="0" y1=".35" x2="0" y2="1"><stop offset="0" stop-color="#1b0b3d" stop-opacity="0"/><stop offset="1" stop-color="#1b0b3d" stop-opacity=".38"/></linearGradient></defs>
   <path class="ih-ear" d="M9 33C8 22 9 12 12.5 7.5 15 4.5 18.5 5.5 21 8c4.5 4 8.500 8.500 11 12.500Z"/><path class="ih-ear" d="M55 33C56 22 55 12 51.500 7.500 49 4.500 45.500 5.500 43 8c-4.500 4-8.500 8.500-11 12.500Z"/>
   <path d="M13 28C12.500 21 13.500 14 15.500 11.500 17 10 19 11 20.500 12.500 23 15 25.500 18 27 20.500Z" fill="#fff" opacity=".22"/><path d="M51 28C51.500 21 50.500 14 48.500 11.500 47 10 45 11 43.500 12.500 41 15 38.500 18 37 20.500Z" fill="#fff" opacity=".22"/>
   <ellipse class="ih-face" cx="32" cy="35" rx="26" ry="18"/><ellipse cx="32" cy="35" rx="26" ry="18" fill="url(#ih-sh)"/><ellipse cx="32" cy="35" rx="26" ry="18" fill="url(#ih-hi)"/>
-  <g class="ih-eyes"><ellipse cx="23" cy="34" rx="3.4" ry="4.6" fill="#1a1226"/><ellipse cx="41" cy="34" rx="3.4" ry="4.6" fill="#1a1226"/><circle cx="24.1" cy="32.4" r="1.1" fill="#fff"/><circle cx="42.1" cy="32.4" r="1.1" fill="#fff"/></g></svg>`;
+  <g class="ih-eyes"><g class="eL"><ellipse cx="23" cy="34" rx="3.4" ry="4.6" fill="#1a1226"/><circle cx="24.1" cy="32.4" r="1.1" fill="#fff"/></g><g class="eR"><ellipse cx="41" cy="34" rx="3.4" ry="4.6" fill="#1a1226"/><circle cx="42.1" cy="32.4" r="1.1" fill="#fff"/></g></g>
+  <g class="ih-arc"><path class="arcL" d="M18.600 35.200Q23 38.800 27.400 35.200"/><path class="arcR" d="M36.600 35.200Q41 38.800 45.400 35.200"/></g>
+  <g class="ih-spir"><circle cx="23" cy="34" r="5.800" fill="#fff"/><circle cx="41" cy="34" r="5.800" fill="#fff"/>${ISLE_SP(23, 34)}${ISLE_SP(41, 34)}</g></svg>`;
 const ISLE_OPS = [
   { k: 'msg', ic: () => ICON.mail, l: 'Mensajes', n: () => dmUnread(), who: 'user' },
   { k: 'noti', ic: () => ICON.bell, l: 'Notificaciones', n: () => unread(), who: 'user' },
@@ -2566,22 +2569,54 @@ const isleHidden = () => {
 function isleBuild() {
   if (ISLE) return ISLE;
   const el = document.createElement('div'); el.className = 'isle'; el.id = 'isle';
-  el.innerHTML = `<button type="button" class="isle-head" aria-label="${esc(t('Menú de Auri'))}" aria-expanded="false" aria-haspopup="true">${ISLE_HEAD}</button><div class="isle-body" role="menu" aria-hidden="true"></div>`;
+  el.innerHTML = `<button type="button" class="isle-head" aria-label="${esc(t('Menú de Auri'))}" aria-expanded="false" aria-haspopup="true">${ISLE_HEAD}</button><span class="isle-z" aria-hidden="true"><i>z</i><i>z</i><i>Z</i></span><div class="isle-body" role="menu" aria-hidden="true"></div>`;
   document.body.appendChild(el); ISLE = el;
   const head = el.querySelector('.isle-head');
   head.addEventListener('pointerdown', ev => { if (ISLE_ST.open) return; ISLE_ST.drag = { x: ev.clientX, y: ev.clientY, l: el.offsetLeft, t: el.offsetTop, moved: false, id: ev.pointerId }; try { head.setPointerCapture(ev.pointerId); } catch (e) { /* */ } });
   head.addEventListener('pointermove', ev => { const d = ISLE_ST.drag; if (!d || d.id !== ev.pointerId) return; const dx = ev.clientX - d.x, dy = ev.clientY - d.y;
     if (!d.moved && Math.hypot(dx, dy) > 7) { d.moved = true; el.classList.add('drag'); } if (!d.moved) return;
-    el.style.left = Math.max(4, Math.min(innerWidth - ISLE_W - 4, d.l + dx)) + 'px'; el.style.top = Math.max(isleTop(), Math.min(isleBottom(), d.t + dy)) + 'px'; });
+    isleTrail(ev.clientX, ev.clientY); el.style.left = Math.max(4, Math.min(innerWidth - ISLE_W - 4, d.l + dx)) + 'px'; el.style.top = Math.max(isleTop(), Math.min(isleBottom(), d.t + dy)) + 'px'; });
   const up = ev => { const d = ISLE_ST.drag; if (!d || d.id !== ev.pointerId) return; ISLE_ST.drag = null; el.classList.remove('drag');
-    if (d.moved) { const cx = el.offsetLeft + ISLE_W / 2; LS.set(ISLE_K, { side: cx < innerWidth / 2 ? 'l' : 'r', y: el.offsetTop }); isleLayout(); } else isleToggle(!ISLE_ST.open); };
+    if (d.moved) { const cx = el.offsetLeft + ISLE_W / 2; LS.set(ISLE_K, { side: cx < innerWidth / 2 ? 'l' : 'r', y: el.offsetTop }); ISLE_ST.trail = []; isleLayout(); } else isleTap(); };
   head.addEventListener('pointerup', up); head.addEventListener('pointercancel', ev => { const d = ISLE_ST.drag; if (d) { ISLE_ST.drag = null; el.classList.remove('drag'); isleLayout(); } });
-  head.addEventListener('click', ev => { if (ev.detail === 0) isleToggle(!ISLE_ST.open); });          // teclado
+  head.addEventListener('click', ev => { if (ev.detail === 0) isleTap(); });          // teclado
   document.addEventListener('pointerdown', ev => { if (ISLE_ST.open && !el.contains(ev.target)) isleToggle(false); }, true);
   document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && ISLE_ST.open) { isleToggle(false); head.focus(); } });
   el.querySelector('.isle-body').addEventListener('click', ev => { const b = ev.target.closest('[data-isle]'); if (!b) return; isleToggle(false); isleGo(b.dataset.isle); });
   addEventListener('resize', () => isleLayout());
   return el;
+}
+
+/** Mareo: si la arrastras muy rápido o en círculos, los ojos se vuelven espirales un ratito */
+function isleTrail(x, y) {
+  const t = performance.now(), tr = ISLE_ST.trail; tr.push({ x, y, t }); while (tr.length && t - tr[0].t > 1600) tr.shift(); if (ISLE_ST.dz > t || tr.length < 8) return;
+  let len = 0, fast = 0; for (let i = 1; i < tr.length; i++) { const dd = Math.hypot(tr[i].x - tr[i - 1].x, tr[i].y - tr[i - 1].y); len += dd; if (t - tr[i].t < 500) fast += dd; }
+  const cx = tr.reduce((a, p) => a + p.x, 0) / tr.length, cy = tr.reduce((a, p) => a + p.y, 0) / tr.length; let ang = 0, pa = null;
+  for (const p of tr) { const a = Math.atan2(p.y - cy, p.x - cx); if (pa !== null) { let da = a - pa; if (da > Math.PI) da -= 2 * Math.PI; if (da < -Math.PI) da += 2 * Math.PI; ang += da; } pa = a; }
+  if (fast > 1300 || (Math.abs(ang) > Math.PI * 2.4 && len > 220)) isleDizzy();
+}
+function isleDizzy() {
+  if (!ISLE) return; ISLE.classList.add('dizzy'); ISLE_ST.trail = []; ISLE_ST.dz = performance.now() + 4200;
+  clearTimeout(ISLE_ST.dzT); ISLE_ST.dzT = setTimeout(() => ISLE.classList.remove('dizzy'), 2400);
+}
+/** Dormida: tras 3 días sin entrar. 1.er toque abre un ojo y lo cierra; 2.º toque despierta y abre el menú */
+function isleSleepInit() {
+  if (!S.user || ISLE_ST.u === S.user) return; ISLE_ST.u = S.user; const k = uk('seen'), v = LS.get(k, null), now = Date.now();
+  const sleep = !!(v && v.sleep) || !!(v && v.t && now - v.t >= 3 * 864e5); ISLE_ST.sleep = sleep; ISLE_ST.taps = 0; ISLE_ST.seenAt = now; LS.set(k, { t: now, sleep }); ISLE.classList.toggle('sleep', sleep);
+}
+function isleSeen() { if (!S.user || Date.now() - ISLE_ST.seenAt < 60000) return; ISLE_ST.seenAt = Date.now(); LS.set(uk('seen'), { t: ISLE_ST.seenAt, sleep: ISLE_ST.sleep }); }
+function isleTap() {
+  if (!ISLE_ST.sleep) return isleToggle(!ISLE_ST.open);
+  ISLE_ST.taps++;
+  if (ISLE_ST.taps === 1) { ISLE.classList.add('peek'); clearTimeout(ISLE_ST.pkT); ISLE_ST.pkT = setTimeout(() => ISLE.classList.remove('peek'), 1500); return; }
+  clearTimeout(ISLE_ST.pkT); ISLE_ST.sleep = false; ISLE_ST.taps = 0; ISLE.classList.remove('sleep', 'peek'); ISLE.classList.add('wake'); LS.set(uk('seen'), { t: Date.now(), sleep: false });
+  setTimeout(() => ISLE.classList.remove('wake'), 800); setTimeout(() => { if (!ISLE_ST.sleep) isleToggle(true); }, 520);
+}
+/** Para probar (solo Owner): fuerza la animación sin esperar 3 días */
+function isleTest(what) {
+  if (!ISLE) { isleSync(); } if (!ISLE) return; if (ISLE_ST.open) isleToggle(false);
+  if (what === 'dizzy') { isleDizzy(); return; }
+  ISLE_ST.sleep = true; ISLE_ST.taps = 0; ISLE.classList.remove('peek', 'wake', 'dizzy'); ISLE.classList.add('sleep');
 }
 const isleTop = () => 4;
 const isleBottom = () => innerHeight - 140;
@@ -2611,7 +2646,7 @@ function isleToggle(open) {
 function isleSync() {
   const hide = isleHidden(); if (hide && !ISLE) return; const el = isleBuild();
   if (ISLE_ST.open) isleToggle(false);
-  el.classList.toggle('off', hide); el.inert = hide; if (hide) return;
+  isleSleepInit(); isleSeen(); el.classList.toggle('off', hide); el.inert = hide; if (hide) return;
   el.classList.toggle('ping', (unread() + dmUnread()) > 0); isleLayout();
 }
 /* ---------- Imágenes marcadas por la IA ----------
@@ -3394,6 +3429,7 @@ function editProfileView() {
     <button type="button" class="ep-row" data-act="frames"><span><b>${t('Marcos')}</b><small>${frameLine}</small></span><i aria-hidden="true">›</i></button>
     <h3 class="ep-h">${EPI.shield}<span>${t('Privacidad')}</span></h3>
     <div class="ep-card ep-sw">${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}${sw('hideLists', !!u.hideLists, 'Ocultar mis listas', 'Nadie más ve quién te sigue ni a quién sigues. Los números siguen visibles.')}</div>
+${isOwner() ? `<h3 class="ep-h">${EPI.spark}<span>${t('Pruebas de Auri')}</span></h3><button type="button" class="ep-row" data-act="isle-test" data-id="sleep"><span><b>${t('Reproducir: Auri dormido')}</b><small>${t('Solo para ti. No espera los 3 días.')}</small></span><i aria-hidden="true">›</i></button><button type="button" class="ep-row" data-act="isle-test" data-id="dizzy"><span><b>${t('Reproducir: Auri mareado')}</b><small>${t('Ojos de espiral.')}</small></span><i aria-hidden="true">›</i></button>` : ''}
     <div class="ep-actions"><button type="submit" class="button ep-save-b">${t('Guardar')}</button><a class="button secondary" href="#/profile" data-dir="prev">${t('Cancelar')}</a></div>
   </form></main>`;
 }
@@ -4348,6 +4384,7 @@ document.addEventListener('click', e => {
     'align': () => applyAlign(id),
     'scene-sep': () => insertSep(),
     'mbti': () => openMbti(),
+    'isle-test': () => { if (isOwner()) isleTest(id); },
     'img-appeal': () => imgAppeal(decodeURIComponent(id)),
     'img-ok': () => imgDecide(decodeURIComponent(id), true),
     'img-no': () => imgDecide(decodeURIComponent(id), false),

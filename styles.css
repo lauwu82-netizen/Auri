@@ -1793,3 +1793,27 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .isle-body.five .isle-l{font-size:9px}
 .isle-body.five .isle-op{padding-left:0;padding-right:0}
 @media(min-width:900px){.topbar.tb2{display:flex;padding:0 24px}}
+
+/* 65 · Auri dormido y mareado */
+.isle .ih-arc,.isle .ih-spir{display:none}
+.ih-arc path{fill:none;stroke:#1a1226;stroke-width:1.7;stroke-linecap:round}
+.ih-spir .sp{fill:none;stroke:#1a1226;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transform-box:fill-box;transform-origin:center;animation:isleSpin .55s linear infinite}
+.ih-spir .sp:last-child{animation-direction:reverse}
+@keyframes isleSpin{to{transform:rotate(360deg)}}
+.isle.dizzy .ih-eyes,.isle.dizzy .ih-arc{display:none}.isle.dizzy .ih-spir{display:inline}
+.isle.dizzy .isle-head{animation:isleDizzy .5s ease-in-out infinite!important}
+@keyframes isleDizzy{0%,100%{transform:rotate(-11deg) translateX(-1px)}50%{transform:rotate(11deg) translateX(1px)}}
+.isle.sleep .ih-eyes{display:none}.isle.sleep .ih-arc{display:inline}
+.isle.sleep.peek .ih-eyes{display:inline}.isle.sleep.peek .eR{display:none}.isle.sleep.peek .arcL{display:none}
+.isle.peek .eL{transform-box:fill-box;transform-origin:center;animation:isleLid .5s ease-out}
+@keyframes isleLid{from{transform:scaleY(.08)}to{transform:scaleY(.8)}}
+.isle.sleep .isle-head{animation:none!important;filter:drop-shadow(0 2px 3px rgba(24,10,56,.45)) drop-shadow(0 7px 12px rgba(24,10,56,.3)) saturate(.8) brightness(.93)}
+.isle.wake .isle-head{animation:isleWake .75s cubic-bezier(.3,1.5,.5,1)}
+@keyframes isleWake{0%{transform:scale(.92,1.06)}35%{transform:scale(1.14,.9) rotate(-6deg)}65%{transform:scale(.95,1.08) rotate(5deg)}100%{transform:none}}
+.isle-z{--zx:-12px;position:absolute;left:-20px;top:-2px;width:30px;height:40px;pointer-events:none;opacity:0}
+.isle-z i{position:absolute;left:0;bottom:0;font:italic 700 13px Georgia,serif;color:hsl(var(--primary));text-shadow:0 0 6px hsl(var(--primary)/.5);opacity:0;animation:isleZ 3.2s ease-in-out infinite}
+.isle-z i:nth-child(2){animation-delay:1.05s;font-size:16px}.isle-z i:nth-child(3){animation-delay:2.1s;font-size:19px}
+.isle.sleep:not(.open) .isle-z{opacity:1}
+.isle.left .isle-z{--zx:12px;left:36px}
+@keyframes isleZ{0%{transform:translate(0,4px) scale(.7);opacity:0}15%{opacity:1}70%{opacity:.9}100%{transform:translate(var(--zx),-28px) scale(1.15);opacity:0}}
+@media(prefers-reduced-motion:reduce){.isle-z i,.isle.dizzy .isle-head,.ih-spir .sp{animation:none!important}.isle-z i:nth-child(1){opacity:.9}}

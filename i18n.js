@@ -1783,4 +1783,9 @@ window.I18N = { en: {
   "Ej: verdes": "E.g. green",
   "En las historias que lo permiten, T/P (cabello) y T/O (ojos) se reemplazan con estos datos.": "In stories that allow it, Y/H/C (hair) and Y/E/C (eyes) are replaced with these details.",
   "Menú de Auri": "Auri menu",
+  "Pruebas de Auri": "Auri tests",
+  "Reproducir: Auri dormido": "Play: sleeping Auri",
+  "Solo para ti. No espera los 3 días.": "Only for you. Doesn't wait the 3 days.",
+  "Reproducir: Auri mareado": "Play: dizzy Auri",
+  "Ojos de espiral.": "Spiral eyes.",
 } };
