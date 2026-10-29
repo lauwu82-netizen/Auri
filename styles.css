@@ -1765,7 +1765,7 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .isle-head{position:absolute;left:0;top:0;width:54px;height:47px;padding:0;border:0;background:none;cursor:grab;display:block;
   transition:left .6s cubic-bezier(.32,1.35,.45,1),top .6s cubic-bezier(.32,1.35,.45,1);filter:drop-shadow(0 2px 3px rgba(24,10,56,.55)) drop-shadow(0 7px 12px rgba(24,10,56,.4));-webkit-tap-highlight-color:transparent;touch-action:none}
 .isle-head svg{width:54px;height:47px;display:block;overflow:visible}
-.ih-face{fill:hsl(var(--primary));stroke:var(--silver);stroke-width:1.6}.ih-ear{fill:hsl(var(--primary));stroke:var(--silver);stroke-width:2;stroke-linejoin:round}
+.ih-face,.ih-ear{fill:hsl(var(--primary))}.ih-ear{stroke:hsl(var(--primary));stroke-width:2.5;stroke-linejoin:round}
 .isle.open .isle-head{left:calc(50% - 27px);top:6px;cursor:pointer}
 .isle-body{position:absolute;left:0;right:0;top:50px;display:flex;justify-content:center;gap:2px;padding:6px 6px 12px;opacity:0;transform:translateY(-8px) scale(.96);pointer-events:none;transition:opacity .2s ease,transform .3s ease}
 .isle.open .isle-body{opacity:1;transform:none;pointer-events:auto;transition:opacity .35s ease .16s,transform .5s cubic-bezier(.32,1.35,.45,1) .12s}
@@ -1782,4 +1782,4 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 @keyframes isleBlink{0%,94%,100%{transform:scaleY(1)}96.5%{transform:scaleY(.08)}}
 @media(prefers-reduced-motion:reduce){.isle,.isle-head,.isle-body{transition-duration:.01s!important}.isle.ping .isle-head,.isle .ih-eyes{animation:none!important}}
 
-.dark .isle:not(.open) .isle-head{filter:drop-shadow(0 0 1.5px rgba(225,210,255,.55)) drop-shadow(0 4px 9px rgba(0,0,0,.65))}
+.dark .isle:not(.open) .isle-head{filter:drop-shadow(0 4px 9px rgba(0,0,0,.7)) drop-shadow(0 0 10px rgba(150,110,240,.28))}

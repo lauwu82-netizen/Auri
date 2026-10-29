@@ -2545,7 +2545,12 @@ async function releaseClaim(id) {
    Los números no se ven hasta abrirla; si llega algo, solo se mueve un poquito. Se esconde al leer o escribir un capítulo. */
 const ISLE_W = 54, ISLE_H = 47, ISLE_K = 'auri.isle';
 let ISLE = null, ISLE_ST = { open: false, drag: null };
-const ISLE_HEAD = `<svg viewBox="0 0 64 56" aria-hidden="true"><path class="ih-ear" d="M9 32 12 4 31 17Z"/><path class="ih-ear" d="M55 32 52 4 33 17Z"/><ellipse class="ih-face" cx="32" cy="35" rx="26" ry="18"/>
+const ISLE_HEAD = `<svg viewBox="0 0 64 56" aria-hidden="true"><defs>
+  <radialGradient id="ih-hi" cx=".38" cy=".2" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".55" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  <linearGradient id="ih-sh" x1="0" y1=".35" x2="0" y2="1"><stop offset="0" stop-color="#1b0b3d" stop-opacity="0"/><stop offset="1" stop-color="#1b0b3d" stop-opacity=".38"/></linearGradient></defs>
+  <path class="ih-ear" d="M9 33C8 22 9 12 12.5 7.5 15 4.5 18.5 5.5 21 8c4.5 4 8.500 8.500 11 12.500Z"/><path class="ih-ear" d="M55 33C56 22 55 12 51.500 7.500 49 4.500 45.500 5.500 43 8c-4.500 4-8.500 8.500-11 12.500Z"/>
+  <path d="M13 28C12.500 21 13.500 14 15.500 11.500 17 10 19 11 20.500 12.500 23 15 25.500 18 27 20.500Z" fill="#fff" opacity=".22"/><path d="M51 28C51.500 21 50.500 14 48.500 11.500 47 10 45 11 43.500 12.500 41 15 38.500 18 37 20.500Z" fill="#fff" opacity=".22"/>
+  <ellipse class="ih-face" cx="32" cy="35" rx="26" ry="18"/><ellipse cx="32" cy="35" rx="26" ry="18" fill="url(#ih-sh)"/><ellipse cx="32" cy="35" rx="26" ry="18" fill="url(#ih-hi)"/>
   <g class="ih-eyes"><ellipse cx="23" cy="34" rx="3.4" ry="4.6" fill="#1a1226"/><ellipse cx="41" cy="34" rx="3.4" ry="4.6" fill="#1a1226"/><circle cx="24.1" cy="32.4" r="1.1" fill="#fff"/><circle cx="42.1" cy="32.4" r="1.1" fill="#fff"/></g></svg>`;
 const ISLE_OPS = [
   { k: 'msg', ic: () => ICON.mail, l: 'Mensajes', n: () => dmUnread() },
