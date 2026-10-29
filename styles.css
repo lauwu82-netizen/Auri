@@ -1748,3 +1748,10 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .img-alert b{flex:1 1 100%;font-size:14.5px}
 .img-alert span{flex:1;font-size:13px;color:hsl(var(--muted-foreground))}
 .cf-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* 62 · Banner con la portada difuminada de fondo (se funde hacia el lado del texto) */
+.cr-bg{position:absolute;top:-14%;right:-8%;width:78%;height:128%;object-fit:cover;filter:blur(20px) saturate(1.15);opacity:.62;pointer-events:none;z-index:0;
+  -webkit-mask-image:linear-gradient(270deg,#000 10%,transparent 92%);mask-image:linear-gradient(270deg,#000 10%,transparent 92%)}
+.cr-slide:has(.cr-bg)::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background:linear-gradient(0deg,rgba(20,10,40,.14),transparent 45%)}
+.cr-txt,.cr-cv{position:relative;z-index:1}
+@media(prefers-reduced-motion:reduce){.cr-bg{filter:blur(20px)}}
