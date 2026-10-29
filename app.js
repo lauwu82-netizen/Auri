@@ -2543,19 +2543,15 @@ async function releaseClaim(id) {
 /* ---------- La isla de Auri (prueba: solo la Owner) ----------
    Una cabecita de gato flotante: se arrastra a un borde, se extiende al tocarla (como la Dynamic Island) y se cierra al tocar fuera.
    Los números no se ven hasta abrirla; si llega algo, solo se mueve un poquito. Se esconde al leer o escribir un capítulo. */
-const ISLE_W = 52, ISLE_H = 46, ISLE_K = 'auri.isle';
+const ISLE_W = 54, ISLE_H = 47, ISLE_K = 'auri.isle';
 let ISLE = null, ISLE_ST = { open: false, drag: null };
-const ISLE_HEAD = `<svg viewBox="0 0 52 46" aria-hidden="true"><defs><linearGradient id="ih-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b393ff"/><stop offset="1" stop-color="#6b45c9"/></linearGradient><radialGradient id="ih-e" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#d8ffe4"/><stop offset="1" stop-color="#43e07a"/></radialGradient></defs>
-  <g class="ih-an"><path d="M20 12 16 3M32 12 36 3" stroke="#8a63e6" stroke-width="2" stroke-linecap="round" fill="none"/><circle cx="16" cy="3" r="2.2" fill="#b9f5cf"/><circle cx="36" cy="3" r="2.2" fill="#b9f5cf"/></g>
-  <path d="M5 21 8 5l13 8zM47 21 44 5 31 13z" fill="url(#ih-g)" stroke="#5a38b0" stroke-width="1.2" stroke-linejoin="round"/><path d="M9 17l1.2-8 6 4zM43 17l-1.2-8-6 4z" fill="#d7c6ff" opacity=".75"/>
-  <ellipse cx="26" cy="27" rx="21" ry="15.5" fill="url(#ih-g)" stroke="#5a38b0" stroke-width="1.2"/>
-  <g class="ih-eyes"><ellipse cx="18" cy="26" rx="4.2" ry="4.8" fill="url(#ih-e)"/><ellipse cx="34" cy="26" rx="4.2" ry="4.8" fill="url(#ih-e)"/><ellipse cx="18.4" cy="26.4" rx="1.3" ry="3" fill="#0f3320"/><ellipse cx="34.4" cy="26.4" rx="1.3" ry="3" fill="#0f3320"/></g>
-  <path d="M23.5 33.2q2.5 2 5 0" stroke="#3d2480" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>`;
+const ISLE_HEAD = `<svg viewBox="0 0 64 56" aria-hidden="true"><path class="ih-ear" d="M9 32 12 4 31 17Z"/><path class="ih-ear" d="M55 32 52 4 33 17Z"/><ellipse class="ih-face" cx="32" cy="35" rx="26" ry="18"/>
+  <g class="ih-eyes"><ellipse cx="23" cy="34" rx="3.4" ry="4.6" fill="#1a1226"/><ellipse cx="41" cy="34" rx="3.4" ry="4.6" fill="#1a1226"/><circle cx="24.1" cy="32.4" r="1.1" fill="#fff"/><circle cx="42.1" cy="32.4" r="1.1" fill="#fff"/></g></svg>`;
 const ISLE_OPS = [
-  { k: 'msg', c: '#7fdcff', ic: () => ICON.mail, l: 'Mensajes', n: () => dmUnread() },
-  { k: 'noti', c: '#ffb36b', ic: () => ICON.bell, l: 'Notificaciones', n: () => unread() },
-  { k: 'find', c: '#7dffb0', ic: () => ICON.search, l: 'Buscar', n: () => 0 },
-  { k: 'set', c: '#d2b8ff', ic: () => ICON.gear, l: 'Ajustes', n: () => 0 },
+  { k: 'msg', ic: () => ICON.mail, l: 'Mensajes', n: () => dmUnread() },
+  { k: 'noti', ic: () => ICON.bell, l: 'Notificaciones', n: () => unread() },
+  { k: 'find', ic: () => ICON.search, l: 'Buscar', n: () => 0 },
+  { k: 'set', ic: () => ICON.gear, l: 'Ajustes', n: () => 0 },
 ];
 const isleSaved = () => { const v = LS.get(ISLE_K, null); return v && (v.side === 'l' || v.side === 'r') ? v : { side: 'r', y: 96 }; };
 const isleHidden = () => {
@@ -2590,7 +2586,7 @@ function isleGo(k) {
 }
 function isleFill() {
   const body = ISLE.querySelector('.isle-body');
-  body.innerHTML = ISLE_OPS.map(o => { const n = o.n(); return `<button type="button" class="isle-op" role="menuitem" data-isle="${o.k}" style="--nc:${o.c}"><span class="isle-ic">${o.ic()}</span><span class="isle-l">${esc(t(o.l))}</span>${n ? `<b class="isle-n">${n > 99 ? '99+' : n}</b>` : '<b class="isle-n" style="visibility:hidden">0</b>'}</button>`; }).join('');
+  body.innerHTML = ISLE_OPS.map(o => { const n = o.n(); return `<button type="button" class="isle-op" role="menuitem" data-isle="${o.k}"><span class="isle-ic">${o.ic()}</span><span class="isle-l">${esc(t(o.l))}</span>${n ? `<b class="isle-n">${n > 99 ? '99+' : n}</b>` : '<b class="isle-n" style="visibility:hidden">0</b>'}</button>`; }).join('');
 }
 function isleLayout() {
   if (!ISLE) return; const s = isleSaved(), W = Math.min(330, innerWidth - 20), st = ISLE_ST;
