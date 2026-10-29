@@ -292,8 +292,7 @@ const BOWS = {
   red:    ['#f0b8b8', '#d88888', '#b86060', 'Rojo'],
   purple: ['#d8c8f0', '#b098d8', '#8870b8', 'Morado'],
   yellow: ['#f5e8b0', '#e0c878', '#c0a050', 'Amarillo'],
-  green:  ['#c8e8d0', '#98c8a8', '#70a880', 'Verde'],
-  orange: ['#f5d8b0', '#e0b078', '#c09050', 'Naranja']
+  green:  ['#c8e8d0', '#98c8a8', '#70a880', 'Verde']
 };
 /* Imágenes (PNG) de los adornos: aquí se pone el enlace de cada una, tal cual. Vacío = no se dibuja nada.
  *  Abajo: own (A de Owner), adm (A de administración), mod (A de moderación), top (50 del Top 50).
@@ -303,15 +302,17 @@ const COS_IMG = {
   top: 'https://i.postimg.cc/wxQP4XrM/Photoroom-20261029-062250.png', 'top:dark': 'https://i.postimg.cc/mksvzV6j/Photoroom-20261029-062208.png', crown: '',
   'bow:white': 'https://i.postimg.cc/rFzdZJpr/Photoroom-20261029-055834.png', 'bow:pink': 'https://i.postimg.cc/JzLLHrSt/Photoroom-20261029-060108.png', 'bow:blue': 'https://i.postimg.cc/259MGr94/Photoroom-20261029-060048.png',
   'bow:red': 'https://i.postimg.cc/zvCxsr7s/Photoroom-20261029-060014.png', 'bow:purple': 'https://i.postimg.cc/rFhmStCW/IMG-2622.png', 'bow:yellow': 'https://i.postimg.cc/GpTx0Rh9/Photoroom-20261029-055933.png',
-  'bow:green': 'https://i.postimg.cc/ncd4CrX3/Photoroom-20261029-055905.png', 'bow:orange': ''
+  'bow:green': 'https://i.postimg.cc/ncd4CrX3/Photoroom-20261029-055905.png'
 };
 const AURI_LOGO = 'https://i.postimg.cc/QxZvxXBC/Photoroom-20261029-075902.png';
 const cosOne = (k, c = '') => COS_IMG[k] ? `<img${c ? ` class="${c}"` : ''} src="${esc(COS_IMG[k])}" alt="" referrerpolicy="no-referrer" decoding="async">` : '';
 const cosImg = k => k === 'top' ? cosOne('top', 'v-l') + cosOne('top:dark', 'v-d') : cosOne(k);   // Top 50: una versión clara y otra oscura, según el tema
 const svgBot = cosImg, svgTop = cosImg;
+const bowsOf = e => roleOf(e) === 'OWNER' ? Object.keys(BOWS) : ((getUsers()[e] || {}).bows || []).filter(k => BOWS[k]);   // lazos que tiene esa persona (la Owner tiene todos)
 const topKey = e => {                                    // adorno de arriba que se muestra para esa persona
-  const u = getUsers()[e] || {}; if (roleOf(e) !== 'OWNER') return '';                    // los cosméticos aún no están en la tienda: solo la Owner los usa
-  const c = u.cosTop; if (c === undefined || c === null) return 'crown'; if (c === 'crown') return 'crown'; return /^bow:/.test(c) && BOWS[c.split(':')[1]] ? c : (c === '' ? '' : 'crown');
+  const u = getUsers()[e] || {}, c = u.cosTop;
+  if (roleOf(e) !== 'OWNER') return typeof c === 'string' && /^bow:/.test(c) && bowsOf(e).includes(c.split(':')[1]) ? c : '';   // un lazo regalado solo se ve si sigue siendo suyo
+  if (c === undefined || c === null) return 'crown'; if (c === 'crown') return 'crown'; return /^bow:/.test(c) && BOWS[c.split(':')[1]] ? c : (c === '' ? '' : 'crown');
 };
 const ornHTMLk = (bot, top) => (top && cosImg(top) ? `<span class="orn orn-top ${top === 'crown' ? 'crown' : 'bow'}">${cosImg(top)}</span>` : '') + (bot && cosImg(bot) ? `<span class="orn orn-bot ${bot === 'top' ? 'b50' : 'bA'}">${cosImg(bot)}</span>` : '');
 const nmCls = e => ({ OWNER: 'nm-own', ADMIN: 'nm-adm', MODERATOR: 'nm-mod' }[roleOf(e)] || '');   // solo el equipo tiene el usuario con color
@@ -599,7 +600,7 @@ async function sbMirror() {
   const pv = (q.ok && Array.isArray(q.data) && q.data[0]) || {};
   const email = String(s.email || pv.email || '').toLowerCase(), us = LS.get('auri.users', {}), old = us[email] || {};
   us[email] = { ...old, uid: s.uid, cloud: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || old.bio || '', avatar: pr.avatar || old.avatar || '', banner: pr.banner || old.banner || '',
-    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
+    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
     birth: pv.birth || old.birth || '', gender: pv.gender || old.gender || '', interests: pv.interests || old.interests || [], onboarded: true,
     termsAccepted: pr.terms_accepted || old.termsAccepted, created: String(pr.created_at || '').slice(0, 10) || old.created, strikes: old.strikes || [] };
   LS.set('auri.users', us);
@@ -884,7 +885,7 @@ async function sbPullPublic() {                           // trae las obras de o
   for (const o of owners) {
     const pr = prof.find(x => x.id === o); if (!pr) continue; const key = remoteKey(o), old = us[key] || {};
     us[key] = { ...old, uid: o, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
     const list = [];
     for (const r of stories.filter(x => x.owner === o)) {
       const pubs = (pubBy.get(r.id) || []), wk = (wkBy.get(r.id) || []), cmap = new Map();
@@ -1056,7 +1057,7 @@ async function sbSyncSocial(only) {
 function sbPseudo(pr, old) {                                   // copia local de la cuenta de otra persona (sin datos privados)
   old = old || {};
   return { ...old, uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
 }
 const SOC_G = { 'auri.likes': ['likes'], 'auri.follows': ['follows'], 'auri.comments': ['comments', 'comment_likes'], 'auri.pcom': ['pcom', 'pcom_likes'], 'auri.subs': ['subscriptions'] };
 let SB_SOC_T;
@@ -1204,6 +1205,29 @@ async function modReport(o) {
   if (!r.ok) return modErr(r);
   await sbSyncMod(true); return '';
 }
+/* REGALOS de lazos (solo la Owner regala; sin límite y sin vencimiento; el marco del equipo no se regala) */
+async function bowGift(tg, bow, on) {
+  if (!isOwner()) return t('Solo la Owner puede regalar.'); if (!BOWS[bow] || roleOf(tg) === 'OWNER' || tg === S.user) return t('Ese lazo es para otras cuentas.');
+  { const cu = modUid(tg); if (cu) return modDo(on ? 'bow_gift' : 'bow_take', { to_id: cu, bow }); }
+  const us = getUsers(), u = us[tg]; if (!u) return t('No encontré esa cuenta.');
+  const cur = (u.bows || []).filter(x => x !== bow); u.bows = on ? [...cur, bow] : cur;
+  if (!on && u.cosTop === 'bow:' + bow) u.cosTop = '';
+  G.set('users', us);
+  pushNotif(tg, { type: 'sys', extra: on ? '¡Te regalaron un lazo ({n})! Puedes ponértelo en Insignias y adornos.' : 'Se retiró un lazo de tu perfil ({n}).', xv: { n: t(BOWS[bow][3]) } });
+  logAction(on ? 'bow-gift' : 'bow-take', tg, (on ? 'Lazo regalado · ' : 'Lazo retirado · ') + BOWS[bow][3]); return '';
+}
+function openBowGift(tg) {
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  const draw = () => { const own = bowsOf(tg); m.querySelector('.cos-sw').innerHTML = Object.keys(BOWS).map(k => `<button type="button" class="cos-b ${own.includes(k) ? 'on' : ''}" data-bow="${k}" aria-pressed="${own.includes(k)}" aria-label="${esc(t(BOWS[k][3]))}" title="${esc(t(BOWS[k][3]))}">${cosOne('bow:' + k)}</button>`).join(''); };
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Lazos para {n}', { n: esc(uName(tg)) })}</h2><p class="helper">${t('Toca un lazo para regalarlo; vuelve a tocarlo para quitarlo. No tiene límite ni vence.')}</p><div class="cos-sw"></div><p class="error-line" data-err role="alert"></p></div>`;
+  draw();
+  m.addEventListener('click', async ev => {
+    const b = ev.target.closest('[data-bow]');
+    if (b) { const k = b.dataset.bow, r = await bowGift(tg, k, !bowsOf(tg).includes(k)); if (r) m.querySelector('[data-err]').textContent = r; else { m.querySelector('[data-err]').textContent = ''; draw(); } return; }
+    if (ev.target === m || ev.target.closest('[data-no]')) { m.remove(); KEEP = true; render(); }
+  });
+  document.body.appendChild(m);
+}
 async function giftSendCloud(raw, err) {                   // la Owner puede regalar a cuentas que este dispositivo aún no conoce
   const q = String(raw || '').trim().replace(/^@/, ''); if (!q) return err;
   const r = await sbApi('/rest/v1/rpc/find_user', { method: 'POST', body: { q } });
@@ -1217,7 +1241,7 @@ function softRender(force) {
   KEEP = true; render();
 }
 let MOD_BUSY = false, MOD_LAST = 0, MOD_PROF = 0;
-const modSig = () => { const us = LS.get('auri.users', {}), o = {}; for (const k in us) { const u = us[k]; if (u && (u.remote || k === S.user)) o[k] = [u.role, u.scope, u.frameWorn, u.frameSel, u.frameTop, u.strikes, u.ban, u.modSince, u.admSince]; } return JSON.stringify([o, G.get('reports', []), G.get('appeals', []), G.get('gifts', []), G.get('modlog', [])]); };
+const modSig = () => { const us = LS.get('auri.users', {}), o = {}; for (const k in us) { const u = us[k]; if (u && (u.remote || k === S.user)) o[k] = [u.role, u.scope, u.frameWorn, u.frameSel, u.frameTop, u.bows, u.strikes, u.ban, u.modSince, u.admSince]; } return JSON.stringify([o, G.get('reports', []), G.get('appeals', []), G.get('gifts', []), G.get('modlog', [])]); };
 async function sbSyncMod(force) {
   if (!modCloud()) return false;
   if (MOD_BUSY) return false; MOD_BUSY = true; MOD_LAST = Date.now();
@@ -1237,7 +1261,7 @@ async function sbSyncMod(force) {
     const need = [me]; if (force || Date.now() - MOD_PROF > 600000) { MOD_PROF = Date.now(); for (const key in us) if (us[key] && us[key].remote && us[key].uid) need.push(us[key].uid); }
     for (let i = 0; i < need.length; i += 80) {
       const pr = await sbApi('/rest/v1/profiles?select=*&id=in.(' + need.slice(i, i + 80).join(',') + ')');
-      if (pr.ok && Array.isArray(pr.data)) pr.data.forEach(p => { const key = ids.key(p.id); if (key && us[key]) us[key] = { ...us[key], role: p.role, scope: Array.isArray(p.scope) ? p.scope : [], frameWorn: !!p.frame_worn, frameSel: p.frame_sel == null ? undefined : p.frame_sel, hideLists: !!p.hide_lists, frameTop: !!p.frame_top, modSince: p.mod_since || undefined, admSince: p.adm_since || undefined }; });
+      if (pr.ok && Array.isArray(pr.data)) pr.data.forEach(p => { const key = ids.key(p.id); if (key && us[key]) us[key] = { ...us[key], role: p.role, scope: Array.isArray(p.scope) ? p.scope : [], frameWorn: !!p.frame_worn, frameSel: p.frame_sel == null ? undefined : p.frame_sel, hideLists: !!p.hide_lists, frameTop: !!p.frame_top, bows: Array.isArray(p.bows) ? p.bows : [], modSince: p.mod_since || undefined, admSince: p.adm_since || undefined }; });
     }
     LS.set('auri.users', us);
     if (ap) G.set('appeals', ap.map(x => ({ id: x.id, user: k(x.user_id), banDate: x.ban_date, ban: { reason: x.ban_reason || '', by: k(x.ban_by), until: x.ban_until || null }, text: x.text, imgs: x.imgs || [], date: day(x.created_at), status: x.status, handledBy: k(x.handled_by), handledDate: day(x.handled_at), note: x.note || '' })));
@@ -1773,7 +1797,7 @@ async function sbSearchUsers() {                         // trae de Supabase a l
   const us = LS.get('auri.users', {}), me = sbSes() && sbSes().uid; let ch = false;
   r.data.filter(p => p.id !== me).forEach(pr => { const key = remoteKey(pr.id), old = us[key];
     const n = { ...(old || {}), uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
     if (JSON.stringify(old) !== JSON.stringify(n)) { us[key] = n; ch = true; } });
   if (ch) { LS.set('auri.users', us); const l = $('#list'); if (l && SM === 'users') l.innerHTML = usersList(); }
 }
@@ -2975,7 +2999,7 @@ const LOGT = { strike: ['Strike', 'strikes'], 'strike-annul': ['Strike anulado',
   'report-resolved': ['Reporte resuelto', 'rep'], 'report-dismissed': ['Reporte descartado', 'rep'], 'report-open': ['Reporte reabierto', 'rep'], takedown: ['Obra retirada de Descubrir', 'cont'], restore: ['Obra restaurada', 'cont'], unmature: ['Quitó la marca +18', 'cont'], mark18: ['Marcó como +18', 'cont'],
   'news-post': ['Publicó un anuncio', 'pub'], 'news-edit': ['Editó un anuncio', 'pub'], 'news-del': ['Eliminó un anuncio', 'pub'], 'banner-add': ['Añadió una tarjeta al banner', 'pub'], 'banner-edit': ['Editó una tarjeta del banner', 'pub'], 'banner-del': ['Quitó una tarjeta del banner', 'pub'], 'post-approve': ['Aprobó una publicación', 'pub'], 'post-reject': ['Rechazó una publicación', 'pub'],
   'del-comment': ['Comentario eliminado', 'cont'], 'chapter-approve': ['Capítulo aprobado', 'cont'], 'chapter-reject': ['Capítulo rechazado', 'cont'],
-  'scope-set': ['Cambió las comunidades que modera', 'roles'], 'gift-send': ['Regaló un marco', 'gifts'], 'gift-claim': ['Reclamó su marco', 'gifts'], 'gift-expire': ['Regalo vencido (cupo devuelto)', 'gifts'], 'gift-revoke': ['Regalo retirado (cupo devuelto)', 'gifts'] };
+  'scope-set': ['Cambió las comunidades que modera', 'roles'], 'gift-send': ['Regaló un marco', 'gifts'], 'bow-gift': ['Regaló un lazo', 'gifts'], 'bow-take': ['Retiró un lazo', 'gifts'], 'gift-claim': ['Reclamó su marco', 'gifts'], 'gift-expire': ['Regalo vencido (cupo devuelto)', 'gifts'], 'gift-revoke': ['Regalo retirado (cupo devuelto)', 'gifts'] };
 const logInfo = t => LOGT[t] || (/^(invite|accept|test-role)/.test(t) ? ['Cambio de rol', 'roles'] : [t, 'otro']);
 function logView(tabs) {
   const F = [['all', 'Todo'], ['strikes', 'Strikes'], ['susp', 'Suspensiones'], ['rep', 'Reportes'], ['cont', 'Contenido'], ['pub', 'Publicaciones'], ['gifts', 'Regalos'], ['roles', 'Roles']], all = G.get('modlog', []).filter(x => modSel() === 'all' || !getUsers()[x.target] || commOf(x.target) === modSel()), who = [...new Set(all.map(x => x.by).filter(Boolean))], l = all.filter(x => (LOGF === 'all' || logInfo(x.type)[1] === LOGF) && (LOGW === 'all' || x.by === LOGW));
@@ -3463,14 +3487,15 @@ function openFrames() {
   const rowT = (val, label) => `<button type="button" class="fr-opt ${curTop === val ? 'on' : ''}" data-cos="${val}">${av('', val)}<b>${esc(label)}</b>${curTop === val ? '<i>✓</i>' : ''}</button>`;
   const bot = locked ? `<div class="fr-opt on" style="cursor:default">${av(cur, '')}<b>${esc(t(FR_NAME[cur] || 'Insignia de moderación'))}</b><i>🔒</i></div><p class="helper">${t('La insignia del equipo es fija: no se puede cambiar ni quitar.')}</p>`
     : n.length ? `<div class="fr-list">${n.map(k => row(k, t(FR_NAME[k]))).join('')}${row('', t('Sin insignia'))}</div>` : `<p class="helper">${t('Aún no tienes insignias.')}</p>`;
-  const top = owner ? `<div class="fr-list">${rowT('crown', t('Corona de Owner'))}${rowT('', t('Sin adorno'))}</div><p class="helper" style="margin:12px 0 6px">${t('Moñito (en prueba, solo para ti)')}</p><div class="cos-sw">${Object.keys(BOWS).map(k => `<button type="button" class="cos-b ${curTop === 'bow:' + k ? 'on' : ''}" data-cos="bow:${k}" aria-label="${esc(t(BOWS[k][3]))}" title="${esc(t(BOWS[k][3]))}">${svgTop('bow:' + k)}</button>`).join('')}</div>`
+  const mine = bowsOf(me);
+  const top = owner || mine.length ? `<div class="fr-list">${owner ? rowT('crown', t('Corona de Owner')) : ''}${rowT('', t('Sin adorno'))}</div><p class="helper" style="margin:12px 0 6px">${owner ? t('Lazos (para regalar a otras cuentas desde su perfil)') : t('Tus lazos')}</p><div class="cos-sw">${mine.map(k => `<button type="button" class="cos-b ${curTop === 'bow:' + k ? 'on' : ''}" data-cos="bow:${k}" aria-label="${esc(t(BOWS[k][3]))}" title="${esc(t(BOWS[k][3]))}">${svgTop('bow:' + k)}</button>`).join('')}</div>`
     : `<p class="helper">${t('Pronto habrá adornos para ponerte aquí, en la tienda.')}</p>`;
   const m = document.createElement('div'); m.className = 'modal sheet';
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Insignias y adornos')}</h2><h3 class="fr-h">${t('Abajo')}</h3>${bot}<h3 class="fr-h">${t('Arriba')}</h3>${top}</div>`;
   m.addEventListener('click', ev => {
     const b = ev.target.closest('[data-fr]'), c = ev.target.closest('[data-cos]');
     if (b && !locked) { const us = getUsers(); us[me].frameSel = b.dataset.fr; G.set('users', us); sbPushFrame(); m.remove(); KEEP = true; render(); return; }
-    if (c && owner) { const us = getUsers(); us[me].cosTop = c.dataset.cos; G.set('users', us); sbPushCos(); m.remove(); KEEP = true; render(); return; }
+    if (c && (owner || c.dataset.cos === '' || bowsOf(me).includes(String(c.dataset.cos).split(':')[1] || ''))) { const us = getUsers(); us[me].cosTop = c.dataset.cos; G.set('users', us); sbPushCos(); m.remove(); KEEP = true; render(); return; }
     if (ev.target === m || ev.target.closest('[data-no]')) m.remove();
   });
   document.body.appendChild(m);
@@ -3670,6 +3695,7 @@ function admMenu(tg) {
   ${!canBan() ? '' : ban ? `<button class="adm-item" data-act="adm-unban" data-id="${esc(tg)}">${t('✅ Levantar suspensión')}</button>` : `<button class="adm-item danger" data-act="adm-ban" data-id="${esc(tg)}">${t('🚫 Suspender o bloquear cuenta')}</button>`}
   ${canBan() && strikesOf(tg).length ? `<div class="adm-strikes"><b>${t('Strikes activos')}</b>${strikesOf(tg).map(x => `<div class="adm-strike"><span>${esc(fmtDate(x.date))} · ${esc(x.reason)}</span><button type="button" class="link-btn" data-act="adm-unstrike" data-id="${esc(tg)}" data-sid="${esc(x.id)}">${t('Anular')}</button></div>`).join('')}</div>` : ''}
   ${up && (r === 'MODERATOR' || r === 'ADMIN') ? `<button class="adm-item" data-act="adm-scope" data-id="${esc(tg)}">🌐 ${t('Comunidades que modera: {c}', { c: staffScope(tg).map(c => COMMS[c]).join(' / ') })}</button>` : ''}
+  ${up && r === 'USER' ? `<button class="adm-item" data-act="bow-gift" data-id="${esc(tg)}">🎀 ${t('Regalar lazos')}</button>` : ''}
   ${up ? `<button class="adm-item" data-act="gift-profile" data-id="${esc(tg)}">🎁 ${t('Regalar marco Top 50 (quedan {n})', { n: giftLeft() })}</button>` : ''}
   ${up && r === 'USER' ? `<button class="adm-item" data-act="adm-mod" data-id="${esc(tg)}">${t('🛡 Hacer moderador')}</button>` : ''}
   ${up && r === 'MODERATOR' ? `<button class="adm-item" data-act="adm-admin" data-id="${esc(tg)}">${t('⭐ Ascender a administración')}</button>` : ''}
@@ -4209,6 +4235,7 @@ document.addEventListener('click', e => {
     'mod-comm': () => { if (!isStaff()) return; MODC = ['es', 'en'].includes(id) ? id : 'all'; KEEP = true; render(); },
     'adm-scope': () => { if (!isOwner()) return; const us = getUsers(), cur = staffScope(id), nx = cur.length > 1 ? ['es'] : cur[0] === 'es' ? ['en'] : ['es', 'en']; if (!us[id]) return; us[id].scope = nx; G.set('users', us); if (modCloud() && us[id].uid) sbApi('/rest/v1/profiles?id=eq.' + us[id].uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { scope: nx } }); logAction('scope-set', id, 'Modera: ' + nx.map(c => COMMS[c]).join(' y ')); toast(t('Ahora modera: {c}', { c: nx.map(c => COMMS[c]).join(' / ') })); KEEP = true; render(); },
     'gift-send': async () => { const inp = $('#g-to'), r = await giftSend(inp ? inp.value : ''), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('Regalo enviado: tiene 24 h para reclamarlo')); KEEP = true; render(); },
+    'bow-gift': () => { if (isOwner() && canAct(id)) openBowGift(id); },
     'gift-profile': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Regalar el marco Top 50 a {n}?', { n: uName(id) }), t('Tendrá 24 h para reclamarlo. Si no lo hace, el regalo se cancela y el cupo vuelve a ti. Quedan {a} de {b}.', { a: giftLeft(), b: GIFT_TOTAL }), t('Regalar'), t('Cancelar'), async () => { const r = await giftSend(id); toast(r || t('Regalo enviado ✓')); KEEP = true; render(); }); },
     'gift-claim': async () => { const r = await giftClaim(id), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('¡Marco reclamado!')); KEEP = true; render(); },
     'gift-cancel': () => { if (!isOwner()) return; const g = giftsAll().find(x => x.id === id); if (!g) return; dialog(g.status === 'claimed' ? t('¿Quitar el marco a {n}?', { n: uName(g.to) }) : t('¿Cancelar el regalo para {n}?', { n: uName(g.to) }), t('El cupo volverá a ti.'), t('Sí, continuar'), t('No'), async () => { await giftCancel(id); KEEP = true; render(); }, true); },
