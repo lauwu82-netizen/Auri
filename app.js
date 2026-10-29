@@ -298,8 +298,16 @@ const BOWS = {
 /* Imágenes (PNG) de los adornos: aquí se pone el enlace de cada una, tal cual. Vacío = no se dibuja nada.
  *  Abajo: own (A de Owner), adm (A de administración), mod (A de moderación), top (50 del Top 50).
  *  Arriba: crown (corona de Owner) y los moñitos bow:white, bow:pink, bow:blue, bow:red, bow:purple, bow:yellow, bow:green, bow:orange. */
-const COS_IMG = { own: '', adm: '', mod: '', top: '', crown: '', 'bow:white': '', 'bow:pink': '', 'bow:blue': '', 'bow:red': '', 'bow:purple': '', 'bow:yellow': '', 'bow:green': '', 'bow:orange': '' };
-const cosImg = k => COS_IMG[k] ? `<img src="${esc(COS_IMG[k])}" alt="" referrerpolicy="no-referrer" decoding="async">` : '';
+const COS_IMG = {
+  own: 'https://i.postimg.cc/50kkVVhM/Photoroom-20261029-075816.png', adm: 'https://i.postimg.cc/W1wVPdXt/Photoroom-20261029-075830.png', mod: 'https://i.postimg.cc/6p0kmD5F/Photoroom-20261029-075844.png',
+  top: 'https://i.postimg.cc/wxQP4XrM/Photoroom-20261029-062250.png', 'top:dark': 'https://i.postimg.cc/mksvzV6j/Photoroom-20261029-062208.png', crown: '',
+  'bow:white': 'https://i.postimg.cc/rFzdZJpr/Photoroom-20261029-055834.png', 'bow:pink': 'https://i.postimg.cc/JzLLHrSt/Photoroom-20261029-060108.png', 'bow:blue': 'https://i.postimg.cc/259MGr94/Photoroom-20261029-060048.png',
+  'bow:red': 'https://i.postimg.cc/zvCxsr7s/Photoroom-20261029-060014.png', 'bow:purple': 'https://i.postimg.cc/rFhmStCW/IMG-2622.png', 'bow:yellow': 'https://i.postimg.cc/GpTx0Rh9/Photoroom-20261029-055933.png',
+  'bow:green': 'https://i.postimg.cc/ncd4CrX3/Photoroom-20261029-055905.png', 'bow:orange': ''
+};
+const AURI_LOGO = 'https://i.postimg.cc/QxZvxXBC/Photoroom-20261029-075902.png';
+const cosOne = (k, c = '') => COS_IMG[k] ? `<img${c ? ` class="${c}"` : ''} src="${esc(COS_IMG[k])}" alt="" referrerpolicy="no-referrer" decoding="async">` : '';
+const cosImg = k => k === 'top' ? cosOne('top', 'v-l') + cosOne('top:dark', 'v-d') : cosOne(k);   // Top 50: una versión clara y otra oscura, según el tema
 const svgBot = cosImg, svgTop = cosImg;
 const topKey = e => {                                    // adorno de arriba que se muestra para esa persona
   const u = getUsers()[e] || {}; if (roleOf(e) !== 'OWNER') return '';                    // los cosméticos aún no están en la tienda: solo la Owner los usa
@@ -1926,7 +1934,7 @@ function carInit() {                                   // se llama tras cada dib
 function discoverView() {
   const gens = ['All', ...new Set(publishedStories().filter(storyVisible).map(s => s.genre))];
   const modeRow = `<div class="filter-row mode-row" role="group" aria-label="${esc(t('Qué buscar'))}"><button class="chip ${SM === 'books' ? 'active' : ''}" data-act="sm" data-id="books" aria-pressed="${SM === 'books'}">${t('Libros')}</button><button class="chip ${SM === 'users' ? 'active' : ''}" data-act="sm" data-id="users" aria-pressed="${SM === 'users'}">${t('Usuarios')}</button></div>`;
-  return `<main class="page">${carouselHTML() || `<section class="hero"><span class="eyebrow">${t('✦ Un pequeño hogar para grandes emociones')}</span>
+  return `<main class="page">${AURI_LOGO ? `<div class="feed-logo"><img src="${esc(AURI_LOGO)}" alt="Auri" referrerpolicy="no-referrer" decoding="async"></div>` : ''}${carouselHTML() || `<section class="hero"><span class="eyebrow">${t('✦ Un pequeño hogar para grandes emociones')}</span>
   <h1>${t('Encuentra tu próxima emoción favorita.')}</h1><p>${t('Historias para leer a gusto, personajes que te acompañan y un rincón para crear algo propio.')}</p>
   <a class="button secondary" href="#/library">${t('Ir a mi biblioteca')}</a>${mascot('mascot')}</section>`}
   ${modeRow}
