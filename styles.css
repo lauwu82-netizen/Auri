@@ -1637,14 +1637,16 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .ch-head{text-align:center;margin:6px 0 26px}
 .ch-no{display:block;font:600 11.5px var(--sans);letter-spacing:.22em;text-transform:uppercase;color:hsl(var(--primary));margin-bottom:10px}
 .ch-head .rf-h{margin:0 0 14px}
-.orn,.scene-sep{display:flex;align-items:center;justify-content:center;gap:12px}
-.orn{margin:0 auto;max-width:200px}
-.orn i,.scene-sep i{flex:1;height:1px;background:linear-gradient(90deg,transparent,hsl(var(--primary)/.55))}
-.orn i:last-child,.scene-sep i:last-child{background:linear-gradient(270deg,transparent,hsl(var(--primary)/.55))}
-.sp-mid{flex:none;display:block;color:hsl(var(--primary)/.85)}.sp-mid svg{display:block;width:44px;height:24px}.orn .sp-mid svg{width:30px;height:16px}
+.ch-orn,.scene-sep{display:flex;align-items:center;justify-content:center;gap:12px}
+.ch-orn{margin:0 auto;max-width:200px}
+.ch-orn i,.scene-sep i{flex:1;height:1px;background:linear-gradient(90deg,transparent,hsl(var(--primary)/.55))}
+.ch-orn i:last-child,.scene-sep i:last-child{background:linear-gradient(270deg,transparent,hsl(var(--primary)/.55))}
+.sp-mid{flex:none;display:block;color:hsl(var(--primary)/.85)}.sp-mid svg{display:block;width:44px;height:24px}.ch-orn .sp-mid svg{width:30px;height:16px}
 .sp-dots i{display:none}.sp-dots{max-width:120px}
 .scene-sep{margin:2.1em auto;max-width:260px}
-[data-dropcap="1"] .rf-body .reader-text>p:first-of-type::first-letter{float:left;font-family:var(--serif);font-weight:600;font-size:3.3em;line-height:.82;padding:.06em .1em 0 0;color:hsl(var(--primary))}
+[data-dropcap="1"] .rf-body .reader-text .dc-l{float:left;font-family:var(--serif);font-weight:600;font-size:3.3em;line-height:.82;padding:.06em .1em 0 0;color:hsl(var(--primary))}
+.dc-pu{font-style:normal;font-weight:500;font-size:.4em;vertical-align:top;line-height:1.5;margin-right:.1em}
+.ch-music{margin:20px 0 16px}
 .rbg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .rbg-opt{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border-radius:14px;border:1.5px solid hsl(var(--border));background:hsl(var(--card));color:var(--title);font:500 12.5px var(--sans)}
 .rbg-opt.on{border-color:hsl(var(--primary));box-shadow:0 0 0 3px hsl(var(--primary)/.18)}

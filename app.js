@@ -2045,13 +2045,18 @@ function applyFmt(kind) {
   if (v.slice(a, a + m.length) === m && v[a + m.length] !== '*') { const p = a + m.length; ta.setSelectionRange(p, p); return; }   // ya estabas dentro: salir del formato
   ta.setRangeText(m + m, a, a, 'end'); ta.setSelectionRange(a + m.length, a + m.length); done();   // sin selección: abre el formato y sigue escribiendo dentro
 }
+function dcap(h) {                                  // letra capital: la primera letra del primer párrafo con texto; si empieza con «(» «—» «"», eso va chiquito al lado
+  const m = /^((?:<[^>]+>)*)((?:&[a-z]+;|&#\d+;|[^\p{L}\p{N}<&\s])*)([\p{L}\p{N}])/u.exec(h.replace(/^\s+/, '')); if (!m) return h;
+  return m[1] + `<span class="dc-l">${m[2] ? `<i class="dc-pu">${m[2]}</i>` : ''}${m[3]}</span>` + h.replace(/^\s+/, '').slice(m[0].length);
+}
 function readerText(text, on, pc) {
-  const name = S.character.name || t('Lectora'), raw = paraSplit(text), all = pc && cfg('pcom') !== 'off' ? pcAll() : null;
+  const name = S.character.name || t('Lectora'), raw = paraSplit(text), all = pc && cfg('pcom') !== 'off' ? pcAll() : null; let first = true;
   return `<div class="reader-text">${(on ? fillHE(fillTN(text, name), S.character) : text).split(/\n\s*\n/).map((p, i) => {
     const n = all && cfg('pcom') === 'dots' ? (all[pcKey(pc.sid, pc.ci, i)] || []).filter(c => c.q === pQ(raw[i])).length : 0;
     if (/^\s*::sep\s*$/.test(p)) return sepHTML('scene-sep');
-    const am = /^::([crj]) /.exec(p);
-    return `<p data-bi="${i}"${all ? ` data-pi="${i}"` : ''}${am ? ` class="al-${am[1]}"` : ''}>${fmtText(esc(am ? p.slice(4) : p))}${n ? `<span class="pc-n" aria-label="${tn(n, '{n} comentario', '{n} comentarios')}">${n}</span>` : ''}</p>`; }).join('')}</div>`;
+    if (!p.trim()) return '';                        // párrafos vacíos (líneas en blanco de más): no dibujan nada
+    const am = /^::([crj]) /.exec(p); let h = fmtText(esc(am ? p.slice(4) : p)); if (first) { first = false; h = dcap(h); }
+    return `<p data-bi="${i}"${all ? ` data-pi="${i}"` : ''}${am ? ` class="al-${am[1]}"` : ''}>${h}${n ? `<span class="pc-n" aria-label="${tn(n, '{n} comentario', '{n} comentarios')}">${n}</span>` : ''}</p>`; }).join('')}</div>`;
 }
 const TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v7M14 10v7"/></svg>';
 function confirmBox(msg, onYes) {                // cuadro de confirmación propio (no usa confirm() del navegador)
@@ -2138,7 +2143,7 @@ const sepOK = k => !SEPS[k] ? false : SEPS[k][1] === 'free' || isStaff(S.user); 
 const sepKey = () => sepOK(cfg('sepStyle')) ? cfg('sepStyle') : 'classic';
 const sepSvg = k => `<svg viewBox="0 0 44 24" aria-hidden="true" fill="currentColor">${SEPS[k][2]}</svg>`;
 const sepHTML = (cls, k = sepKey()) => `<div class="${cls} sp-${k}" aria-hidden="true"><i></i><span class="sp-mid">${sepSvg(k)}</span><i></i></div>`;
-const chHead = (num, title) => { const plain = /^\s*cap[ií]tulo\s*\d+\s*$/i.test(title || '') || !(title || '').trim(); return `<div class="ch-head">${plain ? '' : `<span class="ch-no">${t('Capítulo {n}', { n: num })}</span>`}<h1 class="rf-h">${esc(plain ? (title || '').trim() || t('Capítulo {n}', { n: num }) : title)}</h1>${sepHTML('orn')}</div>`; };
+const chHead = (num, title) => { const plain = /^\s*cap[ií]tulo\s*\d+\s*$/i.test(title || '') || !(title || '').trim(); return `<div class="ch-head">${plain ? '' : `<span class="ch-no">${t('Capítulo {n}', { n: num })}</span>`}<h1 class="rf-h">${esc(plain ? (title || '').trim() || t('Capítulo {n}', { n: num }) : title)}</h1>${sepHTML('ch-orn')}</div>`; };
 const chHero = (c, cls = 'ch-hero') => safeImg(c.cover) ? `<img class="${cls}" src="${esc(c.cover)}" alt="${esc(t('Portada del capítulo'))}">` : '';
 const chCoverBox = ch => `<div class="chc-box">${safeImg(ch.cover)
   ? `<div class="chc-prev"><img src="${esc(ch.cover)}" alt="${esc(t('Portada del capítulo'))}"><label class="button secondary sm chc-change">${t('Cambiar')}<input id="chc-file" type="file" accept="image/*" hidden></label><button type="button" class="icon-btn chc-x" data-act="chc-clear" aria-label="${esc(t('Quitar portada del capítulo'))}">✕</button></div>`
@@ -2443,7 +2448,7 @@ function chapterRead(s, N) {
   const nc = comments(s.id, ch.idx).length, exit = `data-act="exit-book" data-id="${esc(s.id)}" data-n="${ch.idx}"`;
   return `<div class="rf"><div class="rf-bar"><i id="rf-bar-i"></i></div>
   <header class="rf-top"><button class="button ghost sm" ${exit} aria-label="${esc(t('Guardar progreso y salir del libro'))}">✕ ${t('Salir')}</button><div class="rf-title"><b>${t('Cap. {n}', { n: ch.idx + 1 })}</b> · ${esc(ch.title)}<small class="rf-left" id="rf-left" data-tot="${readMin(ch.text)}"></small></div><button class="icon-btn" data-act="comments" aria-label="${esc(t('Comentarios'))}">💬</button></header>
-  <article class="rf-body">${chHero(ch)}${chHead(ch.idx + 1, ch.title)}${s.useReaderCharacter && S.chars.length > 1 ? `<label class="helper" style="display:flex;align-items:center;gap:8px;margin-bottom:14px">${t('Leyendo como')} <select id="char-sel" class="select" style="max-width:200px">${S.chars.map((x, k) => `<option value="${x.id}" ${x.id === S.activeId ? 'selected' : ''}>${esc(x.name || t('Personaje {n}', { n: k + 1 }))}</option>`).join('')}</select></label>` : ''}${ch.music && musicEmbed(ch.music) ? `<button class="button secondary sm" data-act="music" data-url="${esc(ch.music)}" style="margin-bottom:14px">🎵 ${t('Escuchar la canción de este capítulo')}</button>` : ''}${readerText(ch.text, s.useReaderCharacter, { sid: s.id, ci: ch.idx })}</article>
+  <article class="rf-body">${chHero(ch)}${chHead(ch.idx + 1, ch.title)}${s.useReaderCharacter && S.chars.length > 1 ? `<label class="helper" style="display:flex;align-items:center;gap:8px;margin-bottom:14px">${t('Leyendo como')} <select id="char-sel" class="select" style="max-width:200px">${S.chars.map((x, k) => `<option value="${x.id}" ${x.id === S.activeId ? 'selected' : ''}>${esc(x.name || t('Personaje {n}', { n: k + 1 }))}</option>`).join('')}</select></label>` : ''}${ch.music && musicEmbed(ch.music) ? `<button class="button secondary sm ch-music" data-act="music" data-url="${esc(ch.music)}">🎵 ${t('Escuchar la canción de este capítulo')}</button>` : ''}${readerText(ch.text, s.useReaderCharacter, { sid: s.id, ci: ch.idx })}</article>
   <footer class="rf-end"><div class="ch-end">${sepHTML('scene-sep')}<b class="ch-fin">${after ? t('Fin del capítulo') : t('Fin del último capítulo disponible')}</b><small class="ch-min">${t('Lectura de ~{n} min', { n: readMin(ch.text) })}</small>
   <button class="read-btn ${read.includes(ch.idx) ? 'done' : ''}" data-act="read" data-id="${esc(s.id)}" data-n="${ch.idx}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7.5"/></svg>${read.includes(ch.idx) ? t('Leído') : t('Marcar como leído')}</button>
   <div class="nav2">${before ? `<a class="nav-card prev" data-replace data-dir="prev" href="#/story/${esc(s.id)}/${before.idx + 1}"><small>${t('Anterior')}</small><b>${esc(before.title || t('Capítulo {n}', { n: before.idx + 1 }))}</b></a>` : ''}${after ? `<a class="nav-card next" data-replace data-dir="next" href="#/story/${esc(s.id)}/${after.idx + 1}"><small>${t('Siguiente')}</small><b>${esc(after.title || t('Capítulo {n}', { n: after.idx + 1 }))}</b></a>` : ''}</div></div>
