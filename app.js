@@ -1517,13 +1517,6 @@ function shell(path, html) {
   const item = (href, label, ic, on, bd = 0) => `<a class="bn-item ${on ? 'active' : ''}" href="${href}" ${on ? 'aria-current="page"' : ''}><span class="bn-ic">${ic}${bd ? `<b class="badge">${bd > 99 ? '99+' : bd}</b>` : ''}</span><span>${label}</span></a>`;
   const fab = (path === '/' || path === '/profile') && !isGuest() && !cfg('hideBugFab') && !/^#\/profile\/edit/.test(location.hash) ? `<button type="button" class="bug-fab" data-act="report" aria-label="${esc(t('Reportar un error'))}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.6 21.6 20.4H2.4Z"/><path d="M12 9.6v5"/><circle cx="12" cy="17.4" r=".6" fill="currentColor"/></svg></button>` : '';
   return `<div class="shell"><header class="topbar tb2">
-    <div class="top-row">
-      <button class="icon-btn" data-act="settings" aria-label="${esc(t('Configuración'))}">${ICON.gear}</button>
-      <div class="nav-actions"><button class="icon-btn" data-act="search-toggle" aria-label="${esc(t('Buscar'))}" aria-expanded="${SEARCH_OPEN}">${ICON.search}</button>
-        <a class="icon-btn bell" href="#/messages" aria-label="${esc(t('Mensajes'))}">${ICON.mail}${dmUnread() ? `<b class="badge">${dmUnread()}</b>` : ''}</a>
-        <button class="icon-btn bell" data-act="notif-toggle" aria-label="${esc(t('Notificaciones'))}" aria-expanded="${NOTIF_OPEN}">${ICON.bell}${n ? `<b class="badge">${n}</b>` : ''}</button>
-        <a href="#/profile" class="av-wrap" aria-label="${esc(t('Mi perfil'))}">${userAvatar(S.user)}${mcTot ? `<b class="badge">${mcTot > 99 ? '99+' : mcTot}</b>` : ''}</a></div>
-    </div>
     <div class="search-bar ${SEARCH_OPEN ? 'open' : ''}"><input id="sq" class="field" type="search" placeholder="${esc(SM === 'users' ? t('Buscar usuarios…') : t('Buscar títulos, etiquetas o fandoms…'))}" aria-label="${esc(t('Buscar'))}" value="${esc(Q)}"><button class="icon-btn" data-act="search-close" aria-label="${esc(t('Cerrar búsqueda'))}">✕</button></div>
   </header>${html}${pop}${fab}
   <nav class="bottom-nav" aria-label="${esc(t('Navegación principal'))}">${item('#/', t('Inicio'), ICON.home, path === '/')}${item('#/library', t('Biblioteca'), ICON.books, path === '/library')}<a class="bn-plus ${path === '/write' ? 'active' : ''}" href="#/write" aria-label="${esc(t('Crear historia'))}">${ICON.plus}</a>${item('#/news', t('Noticias'), ICON.news, path === '/news')}${item('#/profile', t('Mi Perfil'), ICON.user, path === '/profile', mcTot)}</nav></div>`;
@@ -2545,7 +2538,7 @@ async function releaseClaim(id) {
   const ses = sbSes(), su = sUuid(id); if (CLAIMS[id] && CLAIMS[id].by === S.user) delete CLAIMS[id]; if (!cloud() || !ses || !su) return;
   await sbApi('/rest/v1/review_claims?story_id=eq.' + su + '&user_id=eq.' + ses.uid, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
 }
-/* ---------- La isla de Auri (prueba: solo la Owner) ----------
+/* ---------- La isla de Auri (reemplaza la barra de arriba) ----------
    Una cabecita de gato flotante: se arrastra a un borde, se extiende al tocarla (como la Dynamic Island) y se cierra al tocar fuera.
    Los números no se ven hasta abrirla; si llega algo, solo se mueve un poquito. Se esconde al leer o escribir un capítulo. */
 const ISLE_W = 54, ISLE_H = 47, ISLE_K = 'auri.isle';
@@ -2558,15 +2551,17 @@ const ISLE_HEAD = `<svg viewBox="0 0 64 56" aria-hidden="true"><defs>
   <ellipse class="ih-face" cx="32" cy="35" rx="26" ry="18"/><ellipse cx="32" cy="35" rx="26" ry="18" fill="url(#ih-sh)"/><ellipse cx="32" cy="35" rx="26" ry="18" fill="url(#ih-hi)"/>
   <g class="ih-eyes"><ellipse cx="23" cy="34" rx="3.4" ry="4.6" fill="#1a1226"/><ellipse cx="41" cy="34" rx="3.4" ry="4.6" fill="#1a1226"/><circle cx="24.1" cy="32.4" r="1.1" fill="#fff"/><circle cx="42.1" cy="32.4" r="1.1" fill="#fff"/></g></svg>`;
 const ISLE_OPS = [
-  { k: 'msg', ic: () => ICON.mail, l: 'Mensajes', n: () => dmUnread() },
-  { k: 'noti', ic: () => ICON.bell, l: 'Notificaciones', n: () => unread() },
+  { k: 'msg', ic: () => ICON.mail, l: 'Mensajes', n: () => dmUnread(), who: 'user' },
+  { k: 'noti', ic: () => ICON.bell, l: 'Notificaciones', n: () => unread(), who: 'user' },
   { k: 'find', ic: () => ICON.search, l: 'Buscar', n: () => 0 },
   { k: 'set', ic: () => ICON.gear, l: 'Ajustes', n: () => 0 },
+  { k: 'mod', ic: () => IC('<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>'), l: 'Moderación', n: () => modCounts().total, who: 'staff' },
 ];
-const isleSaved = () => { const v = LS.get(ISLE_K, null); return v && (v.side === 'l' || v.side === 'r') ? v : { side: 'r', y: 96 }; };
+const isleOps = () => ISLE_OPS.filter(o => !o.who || (o.who === 'user' && !isGuest()) || (o.who === 'staff' && !isGuest() && isStaff()));
+const isleSaved = () => { const v = LS.get(ISLE_K, null); return v && (v.side === 'l' || v.side === 'r') ? v : { side: 'r', y: 6 }; };
 const isleHidden = () => {
   const p = location.hash.slice(1) || '/', [, a, b, c] = p.split('/');
-  return !S.user || isGuest() || !isOwner() || (a === 'story' && /^\d+$|^fin$/.test(c || '')) || (a === 'write' && c === 'ch') || !!document.querySelector('.modal');
+  return !S.user || ['welcome', 'start', 'login', 'register', 'signup'].includes(a) || (S.user && activeBan(S.user)) || (a === 'story' && /^\d+$|^fin$/.test(c || '')) || (a === 'write' && c === 'ch') || (a === 'messages' && !!b) || !!document.querySelector('.modal');
 };
 function isleBuild() {
   if (ISLE) return ISLE;
@@ -2588,18 +2583,19 @@ function isleBuild() {
   addEventListener('resize', () => isleLayout());
   return el;
 }
-const isleTop = () => 8 + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0) + 36;
+const isleTop = () => 4;
 const isleBottom = () => innerHeight - 140;
 function isleGo(k) {
-  if (k === 'msg') go('/messages'); else if (k === 'noti') go('/notifications'); else if (k === 'set') go('/settings');
+  if (k === 'msg') go('/messages'); else if (k === 'noti') go('/notifications'); else if (k === 'set') go('/settings'); else if (k === 'mod') go('/moderation');
   else if (k === 'find') { go('/'); setTimeout(() => { SEARCH_OPEN = true; syncSearch(); focusSearch(); const b = $('[data-act=search-toggle]'); if (b) b.setAttribute('aria-expanded', 'true'); }, 60); }
 }
 function isleFill() {
   const body = ISLE.querySelector('.isle-body');
-  body.innerHTML = ISLE_OPS.map(o => { const n = o.n(); return `<button type="button" class="isle-op" role="menuitem" data-isle="${o.k}"><span class="isle-ic">${o.ic()}</span><span class="isle-l">${esc(t(o.l))}</span>${n ? `<b class="isle-n">${n > 99 ? '99+' : n}</b>` : '<b class="isle-n" style="visibility:hidden">0</b>'}</button>`; }).join('');
+  const ops = isleOps(); body.classList.toggle('five', ops.length > 4);
+  body.innerHTML = ops.map(o => { const n = o.n(); return `<button type="button" class="isle-op" role="menuitem" data-isle="${o.k}"><span class="isle-ic">${o.ic()}</span><span class="isle-l">${esc(t(o.l))}</span>${n ? `<b class="isle-n">${n > 99 ? '99+' : n}</b>` : '<b class="isle-n" style="visibility:hidden">0</b>'}</button>`; }).join('');
 }
 function isleLayout() {
-  if (!ISLE) return; const s = isleSaved(), W = Math.min(330, innerWidth - 20), st = ISLE_ST;
+  if (!ISLE) return; const s = isleSaved(), W = Math.min(ISLE.querySelector('.isle-body').classList.contains('five') ? 360 : 330, innerWidth - 20), st = ISLE_ST;
   const y = Math.max(isleTop(), Math.min(isleBottom(), s.y)), x = s.side === 'l' ? 8 : innerWidth - ISLE_W - 8;
   ISLE.classList.toggle('left', s.side === 'l');
   if (!st.open) { ISLE.style.cssText = `left:${x}px;top:${y}px;width:${ISLE_W}px;height:${ISLE_H}px`; return; }
