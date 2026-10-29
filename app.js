@@ -2414,7 +2414,7 @@ function storyDetail(s, mine) {
   ${staffBar(s, mine)}
   ${mine && statusNote(ownOf(s)) ? `<p class="notice">${esc(statusNote(ownOf(s)))}</p>` : ''}
   <a class="button" data-replace data-dir="next" ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} style="width:100%;max-width:420px" href="#/story/${esc(s.id)}/${next.idx + 1}">${!read.length && !at ? t('Empezar a leer') : all ? t('Leer otra vez') : t('Continuar: cap. {n}', { n: next.idx + 1 })}</a>
-  <div class="row-btns"><button class="button secondary like-btn ${likes(s.id).includes(S.user) ? 'on' : ''}" data-act="like" data-id="${esc(s.id)}" aria-pressed="${likes(s.id).includes(S.user)}">${HEART}<span>${likes(s.id).includes(S.user) ? t('Te gusta') : t('Me gusta')}</span></button><button class="button secondary" data-act="fav" data-id="${esc(s.id)}">${fav ? '♥ ' + t('En favoritos') : '♡ ' + t('Favorito')}</button><button class="button secondary" data-act="lib-toggle" data-id="${esc(s.id)}">${S.lib.includes(s.id) ? '✓ ' + t('En tu biblioteca') : '📚 ' + t('Guardar en biblioteca')}</button>${mine ? `<a class="button ghost" href="#/write/${esc(s.id)}">${t('Editar')}</a>` : `<button class="button ghost" data-act="report-story" data-id="${esc(s.id)}">${t('Reportar')}</button>`}</div>
+  <div class="row-btns"><button class="button secondary like-btn ${likes(s.id).includes(S.user) ? 'on' : ''}" data-act="like" data-id="${esc(s.id)}" aria-pressed="${likes(s.id).includes(S.user)}">${HEART}<span>${likes(s.id).includes(S.user) ? t('Te gusta') : t('Me gusta')}</span></button><button class="button secondary" data-act="fav" data-id="${esc(s.id)}">${fav ? '♥ ' + t('En favoritos') : '♡ ' + t('Favorito')}</button><button class="button secondary" data-act="lib-toggle" data-id="${esc(s.id)}">${S.lib.includes(s.id) ? '✓ ' + t('En tu biblioteca') : '📚 ' + t('Guardar en biblioteca')}</button>${mine ? `<a class="button ghost" href="#/write/${esc(s.id)}">${t('Editar')}</a>` : `<button class="button ghost" data-act="report-story" data-id="${esc(s.id)}">${t('Reportar')}</button>${imgrOk(s.cover) ? `<button class="button ghost" data-act="report-img" data-id="${esc(s.id)}">${t('Reportar portada')}</button>` : ''}`}</div>${imgrPanel(s)}
   <details class="ch-index"><summary>${t('Capítulos ({n})', { n: s.chapters.length })}</summary>${s.chapters.map(c => `<a data-replace ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} href="#/story/${esc(s.id)}/${c.idx + 1}"><b>${read.includes(c.idx) ? '✓' : c.idx + 1}</b><span>${esc(c.title || t('Capítulo {n}', { n: c.idx + 1 }))}${mine && c.status !== 'approved' ? ` (${t(CH_STATUS[c.status]).toLowerCase()})` : ''}</span></a>`).join('')}</details>
   </section></main>`;
 }
@@ -2749,15 +2749,15 @@ async function imgLoadQueue(force) {
   const r = await sbApi('/rest/v1/rpc/img_queue', { method: 'POST', body: {} }); if (!r.ok || !Array.isArray(r.data)) return;
   if (JSON.stringify(r.data) !== JSON.stringify(IMG_Q)) { IMG_Q = r.data; softRender(); }
 }
-const imgPending = () => IMG_Q.filter(r => r.status === 'appealed' || (r.severity === 'hard' && !r.handled_at)).length;
+const imgPending = () => IMG_Q.filter(r => r.status === 'appealed' || (r.status === 'reported' && !r.handled_at) || (r.severity === 'hard' && !r.handled_at)).length;
 const imgReasons = r => ((r.reasons && r.reasons.reasons) || []).map(x => esc(t(x.label))).join(', ');
 const imgPrev = r => `<span class="img-prev" data-noguard><img src="${esc(r.url)}" alt="" loading="lazy"></span>`;
 /** Ficha de una imagen para el equipo */
 function imgStaffCard(r) {
-  const done = !!r.handled_at, st = r.status === 'approved' ? t('Aprobada') : r.status === 'rejected' ? (done ? t('Rechazada') : t('Rechazada por la IA (muy grave)')) : t('Apelada');
+  const done = !!r.handled_at, st = r.status === 'reported' ? t('Reportada por {n} cuentas', { n: r.n_reports || IMGR_MIN }) : r.status === 'approved' ? t('Aprobada') : r.status === 'rejected' ? (done ? t('Rechazada') : t('Rechazada por la IA (muy grave)')) : t('Apelada');
   const own = r.owner === (sbSes() && sbSes().uid) && !isOwner();
   return `<article class="panel img-card">${imgPrev(r)}<div class="img-info"><b>${esc(r.owner_name || '')}</b><span class="story-meta">${t(IMG_KIND[r.kind] || 'Imagen')} · ${st}</span>
-  ${imgReasons(r) ? `<small class="helper">${t('La IA marcó:')} ${imgReasons(r)}</small>` : ''}${r.note ? `<p class="img-note">“${esc(r.note)}”</p>` : ''}${done && r.reason ? `<small class="helper">${t('Motivo:')} ${esc(r.reason)}</small>` : ''}
+  ${r.status === 'reported' ? `<small class="helper">${t('Reportada por la comunidad.')}</small>` : ''}${imgReasons(r) ? `<small class="helper">${t('La IA marcó:')} ${imgReasons(r)}</small>` : ''}${r.note ? `<p class="img-note">“${esc(r.note)}”</p>` : ''}${done && r.reason ? `<small class="helper">${t('Motivo:')} ${esc(r.reason)}</small>` : ''}
   ${own ? `<small class="helper">${t('Es tu imagen: la revisa otra persona del equipo.')}</small>` : `<div class="mod-actions"><button class="button" data-act="img-ok" data-id="${encodeURIComponent(r.url)}">${t('✓ Aprobar')}</button><button class="button danger" data-act="img-no" data-id="${encodeURIComponent(r.url)}">${t('✕ Rechazar')}</button></div>`}</div></article>`;
 }
 function imagesView(tabs) {
@@ -2802,6 +2802,43 @@ function imgAppeal(url) {
 }
 setInterval(() => { if (document.visibilityState === 'visible' && imgOn()) { imgSweep(); imgSyncHidden().then(c => c && softRender(true)); if (isStaff()) imgLoadQueue(); } }, 60000);
 setTimeout(() => { if (imgOn()) { imgSyncHidden().then(c => c && softRender(true)); imgLoadMine(); imgSweep(); if (isStaff()) imgLoadQueue(true); } }, 3500);
+
+/* ---------- Reportar imágenes (portada de libro, foto y portada de perfil) ----------
+   Con 3 reportes de cuentas distintas llega a Moderación › Imágenes. Con 1 o 2, el equipo ve la cantidad y los motivos al entrar al libro. */
+const IMGR_MIN = 3, IMGR_REASONS = ['Contenido sexual', 'Violencia o gore', 'Odio o acoso', 'Imagen de otra persona o robada', 'Otro'];
+let IMGR = {};                                            // reportes por libro o cuenta, para el equipo
+const imgrOk = u => typeof u === 'string' && !!SB_URL && u.startsWith(IMG_PUB());          // solo se pueden reportar imágenes de la nube
+function openImgReport(o) {
+  if (isGuest()) return toast(t('Crea una cuenta para reportar.'));
+  if (!imgOn() || !imgrOk(o.url)) return toast(t('Esta imagen no se puede reportar.'));
+  formModal(t('Reportar imagen'), `<p class="helper">${t('Elige el motivo. Si varias personas la reportan, una persona del equipo la revisa.')}</p><div class="imgr-list">${IMGR_REASONS.map(x => `<label class="imgr-opt"><input type="checkbox" data-r value="${esc(x)}"><span>${esc(t(x))}</span></label>`).join('')}</div><textarea class="textarea" data-note maxlength="300" placeholder="${esc(t('Cuéntanos más (opcional)…'))}"></textarea>`, 'Enviar reporte',
+    async m => {
+      const reasons = [...m.querySelectorAll('[data-r]:checked')].map(x => x.value); if (!reasons.length) return t('Elige al menos un motivo.');
+      const r = await sbApi('/rest/v1/rpc/img_user_report', { method: 'POST', body: { p_url: o.url, p_kind: o.kind || 'other', p_story: o.sid ? sUuid(o.sid) || '' : '', p_reasons: reasons, p_note: m.querySelector('[data-note]').value } });
+      if (!r.ok) return modErr(r); toast(t('Gracias, recibimos tu reporte.')); IMGR = {}; IMG_QL = 0; return '';
+    }, true);
+}
+/** Para el equipo: reportes de las imágenes de un libro (o de una cuenta) */
+async function imgrLoad(key, sid, owner) {
+  if (!imgOn() || !isStaff() || IMGR[key] !== undefined) return; IMGR[key] = [];
+  const r = await sbApi('/rest/v1/rpc/img_reports_of', { method: 'POST', body: { p_story: sid ? sUuid(sid) || '' : '', p_owner: owner || null } });
+  if (r.ok && Array.isArray(r.data) && r.data.length) { IMGR[key] = r.data; softRender(); }
+}
+function imgrPanel(s) {
+  if (!isStaff() || !imgOn()) return ''; imgrLoad('s:' + s.id, s.id); const l = IMGR['s:' + s.id] || []; if (!l.length) return '';
+  return `<section class="panel imgr-panel"><h3>${t('Reportes de imágenes')}</h3>${l.map((x, i) => `<div class="imgr-row"><span class="img-prev" data-noguard><img src="${esc(x.url)}" alt="" loading="lazy"></span><div><b>${t(IMG_KIND[x.kind] || 'Imagen')}</b><small class="helper">${tn(x.n, '{n} reporte', '{n} reportes')}${x.n >= IMGR_MIN ? ' · ' + t('ya está en la cola de Imágenes') : ' · ' + t('faltan {n} para llegar a la cola', { n: IMGR_MIN - x.n })}</small><button type="button" class="link-btn" data-act="imgr-view" data-id="${esc(s.id)}" data-i="${i}">${t('Ver motivos')}</button></div></div>`).join('')}</section>`;
+}
+function imgrProfile(e) {                                    // equipo: reportes de la foto y la portada de esa cuenta
+  const u = getUsers()[e] || {}; if (!isStaff() || !imgOn() || !u.uid) return ''; imgrLoad('u:' + e, '', u.uid); const l = IMGR['u:' + e] || []; if (!l.length) return '';
+  return `<section class="panel imgr-panel"><h3>${t('Reportes de imágenes')}</h3>${l.map((x, i) => `<div class="imgr-row"><span class="img-prev" data-noguard><img src="${esc(x.url)}" alt="" loading="lazy"></span><div><b>${t(IMG_KIND[x.kind] || 'Imagen')}</b><small class="helper">${tn(x.n, '{n} reporte', '{n} reportes')}${x.n >= IMGR_MIN ? ' · ' + t('ya está en la cola de Imágenes') : ' · ' + t('faltan {n} para llegar a la cola', { n: IMGR_MIN - x.n })}</small><button type="button" class="link-btn" data-act="imgr-view" data-id="u:${esc(e)}" data-i="${i}">${t('Ver motivos')}</button></div></div>`).join('')}</section>`;
+}
+function imgrView(key, i) {
+  const x = (IMGR[/^u:/.test(key) ? key : 's:' + key] || [])[i]; if (!x) return;
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${tn(x.n, '{n} reporte', '{n} reportes')}</h2>${(x.items || []).map(it => `<div class="imgr-item"><b>${esc(it.by || '')}</b> <small class="helper">${esc(fmtDate(String(it.at || '').slice(0, 10)) || '')}</small><div>${(it.reasons || []).map(r => `<span class="tag">${esc(t(r))}</span>`).join(' ')}</div>${it.note ? `<p class="img-note">“${esc(it.note)}”</p>` : ''}</div>`).join('')}</div>`;
+  m.addEventListener('click', ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); });
+  document.body.appendChild(m);
+}
 function modView(sub) {
   if (!isStaff()) return `<main class="page">${empty('Sin acceso', 'Solo el equipo de moderación puede entrar aquí.', '<a class="button" href="#/">' + t('Volver') + '</a>')}</main>`;
   const shuf = cfg('modShuffle') !== false, hs = x => { let h = 2166136261; for (const ch of String(x)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };      // orden aleatorio propio de cada persona del equipo (estable al redibujar)
@@ -3587,7 +3624,7 @@ function userView(e) {
   const works = publishedStories().filter(s => s.owner === e && matureOK(s)), fl = following(S.user).includes(e);
   const acts = `<button class="button ${fl ? 'secondary' : ''}" data-act="follow" data-id="${esc(e)}">${fl ? t('Siguiendo ✓') : t('＋ Seguir')}</button>
   ${dmWhy(S.user, e) === '' ? `<a class="button secondary" href="#/messages/${encodeURIComponent(e)}" data-dir="next">${t('Mensaje')}</a>` : `<button type="button" class="button ghost" data-act="dm-why" data-id="${esc(e)}">${t('Mensaje')}</button>`}
-  <div class="pf-more"><button class="button ghost sm" data-act="${iMute(e) ? 'unmute' : 'mute'}" data-id="${esc(e)}">${iMute(e) ? t('🔔 Dejar de silenciar') : t('🔇 Silenciar')}</button><button class="button ghost sm" data-act="${iBlock(e) ? 'unblock' : 'block'}" data-id="${esc(e)}">${iBlock(e) ? t('✅ Desbloquear') : t('🚫 Bloquear')}</button><button class="button ghost sm" data-act="report-user" data-id="${esc(e)}">${t('Reportar')}</button></div>`;
+  <div class="pf-more"><button class="button ghost sm" data-act="${iMute(e) ? 'unmute' : 'mute'}" data-id="${esc(e)}">${iMute(e) ? t('🔔 Dejar de silenciar') : t('🔇 Silenciar')}</button><button class="button ghost sm" data-act="${iBlock(e) ? 'unblock' : 'block'}" data-id="${esc(e)}">${iBlock(e) ? t('✅ Desbloquear') : t('🚫 Bloquear')}</button><button class="button ghost sm" data-act="report-user" data-id="${esc(e)}">${t('Reportar')}</button>${imgrOk((getUsers()[e] || {}).avatar) ? `<button class="button ghost sm" data-act="report-pimg" data-id="${esc(e)}" data-k="avatar">${t('Reportar foto')}</button>` : ''}${imgrOk((getUsers()[e] || {}).banner) ? `<button class="button ghost sm" data-act="report-pimg" data-id="${esc(e)}" data-k="banner">${t('Reportar portada del perfil')}</button>` : ''}</div>${imgrProfile(e)}`;
   return `<main class="page pf-page">${profileHero(e, false, acts)}${modUserBooks(e)}${repHistory(e)}${admMenu(e)}${worksGrid(works)}</main>`;
 }
 
@@ -4300,6 +4337,9 @@ document.addEventListener('click', e => {
     'report-story': () => { const s0 = findStory(id); if (s0) openReportFor('story', { sid: id, target: id, owner: s0.owner, title: s0.title, label: '«' + s0.title + '»' }); },
     'report-comment': () => { const c = comments(id).find(x => String(x.id) === el.dataset.cid); if (c) openReportFor('comment', { sid: id, cid: c.id, target: c.by, owner: c.by, excerpt: c.text, label: t('un comentario de {n}', { n: uName(c.by) }) }); },
     'report-pc': () => { const c = PCS && pcList(PCS.sid, PCS.ci, PCS.pi).find(x => String(x.id) === el.dataset.cid); if (c) openReportFor('pcomment', { sid: PCS.sid, ci: PCS.ci, target: c.by, owner: c.by, excerpt: c.text, label: t('un comentario de párrafo de {n}', { n: uName(c.by) }) }); },
+    'report-img': () => { const s0 = findStory(id); if (s0) openImgReport({ url: s0.cover, kind: 'cover', sid: s0.id }); },
+    'report-pimg': () => { const u0 = getUsers()[id] || {}, k = el.dataset.k === 'banner' ? 'banner' : 'avatar'; openImgReport({ url: u0[k], kind: k }); },
+    'imgr-view': () => imgrView(id, +el.dataset.i),
     'report-user': () => openReportFor('user', { target: id, owner: id, label: t('a {n}', { n: uName(id) }) }),
     'rp-filter': () => { RFILT = id; KEEP = true; render(); },
     'rp-done': () => rpSet(id, 'resolved'), 'rp-dismiss': () => rpSet(id, 'dismissed'), 'rp-reopen': () => rpSet(id, 'open'),

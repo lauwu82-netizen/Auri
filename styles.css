@@ -1889,3 +1889,21 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .fr.sm .orn-bot.b50{left:-26%;bottom:-30%;width:150%}
 .fr.xl .orn-bot.b50{bottom:-27%}
 .pf-banner{height:auto;aspect-ratio:8/3;max-height:340px;-webkit-mask-image:linear-gradient(to bottom,#000 72%,transparent 100%);mask-image:linear-gradient(to bottom,#000 72%,transparent 100%)}
+
+/* 70 · Sin franja vacía arriba (la isla es flotante) y lazo grande */
+.topbar.tb2{min-height:0}
+.page{padding-top:34px}
+.feed-logo{margin-top:0}
+.orn-top.bow{right:-36%;top:-40%;width:112%}
+.fr.sm .orn-top.bow{right:-40%;top:-46%;width:124%}
+
+/* 71 · Reportar imágenes */
+.imgr-list{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.imgr-opt{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid hsl(var(--border));border-radius:14px;background:hsl(var(--card));font-weight:500}
+.imgr-opt input{width:18px;height:18px;accent-color:hsl(var(--primary))}
+.imgr-panel{margin-top:14px}.imgr-panel h3{margin:0 0 10px;font-size:16px}
+.imgr-row{display:flex;gap:12px;align-items:center;padding:8px 0;border-top:1px solid hsl(var(--border))}
+.imgr-row:first-of-type{border-top:0}.imgr-row>div{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+.imgr-row .img-prev{flex:none;width:52px;height:52px;border-radius:12px;overflow:hidden}.imgr-row .img-prev img{width:100%;height:100%;object-fit:cover}
+.imgr-item{padding:10px 0;border-top:1px solid hsl(var(--border))}.imgr-item:first-of-type{border-top:0}
+.page.pf-page{padding-top:0}
