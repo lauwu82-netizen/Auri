@@ -1985,6 +1985,18 @@ async function stLoad(force) {
   r.data.forEach(x => { const e = ids.key(x.user_id); if (e) list.push({ e, kind: x.kind, text: x.text || '', sid: x.story_id ? sBack(x.story_id) : '', mature: !!x.mature, at: Date.parse(x.created_at), exp: Date.parse(x.expires_at) }); });
   const sig = JSON.stringify(list); if (sig !== ST.sig) { ST.sig = sig; ST.list = list; softRender(); }
 }
+const stGet = e => stAll().find(r => r.e === e) || ((ST.prof || {})[e] && (ST.prof[e].row && ST.prof[e].row.exp > Date.now()) ? ST.prof[e].row : null);
+async function stProfLoad(e) {                           // estado de una persona que no sigues (para su perfil); el servidor aplica las reglas de edad y bloqueo
+  const u = getUsers()[e] || {}; ST.prof = ST.prof || {}; const c = ST.prof[e];
+  if (!modCloud() || isGuest() || e === S.user || !u.uid || (c && Date.now() - c.at < 45000)) return; ST.prof[e] = { at: Date.now(), row: c ? c.row : null };
+  const r = await sbApi('/rest/v1/rpc/status_feed', { method: 'POST', body: { p_user: u.uid } }); if (!r.ok || !Array.isArray(r.data)) return;
+  const x = r.data[0], row = x ? { e, kind: x.kind, text: x.text || '', sid: x.story_id ? sBack(x.story_id) : '', mature: !!x.mature, at: Date.parse(x.created_at), exp: Date.parse(x.expires_at) } : null;
+  const had = !!(c && c.row); ST.prof[e] = { at: Date.now(), row }; if (!!row !== had || (row && c && c.row && c.row.at !== row.at)) softRender();
+}
+function stProfBubble(e) {                               // burbuja junto a la foto en el perfil
+  stProfLoad(e); const r = stGet(e); if (!r) return '';
+  return `<button type="button" class="st-bub pf-bub" data-act="st-open" data-id="${esc(e)}"><span>${esc(stBubText(r))}</span></button>`;
+}
 async function stPublish(kind, text, sid, mature) {
   if (modCloud()) {
     const r = await sbApi('/rest/v1/rpc/status_set', { method: 'POST', body: { p_kind: kind, p_text: text, p_story: kind === 'rec' ? sUuid(sid) : null, p_mature: !!mature } });
@@ -2020,7 +2032,7 @@ function stRow() {
   return `<section class="st-row" aria-label="${esc(t('Personas que sigues'))}">${item(me, mine, null, false, true)}${items.map(x => item(x.e, x.st, x.ch, x.nw, false)).join('')}</section>`;
 }
 function stModal(e) {
-  const r = stAll().find(x => x.e === e); if (!r) return; stMark(e, r.at);
+  const r = stGet(e); if (!r) return; stMark(e, r.at);
   const b = r.kind === 'rec' ? findStory(r.sid) : null, mine = e === S.user, m = document.createElement('div'); m.className = 'modal sheet';
   const body = r.kind === 'rec' ? (b ? `<div class="st-book">${coverHTML(b, 0)}<div><b>${esc(b.title)}</b><small class="helper">${t('por {a}', { a: esc(b.author || '') })}</small><p>${esc(clip(b.synopsis, 140))}</p></div></div><a class="button" href="#/story/${esc(b.id)}" data-dir="next" data-close>${t('Leer ahora')}</a>` : `<p class="helper">${t('Este libro ya no está disponible.')}</p>`) : `<p class="st-full">${esc(r.text)}</p>${r.mature ? `<small class="helper">${t('Contenido +18')}</small>` : ''}`;
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><div class="st-head">${framedAvatar(e, 'sm')}<div><b>${esc(mine ? t('Tu estado') : uName(e))}</b><small class="helper">${t('Dura {x} más', { x: leftTxt(new Date(r.exp).toISOString()) })}</small></div></div>${body}
@@ -3480,7 +3492,7 @@ function profileHero(e, own, acts = '') {
   return `<section class="pf-hero"><div class="pf-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>
     ${sk.length && !cfg('hideStrikeBtn') ? `<button type="button" class="pf-warn" data-act="strike-info" aria-label="${esc(t('Aviso de strikes'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5"/><circle cx="12" cy="16.6" r=".6" fill="currentColor"/></svg></button>` : ''}
     <div class="pf-fade"></div></div>
-  <div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}</div>
+  <div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}${stProfBubble(e)}</div>
     <div class="pf-info"><h1 class="pf-name serif ${nmCls(e)}">${esc(u.name || t('Mi perfil'))}${onlineDot(e)}</h1>${role || mbtiOf(e) ? `<div class="pf-tags">${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}${mbtiBadge(e)}</div>` : ''}
 </div>
     ${acts ? `<div class="pf-acts">${acts}</div>` : ''}</div>

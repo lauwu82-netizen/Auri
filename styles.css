@@ -1994,3 +1994,6 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 /* 78 · Lazo más grande (misma esquina) */
 .orn-top.bow{width:165%;right:-36%;top:-25%}
 .fr.sm .orn-top.bow{width:182%;right:-42%;top:-33%}
+
+/* 79 · Burbuja de estado en el perfil */
+.pf-bub{top:-34px;left:66px;margin:0;width:100px;max-width:100px;z-index:4}
