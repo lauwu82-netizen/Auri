@@ -1944,13 +1944,14 @@ function carouselHTML() {
   return `<section class="carousel" aria-roledescription="${esc(t('carrusel'))}" aria-label="${esc(t('Novedades de Auri'))}"><div class="cr-track" id="cr-track">${sl.map(card).join('')}</div>
   ${sl.length > 1 ? `<div class="cr-dots">${sl.map((_, i) => `<button type="button" class="cr-dot ${i === CARI ? 'on' : ''}" data-act="car-go" data-i="${i}" aria-label="${esc(t('Ir a la tarjeta {i}', { i: i + 1 }))}"></button>`).join('')}</div>` : ''}</section>`;
 }
-function carGo(i) { const t = $('#cr-track'); if (!t || !t.children) return; const n = t.children.length; if (!n) return; i = (i + n) % n; t.scrollTo({ left: i * t.clientWidth, behavior: reduceMotion() ? 'auto' : 'smooth' }); }
+const carStep = t => t.children.length > 1 ? t.children[1].offsetLeft - t.children[0].offsetLeft : (t.clientWidth || 1);
+function carGo(i) { const t = $('#cr-track'); if (!t || !t.children) return; const n = t.children.length; if (!n) return; i = (i + n) % n; t.scrollTo({ left: i * carStep(t), behavior: reduceMotion() ? 'auto' : 'smooth' }); }
 function carInit() {                                   // se llama tras cada dibujado: restaura la posición, sincroniza los puntos y cambia sola cada 5 s
   clearInterval(CARTIMER); CARTIMER = null;
   const t = $('#cr-track'); if (!t || !t.children) return; const n = t.children.length; if (!n) return;
-  if (CARI >= n) CARI = 0; t.scrollLeft = CARI * t.clientWidth;
+  if (CARI >= n) CARI = 0; t.scrollLeft = CARI * carStep(t);
   let raf = 0;
-  t.addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { const i = Math.round(t.scrollLeft / (t.clientWidth || 1)); if (i !== CARI) { CARI = i; document.querySelectorAll('.cr-dot').forEach((d, k) => d.classList.toggle('on', k === i)); } }); }, { passive: true });
+  t.addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { const i = Math.round(t.scrollLeft / carStep(t)); if (i !== CARI) { CARI = i; document.querySelectorAll('.cr-dot').forEach((d, k) => d.classList.toggle('on', k === i)); } }); }, { passive: true });
   ['pointerdown', 'touchstart', 'wheel'].forEach(ev => t.addEventListener(ev, () => { CARHOLD = Date.now() + 8000; }, { passive: true }));   // si la persona interactúa, el carrusel espera
   if (n < 2 || reduceMotion()) return;
   CARTIMER = setInterval(() => { if (!document.body.contains(t)) { clearInterval(CARTIMER); CARTIMER = null; return; } if (document.hidden || Date.now() < CARHOLD) return; carGo(CARI + 1); }, 5000);

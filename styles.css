@@ -1922,3 +1922,20 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 /* 74 · Lazo tocando el avatar */
 .orn-top.bow{right:-27%;top:-19%}
 .fr.sm .orn-top.bow{right:-33%;top:-26%}
+
+/* 75 · Carrusel más bonito: la siguiente tarjeta se asoma, la portada ocupa toda la tarjeta y el título va grande abajo */
+.carousel{margin:0 -16px}
+.cr-track{border-radius:0;gap:12px;padding:6px 16px 14px;scroll-padding:0 16px}
+.cr-slide{flex:0 0 86%;scroll-snap-align:start;min-height:300px;align-items:flex-end;border:1.5px solid hsl(var(--primary)/.55);box-shadow:0 10px 30px -8px hsl(var(--primary)/.45),0 0 0 1px hsl(var(--primary)/.12)}
+@media(min-width:700px){.cr-slide{flex-basis:520px}.carousel{margin:0}}
+.cr-slide:has(.cr-bg) .cr-bg{top:0;right:0;left:0;bottom:0;width:100%;height:100%;filter:none;opacity:1;object-fit:cover}
+.cr-slide:has(.cr-bg)::before{background:linear-gradient(0deg,rgba(14,8,30,.92) 6%,rgba(14,8,30,.55) 48%,rgba(14,8,30,.05) 80%)}
+.cr-slide:has(.cr-bg) .cr-cv{display:none}
+.cr-slide:has(.cr-bg) .cr-txt{position:relative;z-index:1;color:#fff}
+.cr-slide:has(.cr-bg) h2{color:#fff;font-size:clamp(26px,7vw,32px);text-shadow:0 2px 14px rgba(0,0,0,.55)}
+.cr-slide:has(.cr-bg) p,.cr-slide:has(.cr-bg) .cr-by,.cr-slide:has(.cr-bg) .cr-date,.cr-slide:has(.cr-bg) .cr-sub{color:rgba(255,255,255,.86)}
+.cr-slide:has(.cr-bg) .eyebrow{color:#fff;background:rgba(255,255,255,.16);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);padding:5px 11px;border-radius:99px;align-self:flex-start}
+.cr-slide:has(.cr-bg) .button{background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.35);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.cr-slide:has(.cr-bg) p{-webkit-line-clamp:2}
+.cr-slide:not(:has(.cr-bg)) .cr-txt{padding-bottom:4px}
+.cr-slide::after{display:none}
