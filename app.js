@@ -1956,13 +1956,109 @@ function carInit() {                                   // se llama tras cada dib
   if (n < 2 || reduceMotion()) return;
   CARTIMER = setInterval(() => { if (!document.body.contains(t)) { clearInterval(CARTIMER); CARTIMER = null; return; } if (document.hidden || Date.now() < CARHOLD) return; carGo(CARI + 1); }, 5000);
 }
+/* ---------- Estados (burbujas de las personas que sigues) ----------
+   Un pensamiento o un libro recomendado, 24 h. Debajo de cada persona sale "Nuevo capítulo" si publicó uno que aún no lees.
+   Menores: no ven pensamientos de cuentas adultas (sí recomendaciones y capítulos). Un punto junto al nombre marca lo nuevo. */
+const ST_MS = 24 * 3600 * 1000, ST_MAX = 140, ST_BAD = /(https?:\/\/|www\.|[a-z0-9._-]+@[a-z0-9-]+\.|[0-9][0-9 .-]{6,}[0-9])/i;
+let ST = { list: [], at: 0, sig: '' };                    // lista de la nube con claves locales
+const stSeen = () => LS.get(uk('stseen'), {});
+const stMark = (k, v) => { const m = stSeen(); m[k] = v; LS.set(uk('stseen'), m); };
+const stLocal = () => G.get('statuses', {});
+function stOkLocal(r) {                                   // mismas reglas que el servidor, para el modo sin nube
+  if (r.e === S.user) return true; if (hidesFrom(r.e)) return false;
+  const me = getUsers()[S.user], adult = isAdult(me);
+  if (r.kind === 'thought' && isAdult(getUsers()[r.e]) !== adult) return false;
+  if (r.mature && !adult) return false;
+  if (r.kind === 'rec') { const b = findStory(r.sid); if (!b || (b.mature && !adult)) return false; }
+  return true;
+}
+/** Estados visibles ahora mismo: [{e, kind, text, sid, mature, at, exp}] */
+function stAll() {
+  if (modCloud()) return ST.list.filter(r => r.exp > Date.now());
+  const fl = following(S.user), L = stLocal();
+  return Object.keys(L).map(e => ({ e, ...L[e] })).filter(r => r.exp > Date.now() && (r.e === S.user || fl.includes(r.e)) && stOkLocal(r));
+}
+async function stLoad(force) {
+  if (!modCloud() || isGuest()) return; if (!force && Date.now() - ST.at < 45000) return; ST.at = Date.now();
+  const r = await sbApi('/rest/v1/rpc/status_feed', { method: 'POST', body: { p_user: null } }); if (!r.ok || !Array.isArray(r.data)) return;
+  const ids = await sbKnow(r.data.map(x => x.user_id)), list = [];
+  r.data.forEach(x => { const e = ids.key(x.user_id); if (e) list.push({ e, kind: x.kind, text: x.text || '', sid: x.story_id ? sBack(x.story_id) : '', mature: !!x.mature, at: Date.parse(x.created_at), exp: Date.parse(x.expires_at) }); });
+  const sig = JSON.stringify(list); if (sig !== ST.sig) { ST.sig = sig; ST.list = list; softRender(); }
+}
+async function stPublish(kind, text, sid, mature) {
+  if (modCloud()) {
+    const r = await sbApi('/rest/v1/rpc/status_set', { method: 'POST', body: { p_kind: kind, p_text: text, p_story: kind === 'rec' ? sUuid(sid) : null, p_mature: !!mature } });
+    if (!r.ok) return modErr(r); ST.at = 0; await stLoad(true); return '';
+  }
+  const L = stLocal(), now = Date.now(); L[S.user] = { kind, text: kind === 'thought' ? text : '', sid: kind === 'rec' ? sid : '', mature: kind === 'thought' ? !!mature && isAdult(getUsers()[S.user]) : !!(findStory(sid) || {}).mature, at: now, exp: now + ST_MS }; G.set('statuses', L); return '';
+}
+async function stRemove() {
+  if (modCloud()) { const r = await sbApi('/rest/v1/rpc/status_clear', { method: 'POST', body: {} }); if (!r.ok) return modErr(r); ST.at = 0; await stLoad(true); return ''; }
+  const L = stLocal(); delete L[S.user]; G.set('statuses', L); return '';
+}
+/** Libros con capítulo nuevo (para ti) de personas que sigues */
+function stNewChap(e) {
+  const cut = new Date(Date.now() - 2 * 864e5).toISOString().slice(0, 10), me = S.user;
+  return publishedStories().filter(s => s.owner === e && storyVisible(s) && !hidesStory(s.owner) && s.updatedAt >= cut && !(s.mature && isMinor(getUsers()[me]))).filter(s => { const pc = s.chapters.filter(pubChapter); return pc.length && !readList(s.id).includes(pc[pc.length - 1].idx); }).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] || null;
+}
+function stBubText(r) {
+  if (r.kind === 'rec') { const b = findStory(r.sid); return t('recomendó «{x}»', { x: b ? clip(b.title, 40) : t('un libro') }); }
+  return clip(r.text, 70);
+}
+function stRow() {
+  if (!S.user || isGuest()) return ''; stLoad();
+  const all = stAll(), by = {}; all.forEach(r => { by[r.e] = r; }); const seen = stSeen(), me = S.user;
+  const people = [...new Set([...following(me), ...Object.keys(by)])].filter(e => e !== me && getUsers()[e] && !hidesFrom(e));
+  const items = people.map(e => ({ e, st: by[e] || null, ch: stNewChap(e) })).filter(x => x.st || x.ch).map(x => ({ ...x, nw: (x.st && x.st.at > (seen[x.e] || 0)) || (x.ch && seen['c:' + x.e] !== x.ch.id + ':' + x.ch.updatedAt) }));
+  items.sort((a, b) => (b.nw ? 1 : 0) - (a.nw ? 1 : 0) || ((b.st && b.st.at) || 0) - ((a.st && a.st.at) || 0));
+  const mine = by[me];
+  const item = (e, st, ch, nw, isMe) => {
+    const bub = st ? `<button type="button" class="st-bub" data-act="st-open" data-id="${esc(e)}">${esc(stBubText(st))}</button>` : isMe ? `<button type="button" class="st-bub empty" data-act="st-new">${t('Comparte algo…')}</button>` : '<span class="st-bub gap"></span>';
+    const av = `<button type="button" class="st-av" data-act="${st ? 'st-open' : isMe ? 'st-new' : 'st-prof'}" data-id="${esc(e)}" aria-label="${esc(uName(e))}">${framedAvatar(e, 'sm')}${isMe && !st ? '<i class="st-plus" aria-hidden="true">+</i>' : ''}</button>`;
+    return `<div class="st-it">${bub}${av}<div class="st-nm"><span>${esc(isMe ? t('Tú') : uName(e))}</span>${nw ? '<i class="st-dot" aria-label="' + esc(t('Nuevo')) + '"></i>' : ''}</div>${ch ? `<button type="button" class="st-sub" data-act="st-chap" data-id="${esc(ch.id)}" data-e="${esc(e)}">${t('Nuevo capítulo')}</button>` : ''}</div>`;
+  };
+  return `<section class="st-row" aria-label="${esc(t('Personas que sigues'))}">${item(me, mine, null, false, true)}${items.map(x => item(x.e, x.st, x.ch, x.nw, false)).join('')}</section>`;
+}
+function stModal(e) {
+  const r = stAll().find(x => x.e === e); if (!r) return; stMark(e, r.at);
+  const b = r.kind === 'rec' ? findStory(r.sid) : null, mine = e === S.user, m = document.createElement('div'); m.className = 'modal sheet';
+  const body = r.kind === 'rec' ? (b ? `<div class="st-book">${coverHTML(b, 0)}<div><b>${esc(b.title)}</b><small class="helper">${t('por {a}', { a: esc(b.author || '') })}</small><p>${esc(clip(b.synopsis, 140))}</p></div></div><a class="button" href="#/story/${esc(b.id)}" data-dir="next" data-close>${t('Leer ahora')}</a>` : `<p class="helper">${t('Este libro ya no está disponible.')}</p>`) : `<p class="st-full">${esc(r.text)}</p>${r.mature ? `<small class="helper">${t('Contenido +18')}</small>` : ''}`;
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><div class="st-head">${framedAvatar(e, 'sm')}<div><b>${esc(mine ? t('Tu estado') : uName(e))}</b><small class="helper">${t('Dura {x} más', { x: leftTxt(new Date(r.exp).toISOString()) })}</small></div></div>${body}
+  ${mine ? `<div class="st-acts"><button type="button" class="button secondary" data-new>${t('Cambiar')}</button><button type="button" class="button danger" data-del>${t('Quitar')}</button></div>` : `<div class="st-acts"><a class="button secondary" href="#/user/${encodeURIComponent(e)}" data-dir="next" data-close>${t('Ver perfil')}</a><button type="button" class="link-btn" data-rep>${t('Reportar')}</button></div>`}</div>`;
+  m.addEventListener('click', async ev => {
+    if (ev.target === m || ev.target.closest('[data-no]') || ev.target.closest('[data-close]')) { m.remove(); return; }
+    if (ev.target.closest('[data-new]')) { m.remove(); stForm(); return; }
+    if (ev.target.closest('[data-del]')) { await stRemove(); m.remove(); KEEP = true; render(); return; }
+    if (ev.target.closest('[data-rep]')) { m.remove(); openReportFor('user', { target: e, owner: e, label: t('a {n}', { n: uName(e) }) }); }
+  });
+  document.body.appendChild(m); KEEP = true; render();
+}
+function stForm() {
+  if (isGuest()) return toast(t('Crea una cuenta para publicar.'));
+  const me = getUsers()[S.user], adult = isAdult(me);
+  const ids = [...new Set([...(S.favs || []), ...(S.lib || [])])], books = ids.map(findStory).filter(b => b && b.owner !== S.user && storyVisible(b) && !(b.mature && !adult));
+  const html = `<div class="st-tabs"><button type="button" class="st-tab on" data-m="thought">${t('Pensamiento')}</button><button type="button" class="st-tab" data-m="rec">${t('Recomendar un libro')}</button></div>
+  <div data-p="thought"><textarea class="textarea" data-txt maxlength="${ST_MAX}" placeholder="${esc(t('¿Qué piensas hoy?'))}"></textarea><small class="helper"><span data-n>0</span>/${ST_MAX}</small>
+  ${adult ? `<label class="imgr-opt" style="margin-top:8px"><input type="checkbox" data-mat><span>${t('Tiene temas +18 (solo lo verán personas mayores de edad)')}</span></label>` : ''}</div>
+  <div data-p="rec" hidden>${books.length ? `<div class="imgr-list">${books.map(b => `<label class="imgr-opt"><input type="radio" name="st-b" value="${esc(b.id)}"><span>${esc(clip(b.title, 50))}</span></label>`).join('')}</div>` : `<p class="helper">${t('Guarda un libro de otra persona en tu biblioteca o favoritos para poder recomendarlo.')}</p>`}</div>
+  <p class="helper" style="margin-top:8px">${t('Dura 24 horas y lo ven las personas que te siguen.')}</p>`;
+  let mode = 'thought';
+  const m = formModal('Tu estado', html, 'Publicar', async mm => {
+    if (mode === 'thought') { const x = mm.querySelector('[data-txt]').value.trim(); if (!x) return t('Escribe algo.'); if (ST_BAD.test(x)) return t('Los pensamientos no pueden incluir enlaces, correos ni números de teléfono.'); const r = await stPublish('thought', x, '', !!(mm.querySelector('[data-mat]') || {}).checked); if (!r) { KEEP = true; render(); } return r; }
+    const c = mm.querySelector('[name=st-b]:checked'); if (!c) return t('Elige un libro.'); const r = await stPublish('rec', '', c.value, false); if (!r) { KEEP = true; render(); } return r;
+  });
+  m.addEventListener('click', ev => { const b = ev.target.closest('[data-m]'); if (!b) return; mode = b.dataset.m; m.querySelectorAll('.st-tab').forEach(x => x.classList.toggle('on', x === b)); m.querySelectorAll('[data-p]').forEach(p => { p.hidden = p.dataset.p !== mode; }); });
+  m.addEventListener('input', ev => { if (ev.target.matches('[data-txt]')) m.querySelector('[data-n]').textContent = ev.target.value.length; });
+}
+setInterval(() => { if (document.visibilityState === 'visible' && modCloud()) stLoad(); }, 60000);
+setTimeout(() => { if (modCloud()) stLoad(true); }, 4000);
 function discoverView() {
   const gens = ['All', ...new Set(publishedStories().filter(storyVisible).map(s => s.genre))];
   const modeRow = `<div class="filter-row mode-row" role="group" aria-label="${esc(t('Qué buscar'))}"><button class="chip ${SM === 'books' ? 'active' : ''}" data-act="sm" data-id="books" aria-pressed="${SM === 'books'}">${t('Libros')}</button><button class="chip ${SM === 'users' ? 'active' : ''}" data-act="sm" data-id="users" aria-pressed="${SM === 'users'}">${t('Usuarios')}</button></div>`;
   return `<main class="page">${AURI_LOGO ? `<div class="feed-logo"><img src="${esc(AURI_LOGO)}" alt="Auri" referrerpolicy="no-referrer" decoding="async"></div>` : ''}${carouselHTML() || `<section class="hero"><span class="eyebrow">${t('✦ Un pequeño hogar para grandes emociones')}</span>
   <h1>${t('Encuentra tu próxima emoción favorita.')}</h1><p>${t('Historias para leer a gusto, personajes que te acompañan y un rincón para crear algo propio.')}</p>
   <a class="button secondary" href="#/library">${t('Ir a mi biblioteca')}</a>${mascot('mascot')}</section>`}
-  ${modeRow}
+  ${stRow()}${modeRow}
   ${SM === 'users' ? `<div class="section-head"><div><h2>${t('Personas en Auri')}</h2><p>${t('Busca por nombre de usuario.')}</p></div></div>
   <div class="filter-row">${[['all', 'Todos'], ['authors', 'Con libros publicados'], ['team', 'Equipo']].map(([k, n]) => `<button class="chip ${UF === k ? 'active' : ''}" data-act="uf" data-id="${k}">${t(n)}</button>`).join('')}</div>` : `
   <div class="section-head"><div><h2>${t('Historias que te roban el sueño')}</h2><p>${t('Libros creados por personas usuarias.')}</p></div></div>
@@ -4347,6 +4443,10 @@ document.addEventListener('click', e => {
     'report-img': () => { const s0 = findStory(id); if (s0) openImgReport({ url: s0.cover, kind: 'cover', sid: s0.id }); },
     'report-pimg': () => { const u0 = getUsers()[id] || {}, k = el.dataset.k === 'banner' ? 'banner' : 'avatar'; openImgReport({ url: u0[k], kind: k }); },
     'imgr-view': () => imgrView(id, +el.dataset.i),
+    'st-open': () => stModal(id),
+    'st-new': () => stForm(),
+    'st-prof': () => go('/user/' + encodeURIComponent(id)),
+    'st-chap': () => { stMark('c:' + el.dataset.e, id + ':' + ((findStory(id) || {}).updatedAt || '')); go('/story/' + id); },
     'report-user': () => openReportFor('user', { target: id, owner: id, label: t('a {n}', { n: uName(id) }) }),
     'rp-filter': () => { RFILT = id; KEEP = true; render(); },
     'rp-done': () => rpSet(id, 'resolved'), 'rp-dismiss': () => rpSet(id, 'dismissed'), 'rp-reopen': () => rpSet(id, 'open'),
