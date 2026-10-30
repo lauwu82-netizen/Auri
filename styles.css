@@ -1910,3 +1910,12 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 /* 72 · Lazo más grande y pegado a la foto */
 .orn-top.bow{right:-44%;top:-38%;width:140%}
 .fr.sm .orn-top.bow{right:-50%;top:-44%;width:155%}
+
+/* 73 · Isla en computador: cursor, hover y menú un poco más amplio */
+@media(hover:hover) and (pointer:fine){
+  .isle:not(.open):not(.drag) .isle-head:hover{transform:scale(1.08);transition:transform .2s ease}
+  .isle-op{cursor:pointer;transition:background .15s ease,transform .15s ease}
+  .isle-op:hover{background:rgba(255,255,255,.1)}
+  .isle-head:focus-visible,.isle-op:focus-visible{outline:2px solid hsl(var(--primary));outline-offset:2px}
+}
+@media(min-width:900px){.isle-op{padding:12px 4px 10px;font-size:12.5px}.isle-body.five .isle-l{font-size:11px}}

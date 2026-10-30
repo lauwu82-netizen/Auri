@@ -2617,7 +2617,7 @@ function isleBuild() {
   el.innerHTML = `<button type="button" class="isle-head" aria-label="${esc(t('Menú de Auri'))}" aria-expanded="false" aria-haspopup="true">${ISLE_HEAD}</button><span class="isle-z" aria-hidden="true"><i>z</i><i>z</i><i>Z</i></span><div class="isle-body" role="menu" aria-hidden="true"></div>`;
   document.body.appendChild(el); ISLE = el;
   const head = el.querySelector('.isle-head');
-  head.addEventListener('pointerdown', ev => { if (ISLE_ST.open) return; ISLE_ST.drag = { x: ev.clientX, y: ev.clientY, l: el.offsetLeft, t: el.offsetTop, moved: false, id: ev.pointerId }; try { head.setPointerCapture(ev.pointerId); } catch (e) { /* */ } });
+  head.addEventListener('pointerdown', ev => { if (ISLE_ST.open) { ev.preventDefault(); isleToggle(false); return; } ISLE_ST.drag = { x: ev.clientX, y: ev.clientY, l: el.offsetLeft, t: el.offsetTop, moved: false, id: ev.pointerId }; try { head.setPointerCapture(ev.pointerId); } catch (e) { /* */ } });
   head.addEventListener('pointermove', ev => { const d = ISLE_ST.drag; if (!d || d.id !== ev.pointerId) return; const dx = ev.clientX - d.x, dy = ev.clientY - d.y;
     if (!d.moved && Math.hypot(dx, dy) > 7) { d.moved = true; el.classList.add('drag'); } if (!d.moved) return;
     isleTrail(ev.clientX, ev.clientY); el.style.left = Math.max(4, Math.min(innerWidth - ISLE_W - 4, d.l + dx)) + 'px'; el.style.top = Math.max(isleTop(), Math.min(isleBottom(), d.t + dy)) + 'px'; });
@@ -2674,9 +2674,15 @@ function isleFill() {
   const ops = isleOps(); body.classList.toggle('five', ops.length > 4);
   body.innerHTML = ops.map(o => { const n = o.n(); return `<button type="button" class="isle-op" role="menuitem" data-isle="${o.k}"><span class="isle-ic">${o.ic()}</span><span class="isle-l">${esc(t(o.l))}</span>${n ? `<b class="isle-n">${n > 99 ? '99+' : n}</b>` : '<b class="isle-n" style="visibility:hidden">0</b>'}</button>`; }).join('');
 }
+/** En pantallas anchas la isla se pega al borde del contenido (no al borde lejano de la ventana) */
+function isleEdges() {
+  if (innerWidth < 900) return { l: 8, r: innerWidth - ISLE_W - 8 };
+  const w = Math.min(1100, innerWidth - 32), l0 = (innerWidth - w) / 2;
+  return { l: Math.max(8, Math.round(l0 - ISLE_W - 14)), r: Math.min(innerWidth - ISLE_W - 8, Math.round(l0 + w + 14)) };
+}
 function isleLayout() {
-  if (!ISLE) return; const s = isleSaved(), W = Math.min(ISLE.querySelector('.isle-body').classList.contains('five') ? 360 : 330, innerWidth - 20), st = ISLE_ST;
-  const y = Math.max(isleTop(), Math.min(isleBottom(), s.y)), x = s.side === 'l' ? 8 : innerWidth - ISLE_W - 8;
+  if (!ISLE) return; const s = isleSaved(), W = Math.min(ISLE.querySelector('.isle-body').classList.contains('five') ? (innerWidth >= 900 ? 420 : 360) : (innerWidth >= 900 ? 380 : 330), innerWidth - 20), st = ISLE_ST;
+  const y = Math.max(isleTop(), Math.min(isleBottom(), s.y)), E = isleEdges(), x = s.side === 'l' ? E.l : E.r;
   ISLE.classList.toggle('left', s.side === 'l');
   if (!st.open) { ISLE.style.cssText = `left:${x}px;top:${y}px;width:${ISLE_W}px;height:${ISLE_H}px`; return; }
   const H = ISLE_H + ISLE.querySelector('.isle-body').scrollHeight + 6, left = Math.max(10, Math.min(innerWidth - W - 10, x + ISLE_W / 2 - W / 2)), top = y + H > innerHeight - 80 ? Math.max(isleTop(), y + ISLE_H - H) : y;
