@@ -1997,3 +1997,9 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 
 /* 79 · Burbuja de estado en el perfil */
 .pf-bub{top:-34px;left:66px;margin:0;width:100px;max-width:100px;z-index:4}
+
+/* 80 · "Leyendo…" en la esquina del banner */
+.pf-banner{position:relative}
+.pf-read{position:absolute;right:12px;bottom:14px;z-index:3;display:inline-flex;align-items:center;gap:6px;max-width:62%;padding:6px 11px;border-radius:99px;background:rgba(20,12,36,.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.22);color:#fff;font:600 11.5px var(--sans);text-decoration:none}
+.pf-read svg{flex:none;width:14px;height:14px}.pf-read span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-read{right:auto;left:12px;bottom:auto;top:calc(12px + env(safe-area-inset-top,0px))}

@@ -600,7 +600,7 @@ async function sbMirror() {
   const pv = (q.ok && Array.isArray(q.data) && q.data[0]) || {};
   const email = String(s.email || pv.email || '').toLowerCase(), us = LS.get('auri.users', {}), old = us[email] || {};
   us[email] = { ...old, uid: s.uid, cloud: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || old.bio || '', avatar: pr.avatar || old.avatar || '', banner: pr.banner || old.banner || '',
-    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
+    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
     birth: pv.birth || old.birth || '', gender: pv.gender || old.gender || '', interests: pv.interests || old.interests || [], onboarded: true,
     termsAccepted: pr.terms_accepted || old.termsAccepted, created: String(pr.created_at || '').slice(0, 10) || old.created, strikes: old.strikes || [] };
   LS.set('auri.users', us);
@@ -885,7 +885,7 @@ async function sbPullPublic() {                           // trae las obras de o
   for (const o of owners) {
     const pr = prof.find(x => x.id === o); if (!pr) continue; const key = remoteKey(o), old = us[key] || {};
     us[key] = { ...old, uid: o, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
     const list = [];
     for (const r of stories.filter(x => x.owner === o)) {
       const pubs = (pubBy.get(r.id) || []), wk = (wkBy.get(r.id) || []), cmap = new Map();
@@ -1057,7 +1057,7 @@ async function sbSyncSocial(only) {
 function sbPseudo(pr, old) {                                   // copia local de la cuenta de otra persona (sin datos privados)
   old = old || {};
   return { ...old, uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
 }
 const SOC_G = { 'auri.likes': ['likes'], 'auri.follows': ['follows'], 'auri.comments': ['comments', 'comment_likes'], 'auri.pcom': ['pcom', 'pcom_likes'], 'auri.subs': ['subscriptions'] };
 let SB_SOC_T;
@@ -1261,7 +1261,7 @@ async function sbSyncMod(force) {
     const need = [me]; if (force || Date.now() - MOD_PROF > 600000) { MOD_PROF = Date.now(); for (const key in us) if (us[key] && us[key].remote && us[key].uid) need.push(us[key].uid); }
     for (let i = 0; i < need.length; i += 80) {
       const pr = await sbApi('/rest/v1/profiles?select=*&id=in.(' + need.slice(i, i + 80).join(',') + ')');
-      if (pr.ok && Array.isArray(pr.data)) pr.data.forEach(p => { const key = ids.key(p.id); if (key && us[key]) us[key] = { ...us[key], role: p.role, scope: Array.isArray(p.scope) ? p.scope : [], frameWorn: !!p.frame_worn, frameSel: p.frame_sel == null ? undefined : p.frame_sel, hideLists: !!p.hide_lists, frameTop: !!p.frame_top, bows: Array.isArray(p.bows) ? p.bows : [], modSince: p.mod_since || undefined, admSince: p.adm_since || undefined }; });
+      if (pr.ok && Array.isArray(pr.data)) pr.data.forEach(p => { const key = ids.key(p.id); if (key && us[key]) us[key] = { ...us[key], role: p.role, scope: Array.isArray(p.scope) ? p.scope : [], frameWorn: !!p.frame_worn, frameSel: p.frame_sel == null ? undefined : p.frame_sel, hideLists: !!p.hide_lists, frameTop: !!p.frame_top, bows: Array.isArray(p.bows) ? p.bows : [], showReading: !!p.show_reading, modSince: p.mod_since || undefined, admSince: p.adm_since || undefined }; });
     }
     LS.set('auri.users', us);
     if (ap) G.set('appeals', ap.map(x => ({ id: x.id, user: k(x.user_id), banDate: x.ban_date, ban: { reason: x.ban_reason || '', by: k(x.ban_by), until: x.ban_until || null }, text: x.text, imgs: x.imgs || [], date: day(x.created_at), status: x.status, handledBy: k(x.handled_by), handledDate: day(x.handled_at), note: x.note || '' })));
@@ -1797,7 +1797,7 @@ async function sbSearchUsers() {                         // trae de Supabase a l
   const us = LS.get('auri.users', {}), me = sbSes() && sbSes().uid; let ch = false;
   r.data.filter(p => p.id !== me).forEach(pr => { const key = remoteKey(pr.id), old = us[key];
     const n = { ...(old || {}), uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
     if (JSON.stringify(old) !== JSON.stringify(n)) { us[key] = n; ch = true; } });
   if (ch) { LS.set('auri.users', us); const l = $('#list'); if (l && SM === 'users') l.innerHTML = usersList(); }
 }
@@ -1955,6 +1955,27 @@ function carInit() {                                   // se llama tras cada dib
   ['pointerdown', 'touchstart', 'wheel'].forEach(ev => t.addEventListener(ev, () => { CARHOLD = Date.now() + 8000; }, { passive: true }));   // si la persona interactúa, el carrusel espera
   if (n < 2 || reduceMotion()) return;
   CARTIMER = setInterval(() => { if (!document.body.contains(t)) { clearInterval(CARTIMER); CARTIMER = null; return; } if (document.hidden || Date.now() < CARHOLD) return; carGo(CARI + 1); }, 5000);
+}
+/* ---------- "Leyendo…" (opcional, apagado por defecto) ---------- */
+let RD = {}, RDPING = { id: '', at: 0 };
+async function sbPushReading() {
+  const s = sbSes(); if (!cloud() || !s || PRES_OFF) return; const u = LS.get('auri.users', {})[String(s.email).toLowerCase()]; if (!u) return;
+  await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { show_reading: !!u.showReading } });
+  if (!u.showReading) { await sbApi('/rest/v1/rpc/reading_clear', { method: 'POST', body: {} }); RD = {}; }
+}
+function readingPing(sid) {                              // al abrir un capítulo, si la persona lo activó
+  const u = getUsers()[S.user] || {}; if (!modCloud() || isGuest() || !u.showReading || !sUuid(sid)) return;
+  if (RDPING.id === sid && Date.now() - RDPING.at < 300000) return; RDPING = { id: sid, at: Date.now() };
+  sbApi('/rest/v1/rpc/reading_set', { method: 'POST', body: { p_story: sUuid(sid) } }); RD = {};
+}
+async function rdLoad(e) {
+  const u = getUsers()[e] || {}, c = RD[e]; if (!modCloud() || isGuest() || !u.uid || (c && Date.now() - c.at < 60000)) return; RD[e] = { at: Date.now(), sid: c ? c.sid : '' };
+  const r = await sbApi('/rest/v1/rpc/reading_of', { method: 'POST', body: { p_user: u.uid } }); if (!r.ok || !Array.isArray(r.data)) return;
+  const sid = r.data[0] ? sBack(r.data[0].story_id) : ''; const had = c ? c.sid : ''; RD[e] = { at: Date.now(), sid }; if (sid !== had) softRender();
+}
+function rdPill(e) {                                     // esquina del banner en el perfil
+  rdLoad(e); const sid = (RD[e] || {}).sid; if (!sid) return ''; const b = findStory(sid); if (!b || b.mature || b.private) return '';
+  return `<a class="pf-read" href="#/story/${esc(b.id)}" data-dir="next">${ICON.books}<span>${t('Leyendo «{x}»', { x: esc(clip(b.title, 28)) })}</span></a>`;
 }
 /* ---------- Estados (burbujas de las personas que sigues) ----------
    Un pensamiento o un libro recomendado, 24 h. Debajo de cada persona sale "Nuevo capítulo" si publicó uno que aún no lees.
@@ -3491,7 +3512,7 @@ function profileHero(e, own, acts = '') {
   const lk = !own && (getUsers()[e] || {}).hideLists, stat = (n, l, act, kind) => act && !(lk && act === 'pf-list') ? `<button type="button" class="pfs" data-act="${act}" data-id="${esc(e)}" data-kind="${kind || ''}"><b>${n}</b><small>${l}</small></button>` : `<span class="pfs"><b>${n}</b><small>${l}</small></span>`;
   return `<section class="pf-hero"><div class="pf-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>
     ${sk.length && !cfg('hideStrikeBtn') ? `<button type="button" class="pf-warn" data-act="strike-info" aria-label="${esc(t('Aviso de strikes'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5"/><circle cx="12" cy="16.6" r=".6" fill="currentColor"/></svg></button>` : ''}
-    <div class="pf-fade"></div></div>
+    ${rdPill(e)}<div class="pf-fade"></div></div>
   <div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}${stProfBubble(e)}</div>
     <div class="pf-info"><h1 class="pf-name serif ${nmCls(e)}">${esc(u.name || t('Mi perfil'))}${onlineDot(e)}</h1>${role || mbtiOf(e) ? `<div class="pf-tags">${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}${mbtiBadge(e)}</div>` : ''}
 </div>
@@ -3626,7 +3647,7 @@ function editProfileView() {
     <h3 class="ep-h">${EPI.frame}<span>${t('Insignias y adornos')}</span></h3>
     <button type="button" class="ep-row" data-act="frames"><span><b>${t('Marcos')}</b><small>${frameLine}</small></span><i aria-hidden="true">›</i></button>
     <h3 class="ep-h">${EPI.shield}<span>${t('Privacidad')}</span></h3>
-    <div class="ep-card ep-sw">${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}${sw('hideLists', !!u.hideLists, 'Ocultar mis listas', 'Nadie más ve quién te sigue ni a quién sigues. Los números siguen visibles.')}</div>
+    <div class="ep-card ep-sw">${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}${sw('hideLists', !!u.hideLists, 'Ocultar mis listas', 'Nadie más ve quién te sigue ni a quién sigues. Los números siguen visibles.')}${sw('showReading', !!u.showReading, 'Mostrar lo que leo', 'En tu perfil aparece el libro que estás leyendo ahora (solo libros públicos y no +18). Está apagado por defecto.')}</div>
 ${isOwner() ? `<h3 class="ep-h">${EPI.spark}<span>${t('Pruebas de Auri')}</span></h3><button type="button" class="ep-row" data-act="isle-test" data-id="sleep"><span><b>${t('Reproducir: Auri dormido')}</b><small>${t('Solo para ti. No espera los 3 días.')}</small></span><i aria-hidden="true">›</i></button><button type="button" class="ep-row" data-act="isle-test" data-id="dizzy"><span><b>${t('Reproducir: Auri mareado')}</b><small>${t('Ojos de espiral.')}</small></span><i aria-hidden="true">›</i></button>` : ''}
     <div class="ep-actions"><button type="submit" class="button ep-save-b">${t('Guardar')}</button><a class="button secondary" href="#/profile" data-dir="prev">${t('Cancelar')}</a></div>
   </form></main>`;
@@ -4286,7 +4307,7 @@ function render() {
   else if (!KEEP) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); }
   imgGuard(app); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
-  if (nav && a === 'story' && c && c !== 'fin') pcHintOnce();
+  if (nav && a === 'story' && c && c !== 'fin') { pcHintOnce(); readingPing(b); }
   if (S.user) { showModOverlay(); showGiftOverlay(); }                                      // moderador/a sin marco puesto: el aviso reaparece hasta que se lo ponga
   if (nav) { const m = from.match(/^\/story\/([^/]+)\/\d+$/); if (m && !(path + '/').startsWith('/story/' + m[1] + '/')) askSaveLib(decodeURIComponent(m[1])); }   // saliste de un capítulo por otro camino (p. ej. "atrás")
 }
@@ -4531,6 +4552,7 @@ document.addEventListener('click', e => {
     cfg: () => { const k = el.dataset.k, v = el.dataset.v; if (k === 'theme') { S.theme = v; LS.set('auri.themeSet', true); applyTheme(); } else setCfg(k, v); KEEP = true; render(); },
     'cfg-toggle': () => { const k = el.dataset.k;
       if (k === 'hideLists') { const us = getUsers(); if (!us[S.user]) return; us[S.user].hideLists = !us[S.user].hideLists; G.set('users', us); sbPushLists(); el.setAttribute('aria-checked', String(!!us[S.user].hideLists)); return; }
+      if (k === 'showReading') { const us = getUsers(); if (!us[S.user]) return; us[S.user].showReading = !us[S.user].showReading; G.set('users', us); sbPushReading(); el.setAttribute('aria-checked', String(!!us[S.user].showReading)); return; }
       if (k === 'showOnline') { setCfg(k, !cfg(k)); el.setAttribute('aria-checked', String(cfg(k) !== false)); return; }      // sin redibujar: no se pierde lo que estás escribiendo
       if (k.startsWith('notif.')) { const key = k.slice(6); setCfg('notif', { ...cfg('notif'), [key]: !cfg('notif')[key] }); }
       else if (k === 'showMature') {

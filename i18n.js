@@ -1852,4 +1852,7 @@ window.I18N = { en: {
   "Ese libro no está disponible para tu cuenta": "That book isn't available for your account",
   "Los pensamientos no pueden incluir enlaces, correos ni teléfonos": "Thoughts can't include links, emails or phones",
   "Los pensamientos no pueden incluir enlaces, correos ni números de teléfono": "Thoughts can't include links, emails or phone numbers",
+  "Leyendo «{x}»": "Reading «{x}»",
+  "Mostrar lo que leo": "Show what I'm reading",
+  "En tu perfil aparece el libro que estás leyendo ahora (solo libros públicos y no +18). Está apagado por defecto.": "Your profile shows the book you're reading right now (public, non-+18 books only). Off by default.",
 } };
