@@ -2013,9 +2013,9 @@ function stRow() {
   items.sort((a, b) => (b.nw ? 1 : 0) - (a.nw ? 1 : 0) || ((b.st && b.st.at) || 0) - ((a.st && a.st.at) || 0));
   const mine = by[me];
   const item = (e, st, ch, nw, isMe) => {
-    const bub = st ? `<button type="button" class="st-bub" data-act="st-open" data-id="${esc(e)}">${esc(stBubText(st))}</button>` : isMe ? `<button type="button" class="st-bub empty" data-act="st-new">${t('Comparte algo…')}</button>` : '<span class="st-bub gap"></span>';
+    const bub = st ? `<button type="button" class="st-bub" data-act="st-open" data-id="${esc(e)}"><span>${esc(stBubText(st))}</span></button>` : isMe ? `<button type="button" class="st-bub empty" data-act="st-new"><span>${t('Comparte algo…')}</span></button>` : '<span class="st-bub gap"></span>';
     const av = `<button type="button" class="st-av" data-act="${st ? 'st-open' : isMe ? 'st-new' : 'st-prof'}" data-id="${esc(e)}" aria-label="${esc(uName(e))}">${framedAvatar(e, 'sm')}${isMe && !st ? '<i class="st-plus" aria-hidden="true">+</i>' : ''}</button>`;
-    return `<div class="st-it">${bub}${av}<div class="st-nm"><span>${esc(isMe ? t('Tú') : uName(e))}</span>${nw ? '<i class="st-dot" aria-label="' + esc(t('Nuevo')) + '"></i>' : ''}</div>${ch ? `<button type="button" class="st-sub" data-act="st-chap" data-id="${esc(ch.id)}" data-e="${esc(e)}">${t('Nuevo capítulo')}</button>` : ''}</div>`;
+    return `<div class="st-it${st ? ' has' : ''}">${bub}${av}<div class="st-nm"><span>${esc(isMe ? t('Tú') : uName(e))}</span>${nw ? '<i class="st-dot" aria-label="' + esc(t('Nuevo')) + '"></i>' : ''}</div>${ch ? `<button type="button" class="st-sub" data-act="st-chap" data-id="${esc(ch.id)}" data-e="${esc(e)}">${t('Nuevo capítulo')}</button>` : ''}</div>`;
   };
   return `<section class="st-row" aria-label="${esc(t('Personas que sigues'))}">${item(me, mine, null, false, true)}${items.map(x => item(x.e, x.st, x.ch, x.nw, false)).join('')}</section>`;
 }
