@@ -61,7 +61,7 @@ export function flattenChats(text: string): string {
       const c = JSON.parse(m[1]); if (!c || !Array.isArray(c.m)) return line;
       const ps: { n?: string }[] = Array.isArray(c.p) ? c.p : [], who = (w: unknown) => (typeof w === 'number' && w >= 0 && ps[w] ? String(ps[w].n || '?') : 'Yo');
       const head = (c.k === 'g' ? 'Grupo «' : 'Chat con «') + String(c.n || (ps[0] && ps[0].n) || '') + '»' + (c.k === 'g' ? ' (' + ps.map((x) => x.n || '?').join(', ') + ')' : '');
-      return [head, ...c.m.map((x: { s?: number; w?: number; t?: string }) => x && x.s ? '— ' + String(x.t || '') + ' —' : who(x && x.w) + ': ' + String((x && x.t) || '').replace(/\s*\n+\s*/g, ' / '))].join('\n');
+      return [head, ...c.m.map((x: { s?: number; n?: number; w?: number; t?: string }) => x && x.s ? '— ' + String(x.t || '') + ' —' : x && x.n ? 'Narración: ' + String(x.t || '').replace(/\s*\n+\s*/g, ' / ') : who(x && x.w) + ': ' + String((x && x.t) || '').replace(/\s*\n+\s*/g, ' / '))].join('\n');
     } catch { return line; }
   }).join('\n');
 }

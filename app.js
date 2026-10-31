@@ -1833,6 +1833,8 @@ function feedHTML() {
   const rowOK = l => l.length >= FEED.row;
   const featIds = new Set(crPub().filter(b => b.kind === 'book').map(b => b.storyId)), feat = pool.filter(s => featIds.has(s.id)).slice(0, 12);
   if (rowOK(feat)) out.push(feedRow(t('Destacados'), '', feat));
+  const chb = pool.filter(s => s.mode === 'chat').sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12);
+  if (rowOK(chb)) out.push(feedRow(t('Libros de chat'), t('Historias contadas como una app de mensajes'), chb, 'chat'));
   const top = taste.filter(k => tags[k]).slice(0, 5);                  // para ti
   if (top.length) {
     const cand = pool.filter(s => s.owner !== S.user && !S.progress[s.id] && !S.lib.includes(s.id) && !S.favs.includes(s.id)).map(s => { const hit = top.filter(k => tagsOf(s).some(x => tagKey(x) === k)); return { s, hit, sc: hit.reduce((a, k) => a + (6 - top.indexOf(k)), 0) + (hit.length > 1 ? 3 : 0) }; }).filter(x => x.hit.length).sort((a, b) => b.sc - a.sc || feedScore(b.s) - feedScore(a.s)).slice(0, 12);
@@ -1852,8 +1854,8 @@ function feedHTML() {
   return out.length ? out.join('') + `<div class="section-head feed-all"><div><h2>${t('Todas las historias')}</h2></div></div>` : '';
 }
 function exploreView(k) {
-  k = tagKey(k); const pool = feedPool(), tags = feedTags(pool), l = pool.filter(s => tagsOf(s).some(x => tagKey(x) === k)).sort((a, b) => feedScore(b) - feedScore(a)), lab = (tags[k] || { label: k }).label;
-  return `<main class="page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Explorar')}</span><h2 style="margin-top:8px">#${esc(lab)}</h2><p>${t('{n} libros', { n: l.length })}</p></div></div>
+  k = tagKey(k); const pool = feedPool(), tags = feedTags(pool), l = pool.filter(s => tagsOf(s).some(x => tagKey(x) === k) || (k === 'chat' && s.mode === 'chat')).sort((a, b) => feedScore(b) - feedScore(a)), lab = k === 'chat' ? t('Libros de chat') : (tags[k] || { label: k }).label;
+  return `<main class="page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Explorar')}</span><h2 style="margin-top:8px">${k === 'chat' ? '💬 ' : '#'}${esc(lab)}</h2><p>${t('{n} libros', { n: l.length })}</p></div></div>
   ${l.length ? `<div class="story-grid">${l.map(storyCard).join('')}</div>` : empty(t('Aún no hay libros con esta etiqueta.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
 }
 function similarBooks(s, max = 15) {                  // libros parecidos al que acabas de leer (comparten etiquetas), con algo de azar entre empates
@@ -1864,7 +1866,7 @@ function discoverList() {
   if (SM === 'users') return usersList();
   const live = publishedStories().filter(matureOK).filter(storyVisible).filter(avoidOK).filter(s => !hidesStory(s.owner));
   const qs = Q.trim().toLowerCase(), tq = qs.includes('#') ? parseTags(qs).map(x => x.toLowerCase()) : null;      // «#romance #au» busca por etiquetas
-  const f = live.filter(s => (GEN === 'All' || s.genre === GEN) && (tq ? tq.every(t => s.tags.some(x => x.toLowerCase() === t || x.toLowerCase().includes(t))) : `${s.title} ${s.synopsis} ${s.fandom} ${s.tags.join(' ')}`.toLowerCase().includes(qs)));
+  const f = live.filter(s => (GEN === 'All' || (GEN === 'chat' ? s.mode === 'chat' : s.genre === GEN)) && (tq ? tq.every(t => s.tags.some(x => x.toLowerCase() === t || x.toLowerCase().includes(t)) || (t === 'chat' && s.mode === 'chat')) : `${s.title} ${s.synopsis} ${s.fandom} ${s.tags.join(' ')}${s.mode === 'chat' ? ' libro de chat chat' : ''}`.toLowerCase().includes(qs)));
   if (f.length) { const pool = feedPool(), tg = feedTags(pool), qk = tagKey(tq && tq.length === 1 ? tq[0] : qs), gc = qs && tg[qk] && tg[qk].n >= FEED.group ? groupCard(qk, pool, tg) : '';
     return (!qs && GEN === 'All' ? feedHTML() : '') + gc + `<div class="story-grid">${f.map(storyCard).join('')}</div>`; }
   if (!live.length) return empty(t('El estante de Auri está vacío'), t('Aquí aparecerán las historias creadas por las personas usuarias. Puedes escribir la primera.'), '<a class="button secondary" href="#/write">' + t('Crear la primera historia') + '</a>');
@@ -2096,7 +2098,7 @@ function discoverView() {
   <div class="filter-row">${[['all', 'Todos'], ['authors', 'Con libros publicados'], ['team', 'Equipo']].map(([k, n]) => `<button class="chip ${UF === k ? 'active' : ''}" data-act="uf" data-id="${k}">${t(n)}</button>`).join('')}</div>` : `
   <div class="section-head"><div><h2>${t('Historias que te roban el sueño')}</h2><p>${t('Libros creados por personas usuarias.')}</p></div></div>
   ${popTags().length ? `<div class="tag-row" aria-label="${esc(t('Etiquetas populares'))}"><span class="helper">${t('Etiquetas:')}</span>${popTags().map(x => `<button type="button" class="tag tag-link ${Q.trim().toLowerCase() === '#' + x.toLowerCase() ? 'on' : ''}" data-act="tag-search" data-id="${esc(x)}">#${esc(x)}</button>`).join('')}</div>` : ''}
-  <div class="filter-row">${gens.map(g => `<button class="chip ${GEN === g ? 'active' : ''}" data-act="genre" data-id="${esc(g)}">${g === 'All' ? t('Todos') : esc(genreName(g))}</button>`).join('')}</div>
+  <div class="filter-row">${gens.map(g => `<button class="chip ${GEN === g ? 'active' : ''}" data-act="genre" data-id="${esc(g)}">${g === 'All' ? t('Todos') : esc(genreName(g))}</button>`).join('')}${publishedStories().some(s => s.mode === 'chat' && storyVisible(s)) || GEN === 'chat' ? `<button class="chip ${GEN === 'chat' ? 'active' : ''}" data-act="genre" data-id="chat">💬 ${t('Libros de chat')}</button>` : ''}</div>
   `}
   <div id="list">${discoverList()}</div></main>`;
 }
@@ -2208,14 +2210,14 @@ function chatClean(c) {                                 // lo que llega del text
   const k = c.k === 'g' ? 'g' : 'i', img = u => safeImg(u) ? u : '';
   const p = (Array.isArray(c.p) ? c.p : []).slice(0, 12).map(x => ({ n: String((x && x.n) || '').slice(0, 40), av: img(x && x.av) }));
   if (!p.length) p.push({ n: String(c.n || '').slice(0, 40), av: img(c.av) });
-  const m = (Array.isArray(c.m) ? c.m : []).slice(0, CHAT_MAX).map(x => x && x.s ? { s: 1, t: String(x.t || '').slice(0, CHAT_LEN) } : { w: Number.isInteger(x && x.w) && x.w >= 0 && x.w < p.length ? x.w : -1, t: String((x && x.t) || '').slice(0, CHAT_LEN) }).filter(x => x.t.trim());
+  const m = (Array.isArray(c.m) ? c.m : []).slice(0, CHAT_MAX).map(x => x && x.s ? { s: 1, t: String(x.t || '').slice(0, CHAT_LEN) } : x && x.n ? { n: 1, t: String(x.t || '').slice(0, CHAT_LEN) } : { w: Number.isInteger(x && x.w) && x.w >= 0 && x.w < p.length ? x.w : -1, t: String((x && x.t) || '').slice(0, CHAT_LEN) }).filter(x => x.t.trim());
   return { id: String(c.id || '').replace(/[^a-z0-9]/gi, '').slice(0, 8) || chatId(), k, n: String(c.n || p[0].n || '').slice(0, 40), av: k === 'g' ? img(c.av) : img(c.av) || p[0].av, bg: img(c.bg), p, m };
 }
 const chatLine = c => '::chat ' + JSON.stringify(chatClean(c));
 const chatTitle = c => (c.k === 'g' ? c.n : (c.p[0] && c.p[0].n) || c.n) || t('Chat');
 const chatHead = c => c.k === 'g' ? { n: c.n, av: c.av } : c.p[0];
 const chatName = c => c.k === 'g' ? t('Grupo «{n}»', { n: chatTitle(c) }) : t('Chat con {n}', { n: chatTitle(c) });
-const chatPlain = c => (c.k === 'g' ? '👥 ' : '💬 ') + chatName(c) + '\n' + c.m.map(x => x.s ? '— ' + x.t + ' —' : (x.w < 0 ? t('Yo') : (c.p[x.w] || {}).n || '?') + ': ' + x.t).join('\n');
+const chatPlain = c => (c.k === 'g' ? '👥 ' : '💬 ') + chatName(c) + '\n' + c.m.map(x => x.s ? '— ' + x.t + ' —' : x.n ? '(' + t('Narración') + ') ' + x.t : (x.w < 0 ? t('Yo') : (c.p[x.w] || {}).n || '?') + ': ' + x.t).join('\n');
 /* En el editor, cada chat se ve como una línea corta («::chat c1a2b · Mizuki»); el contenido real vive aquí, por id */
 let CHM = {};
 function chToView(text) { return String(text || '').split('\n').map(l => { const c = chatParse(l); if (!c) return l; CHM[c.id] = c; return '::chat ' + c.id + ' · ' + chatTitle(c); }).join('\n'); }
@@ -2233,12 +2235,12 @@ function insertBlock(line) {                           // inserta un bloque (sep
 /* --- editor de chat (pantalla completa) --- */
 let CE = null, CE_FIT = null;
 const ceMsgHTML = (c, x, i) => {
-  const me = !x.s && x.w < 0, who = x.s ? '' : me ? t('Yo') : (c.p[x.w] || {}).n || '?';
-  return `<div class="ce-row ${x.s ? 'sys' : me ? 'me' : 'them'}${CE.ed === i ? ' ed' : ''}"><div class="ce-bub">${x.s ? '' : `<small>${esc(who)}</small>`}${esc(x.t)}</div>
+  const me = !x.s && !x.n && x.w < 0, who = x.s || x.n ? '' : me ? t('Yo') : (c.p[x.w] || {}).n || '?';
+  return `<div class="ce-row ${x.s ? 'sys' : x.n ? 'nar' : me ? 'me' : 'them'}${CE.ed === i ? ' ed' : ''}"><div class="ce-bub">${x.s ? '' : x.n ? `<small>${t('Narración')}</small>` : `<small>${esc(who)}</small>`}${esc(x.t)}</div>
   <div class="ce-tools"><button type="button" data-act="ce-up" data-id="${i}" aria-label="${esc(t('Subir mensaje'))}"${i ? '' : ' disabled'}>↑</button><button type="button" data-act="ce-down" data-id="${i}" aria-label="${esc(t('Bajar mensaje'))}"${i < c.m.length - 1 ? '' : ' disabled'}>↓</button><button type="button" data-act="ce-edit" data-id="${i}" aria-label="${esc(t('Editar mensaje'))}">✎</button><button type="button" data-act="ce-del" data-id="${i}" aria-label="${esc(t('Borrar mensaje'))}">✕</button></div></div>`;
 };
 const ceMsgs = () => CE.c.m.length ? CE.c.m.map((x, i) => ceMsgHTML(CE.c, x, i)).join('') : `<p class="ce-empty">${t('Aquí aparecerá la conversación. Elige quién habla y escribe el primer mensaje.')}</p>`;
-const ceWho = () => { const c = CE.c; return `<button type="button" class="ce-chip ${CE.who === -1 ? 'on' : ''}" data-act="ce-who" data-id="-1" aria-pressed="${CE.who === -1}">${t('Yo')}</button>${c.p.map((x, i) => `<button type="button" class="ce-chip ${CE.who === i ? 'on' : ''}" data-act="ce-who" data-id="${i}" aria-pressed="${CE.who === i}">${esc(x.n || t('Personaje'))}</button>`).join('')}<button type="button" class="ce-chip sys ${CE.who === -2 ? 'on' : ''}" data-act="ce-who" data-id="-2" aria-pressed="${CE.who === -2}">${t('Aviso')}</button>`; };
+const ceWho = () => { const c = CE.c; return `<button type="button" class="ce-chip ${CE.who === -1 ? 'on' : ''}" data-act="ce-who" data-id="-1" aria-pressed="${CE.who === -1}">${t('Yo')}</button>${c.p.map((x, i) => `<button type="button" class="ce-chip ${CE.who === i ? 'on' : ''}" data-act="ce-who" data-id="${i}" aria-pressed="${CE.who === i}">${esc(x.n || t('Personaje'))}</button>`).join('')}<button type="button" class="ce-chip sys ${CE.who === -2 ? 'on' : ''}" data-act="ce-who" data-id="-2" aria-pressed="${CE.who === -2}">${t('Aviso')}</button><button type="button" class="ce-chip sys ${CE.who === -3 ? 'on' : ''}" data-act="ce-who" data-id="-3" aria-pressed="${CE.who === -3}">${t('Narración')}</button>`; };
 const ceTpl = () => { const c = CE.c; if (CE.who !== -2) return ''; const names = [...c.p.map(x => x.n).filter(Boolean), t('Yo')];
   return `<div class="ce-tpl"><span class="helper">${t('Mensaje del sistema, centrado y sin burbuja. Atajos:')}</span><div class="ce-tpl-r"><select id="ce-tp" class="select" aria-label="${esc(t('Persona'))}">${names.map(n => `<option>${esc(n)}</option>`).join('')}</select>${[['join', 'se unió'], ['left', 'salió'], ['add', 'añadió a…'], ['name', 'cambió el nombre']].map(a => `<button type="button" class="ce-tp-b" data-act="ce-tpl" data-id="${a[0]}">${t(a[1])}</button>`).join('')}</div></div>`; };
 function ceRender() {
@@ -2254,7 +2256,7 @@ function ceRender() {
   <p class="helper ce-help">${t('«Yo» es quien lee el chat: sus mensajes salen a la derecha.')}</p>
   <div class="ce-list" id="ce-msgs">${ceMsgs()}</div></div>
   <footer class="ce-compose"><div class="ce-who" id="ce-who" role="group" aria-label="${esc(t('Quién escribe'))}">${ceWho()}</div><div id="ce-tplbox">${ceTpl()}</div>
-  <div class="ce-send"><textarea id="ce-txt" rows="1" maxlength="${CHAT_LEN}" placeholder="${esc(t('Escribe un mensaje…'))}">${esc(CE.txt || '')}</textarea><button type="button" class="button" data-act="ce-send">${CE.ed >= 0 ? t('Guardar') : t('Enviar')}</button></div></footer>`;
+  <div class="ce-send"><textarea id="ce-txt" rows="1" maxlength="${CHAT_LEN}" placeholder="${esc(CE.who === -3 ? t('Escribe la narración…') : t('Escribe un mensaje…'))}">${esc(CE.txt || '')}</textarea><button type="button" class="button" data-act="ce-send">${CE.ed >= 0 ? t('Guardar') : t('Enviar')}</button></div></footer>`;
   const l = $('#ce-body'); if (l) l.scrollTop = l.scrollHeight;
 }
 function ceOpen(id, kind) {
@@ -2274,7 +2276,7 @@ function ceRefresh() { const l = $('#ce-msgs'); if (l) l.innerHTML = ceMsgs(); c
 function ceSend() {
   const ta = $('#ce-txt'); if (!ta || !CE) return; const tx = ta.value.trim().slice(0, CHAT_LEN); if (!tx) return;
   if (CE.c.m.length >= CHAT_MAX && CE.ed < 0) return toast(t('Este chat ya tiene el máximo de mensajes.'));
-  if (CE.ed >= 0 && CE.c.m[CE.ed]) { CE.c.m[CE.ed].t = tx; CE.ed = -1; } else CE.c.m.push(CE.who === -2 ? { s: 1, t: tx } : { w: CE.who, t: tx });
+  if (CE.ed >= 0 && CE.c.m[CE.ed]) { CE.c.m[CE.ed].t = tx; CE.ed = -1; } else CE.c.m.push(CE.who === -2 ? { s: 1, t: tx } : CE.who === -3 ? { n: 1, t: tx } : { w: CE.who, t: tx });
   ta.value = ''; CE.txt = ''; const bt = $('.ce-send .button'); if (bt) bt.textContent = t('Enviar'); ceRefresh(); ta.focus();
 }
 function ceDone() {
@@ -2302,13 +2304,56 @@ const chatPosAll = () => LS.get(uk('chatpos'), {});
 const chatPos = k => +chatPosAll()[k] || 0;
 const chatPosSet = (k, n) => { const m = chatPosAll(); m[k] = n; LS.set(uk('chatpos'), m); };
 const chatStatus = (k, c) => { const n = Math.min(chatPos(k), c.m.length); return n >= c.m.length && n > 0 ? t('Leído') + ' ✓' : n > 0 ? t('Sigues en el mensaje {a} de {b}', { a: n, b: c.m.length }) : tn(c.m.length, '{n} mensaje', '{n} mensajes'); };
+function readNext(id, n) {                           // marca el capítulo como leído y pasa al siguiente (o al final del libro)
+  const sv = findStory(id); if (sv) BARS['b-' + id] = bookProgress(sv).pct; const cur = readList(id).slice(); if (!cur.includes(n)) cur.push(n); S.progress[id] = cur; LS.set(uk('progress'), S.progress);
+  const s = findStory(id), nx = s && s.chapters[s.chapters.findIndex(c => c.idx === n) + 1]; if (nx) { savePos(id, nx.idx, 0); NAVDIR = 'next'; goReplace(`/story/${id}/${nx.idx + 1}`); } else { NAVDIR = 'next'; goReplace(`/story/${id}/fin`); }
+}
+/* --- Eliminar una historia propia por completo (menú ⋯ → confirmación) --- */
+function openStoryMenu(id) {
+  const s = S.stories.find(x => x.id === id); if (!s) return;
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${esc(s.title || t('Sin título'))}</h2><div class="sm-list"><a class="sm-i" href="#/write/${esc(s.id)}">✎ ${t('Editar libro')}</a><button type="button" class="sm-i danger" data-del>🗑 ${t('Eliminar historia')}</button></div><button type="button" class="button ghost" data-no style="width:100%;margin-top:10px">${t('Cancelar')}</button></div>`;
+  m.querySelector('[data-no]').onclick = () => m.remove(); m.querySelector('a').onclick = () => m.remove();
+  m.querySelector('[data-del]').onclick = () => { m.remove(); askDelStory(id); };
+  document.body.appendChild(m);
+}
+function askDelStory(id) {
+  const s = S.stories.find(x => x.id === id); if (!s) return; const pub = publicPrefix(s.chapters).length > 0;
+  formModal('Eliminar historia', `<p>${t('Se eliminará «{title}» con sus {n} capítulos, y también sus comentarios y likes. No se puede deshacer.', { title: esc(s.title || t('Sin título')), n: s.chapters.length })}</p>${pub ? `<p class="helper">${t('Está publicada: las personas que la tienen en su biblioteca dejarán de verla.')}</p><label class="nb-lab" for="del-word">${t('Escribe {w} para confirmar', { w: t('ELIMINAR') })}</label><input id="del-word" class="field" autocomplete="off" autocapitalize="characters" data-word>` : ''}`, 'Eliminar historia',
+    m => { if (pub && (m.querySelector('[data-word]').value.trim().toUpperCase() !== t('ELIMINAR').toUpperCase())) return t('Escribe {w} para confirmar', { w: t('ELIMINAR') }); return delStory(id); }, true);
+}
+async function delStory(id) {
+  const s = S.stories.find(x => x.id === id); if (!s) return '';
+  const su = cloud() && sbSes() ? sUuid(id) : null;
+  if (su) { const r = await sbApi('/rest/v1/stories?id=eq.' + su, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); if (!r.ok) return r.net ? 'Sin conexión. Inténtalo de nuevo.' : 'No se pudo eliminar la historia. Inténtalo de nuevo.'; }
+  S.stories = S.stories.filter(x => x.id !== id); LS.set(uk('stories'), S.stories);
+  for (const k of ['lib', 'favs', 'cols']) if ((S[k] || []).includes(id)) { S[k] = S[k].filter(x => x !== id); LS.set(uk(k), S[k]); }
+  if (S.progress && S.progress[id]) { delete S.progress[id]; LS.set(uk('progress'), S.progress); }
+  if (W && W.id === id) W = null;
+  toast(t('Historia eliminada')); NAVDIR = 'prev'; go('/library'); return '';
+}
 function chatCard(c, on, pc, i) {
   const f = s => on ? fillHE(fillTN(s, S.character.name || t('Lectora')), S.character) : s;
   const k = (pc ? pc.sid : 'w') + '|' + (pc ? pc.ci : 0) + '|' + c.id, cc = { ...c, n: f(c.n), p: c.p.map(x => ({ ...x, n: f(x.n) })), m: c.m.map(x => ({ ...x, t: f(x.t) })) };
   CHC.set(k, cc);
   return `<div class="chat-card" data-bi="${i}" data-key="${esc(k)}"><span class="cc-av">${chatAv(chatHead(cc))}</span><span class="cc-info"><b>${esc(chatName(cc))}</b><small>${chatStatus(k, cc)}</small></span><button type="button" class="button sm" data-act="chat-open" data-key="${esc(k)}">${t('Leer chat')}</button></div>`;
 }
-let CR = null;
+let CR = null, CHAT_LAST = '';
+function chatAuto() {                                   // en un libro de chat, al entrar a un capítulo el chat se abre solo (si aún no lo terminaste)
+  if (CR || WPREVIEW) return; const h = location.hash.split('/'); if (h[1] !== 'story' || !h[3] || h[3] === 'fin') { CHAT_LAST = ''; return; }
+  const tag = h[2] + '|' + h[3]; if (tag === CHAT_LAST) return;
+  const s = findStory(decodeURIComponent(h[2])); if (!s || s.mode !== 'chat') return;
+  const card = document.querySelector('.reader-text .chat-card'); if (!card) return; CHAT_LAST = tag;
+  const c = CHC.get(card.dataset.key); if (c && chatPos(card.dataset.key) >= c.m.length) return;
+  chatOpen(card.dataset.key);
+}
+function crAfter() {                                    // qué sigue al terminar un chat en un libro de chat que solo tiene chats en ese capítulo
+  const k = CR.k, sid = k.split('|')[0], ci = +k.split('|')[1]; if (sid === 'w') return null;
+  const s = findStory(sid); if (!s || s.mode !== 'chat' || document.querySelector('.reader-text p')) return null;
+  const keys = [...document.querySelectorAll('.chat-card')].map(e => e.dataset.key), i = keys.indexOf(k);
+  if (i >= 0 && i < keys.length - 1) return { kind: 'chat', key: keys[i + 1] };
+  const nx = s.chapters[s.chapters.findIndex(c => c.idx === ci) + 1]; return { kind: nx ? 'chap' : 'fin', sid, ci };
+}
 function chatOpen(k) {
   const c = CHC.get(k); if (!c) return; if (CR) crClose();
   const m = document.createElement('div'); m.id = 'chat-rd'; m.className = 'cr'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
@@ -2322,6 +2367,7 @@ function chatOpen(k) {
 }
 const crHue = i => (i * 67 + 265) % 360;
 function crBub(x, typing) {                              // una burbuja (en grupo, la de otra persona lleva su foto y su nombre en color)
+  if (x.n && !typing) { const d = document.createElement('div'); d.className = 'cr-b narl'; d.textContent = x.t; return d; }     // narración ya leída: queda como línea tenue en el chat
   const c = CR.c, me = !x.s && x.w < 0, grp = c.k === 'g' && !x.s && !me, cls = 'cr-b ' + (x.s ? 'sys' : me ? 'me' : 'them') + (typing ? ' typing' : '');
   const inner = typing ? '<i></i><i></i><i></i>' : x.s ? esc(x.t) : (grp ? `<small style="color:hsl(${crHue(x.w)} 62% 50%)">${esc((c.p[x.w] || {}).n || '')}</small>` : '') + esc(x.t).replace(/\n/g, '<br>');
   if (!grp) { const d = document.createElement('div'); d.className = cls; d.innerHTML = inner; return d; }
@@ -2333,18 +2379,37 @@ function crAdd(x, anim = true) {
 }
 function crFoot() {
   const f = $('#cr-foot'); if (!f || !CR) return; const end = CR.n >= CR.c.m.length;
-  f.innerHTML = end ? `<span>${t('Fin del chat')}</span><button type="button" class="button sm" data-act="cr-close">${t('Seguir leyendo')}</button>` : `<span>${CR.n ? t('Toca la pantalla para continuar') : t('Toca la pantalla para empezar')}</span>`;
+  const af = end ? crAfter() : null, bt = !af ? ['cr-close', 'Seguir leyendo'] : af.kind === 'chat' ? ['cr-nextchat', 'Siguiente chat'] : af.kind === 'chap' ? ['cr-nextchap', 'Siguiente capítulo'] : ['cr-nextchap', 'Terminar el libro'];
+  f.innerHTML = end ? `<span>${t('Fin del chat')}</span><button type="button" class="button sm" data-act="${bt[0]}">${t(bt[1])}</button>` : `<span>${CR.n ? t('Toca la pantalla para continuar') : t('Toca la pantalla para empezar')}</span>`;
+}
+function crNarShow(txt) {                                // el chat se oscurece y el texto se va escribiendo
+  const m = $('#chat-rd'); if (!m || !CR) return; let o = $('#cr-nar');
+  if (!o) { o = document.createElement('div'); o.id = 'cr-nar'; o.className = 'cr-nar'; o.innerHTML = `<div class="cr-nb"><button type="button" class="icon-btn" data-act="cr-close" aria-label="${esc(t('Cerrar chat'))}">✕</button><button type="button" class="button ghost sm" data-act="cr-all">${t('Ver todo')}</button></div><p class="cr-nt"></p><small class="cr-nh"></small>`; m.appendChild(o); requestAnimationFrame(() => o.classList.add('on')); }
+  const p = o.querySelector('.cr-nt'), h = o.querySelector('.cr-nh'); p.textContent = ''; h.textContent = ''; p.classList.add('typing');
+  CR.nar = { txt, i: 0, done: false }; clearInterval(CR.tm); const me0 = CR;
+  const fin = () => { clearInterval(me0.tm); if (CR !== me0 || !me0.nar) return; me0.nar.done = true; p.textContent = txt; p.classList.remove('typing'); h.textContent = t('Toca para continuar'); };
+  if (reduceMotion()) return fin();
+  me0.tm = setInterval(() => { if (CR !== me0 || !me0.nar) return clearInterval(me0.tm); me0.nar.i += 1; p.textContent = txt.slice(0, me0.nar.i); if (me0.nar.i >= txt.length) fin(); }, 32);
+}
+function crNarTap() {
+  const nr = CR.nar; if (!nr) return; const o = $('#cr-nar');
+  if (!nr.done) { clearInterval(CR.tm); nr.done = true; if (o) { const p = o.querySelector('.cr-nt'); p.textContent = nr.txt; p.classList.remove('typing'); o.querySelector('.cr-nh').textContent = t('Toca para continuar'); } return; }
+  const x = CR.c.m[CR.n]; CR.n++; chatPosSet(CR.k, CR.n); crAdd(x, false);     // ya leída: pasa al registro del chat
+  const nx = CR.c.m[CR.n]; if (nx && nx.n) return crNarShow(nx.t);                // otra narración seguida: la pantalla sigue oscura
+  CR.nar = null; if (o) { o.classList.remove('on'); setTimeout(() => o.remove(), 450); } crFoot();
 }
 function crNext() {
-  if (!CR || CR.busy || CR.n >= CR.c.m.length) return; const me0 = CR, x = CR.c.m[CR.n], mine = x.s || x.w < 0;
+  if (!CR) return; if (CR.nar) return crNarTap(); if (CR.busy || CR.n >= CR.c.m.length) return;
+  const me0 = CR, x = CR.c.m[CR.n], mine = x.s || x.w < 0;
+  if (x.n) return crNarShow(x.t);
   const go1 = () => { if (CR !== me0 || CR.dead) return; const tp = $('#cr-typing'); if (tp) tp.remove(); crAdd(x); CR.n++; CR.busy = false; chatPosSet(CR.k, CR.n); crFoot(); };
   if (mine) return go1();
   CR.busy = true; const box = $('#cr-msgs'); if (box) { const d = crBub(x, true); d.id = 'cr-typing'; d.classList.add('in'); box.appendChild(d); const b = $('.cr-body'); if (b) b.scrollTop = b.scrollHeight; }
   setTimeout(go1, Math.min(1100, 350 + x.t.length * 12));
 }
-function crShowAll() { if (!CR) return; CR.dead = false; const tp = $('#cr-typing'); if (tp) tp.remove(); CR.busy = false; while (CR.n < CR.c.m.length) { crAdd(CR.c.m[CR.n], false); CR.n++; } chatPosSet(CR.k, CR.n); crFoot(); }
+function crShowAll() { if (!CR) return; clearInterval(CR.tm); CR.nar = null; const ov = $('#cr-nar'); if (ov) ov.remove(); CR.dead = false; const tp = $('#cr-typing'); if (tp) tp.remove(); CR.busy = false; while (CR.n < CR.c.m.length) { crAdd(CR.c.m[CR.n], false); CR.n++; } chatPosSet(CR.k, CR.n); crFoot(); }
 function crClose() {
-  if (!CR) return; CR.dead = true; const k = CR.k, c = CR.c; CR = null; const m = $('#chat-rd'); if (m) m.remove();
+  if (!CR) return; clearInterval(CR.tm); CR.dead = true; const k = CR.k, c = CR.c; CR = null; const m = $('#chat-rd'); if (m) m.remove();
   document.querySelectorAll('.chat-card').forEach(el => { if (el.dataset.key === k) { const s = el.querySelector('small'); if (s) s.textContent = chatStatus(k, c); } });
 }
 function readerText(text, on, pc) {
@@ -2679,11 +2744,11 @@ function storyDetail(s, mine) {
   const read = readList(s.id), fav = S.favs.includes(s.id), n = likes(s.id).length, first = s.chapters[0];
   const lp = (S.pos || {})[s.id], at0 = lp && s.chapters.find(c => c.idx === lp.idx), at = at0 && !read.includes(at0.idx) ? at0 : null;   // si ya lo leíste, sigue con el primero sin leer
   const next = at || s.chapters.find(c => !read.includes(c.idx)) || first, all = !at && s.chapters.every(c => read.includes(c.idx));
-  return `<main class="page story-layout"><a class="button ghost" href="#/">${t('‹ Todas las historias')}</a>
+  return `<main class="page story-layout"><div class="detail-top"><a class="button ghost" href="#/">${t('‹ Todas las historias')}</a>${mine ? `<button type="button" class="icon-btn" data-act="story-menu" data-id="${esc(s.id)}" aria-label="${esc(t('Más opciones'))}">⋯</button>` : ''}</div>
   <section class="detail">${sagaNav(s)}${sagaCovers(s)}
   <span class="eyebrow">${esc(genreName(s.genre))} · ${esc(s.fandom)}</span><h1>${esc(s.title)}</h1>
   <div class="detail-by">${t('por')} ${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : esc(userName())}</div>${s.publishedAt ? `<div class="detail-date">📅 ${t('Publicado el {d}', { d: fmtDate(s.publishedAt) })}</div>` : ''}
-  <div class="detail-likes"><span class="hrt-i">${HEART}</span> ${tn(n, '{n} like', '{n} likes')}</div>${bookState(s)}
+  <div class="detail-likes"><span class="hrt-i">${HEART}</span> ${tn(n, '{n} like', '{n} likes')}</div>${s.mode === 'chat' ? `<div class="chat-pill">💬 ${t('Libro de chat')}</div>` : ''}${bookState(s)}
   <p class="detail-syn">${esc(s.synopsis)}</p>
   ${s.mature ? `<div class="adult-box"><span class="adult-badge">+18</span><div><b>${t('Contenido para adultos')}</b><small>${t('Esta historia es solo para mayores de 18 años.')}</small></div></div>` : ''}
   <div class="tags" style="justify-content:center">${tagChips(s.tags)}</div>
@@ -3615,7 +3680,7 @@ function libraryView() {
   const body = !l.length && !lockedL.length ? empty(TAB === 'draft' ? 'Aún no tienes borradores' : 'Este estante está vacío', 'Cuando guardes historias aparecerán aquí.', `<a class="button secondary" href="${TAB === 'draft' ? '#/write' : '#/'}">${TAB === 'draft' ? t('Escribir una historia') : t('Buscar una historia')}</a>`)
     : `<div class="story-grid">${l.map((s, i) => TAB === 'draft' ? `<article class="row-card">${coverHTML(s, i)}<div class="row-info"><a href="#/write/${esc(s.id)}/chapters"><strong class="serif">${esc(s.title || t('Sin título'))}</strong></a>
       <div class="story-meta">${t(STATUS[storyState(s)])} · ${t('{n} cap.', { n: s.chapters.length })} · ${t('actualizado el {d}', { d: esc(s.updatedAt) })} </div>${statusNote(s) ? `<p class="notice">${esc(statusNote(s))}</p>` : ''}
-      <div class="card-footer" style="justify-content:flex-start"><a class="button secondary sm" href="#/write/${esc(s.id)}/chapters">${t('Seguir escribiendo')}</a>${storyState(s) !== 'published' ? `<button class="icon-btn" data-act="delete" data-id="${esc(s.id)}" aria-label="${esc(t('Eliminar'))}">🗑</button>` : ''}</div></div></article>` : TAB === 'lib' || TAB === 'col' ? libRow(s, i) : storyCard(s, i)).join('')}${lockedL.map(lockCard).join('')}</div>`;
+      <div class="card-footer" style="justify-content:flex-start"><a class="button secondary sm" href="#/write/${esc(s.id)}/chapters">${t('Seguir escribiendo')}</a><button class="icon-btn" data-act="story-menu" data-id="${esc(s.id)}" aria-label="${esc(t('Más opciones'))}">⋯</button></div></div></article>` : TAB === 'lib' || TAB === 'col' ? libRow(s, i) : storyCard(s, i)).join('')}${lockedL.map(lockCard).join('')}</div>`;
   return `<main class="page"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('Tus estantes')}</span><h2 style="margin-top:8px">${t('Un lugar para lo que te gusta')}</h2></div><a class="button" href="#/write">${t('Empezar a escribir')}</a></div>
   <div class="tabs" role="tablist">${tabs.map(([k, n]) => `<button class="tab ${TAB === k ? 'active' : ''}" data-act="tab" data-id="${k}">${t(n)}</button>`).join('')}</div>${body}</main>`;
 }
@@ -4452,7 +4517,7 @@ function render() {
     if (nx && b === MUSIC.sid && nx.music && nx.music === MUSIC.url) MUSIC.ch = String(c); else closeMusic(); }
   if (HLC) { const hid = HLC; HLC = ''; const cm0 = comments(b).find(x => String(x.id) === hid); if (cm0) { setTimeout(() => { const el = document.getElementById('cm-' + hid); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('cm-hl'); setTimeout(() => el.classList.remove('cm-hl'), 3200); } }, 120); } else toast(t('Ese comentario ya no está.')); }
   else if (!KEEP) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); }
-  imgGuard(app); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
+  imgGuard(app); chatAuto(); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
   if (nav && a === 'story' && c && c !== 'fin') { pcHintOnce(); readingPing(b); }
   if (S.user) { showModOverlay(); showGiftOverlay(); }                                      // moderador/a sin marco puesto: el aviso reaparece hasta que se lo ponga
@@ -4743,8 +4808,7 @@ document.addEventListener('click', e => {
     'notif-toggle': () => { NOTIF_OPEN = !NOTIF_OPEN; KEEP = true; render(); },
     logout,
     fav: () => { S.favs = S.favs.includes(id) ? S.favs.filter(x => x !== id) : [...S.favs, id]; persist('favs', S.favs); render(); },
-    read: () => { const sv = findStory(id); if (sv) BARS['b-' + id] = bookProgress(sv).pct; const n = +el.dataset.n, cur = readList(id).slice(); if (!cur.includes(n)) cur.push(n); S.progress[id] = cur; persist('progress', S.progress);
-      const s = findStory(id), nx = s && s.chapters[s.chapters.findIndex(c => c.idx === n) + 1]; if (nx) { savePos(id, nx.idx, 0); NAVDIR = 'next'; goReplace(`/story/${id}/${nx.idx + 1}`); } else { NAVDIR = 'next'; goReplace(`/story/${id}/fin`); } },
+    read: () => readNext(id, +el.dataset.n),
     sm: () => { SM = id === 'users' ? 'users' : 'books'; GEN = 'All'; render(); const i = $('#sq'); if (i) i.placeholder = SM === 'users' ? t('Buscar usuarios…') : t('Buscar títulos, etiquetas o fandoms…'); sbSearchUsers(); },
     uf: () => { UF = id; render(); sbSearchUsers(); },
     genre: () => { GEN = id; render(); }, clear: () => { Q = ''; GEN = 'All'; render(); },
@@ -4762,7 +4826,7 @@ document.addEventListener('click', e => {
     'scene-sep': () => insertSep(),
     'chat-add': () => chatPick(), 'chat-edit': () => ceOpen(id), 'chat-open': () => chatOpen(el.dataset.key),
     'ce-close': () => ceClose(), 'ce-done': () => ceDone(), 'ce-send': () => ceSend(),
-    'ce-who': () => { if (!CE) return; CE.who = +id; document.querySelectorAll('.ce-chip').forEach(b => { const on = +b.dataset.id === CE.who; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); const tb = $('#ce-tplbox'); if (tb) tb.innerHTML = ceTpl(); const ta = $('#ce-txt'); if (ta) ta.focus(); },
+    'ce-who': () => { if (!CE) return; CE.who = +id; document.querySelectorAll('.ce-chip').forEach(b => { const on = +b.dataset.id === CE.who; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); const tb = $('#ce-tplbox'); if (tb) tb.innerHTML = ceTpl(); const ta = $('#ce-txt'); if (ta) { ta.placeholder = CE.who === -3 ? t('Escribe la narración…') : t('Escribe un mensaje…'); ta.focus(); } },
     'ce-padd': () => { if (!CE || CE.c.p.length >= 12) return; CE.c.p.push({ n: '', av: '' }); ceRender(); const l = document.querySelectorAll('.ce-pn'); if (l.length) l[l.length - 1].focus(); },
     'ce-pdel': () => { if (!CE || CE.c.p.length <= 2) return; const i = +id, used = CE.c.m.filter(x => !x.s && x.w === i).length, go1 = () => { CE.c.m = CE.c.m.filter(x => x.s || x.w !== i).map(x => (!x.s && x.w > i) ? { ...x, w: x.w - 1 } : x); CE.c.p.splice(i, 1); if (CE.who >= CE.c.p.length) CE.who = -1; ceRender(); };
       if (used) confirmBox(t('¿Quitar a {n}? También se borran sus mensajes.', { n: CE.c.p[i].n || t('esta persona') }), go1); else go1(); },
@@ -4772,7 +4836,10 @@ document.addEventListener('click', e => {
     'ce-up': () => { if (!CE || +id < 1) return; const m = CE.c.m, i = +id; [m[i - 1], m[i]] = [m[i], m[i - 1]]; CE.ed = -1; ceRefresh(); },
     'ce-down': () => { if (!CE) return; const m = CE.c.m, i = +id; if (i >= m.length - 1) return; [m[i + 1], m[i]] = [m[i], m[i + 1]]; CE.ed = -1; ceRefresh(); },
     'ce-edit': () => { if (!CE) return; const x = CE.c.m[+id]; if (!x) return; CE.ed = +id; const ta = $('#ce-txt'); if (ta) { ta.value = x.t; ta.focus(); } const bt = $('.ce-send .button'); if (bt) bt.textContent = t('Guardar'); ceRefresh(); },
+    'story-menu': () => openStoryMenu(id),
     'cr-close': () => crClose(), 'cr-all': () => crShowAll(),
+    'cr-nextchat': () => { const a = CR && crAfter(); crClose(); if (a && a.kind === 'chat') chatOpen(a.key); },
+    'cr-nextchap': () => { const a = CR && crAfter(); crClose(); if (a) readNext(a.sid, a.ci); },
     'w-mode': () => { if (!W || W.chapters.some(c => c.text)) return; W.mode = id === 'chat' ? 'chat' : 'trad'; document.querySelectorAll('.nb-mode').forEach(b => { const on = b.dataset.id === W.mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); },
     'mbti': () => openMbti(),
     'w-genre': () => { const sel = $('#w-genre'); if (!sel) return; sel.value = id; if (W) W.genre = id; document.querySelectorAll('.nb-g').forEach(b => { const on = b.dataset.id === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); const bk = $('.nb-book'); if (bk) bk.dataset.g = id; },
