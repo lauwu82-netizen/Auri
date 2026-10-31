@@ -2072,3 +2072,7 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 @media (prefers-reduced-motion:reduce){.cr-b.in,.cr-b.typing i{animation:none}}
 .chat-card .button{font-family:var(--sans)}
 .nb-modes{margin-top:2px}
+/* 82 · ajustes del chat: burbuja visible para el personaje en cualquier tema y tarjeta con más aire */
+.cr-b.them{background:hsl(var(--accent));color:hsl(var(--foreground));border:1px solid hsl(var(--primary)/.22)}
+.cr-b.them.typing{background:hsl(var(--accent))}
+.chat-card{clear:both;margin:34px 0 30px}
