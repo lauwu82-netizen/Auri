@@ -52,6 +52,20 @@ export function splitChunks(text: string): string[] {
   push(); return out;
 }
 
+/** Los chats de la app viajan dentro del texto como «::chat {json}». Antes de revisar se pasan a lectura normal («Nombre: mensaje»), una línea por mensaje:
+ *  así la IA lee lo que dice cada personaje (y el extracto que ve moderación es legible) y no se revisan direcciones ni claves del JSON. Incluye nombres del chat y de los participantes. */
+export function flattenChats(text: string): string {
+  return String(text || '').split('\n').map((line) => {
+    const m = /^\s*::chat (\{.*\})\s*$/.exec(line); if (!m) return line;
+    try {
+      const c = JSON.parse(m[1]); if (!c || !Array.isArray(c.m)) return line;
+      const ps: { n?: string }[] = Array.isArray(c.p) ? c.p : [], who = (w: unknown) => (typeof w === 'number' && w >= 0 && ps[w] ? String(ps[w].n || '?') : 'Yo');
+      const head = (c.k === 'g' ? 'Grupo «' : 'Chat con «') + String(c.n || (ps[0] && ps[0].n) || '') + '»' + (c.k === 'g' ? ' (' + ps.map((x) => x.n || '?').join(', ') + ')' : '');
+      return [head, ...c.m.map((x: { s?: number; w?: number; t?: string }) => x && x.s ? '— ' + String(x.t || '') + ' —' : who(x && x.w) + ': ' + String((x && x.t) || '').replace(/\s*\n+\s*/g, ' / '))].join('\n');
+    } catch { return line; }
+  }).join('\n');
+}
+
 export type Reason = { cat: string; label: string; score: number; chunk: number };
 export type Flags = { reasons: Reason[]; excerpt: string; mature: boolean; chunks: number; top?: { cat: string; score: number }[] };
 
@@ -159,13 +173,13 @@ async function run(req: Request, env: Record<string, string | undefined>): Promi
   else if ((ch.text || '').length > MAX_CHARS) { verdict = 'flagged'; flags = { reasons: [{ cat: 'length', label: LABEL.length, score: 1, chunk: 0 }], excerpt: '', mature, chunks: 0 }; }
   else {
     if (!KEY) { console.error('falta el secreto OPENAI_API_KEY'); return json({ error: 'no_key' }, 500); }
-    const chunks = splitChunks((ch.title ? ch.title + '\n' : '') + (ch.text || ''));
+    const full = flattenChats((ch.title ? ch.title + '\n' : '') + (ch.text || '')), chunks = splitChunks(full);
     try { const d = decide(await moderate(chunks, KEY), mature, chunks); verdict = d.verdict; flags = d.flags; }
     catch (e) { return json({ error: 'ai_unavailable', detail: String((e as Error).message || e) }, 502); }
-    const bh = bannedHits((ch.title ? ch.title + '\n' : '') + (ch.text || ''), env.BANNED_WORDS || '');
+    const bh = bannedHits(full, env.BANNED_WORDS || '');
     if (bh.words.length && flags) { verdict = 'flagged'; flags = { ...flags, reasons: [{ cat: 'words', label: 'palabras sensibles: ' + bh.words.slice(0, 5).join(', '), score: 1, chunk: 0 }, ...flags.reasons], excerpt: bh.excerpt || flags.excerpt }; }
     if (env.GEMINI_API_KEY && flags) {                                                          // reglas propias: temas delicados (opcional)
-      const tc = await topicCheck((ch.title ? ch.title + '\n' : '') + (ch.text || ''), env.GEMINI_API_KEY, env.GEMINI_MODEL || 'gemini-2.5-flash', env.TOPIC_RULES || TOPIC_RULES);
+      const tc = await topicCheck(full, env.GEMINI_API_KEY, env.GEMINI_MODEL || 'gemini-2.5-flash', env.TOPIC_RULES || TOPIC_RULES);
       if (tc && tc.flag) { verdict = 'flagged'; flags = { ...flags, reasons: [{ cat: 'topic', label: tc.reason, score: 1, chunk: 0 }, ...flags.reasons], excerpt: flags.excerpt || tc.quote }; }
     }
   }
