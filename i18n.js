@@ -1962,4 +1962,8 @@ window.I18N = { en: {
   'Todos los libros': 'All books',
   '{n} libro': '{n} book',
   '{n} libros': '{n} books',
+  'Rendimiento': 'Performance',
+  'Máxima calidad': 'Best quality',
+  'Ahorro': 'Saver',
+  '«Automático» quita los desenfoques y los adornos animados solo si tu teléfono va justo. «Ahorro» los quita siempre; la lectura no cambia.': '“Automatic” removes background blurs and animated decorations only if your phone is struggling. “Saver” always removes them; reading doesn’t change.',
 } };

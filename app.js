@@ -64,6 +64,20 @@ function applyAccent() {                                // color de la app: el t
 }
 /* --- Ajustes (se guardan por cuenta) --- */
 const APP_VERSION = '0.9 (beta)';
+/* ---------- Rendimiento ----------
+   «Automático»: en teléfonos más lentos (poca memoria, pocos núcleos, ahorro de batería o fotogramas lentos) se activa el modo ligero:
+   sin desenfoques de fondo ni adornos que se mueven solos. La lectura, los botones y los cambios de pantalla se quedan igual. */
+const PERF_K = 'auri.perf', PERF_A = 'auri.perfauto';
+const perfMode = () => LS.get(PERF_K, 'auto');
+const perfWeak = () => { const n = navigator || {}; return !!((n.deviceMemory && n.deviceMemory <= 2) || (n.hardwareConcurrency && n.hardwareConcurrency <= 3)); };
+function perfApply() { const m = perfMode(), a = LS.get(PERF_A, null); document.documentElement.classList.toggle('lite', m === 'lite' || (m === 'auto' && (a === null ? perfWeak() : !!a))); }
+function perfProbe() {                                   // mide unos 50 fotogramas con la app quieta; si van lentos (<~35 fps) activa el modo ligero
+  if (perfMode() !== 'auto' || document.hidden || !window.requestAnimationFrame) return; const ds = []; let last = 0;
+  const step = ts => { if (document.hidden) return; if (last) ds.push(ts - last); last = ts; if (ds.length < 50) return requestAnimationFrame(step);
+    ds.sort((a, b) => a - b); const med = ds[25]; if (med > 30) LS.set(PERF_A, true); else if (med < 20) LS.set(PERF_A, false); perfApply(); };
+  requestAnimationFrame(step);
+}
+perfApply(); window.addEventListener('load', () => setTimeout(perfProbe, 3500));
 const CFG_DEFAULTS = { align: 'left', margin: 'md', sepStyle: 'classic', rbg: 'auto', dropcap: true, fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], avoidWarns: [], hideDone: true, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
 const cfg = k => {
   const c = S.cfg || {};
@@ -3647,7 +3661,9 @@ function settingsView(secId) {
     apariencia: { ico: '🎨', c: '#8c5fc1', t: t('Apariencia'), sub: `${t('Tema')} ${t(({ light: 'claro', dark: 'oscuro', auto: 'automático' })[S.theme] || 'automático')} · ${uiLang() === 'en' ? 'English' : 'Español'}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tema')}</span>${seg('theme', [['light', '☀ ' + t('Claro')], ['dark', '🌙 ' + t('Oscuro')], ['auto', t('Automático')]], S.theme)}</div><div class="set-row"><span>${t('Tema de color')}</span><button type="button" class="button secondary sm" data-act="theme-colors"><i class="th-dot ${accentOf(S.user)}"></i>${t(accentOf(S.user) ? THEMES[accentOf(S.user)].n : 'Violeta')} · ${t('Cambiar')}</button></div>
       <div class="set-row"><span>${t('Tu comunidad')}</span><b>${esc(COMMS[commOf(S.user)])}</b></div>
       <div class="set-row"><span>${t('Ver también la otra comunidad')}</span>${seg('otherComm', [['no', t('No')], ['yes', t('Sí')]], cfg('otherComm'))}</div>
-      <div class="set-row"><span>${t('Idioma')}</span><select class="select set-lang" aria-label="${esc(t('Idioma'))}"><option value="auto" ${uiSetting() === 'auto' ? 'selected' : ''}>${t('Automático')}</option><option value="es" ${uiSetting() === 'es' ? 'selected' : ''}>${t('Español')}</option><option value="en" ${uiSetting() === 'en' ? 'selected' : ''}>${t('English')}</option></select></div></section>` },
+      <div class="set-row"><span>${t('Idioma')}</span><select class="select set-lang" aria-label="${esc(t('Idioma'))}"><option value="auto" ${uiSetting() === 'auto' ? 'selected' : ''}>${t('Automático')}</option><option value="es" ${uiSetting() === 'es' ? 'selected' : ''}>${t('Español')}</option><option value="en" ${uiSetting() === 'en' ? 'selected' : ''}>${t('English')}</option></select></div>
+      <div class="set-row"><span>${t('Rendimiento')}</span><div class="seg" role="radiogroup">${[['auto', 'Automático'], ['high', 'Máxima calidad'], ['lite', 'Ahorro']].map(([v, l]) => `<button type="button" class="seg-b ${perfMode() === v ? 'on' : ''}" role="radio" aria-checked="${perfMode() === v}" data-act="perf-set" data-v="${v}">${t(l)}</button>`).join('')}</div></div>
+      <p class="helper" style="margin:0 0 6px">${t('«Automático» quita los desenfoques y los adornos animados solo si tu teléfono va justo. «Ahorro» los quita siempre; la lectura no cambia.')}</p></section>` },
     lectura: { ico: '📖', c: '#3e8fd0', t: 'Lectura', sub: `${t('Letra ' + ({ sm: 'pequeña', md: 'normal', lg: 'grande' })[cfg('fontSize')])} · ${t((FONTS.find(f => f[0] === cfg('font')) || FONTS[0])[1])}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tamaño de letra')}</span>${seg('fontSize', [['sm', 'Pequeña'], ['md', 'Normal'], ['lg', 'Grande']], cfg('fontSize'))}</div>
       <div class="set-col"><span>${t('Tipografía')}</span><div class="font-grid">${(FONTS.forEach(f => loadFont(f[0])), FONTS).map(f => `<button type="button" class="font-opt ${cfg('font') === f[0] ? 'on' : ''}" data-act="cfg" data-k="font" data-v="${f[0]}" style="font-family:${READ.font[f[0]]}" aria-pressed="${cfg('font') === f[0]}"><b>Aa</b><span>${esc(t(f[1]))}</span></button>`).join('')}</div></div>
       <div class="set-col"><span>${t('Fondo de lectura')}</span><div class="rbg-grid">${[['auto', 'Del tema'], ['cream', 'Crema'], ['sepia', 'Sepia'], ['night', 'Noche'], ['paper', 'Papel']].map(b => `<button type="button" class="rbg-opt ${cfg('rbg') === b[0] ? 'on' : ''}" data-act="cfg" data-k="rbg" data-v="${b[0]}" data-rbg="${b[0]}" aria-pressed="${cfg('rbg') === b[0]}"><span class="rbg-sw"></span>${t(b[1])}</button>`).join('')}</div></div>
@@ -4961,6 +4977,7 @@ document.addEventListener('click', e => {
     'ce-up': () => { if (!CE || +id < 1) return; const m = CE.c.m, i = +id; [m[i - 1], m[i]] = [m[i], m[i - 1]]; CE.ed = -1; ceRefresh(); },
     'ce-down': () => { if (!CE) return; const m = CE.c.m, i = +id; if (i >= m.length - 1) return; [m[i + 1], m[i]] = [m[i], m[i + 1]]; CE.ed = -1; ceRefresh(); },
     'pf-all': () => openAllBooks(id),
+    'perf-set': () => { LS.set(PERF_K, el.dataset.v); if (el.dataset.v === 'auto') LS.set(PERF_A, null); perfApply(); if (el.dataset.v === 'auto') setTimeout(perfProbe, 600); KEEP = true; render(); },
     'cr-img': () => chatImgView(el.dataset.u),
     'ce-bgdel': () => { if (CE) { CE.c.bg = ''; ceRender(); } },
     'ce-edit': () => { if (!CE) return; const x = CE.c.m[+id]; if (!x) return; if (x.ch) return chmOpen(+id); CE.ed = +id; const ta = $('#ce-txt'); if (ta) { ta.value = x.t; ta.focus(); } const bt = $('.ce-send .button'); if (bt) bt.textContent = t('Guardar'); ceRefresh(); },
