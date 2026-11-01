@@ -2203,21 +2203,23 @@ function dcap(h) {                                  // letra capital: la primera
 /* ---------- CHATS dentro de los capítulos ----------
    Un chat es un párrafo del capítulo: «::chat {json}» en una sola línea. Viaja con el texto, así que se guarda, se revisa y se publica igual que todo lo demás.
    {id, k:'i'|'g', n, av, bg, p:[{n,av}], m:[{w,t} | {s:1,t}]}   w = quién escribe: -1 es «yo» (a la derecha), 0.. es p[w] (a la izquierda). s:1 es un aviso del sistema. */
-const CHAT_MAX = 300, CHAT_LEN = 500;
+const CHAT_MAX = 300, CHAT_LEN = 500, CH_OPT = 120, CH_REACT = 5;
 const chatId = () => 'c' + Math.random().toString(36).slice(2, 7);
 const chatParse = p => { const m = /^\s*::chat (\{.*\})\s*$/.exec(p); if (!m) return null; try { const c = JSON.parse(m[1]); return c && typeof c === 'object' && Array.isArray(c.m) ? chatClean(c) : null; } catch (e) { return null; } };
 function chatClean(c) {                                 // lo que llega del texto nunca se usa sin limpiar
   const k = c.k === 'g' ? 'g' : 'i', img = u => safeImg(u) ? u : '';
   const p = (Array.isArray(c.p) ? c.p : []).slice(0, 12).map(x => ({ n: String((x && x.n) || '').slice(0, 40), av: img(x && x.av) }));
   if (!p.length) p.push({ n: String(c.n || '').slice(0, 40), av: img(c.av) });
-  const m = (Array.isArray(c.m) ? c.m : []).slice(0, CHAT_MAX).map(x => x && x.s ? { s: 1, t: String(x.t || '').slice(0, CHAT_LEN) } : x && x.n ? { n: 1, t: String(x.t || '').slice(0, CHAT_LEN) } : { w: Number.isInteger(x && x.w) && x.w >= 0 && x.w < p.length ? x.w : -1, t: String((x && x.t) || '').slice(0, CHAT_LEN) }).filter(x => x.t.trim());
+  const tx = (x, n) => String((x && x.t) || '').slice(0, n), cm = x => x && x.s ? { s: 1, t: tx(x, CHAT_LEN) } : x && x.n ? { n: 1, t: tx(x, CHAT_LEN) } : { w: Number.isInteger(x && x.w) && x.w >= 0 && x.w < p.length ? x.w : -1, t: tx(x, CHAT_LEN) };
+  const m = (Array.isArray(c.m) ? c.m : []).slice(0, CHAT_MAX).map(x => x && x.ch ? { ch: 1, id: String(x.id || '').replace(/[^a-z0-9]/gi, '').slice(0, 8) || chatId(), o: (Array.isArray(x.o) ? x.o : []).slice(0, 4).map(o => ({ t: tx(o, CH_OPT), r: (Array.isArray(o && o.r) ? o.r : []).slice(0, CH_REACT).map(cm).filter(y => y.t.trim()) })).filter(o => o.t.trim()) } : cm(x)).filter(x => x.ch ? x.o.length >= 2 : x.t.trim());
   return { id: String(c.id || '').replace(/[^a-z0-9]/gi, '').slice(0, 8) || chatId(), k, n: String(c.n || p[0].n || '').slice(0, 40), av: k === 'g' ? img(c.av) : img(c.av) || p[0].av, bg: img(c.bg), p, m };
 }
 const chatLine = c => '::chat ' + JSON.stringify(chatClean(c));
 const chatTitle = c => (c.k === 'g' ? c.n : (c.p[0] && c.p[0].n) || c.n) || t('Chat');
 const chatHead = c => c.k === 'g' ? { n: c.n, av: c.av } : c.p[0];
 const chatName = c => c.k === 'g' ? t('Grupo «{n}»', { n: chatTitle(c) }) : t('Chat con {n}', { n: chatTitle(c) });
-const chatPlain = c => (c.k === 'g' ? '👥 ' : '💬 ') + chatName(c) + '\n' + c.m.map(x => x.s ? '— ' + x.t + ' —' : x.n ? '(' + t('Narración') + ') ' + x.t : (x.w < 0 ? t('Yo') : (c.p[x.w] || {}).n || '?') + ': ' + x.t).join('\n');
+const chatLn = (c, x) => x.s ? '— ' + x.t + ' —' : x.n ? '(' + t('Narración') + ') ' + x.t : (x.w < 0 ? t('Yo') : (c.p[x.w] || {}).n || '?') + ': ' + x.t;
+const chatPlain = c => (c.k === 'g' ? '👥 ' : '💬 ') + chatName(c) + '\n' + c.m.map(x => x.ch ? t('Elección') + ':\n' + x.o.map((o, i) => '  ' + t('Opción {n}', { n: i + 1 }) + ' — ' + t('Yo') + ': ' + o.t + o.r.map(y => '\n    ' + chatLn(c, y)).join('')).join('\n') : chatLn(c, x)).join('\n');
 /* En el editor, cada chat se ve como una línea corta («::chat c1a2b · Mizuki»); el contenido real vive aquí, por id */
 let CHM = {};
 function chToView(text) { return String(text || '').split('\n').map(l => { const c = chatParse(l); if (!c) return l; CHM[c.id] = c; return '::chat ' + c.id + ' · ' + chatTitle(c); }).join('\n'); }
@@ -2235,12 +2237,12 @@ function insertBlock(line) {                           // inserta un bloque (sep
 /* --- editor de chat (pantalla completa) --- */
 let CE = null, CE_FIT = null;
 const ceMsgHTML = (c, x, i) => {
-  const me = !x.s && !x.n && x.w < 0, who = x.s || x.n ? '' : me ? t('Yo') : (c.p[x.w] || {}).n || '?';
-  return `<div class="ce-row ${x.s ? 'sys' : x.n ? 'nar' : me ? 'me' : 'them'}${CE.ed === i ? ' ed' : ''}"><div class="ce-bub">${x.s ? '' : x.n ? `<small>${t('Narración')}</small>` : `<small>${esc(who)}</small>`}${esc(x.t)}</div>
+  const me = !x.s && !x.n && !x.ch && x.w < 0, who = x.s || x.n || x.ch ? '' : me ? t('Yo') : (c.p[x.w] || {}).n || '?';
+  return `<div class="ce-row ${x.ch ? 'chs' : x.s ? 'sys' : x.n ? 'nar' : me ? 'me' : 'them'}${CE.ed === i ? ' ed' : ''}"><div class="ce-bub">${x.ch ? `<small>${t('Elección')}</small>${x.o.map((o, k) => `<span class="ce-o">${k + 1}. ${esc(o.t)}${o.r.length ? ` <em>(${tn(o.r.length, '{n} reacción', '{n} reacciones')})</em>` : ''}</span>`).join('')}` : (x.s ? '' : x.n ? `<small>${t('Narración')}</small>` : `<small>${esc(who)}</small>`) + esc(x.t)}</div>
   <div class="ce-tools"><button type="button" data-act="ce-up" data-id="${i}" aria-label="${esc(t('Subir mensaje'))}"${i ? '' : ' disabled'}>↑</button><button type="button" data-act="ce-down" data-id="${i}" aria-label="${esc(t('Bajar mensaje'))}"${i < c.m.length - 1 ? '' : ' disabled'}>↓</button><button type="button" data-act="ce-edit" data-id="${i}" aria-label="${esc(t('Editar mensaje'))}">✎</button><button type="button" data-act="ce-del" data-id="${i}" aria-label="${esc(t('Borrar mensaje'))}">✕</button></div></div>`;
 };
 const ceMsgs = () => CE.c.m.length ? CE.c.m.map((x, i) => ceMsgHTML(CE.c, x, i)).join('') : `<p class="ce-empty">${t('Aquí aparecerá la conversación. Elige quién habla y escribe el primer mensaje.')}</p>`;
-const ceWho = () => { const c = CE.c; return `<button type="button" class="ce-chip ${CE.who === -1 ? 'on' : ''}" data-act="ce-who" data-id="-1" aria-pressed="${CE.who === -1}">${t('Yo')}</button>${c.p.map((x, i) => `<button type="button" class="ce-chip ${CE.who === i ? 'on' : ''}" data-act="ce-who" data-id="${i}" aria-pressed="${CE.who === i}">${esc(x.n || t('Personaje'))}</button>`).join('')}<button type="button" class="ce-chip sys ${CE.who === -2 ? 'on' : ''}" data-act="ce-who" data-id="-2" aria-pressed="${CE.who === -2}">${t('Aviso')}</button><button type="button" class="ce-chip sys ${CE.who === -3 ? 'on' : ''}" data-act="ce-who" data-id="-3" aria-pressed="${CE.who === -3}">${t('Narración')}</button>`; };
+const ceWho = () => { const c = CE.c; return `<button type="button" class="ce-chip ${CE.who === -1 ? 'on' : ''}" data-act="ce-who" data-id="-1" aria-pressed="${CE.who === -1}">${t('Yo')}</button>${c.p.map((x, i) => `<button type="button" class="ce-chip ${CE.who === i ? 'on' : ''}" data-act="ce-who" data-id="${i}" aria-pressed="${CE.who === i}">${esc(x.n || t('Personaje'))}</button>`).join('')}<button type="button" class="ce-chip sys ${CE.who === -2 ? 'on' : ''}" data-act="ce-who" data-id="-2" aria-pressed="${CE.who === -2}">${t('Aviso')}</button><button type="button" class="ce-chip sys ${CE.who === -3 ? 'on' : ''}" data-act="ce-who" data-id="-3" aria-pressed="${CE.who === -3}">${t('Narración')}</button><button type="button" class="ce-chip ch" data-act="ce-choice">＋ ${t('Elección')}</button>`; };
 const ceTpl = () => { const c = CE.c; if (CE.who !== -2) return ''; const names = [...c.p.map(x => x.n).filter(Boolean), t('Yo')];
   return `<div class="ce-tpl"><span class="helper">${t('Mensaje del sistema, centrado y sin burbuja. Atajos:')}</span><div class="ce-tpl-r"><select id="ce-tp" class="select" aria-label="${esc(t('Persona'))}">${names.map(n => `<option>${esc(n)}</option>`).join('')}</select>${[['join', 'se unió'], ['left', 'salió'], ['add', 'añadió a…'], ['name', 'cambió el nombre']].map(a => `<button type="button" class="ce-tp-b" data-act="ce-tpl" data-id="${a[0]}">${t(a[1])}</button>`).join('')}</div></div>`; };
 function ceRender() {
@@ -2289,6 +2291,44 @@ function ceDone() {
   const tok = $('#w-ch-text'); if (tok && !CE.isNew) tok.value = tok.value.replace(new RegExp('^::chat ' + c.id + '(?:\\s·.*)?$', 'm'), '::chat ' + c.id + ' · ' + chatTitle(c));
   collect(); persistDraft(); ceClose(); KEEP = true; render();
 }
+/* --- editor de una elección: de 2 a 4 respuestas del lector, cada una con su reacción (0 a 5 mensajes). Todas siguen en el mismo punto del chat --- */
+let CHM_S = null;
+const chmKind = x => x.s ? 's' : x.n ? 'n' : x.w < 0 ? 'me' : 'p' + x.w;
+const chmWho = () => [...CE.c.p.map((x, i) => [('p' + i), x.n || t('Personaje')]), ['me', t('Yo')], ['s', t('Aviso')], ['n', t('Narración')]];
+function chmHTML() {
+  const opts = CHM_S.o, who = chmWho();
+  return `<div class="modal-box" role="dialog" aria-modal="true"><h2>${t('Elección')}</h2><p class="helper">${t('Quien lee elige qué responder. Cada respuesta puede tener una reacción y todas siguen en el mismo punto del chat.')}</p>
+  ${opts.map((o, i) => `<div class="chm-o"><div class="chm-h"><b>${t('Opción {n}', { n: i + 1 })}</b>${opts.length > 2 ? `<button type="button" class="link-btn danger-link" data-chm="odel" data-o="${i}">${t('Quitar')}</button>` : ''}</div>
+    <input class="field chm-t" data-o="${i}" maxlength="${CH_OPT}" value="${esc(o.t)}" placeholder="${esc(t('Lo que responde Yo…'))}" autocomplete="off">
+    <div class="chm-rs"><span class="helper">${t('Reacción (opcional)')}</span>${o.r.map((r, j) => `<div class="chm-r"><select class="select" data-o="${i}" data-r="${j}" aria-label="${esc(t('Quién escribe'))}">${who.map(([v, n]) => `<option value="${v}" ${r.k === v ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select><input class="field chm-rt" data-o="${i}" data-r="${j}" maxlength="${CHAT_LEN}" value="${esc(r.t)}" placeholder="${esc(t('Escribe un mensaje…'))}" autocomplete="off"><button type="button" class="icon-btn" data-chm="rdel" data-o="${i}" data-r="${j}" aria-label="${esc(t('Borrar mensaje'))}">✕</button></div>`).join('')}
+    ${o.r.length < CH_REACT ? `<button type="button" class="button ghost sm" data-chm="radd" data-o="${i}">＋ ${t('Añadir mensaje de reacción')}</button>` : ''}</div></div>`).join('')}
+  ${opts.length < 4 ? `<button type="button" class="button ghost sm" data-chm="oadd" style="width:fit-content">＋ ${t('Añadir opción')}</button>` : ''}
+  <p class="error-line" data-err role="alert"></p><div style="display:flex;gap:10px;margin-top:14px"><button type="button" class="button ghost" data-chm="no" style="flex:1">${t('Cancelar')}</button><button type="button" class="button" data-chm="ok" style="flex:1">${t('Listo')}</button></div></div>`;
+}
+function chmOpen(idx) {                                  // idx = posición de la elección que se edita, o -1 para una nueva
+  if (!CE) return; const x = idx >= 0 ? CE.c.m[idx] : null;
+  const rows = x ? x.o.map(o => ({ t: o.t, r: o.r.map(y => ({ k: chmKind(y), t: y.t })) })) : [{ t: '', r: [] }, { t: '', r: [] }];
+  CHM_S = { idx, id: x ? x.id : chatId().slice(0, 6), o: rows };
+  const m = document.createElement('div'); m.className = 'modal sheet'; m.id = 'ce-chm'; m.innerHTML = chmHTML(); document.body.appendChild(m);
+  const redraw = () => { const y = m.querySelector('.modal-box').scrollTop; m.innerHTML = chmHTML(); m.querySelector('.modal-box').scrollTop = y; };
+  m.addEventListener('input', e => { const el = e.target, o = CHM_S.o[+el.dataset.o]; if (!o) return; if (el.classList.contains('chm-t')) o.t = el.value; else if (el.classList.contains('chm-rt')) o.r[+el.dataset.r].t = el.value; });
+  m.addEventListener('change', e => { const el = e.target; if (el.tagName === 'SELECT') { const o = CHM_S.o[+el.dataset.o]; if (o) o.r[+el.dataset.r].k = el.value; } });
+  m.addEventListener('click', e => {
+    const b = e.target.closest('[data-chm]'); if (!b) return; const a = b.dataset.chm, i = +b.dataset.o;
+    if (a === 'no') return m.remove();
+    if (a === 'oadd') { if (CHM_S.o.length < 4) CHM_S.o.push({ t: '', r: [] }); return redraw(); }
+    if (a === 'odel') { CHM_S.o.splice(i, 1); return redraw(); }
+    if (a === 'radd') { CHM_S.o[i].r.push({ k: 'p0', t: '' }); return redraw(); }
+    if (a === 'rdel') { CHM_S.o[i].r.splice(+b.dataset.r, 1); return redraw(); }
+    if (a === 'ok') {
+      const o = CHM_S.o.map(x => ({ t: x.t.trim(), r: x.r.filter(y => y.t.trim()).map(y => y.k === 's' ? { s: 1, t: y.t.trim() } : y.k === 'n' ? { n: 1, t: y.t.trim() } : y.k === 'me' ? { w: -1, t: y.t.trim() } : { w: +y.k.slice(1), t: y.t.trim() }) }));
+      if (o.length < 2 || o.some(x => !x.t)) { m.querySelector('[data-err]').textContent = t('Escribe lo que responde Yo en cada opción.'); return; }
+      const msg = { ch: 1, id: CHM_S.id, o };
+      if (CHM_S.idx >= 0) CE.c.m[CHM_S.idx] = msg; else { if (CE.c.m.length >= CHAT_MAX) return toast(t('Este chat ya tiene el máximo de mensajes.')); CE.c.m.push(msg); }
+      m.remove(); CHM_S = null; CE.ed = -1; ceRefresh();
+    }
+  });
+}
 function chatPick() {                                    // «¿Qué tipo de chat quieres crear?»
   const m = document.createElement('div'); m.className = 'modal';
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${t('¿Qué tipo de chat quieres crear?')}</h2>
@@ -2301,9 +2341,21 @@ function chatPick() {                                    // «¿Qué tipo de cha
 /* --- lector de chat --- */
 const CHC = new Map();                                   // chats que hay en pantalla (por clave), ya con TN reemplazado
 const chatPosAll = () => LS.get(uk('chatpos'), {});
-const chatPos = k => +chatPosAll()[k] || 0;
-const chatPosSet = (k, n) => { const m = chatPosAll(); m[k] = n; LS.set(uk('chatpos'), m); };
-const chatStatus = (k, c) => { const n = Math.min(chatPos(k), c.m.length); return n >= c.m.length && n > 0 ? t('Leído') + ' ✓' : n > 0 ? t('Sigues en el mensaje {a} de {b}', { a: n, b: c.m.length }) : tn(c.m.length, '{n} mensaje', '{n} mensajes'); };
+const CHW = {};                                            // vista previa de la autoría: no se guarda nada
+const chatLive = k => !String(k).startsWith('w|');
+const chatPos = k => chatLive(k) ? +chatPosAll()[k] || 0 : 0;
+const chatPosSet = (k, n) => { if (!chatLive(k)) return; const m = chatPosAll(); m[k] = n; LS.set(uk('chatpos'), m); };
+const chatChAll = () => LS.get(uk('chatch'), {});
+const chatPicked = (k, id) => chatLive(k) ? chatChAll()[k + '|' + id] : CHW[k + '|' + id];
+const chatPickSet = (k, id, i) => { if (chatLive(k)) { const m = chatChAll(); m[k + '|' + id] = i; LS.set(uk('chatch'), m); } else CHW[k + '|' + id] = i; };
+const chatDone = k => chatLive(k) && !!LS.get(uk('chatdone'), {})[k];
+const chatDoneSet = k => { if (!chatLive(k)) return; const m = LS.get(uk('chatdone'), {}); m[k] = 1; LS.set(uk('chatdone'), m); };
+const chatBranch = o => [{ w: -1, t: o.t }, ...o.r];       // lo que responde quien lee + la reacción
+function chatExpand(c, k) {                                 // la conversación con las elecciones ya hechas desplegadas en su lugar
+  const out = []; for (const x of c.m) { const i = x.ch ? chatPicked(k, x.id) : -1, o = x.ch && Number.isInteger(i) ? x.o[i] : null; if (o) out.push(...chatBranch(o)); else out.push(x); } return out;
+}
+const chatFinished = (k, c) => { if (chatDone(k)) return true; const m = chatExpand(c, k), n = chatPos(k); return n > 0 && n >= m.length && !m.some(x => x.ch); };
+const chatStatus = (k, c) => { const m = chatExpand(c, k), n = Math.min(chatPos(k), m.length); return chatFinished(k, c) ? t('Leído') + ' ✓' : n > 0 ? t('Sigues en el mensaje {a} de {b}', { a: n, b: m.length }) : tn(c.m.length, '{n} mensaje', '{n} mensajes'); };
 function readNext(id, n) {                           // marca el capítulo como leído y pasa al siguiente (o al final del libro)
   const sv = findStory(id); if (sv) BARS['b-' + id] = bookProgress(sv).pct; const cur = readList(id).slice(); if (!cur.includes(n)) cur.push(n); S.progress[id] = cur; LS.set(uk('progress'), S.progress);
   const s = findStory(id), nx = s && s.chapters[s.chapters.findIndex(c => c.idx === n) + 1]; if (nx) { savePos(id, nx.idx, 0); NAVDIR = 'next'; goReplace(`/story/${id}/${nx.idx + 1}`); } else { NAVDIR = 'next'; goReplace(`/story/${id}/fin`); }
@@ -2334,7 +2386,7 @@ async function delStory(id) {
 }
 function chatCard(c, on, pc, i) {
   const f = s => on ? fillHE(fillTN(s, S.character.name || t('Lectora')), S.character) : s;
-  const k = (pc ? pc.sid : 'w') + '|' + (pc ? pc.ci : 0) + '|' + c.id, cc = { ...c, n: f(c.n), p: c.p.map(x => ({ ...x, n: f(x.n) })), m: c.m.map(x => ({ ...x, t: f(x.t) })) };
+  const k = (pc ? pc.sid : 'w') + '|' + (pc ? pc.ci : 0) + '|' + c.id, cc = { ...c, n: f(c.n), p: c.p.map(x => ({ ...x, n: f(x.n) })), m: c.m.map(x => x.ch ? { ...x, o: x.o.map(o => ({ t: f(o.t), r: o.r.map(y => ({ ...y, t: f(y.t) })) })) } : { ...x, t: f(x.t) }) };
   CHC.set(k, cc);
   return `<div class="chat-card" data-bi="${i}" data-key="${esc(k)}"><span class="cc-av">${chatAv(chatHead(cc))}</span><span class="cc-info"><b>${esc(chatName(cc))}</b><small>${chatStatus(k, cc)}</small></span><button type="button" class="button sm" data-act="chat-open" data-key="${esc(k)}">${t('Leer chat')}</button></div>`;
 }
@@ -2344,7 +2396,7 @@ function chatAuto() {                                   // en un libro de chat, 
   const tag = h[2] + '|' + h[3]; if (tag === CHAT_LAST) return;
   const s = findStory(decodeURIComponent(h[2])); if (!s || s.mode !== 'chat') return;
   const card = document.querySelector('.reader-text .chat-card'); if (!card) return; CHAT_LAST = tag;
-  const c = CHC.get(card.dataset.key); if (c && chatPos(card.dataset.key) >= c.m.length) return;
+  const c = CHC.get(card.dataset.key); if (c && chatFinished(card.dataset.key, c)) return;
   chatOpen(card.dataset.key);
 }
 function crAfter() {                                    // qué sigue al terminar un chat en un libro de chat que solo tiene chats en ese capítulo
@@ -2361,8 +2413,8 @@ function chatOpen(k) {
   <div class="cr-body"${c.bg ? ` style="background-image:linear-gradient(hsl(var(--background)/.3),hsl(var(--background)/.3)),url('${esc(c.bg)}')"` : ''}><div class="cr-msgs" id="cr-msgs"></div></div><footer class="cr-foot" id="cr-foot"></footer>`;
   m.addEventListener('click', e => { if (e.target.closest('button')) return; crNext(); });
   document.body.appendChild(m);
-  CR = { k, c, n: 0, busy: false, dead: false };
-  const n0 = Math.min(chatPos(k), c.m.length); for (let i = 0; i < n0; i++) crAdd(c.m[i], false); CR.n = n0;
+  CR = { k, c, m: chatExpand(c, k), n: 0, busy: false, dead: false };
+  let n0 = Math.min(chatPos(k), CR.m.length); for (let i = 0; i < n0; i++) { if (CR.m[i].ch) { n0 = i; break; } crAdd(CR.m[i], false); } CR.n = n0;
   crFoot(); const b = $('.cr-body'); if (b) b.scrollTop = b.scrollHeight;
 }
 const crHue = i => (i * 67 + 265) % 360;
@@ -2378,9 +2430,17 @@ function crAdd(x, anim = true) {
   box.appendChild(d); const b = $('.cr-body'); if (b) b.scrollTop = b.scrollHeight;
 }
 function crFoot() {
-  const f = $('#cr-foot'); if (!f || !CR) return; const end = CR.n >= CR.c.m.length;
+  const f = $('#cr-foot'); if (!f || !CR) return; const nx = CR.m[CR.n];
+  if (nx && nx.ch) { f.classList.add('pick'); f.innerHTML = `<small class="cr-ph">${t('Elige tu respuesta')}</small>${nx.o.map((o, i) => `<button type="button" class="cr-opt" data-act="cr-pick" data-id="${i}">${esc(o.t)}</button>`).join('')}`; return; }
+  f.classList.remove('pick'); const end = CR.n >= CR.m.length; if (end) chatDoneSet(CR.k);
   const af = end ? crAfter() : null, bt = !af ? ['cr-close', 'Seguir leyendo'] : af.kind === 'chat' ? ['cr-nextchat', 'Siguiente chat'] : af.kind === 'chap' ? ['cr-nextchap', 'Siguiente capítulo'] : ['cr-nextchap', 'Terminar el libro'];
   f.innerHTML = end ? `<span>${t('Fin del chat')}</span><button type="button" class="button sm" data-act="${bt[0]}">${t(bt[1])}</button>` : `<span>${CR.n ? t('Toca la pantalla para continuar') : t('Toca la pantalla para empezar')}</span>`;
+}
+function crPick(i) {                                       // quien lee elige: su respuesta sale a la derecha y sigue la reacción
+  if (!CR || CR.nar || CR.busy) return; const x = CR.m[CR.n]; if (!x || !x.ch || !x.o[i]) return;
+  chatPickSet(CR.k, x.id, i); CR.m.splice(CR.n, 1, ...chatBranch(x.o[i]));
+  const me0 = CR; crAdd(CR.m[CR.n]); CR.n++; chatPosSet(CR.k, CR.n); crFoot();
+  if (CR.n < CR.m.length && !CR.m[CR.n].ch) setTimeout(() => { if (CR === me0 && !CR.busy && !CR.nar && !CR.dead) crNext(); }, 450);
 }
 function crNarShow(txt) {                                // el chat se oscurece y el texto se va escribiendo
   const m = $('#chat-rd'); if (!m || !CR) return; let o = $('#cr-nar');
@@ -2394,20 +2454,20 @@ function crNarShow(txt) {                                // el chat se oscurece 
 function crNarTap() {
   const nr = CR.nar; if (!nr) return; const o = $('#cr-nar');
   if (!nr.done) { clearInterval(CR.tm); nr.done = true; if (o) { const p = o.querySelector('.cr-nt'); p.textContent = nr.txt; p.classList.remove('typing'); o.querySelector('.cr-nh').textContent = t('Toca para continuar'); } return; }
-  const x = CR.c.m[CR.n]; CR.n++; chatPosSet(CR.k, CR.n); crAdd(x, false);     // ya leída: pasa al registro del chat
-  const nx = CR.c.m[CR.n]; if (nx && nx.n) return crNarShow(nx.t);                // otra narración seguida: la pantalla sigue oscura
+  const x = CR.m[CR.n]; CR.n++; chatPosSet(CR.k, CR.n); crAdd(x, false);     // ya leída: pasa al registro del chat
+  const nx = CR.m[CR.n]; if (nx && nx.n) return crNarShow(nx.t);                // otra narración seguida: la pantalla sigue oscura
   CR.nar = null; if (o) { o.classList.remove('on'); setTimeout(() => o.remove(), 450); } crFoot();
 }
 function crNext() {
-  if (!CR) return; if (CR.nar) return crNarTap(); if (CR.busy || CR.n >= CR.c.m.length) return;
-  const me0 = CR, x = CR.c.m[CR.n], mine = x.s || x.w < 0;
+  if (!CR) return; if (CR.nar) return crNarTap(); if (CR.busy || CR.n >= CR.m.length) return;
+  const me0 = CR, x = CR.m[CR.n]; if (x.ch) return; const mine = x.s || x.w < 0;
   if (x.n) return crNarShow(x.t);
   const go1 = () => { if (CR !== me0 || CR.dead) return; const tp = $('#cr-typing'); if (tp) tp.remove(); crAdd(x); CR.n++; CR.busy = false; chatPosSet(CR.k, CR.n); crFoot(); };
   if (mine) return go1();
   CR.busy = true; const box = $('#cr-msgs'); if (box) { const d = crBub(x, true); d.id = 'cr-typing'; d.classList.add('in'); box.appendChild(d); const b = $('.cr-body'); if (b) b.scrollTop = b.scrollHeight; }
   setTimeout(go1, Math.min(1100, 350 + x.t.length * 12));
 }
-function crShowAll() { if (!CR) return; clearInterval(CR.tm); CR.nar = null; const ov = $('#cr-nar'); if (ov) ov.remove(); CR.dead = false; const tp = $('#cr-typing'); if (tp) tp.remove(); CR.busy = false; while (CR.n < CR.c.m.length) { crAdd(CR.c.m[CR.n], false); CR.n++; } chatPosSet(CR.k, CR.n); crFoot(); }
+function crShowAll() { if (!CR) return; clearInterval(CR.tm); CR.nar = null; const ov = $('#cr-nar'); if (ov) ov.remove(); CR.dead = false; const tp = $('#cr-typing'); if (tp) tp.remove(); CR.busy = false; while (CR.n < CR.m.length && !CR.m[CR.n].ch) { crAdd(CR.m[CR.n], false); CR.n++; } chatPosSet(CR.k, CR.n); crFoot(); }
 function crClose() {
   if (!CR) return; clearInterval(CR.tm); CR.dead = true; const k = CR.k, c = CR.c; CR = null; const m = $('#chat-rd'); if (m) m.remove();
   document.querySelectorAll('.chat-card').forEach(el => { if (el.dataset.key === k) { const s = el.querySelector('small'); if (s) s.textContent = chatStatus(k, c); } });
@@ -4828,16 +4888,17 @@ document.addEventListener('click', e => {
     'ce-close': () => ceClose(), 'ce-done': () => ceDone(), 'ce-send': () => ceSend(),
     'ce-who': () => { if (!CE) return; CE.who = +id; document.querySelectorAll('.ce-chip').forEach(b => { const on = +b.dataset.id === CE.who; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); const tb = $('#ce-tplbox'); if (tb) tb.innerHTML = ceTpl(); const ta = $('#ce-txt'); if (ta) { ta.placeholder = CE.who === -3 ? t('Escribe la narración…') : t('Escribe un mensaje…'); ta.focus(); } },
     'ce-padd': () => { if (!CE || CE.c.p.length >= 12) return; CE.c.p.push({ n: '', av: '' }); ceRender(); const l = document.querySelectorAll('.ce-pn'); if (l.length) l[l.length - 1].focus(); },
-    'ce-pdel': () => { if (!CE || CE.c.p.length <= 2) return; const i = +id, used = CE.c.m.filter(x => !x.s && x.w === i).length, go1 = () => { CE.c.m = CE.c.m.filter(x => x.s || x.w !== i).map(x => (!x.s && x.w > i) ? { ...x, w: x.w - 1 } : x); CE.c.p.splice(i, 1); if (CE.who >= CE.c.p.length) CE.who = -1; ceRender(); };
+    'ce-pdel': () => { if (!CE || CE.c.p.length <= 2) return; const i = +id, hit = x => !x.s && !x.n && !x.ch && x.w === i, used = CE.c.m.filter(x => x.ch ? x.o.some(o => o.r.some(hit)) : hit(x)).length, fix = l => l.filter(x => !hit(x)).map(x => (!x.s && !x.n && !x.ch && x.w > i) ? { ...x, w: x.w - 1 } : x), go1 = () => { CE.c.m = fix(CE.c.m).map(x => x.ch ? { ...x, o: x.o.map(o => ({ ...o, r: fix(o.r) })) } : x); CE.c.p.splice(i, 1); if (CE.who >= CE.c.p.length) CE.who = -1; ceRender(); };
       if (used) confirmBox(t('¿Quitar a {n}? También se borran sus mensajes.', { n: CE.c.p[i].n || t('esta persona') }), go1); else go1(); },
     'ce-tpl': () => { if (!CE) return; const sel = $('#ce-tp'), n = sel ? sel.value : '', ta = $('#ce-txt'); if (!ta) return;
       const txt = { join: t('{n} se unió al grupo', { n }), left: t('{n} salió del grupo', { n }), add: t('{n} añadió a ', { n }), name: t('{n} cambió el nombre del grupo a ', { n }) }[id] || ''; ta.value = txt; CE.txt = txt; ta.focus(); ta.setSelectionRange(txt.length, txt.length); },
+    'ce-choice': () => chmOpen(-1),
     'ce-del': () => { if (!CE) return; CE.c.m.splice(+id, 1); CE.ed = -1; const ta = $('#ce-txt'); if (ta) ta.value = ''; ceRefresh(); },
     'ce-up': () => { if (!CE || +id < 1) return; const m = CE.c.m, i = +id; [m[i - 1], m[i]] = [m[i], m[i - 1]]; CE.ed = -1; ceRefresh(); },
     'ce-down': () => { if (!CE) return; const m = CE.c.m, i = +id; if (i >= m.length - 1) return; [m[i + 1], m[i]] = [m[i], m[i + 1]]; CE.ed = -1; ceRefresh(); },
-    'ce-edit': () => { if (!CE) return; const x = CE.c.m[+id]; if (!x) return; CE.ed = +id; const ta = $('#ce-txt'); if (ta) { ta.value = x.t; ta.focus(); } const bt = $('.ce-send .button'); if (bt) bt.textContent = t('Guardar'); ceRefresh(); },
+    'ce-edit': () => { if (!CE) return; const x = CE.c.m[+id]; if (!x) return; if (x.ch) return chmOpen(+id); CE.ed = +id; const ta = $('#ce-txt'); if (ta) { ta.value = x.t; ta.focus(); } const bt = $('.ce-send .button'); if (bt) bt.textContent = t('Guardar'); ceRefresh(); },
     'story-menu': () => openStoryMenu(id),
-    'cr-close': () => crClose(), 'cr-all': () => crShowAll(),
+    'cr-close': () => crClose(), 'cr-all': () => crShowAll(), 'cr-pick': () => crPick(+id),
     'cr-nextchat': () => { const a = CR && crAfter(); crClose(); if (a && a.kind === 'chat') chatOpen(a.key); },
     'cr-nextchap': () => { const a = CR && crAfter(); crClose(); if (a) readNext(a.sid, a.ci); },
     'w-mode': () => { if (!W || W.chapters.some(c => c.text)) return; W.mode = id === 'chat' ? 'chat' : 'trad'; document.querySelectorAll('.nb-mode').forEach(b => { const on = b.dataset.id === W.mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); },
