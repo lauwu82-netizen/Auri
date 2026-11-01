@@ -1947,4 +1947,13 @@ window.I18N = { en: {
   "Elige tu respuesta": "Choose your reply",
   "{n} reacción": "{n} reaction",
   "{n} reacciones": "{n} reactions",
+  'Fondo del chat': 'Chat background',
+  'Cambiar fondo': 'Change background',
+  'Quitar fondo': 'Remove background',
+  'Las fotos las envía una persona, no un aviso ni la narración.': 'Photos are sent by a person, not by a notice or the narration.',
+  'Este chat ya tiene el máximo de fotos ({n}).': 'This chat already has the maximum number of photos ({n}).',
+  'Foto oculta': 'Photo hidden',
+  'Revisando la foto…': 'Checking the photo…',
+  'Ver foto': 'View photo',
+  'Imagen de chat': 'Chat image',
 } };

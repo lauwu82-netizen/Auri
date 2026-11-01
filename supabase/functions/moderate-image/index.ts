@@ -14,6 +14,9 @@ export const MODEL = 'omni-moderation-latest';
 /** Umbrales (0 a 1). STRICT = perfil, banner y portadas de libros sin +18. MATURE = portadas de libros +18. */
 export const T_STRICT: Record<string, number> = { 'sexual': 0.5, 'sexual/minors': 0.2, 'violence': 0.92, 'violence/graphic': 0.5, 'self-harm': 0.6, 'self-harm/intent': 0.5, 'self-harm/instructions': 0.5 };
 export const T_MATURE: Record<string, number> = { 'sexual': 0.93, 'sexual/minors': 0.2, 'violence': 0.97, 'violence/graphic': 0.85, 'self-harm': 0.7, 'self-harm/intent': 0.6, 'self-harm/instructions': 0.5 };
+/** Fotos dentro de los chats de libros SIN +18 (los lee también gente menor de edad): más estricto que una portada */
+export const T_CHAT: Record<string, number> = { 'sexual': 0.3, 'sexual/minors': 0.1, 'violence': 0.8, 'violence/graphic': 0.3, 'self-harm': 0.4, 'self-harm/intent': 0.3, 'self-harm/instructions': 0.3 };
+export const T_HARD_CHAT: Record<string, number> = { 'sexual': 0.9, 'sexual/minors': 0.3, 'violence/graphic': 0.85 };
 /** Por encima de esto se rechaza directo, sin apelación */
 export const T_HARD_STRICT: Record<string, number> = { 'sexual': 0.985, 'sexual/minors': 0.5, 'violence/graphic': 0.96 };
 export const T_HARD_MATURE: Record<string, number> = { 'sexual': 0.997, 'sexual/minors': 0.5, 'violence/graphic': 0.97 };
@@ -25,8 +28,8 @@ export const LABEL: Record<string, string> = {
 export type Verdict = { flagged: boolean; hard: boolean; reasons: { cat: string; label: string; score: number }[]; top: { cat: string; score: number }[] };
 
 /** Con los puntajes de la IA decide si se marca y si es grave */
-export function decide(scores: Record<string, number>, mature: boolean): Verdict {
-  const T = mature ? T_MATURE : T_STRICT, H = mature ? T_HARD_MATURE : T_HARD_STRICT, reasons: Verdict['reasons'] = []; let hard = false;
+export function decide(scores: Record<string, number>, mature: boolean, chat = false): Verdict {
+  const T = mature ? T_MATURE : chat ? T_CHAT : T_STRICT, H = mature ? T_HARD_MATURE : chat ? T_HARD_CHAT : T_HARD_STRICT, reasons: Verdict['reasons'] = []; let hard = false;
   for (const cat of Object.keys(T)) {
     const s = scores[cat]; if (typeof s !== 'number') continue;
     if (s >= T[cat]) reasons.push({ cat, label: LABEL[cat] || cat, score: Math.round(s * 100) / 100 });
@@ -76,8 +79,10 @@ async function run(req: Request, env: Record<string, string | undefined>): Promi
   const results: Record<string, string> = {};
   for (const u of urls) {
     const enc = encodeURIComponent(u);
-    const prev = (await q(`image_checks?url=eq.${enc}&select=status`))[0];
-    if (prev) { results[u] = prev.status === 'approved' ? 'ok' : prev.status; continue; }                      // ya se revisó esta misma imagen
+    const prev = (await q(`image_checks?url=eq.${enc}&select=status,handled_by,reasons`))[0];
+    // una foto de chat aprobada por la IA con la regla +18 se vuelve a revisar si el libro ya no es +18
+    const again = !!prev && prev.status === 'approved' && !prev.handled_by && !!prev.reasons && prev.reasons.mature === true && prev.reasons.chat === true;
+    if (prev && !again) { results[u] = prev.status === 'approved' ? 'ok' : prev.status; continue; }                      // ya se revisó esta misma imagen
     // ¿dónde se usa? (si todavía no se guardó en el perfil o el libro, se intenta más tarde)
     let ctx: Ctx = null;
     const own = `owner=eq.${user.id}`;
@@ -89,15 +94,27 @@ async function run(req: Request, env: Record<string, string | undefined>): Promi
       else {
         const c = (await q(`chapters?cover=eq.${enc}&select=story_id,stories!inner(owner,mature)&stories.owner=eq.${user.id}`))[0];
         if (c) ctx = { kind: 'chapter', story: c.story_id, mature: !!(c.stories && c.stories.mature) };
+        else {                                                                                                  // ¿está dentro de un chat (foto, fondo o avatar)? Se busca el nombre del archivo en el texto de sus capítulos
+          const file = u.slice(prefix.length); const safe = /^[A-Za-z0-9._-]{8,80}$/.test(file) ? file : '';
+          const k = safe ? (await q(`chapters?text=like.${encodeURIComponent('*' + safe + '*')}&select=story_id,stories!inner(owner,mature)&stories.owner=eq.${user.id}&limit=1`))[0] : null;
+          if (k) ctx = { kind: 'chat', story: k.story_id, mature: !!(k.stories && k.stories.mature) };
+        }
       }
     }
+    if (again && (!ctx || ctx.mature)) { results[u] = 'ok'; continue; }
     if (!ctx) { results[u] = 'unlinked'; continue; }
     if (!KEY) { console.error('falta el secreto OPENAI_API_KEY'); results[u] = 'error'; continue; }
     let scores: Record<string, number>;
     try { scores = await moderateImage(u, KEY); } catch (e) { console.error('moderateImage', e); results[u] = 'error'; continue; }
-    const v = decide(scores, ctx.mature);
-    if (!v.flagged) { results[u] = 'ok'; continue; }
-    const rr = await fetch(URL_ + '/rest/v1/rpc/img_report', { method: 'POST', headers: H, body: JSON.stringify({ p_owner: user.id, p_url: u, p_kind: ctx.kind, p_story: ctx.story, p_severity: v.hard ? 'hard' : 'soft', p_reasons: { reasons: v.reasons, top: v.top, mature: ctx.mature } }) });
+    const isChat = ctx.kind === 'chat', v = decide(scores, ctx.mature, isChat);
+    if (!v.flagged) {
+      if (isChat) {                                                                                             // las fotos de chat limpias se anotan: el lector solo las muestra cuando la IA ya las aprobó
+        const cr = await fetch(URL_ + '/rest/v1/rpc/img_clear', { method: 'POST', headers: H, body: JSON.stringify({ p_owner: user.id, p_url: u, p_story: ctx.story, p_mature: ctx.mature }) });
+        if (!cr.ok) { console.error('img_clear', (await cr.text()).slice(0, 200)); results[u] = 'error'; continue; }
+      }
+      results[u] = 'ok'; continue;
+    }
+    const rr = await fetch(URL_ + '/rest/v1/rpc/img_report', { method: 'POST', headers: H, body: JSON.stringify({ p_owner: user.id, p_url: u, p_kind: ctx.kind, p_story: ctx.story, p_severity: v.hard ? 'hard' : 'soft', p_reasons: { reasons: v.reasons, top: v.top, mature: ctx.mature, chat: isChat } }) });
     if (!rr.ok) { console.error('img_report', (await rr.text()).slice(0, 200)); results[u] = 'error'; continue; }
     results[u] = v.hard ? 'rejected' : 'flagged';
   }
