@@ -1956,4 +1956,10 @@ window.I18N = { en: {
   'Revisando la foto…': 'Checking the photo…',
   'Ver foto': 'View photo',
   'Imagen de chat': 'Chat image',
+  '{n} visualización': '{n} view',
+  '{n} visualizaciones': '{n} views',
+  'Libros destacados': 'Featured books',
+  'Todos los libros': 'All books',
+  '{n} libro': '{n} book',
+  '{n} libros': '{n} books',
 } };

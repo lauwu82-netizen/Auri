@@ -708,7 +708,7 @@ const PHASES = ['ongoing', 'paused', 'finished'], CH_ST = ['draft', 'pending', '
 const infoSig = l => hsh(JSON.stringify([l.title || '', l.synopsis || '', l.genre || '', l.fandom || '', l.tags || [], l.cover || '', !!l.mature, l.phase || 'ongoing', l.prev || '', l.useReaderCharacter !== false, !!l.private, ...(l.mode === 'chat' ? ['chat'] : [])]));
 const contSig = c => hsh([c.title || '', c.text || '', c.cover || '', c.music || ''].join('\u0001'));
 const sameCont = (c, r) => (c.title || '') === (r.title || '') && (c.text || '') === (r.text || '') && (c.cover || '') === (r.cover || '') && (c.music || '') === (r.music || '');
-const infoFromRow = r => ({ title: r.title, synopsis: r.synopsis || '', genre: r.genre || '', fandom: r.fandom || '', tags: r.tags || [], warns: Array.isArray(r.warnings) ? r.warnings : [], cover: r.cover || '', mature: !!r.mature, phase: r.phase || 'ongoing', prev: r.prev ? sBack(r.prev) : '', useReaderCharacter: r.use_reader_character !== false, private: !!r.private, mode: r.mode === 'chat' ? 'chat' : 'trad' });
+const infoFromRow = r => ({ title: r.title, synopsis: r.synopsis || '', genre: r.genre || '', fandom: r.fandom || '', tags: r.tags || [], warns: Array.isArray(r.warnings) ? r.warnings : [], cover: r.cover || '', mature: !!r.mature, phase: r.phase || 'ongoing', prev: r.prev ? sBack(r.prev) : '', useReaderCharacter: r.use_reader_character !== false, private: !!r.private, mode: r.mode === 'chat' ? 'chat' : 'trad', views: r.views | 0 });
 const day = v => String(v || '').slice(0, 10);
 let SB_BUSY = false, SB_ST, SB_QUIET = false, SB_Q = { all: false, st: false, soc: new Set() };
 function sbStoriesSoon() { if (!cloud() || !sbSes() || SB_QUIET) return; SB_Q.st = true; clearTimeout(SB_ST); SB_ST = setTimeout(() => sbRefresh({ st: true }), 1500); }
@@ -755,7 +755,7 @@ async function sbSyncOwn() {
     const row = { id: su, owner: uid, community: comm, title: l.title || '', synopsis: l.synopsis || '', genre: l.genre || '', fandom: l.fandom || '', tags: l.tags || [], cover: l.cover || '', mature: !!l.mature,
       phase: PHASES.includes(l.phase) ? l.phase : 'ongoing', prev: l.prev && sUuid(l.prev) ? sUuid(l.prev) : null, use_reader_character: l.useReaderCharacter !== false, terms: false, ...(l.mode === 'chat' || (R && R.mode === 'chat') ? { mode: l.mode === 'chat' ? 'chat' : 'trad' } : {}), ...(l.private || (R && R.private) ? { private: !!l.private } : {}), ...((l.warns && l.warns.length) || (R && R.warnings && R.warnings.length) ? { warnings: l.warns || [] } : {}) };
     if (!R) putS.push(row);
-    else if (sigS[su] === infoSig(l)) { const ni = infoFromRow(R); if (infoSig({ ...l, ...ni }) !== infoSig(l)) { Object.assign(l, ni); changed = true; } }   // no la tocaste: manda la nube (p. ej. cambio de moderación)
+    else if (sigS[su] === infoSig(l)) { const ni = infoFromRow(R); if (infoSig({ ...l, ...ni }) !== infoSig(l)) { Object.assign(l, ni); changed = true; } else if ((l.views | 0) !== ni.views) { l.views = ni.views; changed = true; } }   // no la tocaste: manda la nube (p. ej. cambio de moderación)
     else { const same = ['title', 'synopsis', 'genre', 'fandom', 'cover', 'phase'].every(k => (R[k] || '') === (row[k] || '')) && !!R.mature === row.mature && JSON.stringify(R.tags || []) === JSON.stringify(row.tags) && (R.prev || null) === row.prev && (R.use_reader_character !== false) === row.use_reader_character && !!R.private === !!l.private && (R.mode === 'chat') === (l.mode === 'chat'); if (!same) patchS.push(row); }
     nSigS[su] = infoSig(l);
     // capítulos
@@ -1771,7 +1771,7 @@ function storyCard(s, i) {                       // portada limpia; título + fa
   const fav = S.favs.includes(s.id), b = badgeText(s);
   return `<article class="mini"><a href="#/story/${esc(s.id)}" aria-label="${esc(s.title)}">${coverHTML(s, i)}</a>
   <div class="mini-row"><a class="mini-title" href="#/story/${esc(s.id)}">${esc(s.title)}</a><button class="mini-fav" data-act="fav" data-id="${esc(s.id)}" aria-label="${esc(t('Favorito'))}" aria-pressed="${fav}">${fav ? '♥' : '♡'}</button></div>
-  <div class="mini-meta">${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : `<span>${esc(userName())}</span>`}</div>${b ? `<div class="mini-pill">${esc(b)}</div>` : ''}</article>`;
+  <div class="mini-meta">${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : `<span>${esc(userName())}</span>`}${s.chapters && s.chapters.some(c => c.status === 'approved') ? viewsTag(s) : ''}</div>${b ? `<div class="mini-pill">${esc(b)}</div>` : ''}</article>`;
 }
 /* --- Nombres de usuario únicos --- */
 const nameKey = n => String(n || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -1964,6 +1964,15 @@ async function sbPushReading() {
   const s = sbSes(); if (!cloud() || !s || PRES_OFF) return; const u = LS.get('auri.users', {})[String(s.email).toLowerCase()]; if (!u) return;
   await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { show_reading: !!u.showReading } });
   if (!u.showReading) { await sbApi('/rest/v1/rpc/reading_clear', { method: 'POST', body: {} }); RD = {}; }
+}
+/* Visualizaciones: cuenta cuando alguien abre un capítulo de un libro que no es suyo (una vez por persona y por día; lo decide el servidor) */
+const eyeIco = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const nFmt = n => n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M' : n >= 1e4 ? Math.round(n / 1e3) + 'k' : n >= 1e3 ? (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'k' : String(n | 0);
+const viewsTag = s => `<span class="views-tag" title="${esc(tn(s.views | 0, '{n} visualización', '{n} visualizaciones'))}">${eyeIco}${nFmt(s.views | 0)}</span>`;
+function viewPing(sid) {
+  const st = findStory(sid), su = sUuid(sid); if (!st || !su || !cloud() || !sbSes() || isGuest() || !S.user || st.owner === S.user) return;
+  const K = uk('vw'), m = LS.get(K, {}), d = today(); if (m[sid] === d) return; m[sid] = d; LS.set(K, m);
+  sbApi('/rest/v1/rpc/story_view', { method: 'POST', body: { p_story: su } }).then(r => { if (r.ok && typeof r.data === 'number' && st.views !== r.data) { st.views = r.data; } });
 }
 function readingPing(sid) {                              // al abrir un capítulo, si la persona lo activó
   const u = getUsers()[S.user] || {}; if (!modCloud() || isGuest() || !u.showReading || !sUuid(sid)) return;
@@ -2832,7 +2841,7 @@ function storyDetail(s, mine) {
   <section class="detail">${sagaNav(s)}${sagaCovers(s)}
   <span class="eyebrow">${esc(genreName(s.genre))} · ${esc(s.fandom)}</span><h1>${esc(s.title)}</h1>
   <div class="detail-by">${t('por')} ${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : esc(userName())}</div>${s.publishedAt ? `<div class="detail-date">📅 ${t('Publicado el {d}', { d: fmtDate(s.publishedAt) })}</div>` : ''}
-  <div class="detail-likes"><span class="hrt-i">${HEART}</span> ${tn(n, '{n} like', '{n} likes')}</div>${s.mode === 'chat' ? `<div class="chat-pill">💬 ${t('Libro de chat')}</div>` : ''}${bookState(s)}
+  <div class="detail-likes"><span class="hrt-i">${HEART}</span> ${tn(n, '{n} like', '{n} likes')}<span class="detail-views">${eyeIco} ${tn(s.views | 0, '{n} visualización', '{n} visualizaciones')}</span></div>${s.mode === 'chat' ? `<div class="chat-pill">💬 ${t('Libro de chat')}</div>` : ''}${bookState(s)}
   <p class="detail-syn">${esc(s.synopsis)}</p>
   ${s.mature ? `<div class="adult-box"><span class="adult-badge">+18</span><div><b>${t('Contenido para adultos')}</b><small>${t('Esta historia es solo para mayores de 18 años.')}</small></div></div>` : ''}
   <div class="tags" style="justify-content:center">${tagChips(s.tags)}</div>
@@ -3850,6 +3859,33 @@ function openStrikeInfo() {
     <button type="button" class="button ghost sm" data-hide-strike style="margin-top:8px">${t('Ocultar este botón')}</button><p class="helper">${t('Puedes volver a mostrarlo en Ajustes › Notificaciones.')}</p>`, 'Ver detalle', () => { go('/strike/' + last.id); });
   m.querySelector('[data-hide-strike]').onclick = () => { setCfg('hideStrikeBtn', true); m.remove(); KEEP = true; render(); toast(t('Botón oculto.')); };
 }
+/* Perfil: libros destacados (los más vistos, hasta 5) en carrusel con el libro del centro más grande, y «Todos los libros» en una pantalla que entra por la derecha */
+const FEAT_MIN = 3, FEAT_MAX = 5, PF_LIST = {};
+let PFTIMER = null;
+const featOf = list => list.filter(s => (s.views | 0) >= FEAT_MIN && s.chapters.some(c => c.status === 'approved')).sort((a, b) => (b.views | 0) - (a.views | 0) || likes(b.id).length - likes(a.id).length).slice(0, FEAT_MAX);
+function worksSection(list, e) {
+  PF_LIST[e] = list; if (!list.length) return worksGrid(list);
+  const f = featOf(list), more = list.length > f.length || !f.length;
+  const flow = f.length ? `<section class="pf-feat"><h3 class="pf-h">${t('Libros destacados')}</h3><div class="pf-flow" id="pf-flow" role="list">${f.map((s, i) => `<a class="pf-fc" role="listitem" href="#/story/${esc(s.id)}" data-dir="next" aria-label="${esc(s.title)}"><span class="pf-fcv">${coverHTML(s, i)}</span><b>${esc(s.title)}</b>${viewsTag(s)}</a>`).join('')}</div></section>` : '';
+  const grid = !f.length && list.length <= 6 ? `<div class="story-grid">${list.map(storyCard).join('')}</div>` : '';
+  return `${flow}${grid}${(f.length || list.length > 6) ? `<button type="button" class="pf-allb" data-act="pf-all" data-id="${esc(e)}"><span><b>${t('Todos los libros')}</b><small>${tn(list.length, '{n} libro', '{n} libros')}</small></span><i aria-hidden="true">›</i></button>` : ''}`;
+}
+function flowInit() {
+  clearInterval(PFTIMER); PFTIMER = null; const fl = $('#pf-flow'); if (!fl) return;
+  const cs = [...fl.children], paint = () => { const mid = fl.scrollLeft + fl.clientWidth / 2; cs.forEach(c => { const d = Math.min(1, Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid) / (c.offsetWidth * 1.15)); c.style.transform = `scale(${(1.14 - .3 * d).toFixed(3)})`; c.style.opacity = (1 - .45 * d).toFixed(2); }); };
+  let raf = 0, stop = false; fl.addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); }, { passive: true }); paint();
+  ['pointerdown', 'touchstart', 'wheel'].forEach(ev => fl.addEventListener(ev, () => { stop = true; clearInterval(PFTIMER); PFTIMER = null; }, { passive: true }));      // al deslizar tú, deja de cambiar sola
+  if (cs.length < 2 || reduceMotion()) return; let i = 0;
+  PFTIMER = setInterval(() => { if (stop || !document.body.contains(fl)) { clearInterval(PFTIMER); PFTIMER = null; return; } if (document.hidden) return; i = (i + 1) % cs.length; fl.scrollTo({ left: cs[i].offsetLeft + cs[i].offsetWidth / 2 - fl.clientWidth / 2, behavior: 'smooth' }); }, 5000);
+}
+function openAllBooks(e) {
+  const list = PF_LIST[e] || [], u = getUsers()[e] || {}; if (!list.length) return;
+  const m = document.createElement('div'); m.className = 'pf-all'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
+  m.innerHTML = `<header class="pf-all-top"><button type="button" class="icon-btn" data-pa="x" aria-label="${esc(t('Volver'))}">‹</button><div><b>${t('Todos los libros')}</b><small>${esc(u.name || '')} · ${tn(list.length, '{n} libro', '{n} libros')}</small></div></header><div class="pf-all-body"><div class="story-grid">${list.map(storyCard).join('')}</div></div>`;
+  const close = () => { m.classList.remove('in'); setTimeout(() => m.remove(), reduceMotion() ? 0 : 260); window.removeEventListener('hashchange', close); };
+  m.addEventListener('click', ev => { if (ev.target.closest('[data-pa=x]')) close(); else if (ev.target.closest('a[href]')) close(); });
+  window.addEventListener('hashchange', close); document.body.appendChild(m); imgGuard(m); requestAnimationFrame(() => m.classList.add('in'));
+}
 const worksGrid = list => list.length ? `<div class="story-grid">${list.map(storyCard).join('')}</div>` : empty('Aún no hay obras publicadas', 'Cuando se publique una historia aparecerá aquí.', '<a class="button secondary" href="#/write">' + t('Escribir una historia') + '</a>');
 /** Pendientes del equipo: libros por revisar, reportes, cuentas, publicaciones y apelaciones (cada tipo según lo que esa persona puede ver) */
 function modCounts() {
@@ -3911,7 +3947,7 @@ function profileView() {
   const u = getUsers()[S.user] || {}, works = S.stories.filter(s => storyState(s) !== 'draft').map(s => ({ ...s, owner: S.user, author: u.name }));
   const acts = `<a class="button secondary sm" href="#/profile/edit" data-dir="next">✏️ ${t('Editar perfil')}</a>`, edit = '';
   return `<main class="page pf-page">${profileHero(S.user, true, acts)}${edit}
-  <div class="pf-tools"><a class="button ghost sm" href="#/stats" data-dir="next">${t('📊 Estadísticas')}</a><a class="button sm" href="#/write">${t('＋ Nueva')}</a></div>${worksGrid(works)}
+  <div class="pf-tools"><a class="button ghost sm" href="#/stats" data-dir="next">${t('📊 Estadísticas')}</a><a class="button sm" href="#/write">${t('＋ Nueva')}</a></div>${worksSection(works, S.user)}
   ${charsSection()}${profileExtras()}</main>`;
 }
 /** Pantalla "Editar perfil" (estilo redes sociales): portada y foto arriba, y debajo los datos en filas */
@@ -4061,7 +4097,7 @@ function userView(e) {
   const acts = `<button class="button ${fl ? 'secondary' : ''}" data-act="follow" data-id="${esc(e)}">${fl ? t('Siguiendo ✓') : t('＋ Seguir')}</button>
   ${dmWhy(S.user, e) === '' ? `<a class="button secondary" href="#/messages/${encodeURIComponent(e)}" data-dir="next">${t('Mensaje')}</a>` : `<button type="button" class="button ghost" data-act="dm-why" data-id="${esc(e)}">${t('Mensaje')}</button>`}
   <div class="pf-more"><button class="button ghost sm" data-act="${iMute(e) ? 'unmute' : 'mute'}" data-id="${esc(e)}">${iMute(e) ? t('🔔 Dejar de silenciar') : t('🔇 Silenciar')}</button><button class="button ghost sm" data-act="${iBlock(e) ? 'unblock' : 'block'}" data-id="${esc(e)}">${iBlock(e) ? t('✅ Desbloquear') : t('🚫 Bloquear')}</button><button class="button ghost sm" data-act="report-user" data-id="${esc(e)}">${t('Reportar')}</button>${imgrOk((getUsers()[e] || {}).avatar) ? `<button class="button ghost sm" data-act="report-pimg" data-id="${esc(e)}" data-k="avatar">${t('Reportar foto')}</button>` : ''}${imgrOk((getUsers()[e] || {}).banner) ? `<button class="button ghost sm" data-act="report-pimg" data-id="${esc(e)}" data-k="banner">${t('Reportar portada del perfil')}</button>` : ''}</div>${imgrProfile(e)}`;
-  return `<main class="page pf-page">${profileHero(e, false, acts)}${modUserBooks(e)}${repHistory(e)}${admMenu(e)}${worksGrid(works)}</main>`;
+  return `<main class="page pf-page">${profileHero(e, false, acts)}${modUserBooks(e)}${repHistory(e)}${admMenu(e)}${worksSection(works, e)}</main>`;
 }
 
 /* --- Strikes, suspensión y menú de administración --- */
@@ -4605,9 +4641,9 @@ function render() {
     if (nx && b === MUSIC.sid && nx.music && nx.music === MUSIC.url) MUSIC.ch = String(c); else closeMusic(); }
   if (HLC) { const hid = HLC; HLC = ''; const cm0 = comments(b).find(x => String(x.id) === hid); if (cm0) { setTimeout(() => { const el = document.getElementById('cm-' + hid); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('cm-hl'); setTimeout(() => el.classList.remove('cm-hl'), 3200); } }, 120); } else toast(t('Ese comentario ya no está.')); }
   else if (!KEEP) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); }
-  imgGuard(app); chatAuto(); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); dmAfter();
+  imgGuard(app); chatAuto(); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); flowInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
-  if (nav && a === 'story' && c && c !== 'fin') { pcHintOnce(); readingPing(b); }
+  if (nav && a === 'story' && c && c !== 'fin') { pcHintOnce(); readingPing(b); viewPing(b); }
   if (S.user) { showModOverlay(); showGiftOverlay(); }                                      // moderador/a sin marco puesto: el aviso reaparece hasta que se lo ponga
   if (nav) { const m = from.match(/^\/story\/([^/]+)\/\d+$/); if (m && !(path + '/').startsWith('/story/' + m[1] + '/')) askSaveLib(decodeURIComponent(m[1])); }   // saliste de un capítulo por otro camino (p. ej. "atrás")
 }
@@ -4924,6 +4960,7 @@ document.addEventListener('click', e => {
     'ce-del': () => { if (!CE) return; CE.c.m.splice(+id, 1); CE.ed = -1; const ta = $('#ce-txt'); if (ta) ta.value = ''; ceRefresh(); },
     'ce-up': () => { if (!CE || +id < 1) return; const m = CE.c.m, i = +id; [m[i - 1], m[i]] = [m[i], m[i - 1]]; CE.ed = -1; ceRefresh(); },
     'ce-down': () => { if (!CE) return; const m = CE.c.m, i = +id; if (i >= m.length - 1) return; [m[i + 1], m[i]] = [m[i], m[i + 1]]; CE.ed = -1; ceRefresh(); },
+    'pf-all': () => openAllBooks(id),
     'cr-img': () => chatImgView(el.dataset.u),
     'ce-bgdel': () => { if (CE) { CE.c.bg = ''; ceRender(); } },
     'ce-edit': () => { if (!CE) return; const x = CE.c.m[+id]; if (!x) return; if (x.ch) return chmOpen(+id); CE.ed = +id; const ta = $('#ce-txt'); if (ta) { ta.value = x.t; ta.focus(); } const bt = $('.ce-send .button'); if (bt) bt.textContent = t('Guardar'); ceRefresh(); },
