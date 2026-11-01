@@ -2166,3 +2166,30 @@ html.lite .cr-slide.cr-event,html.lite .cr-slide.cr-book,html.lite .mascot,html.
 html.lite .stg .story-card,html.lite .stg .news-item,html.lite .stg .panel,html.lite .stg .set-item,html.lite .stg .cr-row,html.lite .stg .notif,html.lite .stg .char-tile,html.lite .stg .carousel{animation-duration:.14s!important;animation-delay:0s!important}
 html.lite .v-fade,html.lite .v-next,html.lite .v-prev{animation-duration:.15s}
 html.lite .pf-fc{transition:none}
+
+/* 89 · Etapa 8: animaciones y detalles del chat */
+.cr-b.me,.cr-b.them{border-bottom-right-radius:18px;border-bottom-left-radius:18px}
+.cr-b.me.tail{border-bottom-right-radius:6px}.cr-b.them.tail{border-bottom-left-radius:6px}
+.cr-b.joined,.cr-r.joined{margin-top:-4px}
+.cr-r.nav .cc-av{visibility:hidden}
+.cr-b.in{animation:crPop .26s cubic-bezier(.2,.9,.3,1.15)}
+.cr-b.me.in{--fx:22px}.cr-b.them.in,.cr-r.in .cr-b{--fx:-22px}.cr-r.in{--fx:-22px;animation:crPop .26s cubic-bezier(.2,.9,.3,1.15)}.cr-r.in .cr-b.in{animation:none}
+@keyframes crPop{from{opacity:0;transform:translate(var(--fx,0),8px) scale(.92)}to{opacity:1;transform:none}}
+.cr-b.star{border:1.5px solid hsl(var(--primary)/.7);box-shadow:0 0 0 3px hsl(var(--primary)/.14),0 2px 10px hsl(var(--primary)/.25)}
+.cr-time{display:block;margin-top:2px;font:500 10.5px var(--sans);opacity:.65;text-align:right}
+.cr-day{align-self:center;margin:6px 0 4px;padding:3px 12px;border-radius:99px;background:hsl(var(--card)/.8);color:var(--soft);font:600 11.5px var(--sans)}
+.cr-seen{align-self:flex-end;margin:-2px 6px 0 0;color:var(--soft);font:500 10.5px var(--sans)}
+.cr-img{animation:crBlur .5s ease-out}@keyframes crBlur{from{filter:blur(14px);opacity:.4}to{filter:none;opacity:1}}
+.cr-opt{animation:riseIn .28s var(--ease,ease-out) backwards;animation-delay:calc(var(--i,0)*70ms);transition:transform .2s,opacity .2s}
+.cr-opt.chosen{transform:scale(1.05);background:hsl(var(--primary));color:#fff}.cr-opt.gone{opacity:0;transform:scale(.96)}
+.cr-foot.end{animation:riseIn .3s var(--ease,ease-out)}
+.cr-hint{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px;text-align:center;color:#fff;background:rgba(14,10,24,.62);cursor:pointer}
+.cr-hint b{font:700 22px/1.25 var(--serif);max-width:280px}.cr-hint svg{animation:crTap 1.3s ease-in-out infinite}
+@keyframes crTap{0%,100%{transform:translateY(0) scale(1)}45%{transform:translateY(-8px) scale(1.06)}60%{transform:translateY(0) scale(.94)}}
+.cc-pre{display:block;font:400 12.5px var(--sans);color:hsl(var(--foreground));opacity:.85;font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ce-when{margin:8px 0 2px}.ce-when-r{display:flex;gap:8px;margin-top:4px}.ce-when-r input{flex:1;min-width:0}
+.ce-star{font-style:normal;color:hsl(var(--primary));margin-right:4px}.ce-hr{font-style:normal;font-size:11px;opacity:.7;margin-right:6px}
+.ce-row.star .ce-bub{box-shadow:0 0 0 2px hsl(var(--primary)/.45)}
+@media (prefers-reduced-motion:reduce){.cr-hint svg,.cr-img,.cr-opt,.cr-foot.end,.cr-r.in{animation:none}}
+html.lite .cr-img,html.lite .cr-hint svg{animation:none}
+html.lite .cr-b.in,html.lite .cr-r.in{animation-duration:.14s}

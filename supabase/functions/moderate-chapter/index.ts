@@ -61,11 +61,11 @@ export function flattenChats(text: string): string {
       const c = JSON.parse(m[1]); if (!c || !Array.isArray(c.m)) return line;
       const ps: { n?: string }[] = Array.isArray(c.p) ? c.p : [], who = (w: unknown) => (typeof w === 'number' && w >= 0 && ps[w] ? String(ps[w].n || '?') : 'Yo');
       const head = (c.k === 'g' ? 'Grupo «' : 'Chat con «') + String(c.n || (ps[0] && ps[0].n) || '') + '»' + (c.k === 'g' ? ' (' + ps.map((x) => x.n || '?').join(', ') + ')' : '');
-      type Msg = { s?: number; n?: number; ch?: number; w?: number; t?: string; i?: string; o?: { t?: string; r?: Msg[] }[] };
-      const one = (x: Msg) => x && x.s ? '— ' + String(x.t || '') + ' —' : x && x.n ? 'Narración: ' + String(x.t || '').replace(/\s*\n+\s*/g, ' / ') : who(x && x.w) + ': ' + (x && x.i ? '[Imagen] ' : '') + String((x && x.t) || '').replace(/\s*\n+\s*/g, ' / ');
+      type Msg = { st?: number; s?: number; n?: number; ch?: number; w?: number; t?: string; i?: string; o?: { t?: string; r?: Msg[] }[] };
+      const one = (x: Msg) => x && x.st ? 'Estado: ' + String(x.t || '') : x && x.s ? '— ' + String(x.t || '') + ' —' : x && x.n ? 'Narración: ' + String(x.t || '').replace(/\s*\n+\s*/g, ' / ') : who(x && x.w) + ': ' + (x && x.i ? '[Imagen] ' : '') + String((x && x.t) || '').replace(/\s*\n+\s*/g, ' / ');
       // las elecciones se revisan completas: cada respuesta de quien lee y cada reacción
       const msg = (x: Msg): string => x && x.ch ? ['Elección:', ...(x.o || []).flatMap((o, i) => ['  Opción ' + (i + 1) + ' — Yo: ' + String(o.t || ''), ...(o.r || []).map((y) => '    ' + one(y))])].join('\n') : one(x);
-      return [head, ...c.m.map(msg)].join('\n');
+      return [head + (c.d ? ' · ' + String(c.d) : ''), ...c.m.map(msg)].join('\n');
     } catch { return line; }
   }).join('\n');
 }
