@@ -2000,4 +2000,10 @@ window.I18N = { en: {
   'Estilos de chat para {n}': 'Chat styles for {n}',
   'Toca un paquete para regalarlo; vuelve a tocarlo para quitarlo.': 'Tap a pack to gift it; tap it again to take it back.',
   'Ese paquete es para otras cuentas.': 'That pack is for other accounts.',
+  'Retro 2000': 'Retro 2000',
+  'Mensajería de los 2000: cromado y ventanas': '2000s messenger: chrome and windows',
+  'Victoriano': 'Victorian',
+  'Papel antiguo, tinta y sellos': 'Old paper, ink and seals',
+  'Futurista': 'Futuristic',
+  'Neón, rejilla y pantalla de nave': 'Neon, grid and spaceship display',
 } };

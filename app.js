@@ -1225,8 +1225,8 @@ async function modReport(o) {
    Por ahora solo la Owner tiene los paquetes y los regala (para probar). La tienda y el pase vendrán después. */
 const CS_PIECES = [['bubble', 'Burbujas'], ['font', 'Letra'], ['bg', 'Fondo'], ['top', 'Barra de arriba'], ['bot', 'Barra de abajo y elecciones'], ['det', 'Detalles']];
 const CS_FREE = { bubble: [['fluid', 'Fluida'], ['square', 'Cuadrada']] };
-const CS_PACKS = { kawaii: ['Kawaii', 'Pastel, corazones y letra redondita'] };               // paquetes ya hechos (los demás se irán sumando)
-const CS_FONT = { kawaii: 'Fredoka:wght@400;600' };
+const CS_PACKS = { kawaii: ['Kawaii', 'Pastel, corazones y letra redondita'], retro: ['Retro 2000', 'Mensajería de los 2000: cromado y ventanas'], victoriano: ['Victoriano', 'Papel antiguo, tinta y sellos'], futurista: ['Futurista', 'Neón, rejilla y pantalla de nave'] };               // paquetes ya hechos (los demás se irán sumando)
+const CS_FONT = { kawaii: 'Fredoka:wght@400;600', victoriano: 'Cormorant+Garamond:ital,wght@0,500;0,700;1,500;1,700', futurista: 'Rajdhani:wght@500;700&family=Orbitron:wght@600' };
 const csOwned = e => (roleOf(e) === 'OWNER' ? Object.keys(CS_PACKS) : ((getUsers()[e] || {}).skins || [])).filter(k => CS_PACKS[k]);
 const csSel = () => { const o = { bubble: 'fluid', font: '', bg: '', top: '', bot: '', det: '' }, c = cfg('chatSkin') || {}, own = csOwned(S.user);
   for (const [k] of CS_PIECES) { const v = c[k]; if (typeof v === 'string' && ((CS_FREE[k] || []).some(x => x[0] === v) || own.includes(v))) o[k] = v; } return o; };
