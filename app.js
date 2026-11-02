@@ -78,7 +78,7 @@ function perfProbe() {                                   // mide unos 50 fotogra
   requestAnimationFrame(step);
 }
 perfApply(); window.addEventListener('load', () => setTimeout(perfProbe, 3500));
-const CFG_DEFAULTS = { align: 'left', margin: 'md', sepStyle: 'classic', rbg: 'auto', dropcap: true, fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], avoidWarns: [], hideDone: true, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
+const CFG_DEFAULTS = { align: 'left', margin: 'md', sepStyle: 'classic', rbg: 'auto', chatSkin: null, dropcap: true, fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], avoidWarns: [], hideDone: true, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
 const cfg = k => {
   const c = S.cfg || {};
   if (k === 'showMature') { const u = getUsers()[S.user]; if (isMinor(u)) return false; return c.showMature == null ? isAdult(u) : c.showMature; }   // por defecto: visible solo si ya declaraste ser mayor de edad
@@ -614,7 +614,7 @@ async function sbMirror() {
   const pv = (q.ok && Array.isArray(q.data) && q.data[0]) || {};
   const email = String(s.email || pv.email || '').toLowerCase(), us = LS.get('auri.users', {}), old = us[email] || {};
   us[email] = { ...old, uid: s.uid, cloud: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || old.bio || '', avatar: pr.avatar || old.avatar || '', banner: pr.banner || old.banner || '',
-    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
+    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
     birth: pv.birth || old.birth || '', gender: pv.gender || old.gender || '', interests: pv.interests || old.interests || [], onboarded: true,
     termsAccepted: pr.terms_accepted || old.termsAccepted, created: String(pr.created_at || '').slice(0, 10) || old.created, strikes: old.strikes || [] };
   LS.set('auri.users', us);
@@ -899,7 +899,7 @@ async function sbPullPublic() {                           // trae las obras de o
   for (const o of owners) {
     const pr = prof.find(x => x.id === o); if (!pr) continue; const key = remoteKey(o), old = us[key] || {};
     us[key] = { ...old, uid: o, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
     const list = [];
     for (const r of stories.filter(x => x.owner === o)) {
       const pubs = (pubBy.get(r.id) || []), wk = (wkBy.get(r.id) || []), cmap = new Map();
@@ -1071,7 +1071,7 @@ async function sbSyncSocial(only) {
 function sbPseudo(pr, old) {                                   // copia local de la cuenta de otra persona (sin datos privados)
   old = old || {};
   return { ...old, uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
 }
 const SOC_G = { 'auri.likes': ['likes'], 'auri.follows': ['follows'], 'auri.comments': ['comments', 'comment_likes'], 'auri.pcom': ['pcom', 'pcom_likes'], 'auri.subs': ['subscriptions'] };
 let SB_SOC_T;
@@ -1219,6 +1219,53 @@ async function modReport(o) {
   if (!r.ok) return modErr(r);
   await sbSyncMod(true); return '';
 }
+/* ---------- Estilos de chat (skins) ----------
+   Las elige quien lee. Seis piezas: burbujas, letra, fondo, barra de arriba, barra de abajo con elecciones y detalles.
+   Gratis: burbuja fluida (la de siempre) y cuadrada, con el color del tema. Cada paquete trae las seis piezas; se pueden mezclar piezas de paquetes que ya tienes.
+   Por ahora solo la Owner tiene los paquetes y los regala (para probar). La tienda y el pase vendrán después. */
+const CS_PIECES = [['bubble', 'Burbujas'], ['font', 'Letra'], ['bg', 'Fondo'], ['top', 'Barra de arriba'], ['bot', 'Barra de abajo y elecciones'], ['det', 'Detalles']];
+const CS_FREE = { bubble: [['fluid', 'Fluida'], ['square', 'Cuadrada']] };
+const CS_PACKS = { kawaii: ['Kawaii', 'Pastel, corazones y letra redondita'] };               // paquetes ya hechos (los demás se irán sumando)
+const CS_FONT = { kawaii: 'Fredoka:wght@400;600' };
+const csOwned = e => (roleOf(e) === 'OWNER' ? Object.keys(CS_PACKS) : ((getUsers()[e] || {}).skins || [])).filter(k => CS_PACKS[k]);
+const csSel = () => { const o = { bubble: 'fluid', font: '', bg: '', top: '', bot: '', det: '' }, c = cfg('chatSkin') || {}, own = csOwned(S.user);
+  for (const [k] of CS_PIECES) { const v = c[k]; if (typeof v === 'string' && ((CS_FREE[k] || []).some(x => x[0] === v) || own.includes(v))) o[k] = v; } return o; };
+function csFont(sel) { for (const v of Object.values(sel)) { const f = CS_FONT[v]; if (f && !FONT_LOADED.has('cs-' + v)) { FONT_LOADED.add('cs-' + v); const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=' + f + '&display=swap'; document.head.appendChild(l); } } }
+function csApply(el, sel) { sel = sel || csSel(); csFont(sel); for (const [k] of CS_PIECES) el.setAttribute('data-sk-' + k, sel[k] || ''); }
+function csSet(patch) { setCfg('chatSkin', { ...csSel(), ...patch }); KEEP = true; render(); }
+function csPreview() {
+  const sel = csSel(); csFont(sel);
+  return `<div class="cr cs-prev" ${CS_PIECES.map(([k]) => `data-sk-${k}="${esc(sel[k] || '')}"`).join(' ')} aria-hidden="true"><header class="cr-top"><span class="cr-who"><span class="cc-av"><em>M</em></span><span><b>Mizuki</b><small>${t('en línea')}</small></span></span></header>
+  <div class="cr-body"><div class="cr-msgs"><div class="cr-day">${t('Hoy')} · ${chatTime('23:42')}</div><div class="cr-b them tail">${t('¿Sigues despierta?')}</div><div class="cr-b me tail">${t('Sí, ¿qué pasó?')}</div><small class="cr-seen">${t('Visto')}</small></div></div>
+  <footer class="cr-foot pick"><button type="button" class="cr-opt" tabindex="-1">${t('Contarle todo')}</button><button type="button" class="cr-opt" tabindex="-1">${t('Mejor mañana')}</button></footer></div>`;
+}
+function csBody() {
+  const sel = csSel(), own = csOwned(S.user), btn = (p, v, l) => `<button type="button" class="seg-b ${sel[p] === v ? 'on' : ''}" role="radio" aria-checked="${sel[p] === v}" data-act="cs-piece" data-p="${p}" data-v="${v}">${esc(t(l))}</button>`;
+  return `<section class="panel set-sec"><p class="helper" style="margin:0 0 10px">${t('Así se verán los chats que leas. El color de las burbujas gratis sale del color de tu tema.')}</p>${csPreview()}
+  ${own.length ? `<div class="set-col"><span>${t('Aplicar un paquete completo')}</span><div class="cs-packs">${own.map(k => `<button type="button" class="button secondary sm" data-act="cs-all" data-v="${k}">${esc(t(CS_PACKS[k][0]))}</button>`).join('')}<button type="button" class="button ghost sm" data-act="cs-all" data-v="">${t('Restablecer')}</button></div></div>` : ''}
+  ${CS_PIECES.map(([p, l]) => `<div class="set-col"><span>${t(l)}</span><div class="seg cs-seg" role="radiogroup">${p === 'bubble' ? CS_FREE.bubble.map(([v, n]) => btn(p, v, n)).join('') : btn(p, '', 'Normal')}${own.map(k => btn(p, k, CS_PACKS[k][0])).join('')}</div></div>`).join('')}</section>`;
+}
+function openSkinGift(tg) {
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  const has = k => ((getUsers()[tg] || {}).skins || []).includes(k);
+  const draw = () => { m.querySelector('.cs-gl').innerHTML = Object.keys(CS_PACKS).map(k => `<button type="button" class="seg-b ${has(k) ? 'on' : ''}" data-pk="${k}" aria-pressed="${has(k)}">${esc(t(CS_PACKS[k][0]))}${has(k) ? ' ✓' : ''}</button>`).join(''); };
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Estilos de chat para {n}', { n: esc(uName(tg)) })}</h2><p class="helper">${t('Toca un paquete para regalarlo; vuelve a tocarlo para quitarlo.')}</p><div class="cs-gl seg"></div><p class="error-line" data-err role="alert"></p></div>`;
+  draw();
+  m.addEventListener('click', async ev => {
+    const b = ev.target.closest('[data-pk]');
+    if (b) { const k = b.dataset.pk, r = await skinGift(tg, k, !has(k)); m.querySelector('[data-err]').textContent = r || ''; if (!r) draw(); return; }
+    if (ev.target === m || ev.target.closest('[data-no]')) { m.remove(); KEEP = true; render(); }
+  });
+  document.body.appendChild(m);
+}
+async function skinGift(tg, pack, on) {
+  if (!isOwner()) return t('Solo la Owner puede regalar.'); if (!CS_PACKS[pack] || roleOf(tg) === 'OWNER' || tg === S.user) return t('Ese paquete es para otras cuentas.');
+  { const cu = modUid(tg); if (cu) return modDo(on ? 'skin_gift' : 'skin_take', { to_id: cu, pack }); }
+  const us = getUsers(), u = us[tg]; if (!u) return t('No encontré esa cuenta.');
+  const cur = (u.skins || []).filter(x => x !== pack); u.skins = on ? [...cur, pack] : cur; G.set('users', us);
+  pushNotif(tg, { type: 'sys', extra: on ? '¡Te regalaron un estilo de chat ({n})! Actívalo en Ajustes › Estilo de chat.' : 'Se retiró un estilo de chat de tu cuenta ({n}).', xv: { n: t(CS_PACKS[pack][0]) } });
+  logAction(on ? 'skin-gift' : 'skin-take', tg, (on ? 'Estilo de chat regalado · ' : 'Estilo de chat retirado · ') + CS_PACKS[pack][0]); return '';
+}
 /* REGALOS de lazos (solo la Owner regala; sin límite y sin vencimiento; el marco del equipo no se regala) */
 async function bowGift(tg, bow, on) {
   if (!isOwner()) return t('Solo la Owner puede regalar.'); if (!BOWS[bow] || roleOf(tg) === 'OWNER' || tg === S.user) return t('Ese lazo es para otras cuentas.');
@@ -1255,7 +1302,7 @@ function softRender(force) {
   KEEP = true; render();
 }
 let MOD_BUSY = false, MOD_LAST = 0, MOD_PROF = 0;
-const modSig = () => { const us = LS.get('auri.users', {}), o = {}; for (const k in us) { const u = us[k]; if (u && (u.remote || k === S.user)) o[k] = [u.role, u.scope, u.frameWorn, u.frameSel, u.frameTop, u.bows, u.strikes, u.ban, u.modSince, u.admSince]; } return JSON.stringify([o, G.get('reports', []), G.get('appeals', []), G.get('gifts', []), G.get('modlog', [])]); };
+const modSig = () => { const us = LS.get('auri.users', {}), o = {}; for (const k in us) { const u = us[k]; if (u && (u.remote || k === S.user)) o[k] = [u.role, u.scope, u.frameWorn, u.frameSel, u.frameTop, u.bows, u.skins, u.strikes, u.ban, u.modSince, u.admSince]; } return JSON.stringify([o, G.get('reports', []), G.get('appeals', []), G.get('gifts', []), G.get('modlog', [])]); };
 async function sbSyncMod(force) {
   if (!modCloud()) return false;
   if (MOD_BUSY) return false; MOD_BUSY = true; MOD_LAST = Date.now();
@@ -1275,7 +1322,7 @@ async function sbSyncMod(force) {
     const need = [me]; if (force || Date.now() - MOD_PROF > 600000) { MOD_PROF = Date.now(); for (const key in us) if (us[key] && us[key].remote && us[key].uid) need.push(us[key].uid); }
     for (let i = 0; i < need.length; i += 80) {
       const pr = await sbApi('/rest/v1/profiles?select=*&id=in.(' + need.slice(i, i + 80).join(',') + ')');
-      if (pr.ok && Array.isArray(pr.data)) pr.data.forEach(p => { const key = ids.key(p.id); if (key && us[key]) us[key] = { ...us[key], role: p.role, scope: Array.isArray(p.scope) ? p.scope : [], frameWorn: !!p.frame_worn, frameSel: p.frame_sel == null ? undefined : p.frame_sel, hideLists: !!p.hide_lists, frameTop: !!p.frame_top, bows: Array.isArray(p.bows) ? p.bows : [], showReading: !!p.show_reading, modSince: p.mod_since || undefined, admSince: p.adm_since || undefined }; });
+      if (pr.ok && Array.isArray(pr.data)) pr.data.forEach(p => { const key = ids.key(p.id); if (key && us[key]) us[key] = { ...us[key], role: p.role, scope: Array.isArray(p.scope) ? p.scope : [], frameWorn: !!p.frame_worn, frameSel: p.frame_sel == null ? undefined : p.frame_sel, hideLists: !!p.hide_lists, frameTop: !!p.frame_top, bows: Array.isArray(p.bows) ? p.bows : [], skins: Array.isArray(p.skins) ? p.skins : [], showReading: !!p.show_reading, modSince: p.mod_since || undefined, admSince: p.adm_since || undefined }; });
     }
     LS.set('auri.users', us);
     if (ap) G.set('appeals', ap.map(x => ({ id: x.id, user: k(x.user_id), banDate: x.ban_date, ban: { reason: x.ban_reason || '', by: k(x.ban_by), until: x.ban_until || null }, text: x.text, imgs: x.imgs || [], date: day(x.created_at), status: x.status, handledBy: k(x.handled_by), handledDate: day(x.handled_at), note: x.note || '' })));
@@ -1811,7 +1858,7 @@ async function sbSearchUsers() {                         // trae de Supabase a l
   const us = LS.get('auri.users', {}), me = sbSes() && sbSes().uid; let ch = false;
   r.data.filter(p => p.id !== me).forEach(pr => { const key = remoteKey(pr.id), old = us[key];
     const n = { ...(old || {}), uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
     if (JSON.stringify(old) !== JSON.stringify(n)) { us[key] = n; ch = true; } });
   if (ch) { LS.set('auri.users', us); const l = $('#list'); if (l && SM === 'users') l.innerHTML = usersList(); }
 }
@@ -2442,6 +2489,7 @@ function chatOpen(k) {
   const m = document.createElement('div'); m.id = 'chat-rd'; m.className = 'cr'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
   m.innerHTML = `<header class="cr-top"><button type="button" class="icon-btn" data-act="cr-close" aria-label="${esc(t('Cerrar chat'))}">✕</button><span class="cr-who"><span class="cc-av">${chatAv(chatHead(c))}</span><span><b>${esc(chatTitle(c))}</b><small${c.k === 'g' ? ' class="g"' : ''}>${c.k === 'g' ? esc([...c.p.map(x => x.n), t('Yo')].join(', ')) : t('en línea')}</small></span></span><button type="button" class="button ghost sm" data-act="cr-all">${t('Ver todo')}</button></header>
   <div class="cr-body"><div class="cr-msgs" id="cr-msgs"></div></div><footer class="cr-foot" id="cr-foot"></footer>`;
+  csApply(m);
   m.addEventListener('click', e => { const h = $('#cr-hint'); if (h) { h.remove(); LS.set('auri.crhint', true); } if (e.target.closest('button')) return; crNext(); });
   document.body.appendChild(m);
   CR = { k, c, m: chatExpand(c, k), n: 0, busy: false, dead: false, side: null };
@@ -2456,7 +2504,7 @@ const chatImgSt = u => CIMG.get(u) || (CR && CR.k.indexOf('w|') === 0 ? 'ok' : '
 const chatImgHTML = u => { const st = chatImgSt(u); return st === 'ok' ? `<button type="button" class="cr-imgb" data-act="cr-img" data-u="${esc(u)}" aria-label="${esc(t('Ver foto'))}"><img class="cr-img" src="${esc(u)}" alt="" loading="lazy" data-noguard></button>` : `<span class="cr-imgph ${st}" data-u="${esc(u)}">${t(st === 'hidden' ? 'Foto oculta' : 'Revisando la foto…')}</span>`; };
 function chatImgPaint() {
   document.querySelectorAll('#chat-rd .cr-imgph[data-u], #chat-rd .cr-imgb[data-u]').forEach(el => { const u = el.dataset.u, ok = el.classList.contains('cr-imgb'), st = chatImgSt(u); if ((st === 'ok') === ok && (ok || el.classList.contains(st))) return; const d = document.createElement('div'); d.innerHTML = chatImgHTML(u); el.replaceWith(d.firstChild); });
-  const b = $('#chat-rd .cr-body'); if (b && CR) b.style.backgroundImage = CR.c.bg && chatImgSt(CR.c.bg) === 'ok' ? `linear-gradient(hsl(var(--background)/.3),hsl(var(--background)/.3)),url('${CR.c.bg}')` : '';
+  const b = $('#chat-rd .cr-body'); if (b && CR) b.toggleAttribute('data-ab', !!(CR.c.bg && chatImgSt(CR.c.bg) === 'ok')); if (b && CR) b.style.backgroundImage = CR.c.bg && chatImgSt(CR.c.bg) === 'ok' ? `linear-gradient(hsl(var(--background)/.3),hsl(var(--background)/.3)),url('${CR.c.bg}')` : '';
 }
 async function chatImgSync(n) {
   if (!CR) return; const c = CR.c, need = [...c.m.filter(x => x.i).map(x => x.i), ...(c.bg ? [c.bg] : [])].filter(u => CIMG.get(u) !== 'ok'); chatImgPaint(); if (!need.length || !cloud()) return;
@@ -3517,7 +3565,7 @@ const LOGT = { strike: ['Strike', 'strikes'], 'strike-annul': ['Strike anulado',
   'report-resolved': ['Reporte resuelto', 'rep'], 'report-dismissed': ['Reporte descartado', 'rep'], 'report-open': ['Reporte reabierto', 'rep'], takedown: ['Obra retirada de Descubrir', 'cont'], restore: ['Obra restaurada', 'cont'], unmature: ['Quitó la marca +18', 'cont'], mark18: ['Marcó como +18', 'cont'],
   'news-post': ['Publicó un anuncio', 'pub'], 'news-edit': ['Editó un anuncio', 'pub'], 'news-del': ['Eliminó un anuncio', 'pub'], 'banner-add': ['Añadió una tarjeta al banner', 'pub'], 'banner-edit': ['Editó una tarjeta del banner', 'pub'], 'banner-del': ['Quitó una tarjeta del banner', 'pub'], 'post-approve': ['Aprobó una publicación', 'pub'], 'post-reject': ['Rechazó una publicación', 'pub'],
   'del-comment': ['Comentario eliminado', 'cont'], 'chapter-approve': ['Capítulo aprobado', 'cont'], 'chapter-reject': ['Capítulo rechazado', 'cont'],
-  'scope-set': ['Cambió las comunidades que modera', 'roles'], 'gift-send': ['Regaló un marco', 'gifts'], 'bow-gift': ['Regaló un lazo', 'gifts'], 'bow-take': ['Retiró un lazo', 'gifts'], 'gift-claim': ['Reclamó su marco', 'gifts'], 'gift-expire': ['Regalo vencido (cupo devuelto)', 'gifts'], 'gift-revoke': ['Regalo retirado (cupo devuelto)', 'gifts'] };
+  'scope-set': ['Cambió las comunidades que modera', 'roles'], 'gift-send': ['Regaló un marco', 'gifts'], 'bow-gift': ['Regaló un lazo', 'gifts'], 'skin-gift': ['Regaló un estilo de chat', 'gifts'], 'skin-take': ['Retiró un estilo de chat', 'gifts'], 'bow-take': ['Retiró un lazo', 'gifts'], 'gift-claim': ['Reclamó su marco', 'gifts'], 'gift-expire': ['Regalo vencido (cupo devuelto)', 'gifts'], 'gift-revoke': ['Regalo retirado (cupo devuelto)', 'gifts'] };
 const logInfo = t => LOGT[t] || (/^(invite|accept|test-role)/.test(t) ? ['Cambio de rol', 'roles'] : [t, 'otro']);
 function logView(tabs) {
   const F = [['all', 'Todo'], ['strikes', 'Strikes'], ['susp', 'Suspensiones'], ['rep', 'Reportes'], ['cont', 'Contenido'], ['pub', 'Publicaciones'], ['gifts', 'Regalos'], ['roles', 'Roles']], all = G.get('modlog', []).filter(x => modSel() === 'all' || !getUsers()[x.target] || commOf(x.target) === modSel()), who = [...new Set(all.map(x => x.by).filter(Boolean))], l = all.filter(x => (LOGF === 'all' || logInfo(x.type)[1] === LOGF) && (LOGW === 'all' || x.by === LOGW));
@@ -3686,6 +3734,7 @@ function settingsView(secId) {
       <div class="set-row"><span>${t('Idioma')}</span><select class="select set-lang" aria-label="${esc(t('Idioma'))}"><option value="auto" ${uiSetting() === 'auto' ? 'selected' : ''}>${t('Automático')}</option><option value="es" ${uiSetting() === 'es' ? 'selected' : ''}>${t('Español')}</option><option value="en" ${uiSetting() === 'en' ? 'selected' : ''}>${t('English')}</option></select></div>
       <div class="set-row"><span>${t('Rendimiento')}</span><div class="seg" role="radiogroup">${[['auto', 'Automático'], ['high', 'Máxima calidad'], ['lite', 'Ahorro']].map(([v, l]) => `<button type="button" class="seg-b ${perfMode() === v ? 'on' : ''}" role="radio" aria-checked="${perfMode() === v}" data-act="perf-set" data-v="${v}">${t(l)}</button>`).join('')}</div></div>
       <p class="helper" style="margin:0 0 6px">${t('«Automático» quita los desenfoques y los adornos animados solo si tu teléfono va justo. «Ahorro» los quita siempre; la lectura no cambia.')}</p></section>` },
+    chat: { ico: '💬', c: '#e0457b', t: t('Estilo de chat'), sub: t('Burbujas, letra y fondo'), body: () => csBody() },
     lectura: { ico: '📖', c: '#3e8fd0', t: 'Lectura', sub: `${t('Letra ' + ({ sm: 'pequeña', md: 'normal', lg: 'grande' })[cfg('fontSize')])} · ${t((FONTS.find(f => f[0] === cfg('font')) || FONTS[0])[1])}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tamaño de letra')}</span>${seg('fontSize', [['sm', 'Pequeña'], ['md', 'Normal'], ['lg', 'Grande']], cfg('fontSize'))}</div>
       <div class="set-col"><span>${t('Tipografía')}</span><div class="font-grid">${(FONTS.forEach(f => loadFont(f[0])), FONTS).map(f => `<button type="button" class="font-opt ${cfg('font') === f[0] ? 'on' : ''}" data-act="cfg" data-k="font" data-v="${f[0]}" style="font-family:${READ.font[f[0]]}" aria-pressed="${cfg('font') === f[0]}"><b>Aa</b><span>${esc(t(f[1]))}</span></button>`).join('')}</div></div>
       <div class="set-col"><span>${t('Fondo de lectura')}</span><div class="rbg-grid">${[['auto', 'Del tema'], ['cream', 'Crema'], ['sepia', 'Sepia'], ['night', 'Noche'], ['paper', 'Papel']].map(b => `<button type="button" class="rbg-opt ${cfg('rbg') === b[0] ? 'on' : ''}" data-act="cfg" data-k="rbg" data-v="${b[0]}" data-rbg="${b[0]}" aria-pressed="${cfg('rbg') === b[0]}"><span class="rbg-sw"></span>${t(b[1])}</button>`).join('')}</div></div>
@@ -3725,7 +3774,7 @@ function settingsView(secId) {
       <section class="panel set-sec danger-zone"><h2>${t('⚠️ Zona de peligro')}</h2><p class="helper" style="margin:8px 0 12px">${t('Eliminar tu cuenta borra tus historias (publicadas, en revisión y borradores), biblioteca, personajes, comentarios, likes y seguidores. No se puede deshacer.')}</p><button class="button danger" data-act="acct-delete">${t('Eliminar cuenta')}</button></section>` },
     acerca: { ico: 'ℹ️', c: '#7a869a', t: 'Acerca de', sub: t('Versión {v}', { v: APP_VERSION }), body: () => `<section class="panel set-sec"><div class="set-btns"><button class="button secondary" data-act="terms">${t('Términos y condiciones')}</button><button class="button secondary" data-act="privacy">${t('Política de privacidad')}</button><button class="button secondary" data-act="report">${t('Reportar un error')}</button></div>${sw('hideBugFab', !!cfg('hideBugFab'), 'Ocultar el botón flotante de errores', 'Sigue disponible aquí, en Acerca de.')}<p class="helper" style="margin:14px 0 0;text-align:center">${t('Auri · versión {v}', { v: APP_VERSION })}</p></section>` }
   };
-  const SECSUB = { apariencia: 'Tema, color e idioma', lectura: 'Letra, fuente y música', contenido: '+18, etiquetas y avisos', intereses: 'Temas que te gustan', bloqueos: 'Personas que bloqueaste o silenciaste', notificaciones: 'Qué avisos recibes', datos: 'Exportar, importar y borrar', cuenta: 'Usuario, correo y sesión', acerca: 'Términos, privacidad y versión' };
+  const SECSUB = { chat: 'Burbujas, letra y fondo', apariencia: 'Tema, color e idioma', lectura: 'Letra, fuente y música', contenido: '+18, etiquetas y avisos', intereses: 'Temas que te gustan', bloqueos: 'Personas que bloqueaste o silenciaste', notificaciones: 'Qué avisos recibes', datos: 'Exportar, importar y borrar', cuenta: 'Usuario, correo y sesión', acerca: 'Términos, privacidad y versión' };
   if (secId && SECS[secId]) {                                    // pantalla de una sección
     const x = SECS[secId];
     return `<main class="page story-layout settings"><div class="set-head"><button class="icon-btn" data-act="set-back" aria-label="${esc(t('Volver a Ajustes'))}">‹</button><h2><span class="set-ico" style="--c:${x.c}">${x.ico}</span><span class="set-tt">${t(x.t)}${SECSUB[secId] ? `<small>${t(SECSUB[secId])}</small>` : ''}</span></h2></div>${x.body()}</main>`;
@@ -3735,7 +3784,7 @@ function settingsView(secId) {
   const role = t(ROLE_LABEL[roleOf(S.user)]);
   return `<main class="page story-layout settings"><div class="set-head"><button class="icon-btn" data-act="settings-back" aria-label="${esc(t('Volver'))}">‹</button><h2>${t('Ajustes')}</h2></div>
   <a class="set-me" style="${isGuest() ? 'display:none' : ''}" href="#/profile" data-dir="next">${userAvatar(S.user, 'big')}<span class="set-txt"><b>${esc(u.name || t('Mi cuenta'))}</b><small>${esc(S.user)}</small>${role ? `<em class="role-tag ${roleOf(S.user).toLowerCase()}">🛡 ${role}</em>` : ''}</span>${CHEV}</a>
-  ${isGuest() ? group('Cuenta', ['cuenta']) + group('Preferencias', ['apariencia', 'lectura']) + group('Ayuda', ['acerca']) : group('Cuenta', ['cuenta', 'intereses', 'bloqueos']) + group('Preferencias', ['apariencia', 'lectura', 'contenido', 'notificaciones']) + group('Datos y ayuda', ['datos', 'acerca'])}
+  ${isGuest() ? group('Cuenta', ['cuenta']) + group('Preferencias', ['apariencia', 'lectura', 'chat']) + group('Ayuda', ['acerca']) : group('Cuenta', ['cuenta', 'intereses', 'bloqueos']) + group('Preferencias', ['apariencia', 'lectura', 'chat', 'contenido', 'notificaciones']) + group('Datos y ayuda', ['datos', 'acerca'])}
   <button class="button danger set-logout" data-act="logout">${isGuest() ? t('Salir del modo invitado') : t('Cerrar sesión')}</button></main>`;
 }
 
@@ -4243,6 +4292,7 @@ function admMenu(tg) {
   ${canBan() && strikesOf(tg).length ? `<div class="adm-strikes"><b>${t('Strikes activos')}</b>${strikesOf(tg).map(x => `<div class="adm-strike"><span>${esc(fmtDate(x.date))} · ${esc(x.reason)}</span><button type="button" class="link-btn" data-act="adm-unstrike" data-id="${esc(tg)}" data-sid="${esc(x.id)}">${t('Anular')}</button></div>`).join('')}</div>` : ''}
   ${up && (r === 'MODERATOR' || r === 'ADMIN') ? `<button class="adm-item" data-act="adm-scope" data-id="${esc(tg)}">🌐 ${t('Comunidades que modera: {c}', { c: staffScope(tg).map(c => COMMS[c]).join(' / ') })}</button>` : ''}
   ${up && r === 'USER' ? `<button class="adm-item" data-act="bow-gift" data-id="${esc(tg)}">🎀 ${t('Regalar lazos')}</button>` : ''}
+  ${up && r === 'USER' ? `<button class="adm-item" data-act="skin-gift" data-id="${esc(tg)}">💬 ${t('Regalar estilos de chat')}</button>` : ''}
   ${up ? `<button class="adm-item" data-act="gift-profile" data-id="${esc(tg)}">🎁 ${t('Regalar marco Top 50 (quedan {n})', { n: giftLeft() })}</button>` : ''}
   ${up && r === 'USER' ? `<button class="adm-item" data-act="adm-mod" data-id="${esc(tg)}">${t('🛡 Hacer moderador')}</button>` : ''}
   ${up && r === 'MODERATOR' ? `<button class="adm-item" data-act="adm-admin" data-id="${esc(tg)}">${t('⭐ Ascender a administración')}</button>` : ''}
@@ -4783,6 +4833,9 @@ document.addEventListener('click', e => {
     'adm-scope': () => { if (!isOwner()) return; const us = getUsers(), cur = staffScope(id), nx = cur.length > 1 ? ['es'] : cur[0] === 'es' ? ['en'] : ['es', 'en']; if (!us[id]) return; us[id].scope = nx; G.set('users', us); if (modCloud() && us[id].uid) sbApi('/rest/v1/profiles?id=eq.' + us[id].uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { scope: nx } }); logAction('scope-set', id, 'Modera: ' + nx.map(c => COMMS[c]).join(' y ')); toast(t('Ahora modera: {c}', { c: nx.map(c => COMMS[c]).join(' / ') })); KEEP = true; render(); },
     'gift-send': async () => { const inp = $('#g-to'), r = await giftSend(inp ? inp.value : ''), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('Regalo enviado: tiene 24 h para reclamarlo')); KEEP = true; render(); },
     'bow-gift': () => { if (isOwner() && canAct(id)) openBowGift(id); },
+    'skin-gift': () => { if (isOwner() && canAct(id)) openSkinGift(id); },
+    'cs-piece': () => { csSet({ [el.dataset.p]: el.dataset.v }); },
+    'cs-all': () => { const v = el.dataset.v; csSet(Object.fromEntries(CS_PIECES.map(([k]) => [k, k === 'bubble' && !v ? 'fluid' : v]))); },
     'gift-profile': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Regalar el marco Top 50 a {n}?', { n: uName(id) }), t('Tendrá 24 h para reclamarlo. Si no lo hace, el regalo se cancela y el cupo vuelve a ti. Quedan {a} de {b}.', { a: giftLeft(), b: GIFT_TOTAL }), t('Regalar'), t('Cancelar'), async () => { const r = await giftSend(id); toast(r || t('Regalo enviado ✓')); KEEP = true; render(); }); },
     'gift-claim': async () => { const r = await giftClaim(id), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('¡Marco reclamado!')); KEEP = true; render(); },
     'gift-cancel': () => { if (!isOwner()) return; const g = giftsAll().find(x => x.id === id); if (!g) return; dialog(g.status === 'claimed' ? t('¿Quitar el marco a {n}?', { n: uName(g.to) }) : t('¿Cancelar el regalo para {n}?', { n: uName(g.to) }), t('El cupo volverá a ti.'), t('Sí, continuar'), t('No'), async () => { await giftCancel(id); KEEP = true; render(); }, true); },

@@ -2193,3 +2193,42 @@ html.lite .pf-fc{transition:none}
 @media (prefers-reduced-motion:reduce){.cr-hint svg,.cr-img,.cr-opt,.cr-foot.end,.cr-r.in{animation:none}}
 html.lite .cr-img,html.lite .cr-hint svg{animation:none}
 html.lite .cr-b.in,html.lite .cr-r.in{animation-duration:.14s}
+
+/* 90 · Estilos de chat (skins): se aplican con data-sk-* en el chat y en la vista previa de Ajustes */
+.cs-prev.cr{position:relative;inset:auto;left:auto;right:auto;top:auto;height:330px;width:100%;transform:none;margin:0 0 14px;border:1px solid hsl(var(--border));border-radius:18px;overflow:hidden;z-index:0;pointer-events:none}
+.cs-prev .cr-top{padding-top:10px}.cs-prev .cr-body{padding:10px}.cs-prev .cr-foot{padding-bottom:10px}
+.cs-seg{flex-wrap:wrap}.cs-packs{display:flex;flex-wrap:wrap;gap:8px}.cs-gl{flex-wrap:wrap}
+/* burbuja cuadrada (gratis) */
+[data-sk-bubble=square] .cr-b.me,[data-sk-bubble=square] .cr-b.them{border-radius:5px}
+[data-sk-bubble=square] .cr-b.me.tail{border-bottom-right-radius:0}[data-sk-bubble=square] .cr-b.them.tail{border-bottom-left-radius:0}
+[data-sk-bubble=square] .cr-opt{border-radius:6px}
+/* Kawaii · burbujas */
+[data-sk-bubble=kawaii] .cr-b.me,[data-sk-bubble=kawaii] .cr-b.them{border-radius:22px;border:2px solid #fff;box-shadow:0 3px 10px rgba(255,120,175,.25)}
+[data-sk-bubble=kawaii] .cr-b.me{background:linear-gradient(135deg,#ff9ccc,#c7a6ff);color:#fff}
+[data-sk-bubble=kawaii] .cr-b.them{background:#ffe4f1;color:#6b2c4d}
+[data-sk-bubble=kawaii] .cr-b.me.tail{border-bottom-right-radius:8px}[data-sk-bubble=kawaii] .cr-b.them.tail{border-bottom-left-radius:8px}
+.dark [data-sk-bubble=kawaii] .cr-b.me,.dark [data-sk-bubble=kawaii] .cr-b.them{border-color:rgba(255,255,255,.22);box-shadow:0 3px 10px rgba(0,0,0,.35)}
+.dark [data-sk-bubble=kawaii] .cr-b.me{background:linear-gradient(135deg,#d9609f,#8f6bd6)}.dark [data-sk-bubble=kawaii] .cr-b.them{background:#4a2a3f;color:#ffd9ec}
+/* Kawaii · letra */
+[data-sk-font=kawaii] .cr-b,[data-sk-font=kawaii] .cr-opt,[data-sk-font=kawaii] .cr-day,[data-sk-font=kawaii] .cr-who b{font-family:'Fredoka',ui-rounded,'Arial Rounded MT Bold','Nunito',sans-serif;letter-spacing:.1px}
+/* Kawaii · fondo (un patrón suave; si la autoría puso su fondo, el patrón se oculta) */
+[data-sk-bg=kawaii] .cr-body{background-color:#fff0f7}.dark [data-sk-bg=kawaii] .cr-body{background-color:#241626}
+[data-sk-bg=kawaii] .cr-body::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.9;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='84' height='84'%3E%3Cg fill='%23ff8fc0' fill-opacity='.3'%3E%3Cpath d='M16 26c-5-4-8-8-4-12 3-2.600 5-1 6 1 1-2 3.500-3.600 6-1 4 4 1 8-4 12l-2 1.800z'/%3E%3Cpath d='M62 52l2.200 5.600 5.800.5-4.500 3.900 1.500 5.700-5-3.200-5 3.200 1.500-5.700-4.500-3.900 5.800-.5z'/%3E%3C/g%3E%3Ccircle cx='60' cy='14' r='2.200' fill='%23c7a6ff' fill-opacity='.4'/%3E%3Ccircle cx='20' cy='64' r='2.200' fill='%23c7a6ff' fill-opacity='.4'/%3E%3C/svg%3E")}
+.dark [data-sk-bg=kawaii] .cr-body::before{opacity:.45}
+[data-sk-bg=kawaii] .cr-body[data-ab]::before{display:none}
+[data-sk-bg=kawaii] .cr-msgs{z-index:1}
+/* Kawaii · barra de arriba */
+[data-sk-top=kawaii] .cr-top{background:linear-gradient(135deg,#ffd6ea,#e6d4ff);border-bottom:0;border-radius:0 0 22px 22px;box-shadow:0 4px 14px rgba(255,120,175,.28);position:relative;z-index:2}
+[data-sk-top=kawaii] .cr-top .cc-av{box-shadow:0 0 0 3px #fff,0 0 0 5px #ff9ccc}[data-sk-top=kawaii] .cr-who b{color:#7a2c58}[data-sk-top=kawaii] .cr-who small{color:#2c8a5e}
+.dark [data-sk-top=kawaii] .cr-top{background:linear-gradient(135deg,#4a2a3f,#33284d);box-shadow:0 4px 14px rgba(0,0,0,.4)}.dark [data-sk-top=kawaii] .cr-who b{color:#ffd9ec}.dark [data-sk-top=kawaii] .cr-top .cc-av{box-shadow:0 0 0 3px #4a2a3f,0 0 0 5px #d9609f}
+/* Kawaii · barra de abajo y elecciones */
+[data-sk-bot=kawaii] .cr-foot{background:#fff7fb;border-top:2px dotted #ffb3d6;border-radius:22px 22px 0 0}
+[data-sk-bot=kawaii] .cr-opt{border:2px solid #ffb3d6;border-radius:99px;background:#fff;color:#a23d74;box-shadow:0 3px 0 #ffd0e6}
+[data-sk-bot=kawaii] .cr-opt::before{content:"♡ " / ""}
+[data-sk-bot=kawaii] .cr-opt.chosen{background:linear-gradient(135deg,#ff9ccc,#c7a6ff);color:#fff;border-color:#fff}
+.dark [data-sk-bot=kawaii] .cr-foot{background:#2b1b29;border-top-color:#8a3f68}.dark [data-sk-bot=kawaii] .cr-opt{background:#3a2336;color:#ffd9ec;border-color:#a8507f;box-shadow:0 3px 0 #1f1220}
+/* Kawaii · detalles */
+[data-sk-det=kawaii] .cr-day{background:#ffd6ea;color:#a23d74;border-radius:99px}[data-sk-det=kawaii] .cr-day::before{content:"✦ " / ""}[data-sk-det=kawaii] .cr-day::after{content:" ✦" / ""}
+[data-sk-det=kawaii] .cr-seen{color:#e0699f}[data-sk-det=kawaii] .cr-seen::before{content:"♡ " / ""}
+[data-sk-det=kawaii] .cr-b.typing i{background:#ff9ccc}
+.dark [data-sk-det=kawaii] .cr-day{background:#4a2a3f;color:#ffd9ec}.dark [data-sk-det=kawaii] .cr-seen{color:#ff9ccc}
