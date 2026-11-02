@@ -2203,16 +2203,23 @@ html.lite .cr-b.in,html.lite .cr-r.in{animation-duration:.14s}
 [data-sk-bubble=square] .cr-b.me.tail{border-bottom-right-radius:0}[data-sk-bubble=square] .cr-b.them.tail{border-bottom-left-radius:0}
 [data-sk-bubble=square] .cr-opt{border-radius:6px}
 /* Kawaii · burbujas */
-[data-sk-bubble=kawaii] .cr-b.me,[data-sk-bubble=kawaii] .cr-b.them{border-radius:22px;border:2px solid #fff;box-shadow:0 3px 10px rgba(255,120,175,.25)}
-[data-sk-bubble=kawaii] .cr-b.me{background:linear-gradient(135deg,#ff9ccc,#c7a6ff);color:#fff}
-[data-sk-bubble=kawaii] .cr-b.them{background:#ffe4f1;color:#6b2c4d}
-[data-sk-bubble=kawaii] .cr-b.me.tail{border-bottom-right-radius:8px}[data-sk-bubble=kawaii] .cr-b.them.tail{border-bottom-left-radius:8px}
-.dark [data-sk-bubble=kawaii] .cr-b.me,.dark [data-sk-bubble=kawaii] .cr-b.them{border-color:rgba(255,255,255,.22);box-shadow:0 3px 10px rgba(0,0,0,.35)}
-.dark [data-sk-bubble=kawaii] .cr-b.me{background:linear-gradient(135deg,#d9609f,#8f6bd6)}.dark [data-sk-bubble=kawaii] .cr-b.them{background:#4a2a3f;color:#ffd9ec}
+[data-sk-bubble=kawaii] .cr-b.me,[data-sk-bubble=kawaii] .cr-b.them{position:relative;isolation:isolate;border-radius:24px 21px 25px 20px/21px 25px 21px 24px;border:0;box-shadow:0 3px 8px rgba(214,110,140,.22);padding:10px 15px}
+[data-sk-bubble=kawaii] .cr-b.me{background:#fff;color:#b04a78}
+[data-sk-bubble=kawaii] .cr-b.them{background:#cda68d;color:#4d2f27}
+[data-sk-bubble=kawaii] .cr-b.me.tail,[data-sk-bubble=kawaii] .cr-b.them.tail{margin-top:16px;margin-bottom:9px}
+[data-sk-bubble=kawaii] .cr-b.tail::before{content:"";position:absolute;z-index:-1;left:0;right:0;top:-15px;height:21px;pointer-events:none;background-repeat:no-repeat}
+[data-sk-bubble=kawaii] .cr-b.me.tail::before{top:-22px;height:29px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='30' viewBox='0 0 44 30'%3E%3Cg transform='rotate(-11 12 28)'%3E%3Cellipse cx='12' cy='14' rx='7' ry='13' fill='%23fff'/%3E%3Cellipse cx='12' cy='16' rx='3.500' ry='8.500' fill='%23ffb3c6'/%3E%3C/g%3E%3Cg transform='rotate(11 32 28)'%3E%3Cellipse cx='32' cy='14' rx='7' ry='13' fill='%23fff'/%3E%3Cellipse cx='32' cy='16' rx='3.500' ry='8.500' fill='%23ffb3c6'/%3E%3C/g%3E%3C/svg%3E");background-position:right 20px bottom}
+[data-sk-bubble=kawaii] .cr-b.them.tail::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Ccircle cx='11' cy='12' r='10' fill='%23cda68d'/%3E%3Cpath d='M11 17.200c-4-2.800-5.500-4.700-5.500-6.400 0-1.500 1.100-2.400 2.400-2.400 1.200 0 2.300.8 3.100 2 .8-1.200 1.900-2 3.100-2 1.300 0 2.400.9 2.400 2.400 0 1.700-1.500 3.600-5.500 6.400z' fill='%238b6563'/%3E%3C/svg%3E"),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Ccircle cx='11' cy='12' r='10' fill='%23cda68d'/%3E%3Cpath d='M11 17.200c-4-2.800-5.500-4.700-5.500-6.400 0-1.500 1.100-2.400 2.400-2.400 1.200 0 2.300.8 3.100 2 .8-1.200 1.900-2 3.100-2 1.300 0 2.400.9 2.400 2.400 0 1.700-1.500 3.600-5.500 6.400z' fill='%238b6563'/%3E%3C/svg%3E");background-position:left 13px bottom,right 13px bottom}
+[data-sk-bubble=kawaii] .cr-b.tail::after{content:"";position:absolute;bottom:-8px;width:16px;height:11px;background:inherit;pointer-events:none}
+[data-sk-bubble=kawaii] .cr-b.me.tail::after{right:15px;clip-path:polygon(0 0,100% 0,100% 100%);border-radius:0 0 0 4px}
+[data-sk-bubble=kawaii] .cr-b.them.tail::after{left:15px;clip-path:polygon(0 0,100% 0,0 100%)}
+.dark [data-sk-bubble=kawaii] .cr-b.me,.dark [data-sk-bubble=kawaii] .cr-b.them{box-shadow:0 3px 8px rgba(0,0,0,.4)}
+.dark [data-sk-bubble=kawaii] .cr-b.me{background:#ffeaf2;color:#8a3560}.dark [data-sk-bubble=kawaii] .cr-b.them{background:#8f6a5a;color:#fff1ea}
+.dark [data-sk-bubble=kawaii] .cr-b.them.tail::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Ccircle cx='11' cy='12' r='10' fill='%238f6a5a'/%3E%3Cpath d='M11 17.200c-4-2.800-5.500-4.700-5.500-6.400 0-1.500 1.100-2.400 2.400-2.400 1.200 0 2.300.8 3.100 2 .8-1.200 1.900-2 3.100-2 1.300 0 2.400.9 2.400 2.400 0 1.700-1.500 3.600-5.500 6.400z' fill='%235d413a'/%3E%3C/svg%3E"),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Ccircle cx='11' cy='12' r='10' fill='%238f6a5a'/%3E%3Cpath d='M11 17.200c-4-2.800-5.500-4.700-5.500-6.400 0-1.500 1.100-2.400 2.400-2.400 1.200 0 2.300.8 3.100 2 .8-1.200 1.900-2 3.100-2 1.300 0 2.400.9 2.400 2.400 0 1.700-1.500 3.600-5.500 6.400z' fill='%235d413a'/%3E%3C/svg%3E")}
 /* Kawaii · letra */
 [data-sk-font=kawaii] .cr-b,[data-sk-font=kawaii] .cr-opt,[data-sk-font=kawaii] .cr-day,[data-sk-font=kawaii] .cr-who b{font-family:'Fredoka',ui-rounded,'Arial Rounded MT Bold','Nunito',sans-serif;letter-spacing:.1px}
 /* Kawaii · fondo (un patrón suave; si la autoría puso su fondo, el patrón se oculta) */
-[data-sk-bg=kawaii] .cr-body{background-color:#fff0f7}.dark [data-sk-bg=kawaii] .cr-body{background-color:#241626}
+[data-sk-bg=kawaii] .cr-body{background-color:#ffd9e1}.dark [data-sk-bg=kawaii] .cr-body{background-color:#241626}
 [data-sk-bg=kawaii] .cr-body::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.9;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='84' height='84'%3E%3Cg fill='%23ff8fc0' fill-opacity='.3'%3E%3Cpath d='M16 26c-5-4-8-8-4-12 3-2.600 5-1 6 1 1-2 3.500-3.600 6-1 4 4 1 8-4 12l-2 1.800z'/%3E%3Cpath d='M62 52l2.200 5.600 5.800.5-4.500 3.900 1.500 5.700-5-3.200-5 3.200 1.500-5.700-4.500-3.900 5.800-.5z'/%3E%3C/g%3E%3Ccircle cx='60' cy='14' r='2.200' fill='%23c7a6ff' fill-opacity='.4'/%3E%3Ccircle cx='20' cy='64' r='2.200' fill='%23c7a6ff' fill-opacity='.4'/%3E%3C/svg%3E")}
 .dark [data-sk-bg=kawaii] .cr-body::before{opacity:.45}
 [data-sk-bg=kawaii] .cr-body[data-ab]::before{display:none}
@@ -2230,7 +2237,8 @@ html.lite .cr-b.in,html.lite .cr-r.in{animation-duration:.14s}
 /* Kawaii · detalles */
 [data-sk-det=kawaii] .cr-day{background:#ffd6ea;color:#a23d74;border-radius:99px}[data-sk-det=kawaii] .cr-day::before{content:"✦ " / ""}[data-sk-det=kawaii] .cr-day::after{content:" ✦" / ""}
 [data-sk-det=kawaii] .cr-seen{color:#e0699f}[data-sk-det=kawaii] .cr-seen::before{content:"♡ " / ""}
-[data-sk-det=kawaii] .cr-b.typing i{background:#ff9ccc}
+[data-sk-det=kawaii] .cr-b.typing i{background:#ff9ccc;animation:crHop .9s infinite ease-in-out}[data-sk-det=kawaii] .cr-b.typing i:nth-child(2){animation-delay:.12s}[data-sk-det=kawaii] .cr-b.typing i:nth-child(3){animation-delay:.24s}
+@keyframes crHop{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
 .dark [data-sk-det=kawaii] .cr-day{background:#4a2a3f;color:#ffd9ec}.dark [data-sk-det=kawaii] .cr-seen{color:#ff9ccc}
 
 /* 91 · Paquete Retro 2000 */
