@@ -1224,18 +1224,19 @@ async function modReport(o) {
    Gratis: burbuja fluida (la de siempre) y cuadrada, con el color del tema. Cada paquete trae las seis piezas; se pueden mezclar piezas de paquetes que ya tienes.
    Por ahora solo la Owner tiene los paquetes y los regala (para probar). La tienda y el pase vendrán después. */
 const CS_PIECES = [['bubble', 'Burbujas'], ['font', 'Letra'], ['bg', 'Fondo'], ['top', 'Barra de arriba'], ['bot', 'Barra de abajo y elecciones'], ['det', 'Detalles']];
+const CS_HUES = [['', 'Azul', '#4b8ae8'], ['pink', 'Rosa', '#ff6fae'], ['green', 'Verde', '#4fcf72'], ['yellow', 'Amarillo', '#ffc828'], ['purple', 'Morado', '#9b6bf0']];       // colores del paquete Retro 2000 (paquetes de colores personalizables; los demás vienen fijos)
 const CS_FREE = { bubble: [['fluid', 'Fluida'], ['square', 'Cuadrada']] };
-const CS_PACKS = { kawaii: ['Kawaii', 'Pastel, corazones y letra redondita'], retro: ['Retro 2000', 'Mensajería de los 2000: cromado y ventanas'], victoriano: ['Victoriano', 'Papel antiguo, tinta y sellos'], futurista: ['Futurista', 'Neón, rejilla y pantalla de nave'] };               // paquetes ya hechos (los demás se irán sumando)
-const CS_FONT = { kawaii: 'Fredoka:wght@400;600', victoriano: 'Cormorant+Garamond:ital,wght@0,500;0,700;1,500;1,700', futurista: 'Rajdhani:wght@500;700&family=Orbitron:wght@600' };
+const CS_PACKS = { kawaii: ['Kawaii', 'Pastel, corazones y letra redondita'], retro: ['Retro 2000', 'Mensajería de los 2000: cromado y ventanas'], victoriano: ['Victoriano', 'Papel antiguo, tinta y sellos'], futurista: ['Cyberpunk', 'Monitor CRT, neón y rejilla de pantalla'] };               // paquetes ya hechos (los demás se irán sumando)
+const CS_FONT = { kawaii: 'Fredoka:wght@400;600', victoriano: 'Cormorant+Garamond:ital,wght@0,500;0,700;1,500;1,700', futurista: 'Share+Tech+Mono&family=Orbitron:wght@600' };
 const csOwned = e => (roleOf(e) === 'OWNER' ? Object.keys(CS_PACKS) : ((getUsers()[e] || {}).skins || [])).filter(k => CS_PACKS[k]);
-const csSel = () => { const o = { bubble: 'fluid', font: '', bg: '', top: '', bot: '', det: '' }, c = cfg('chatSkin') || {}, own = csOwned(S.user);
-  for (const [k] of CS_PIECES) { const v = c[k]; if (typeof v === 'string' && ((CS_FREE[k] || []).some(x => x[0] === v) || own.includes(v))) o[k] = v; } return o; };
+const csSel = () => { const o = { bubble: 'fluid', font: '', bg: '', top: '', bot: '', det: '', hue: '' }, c = cfg('chatSkin') || {}, own = csOwned(S.user);
+  for (const [k] of CS_PIECES) { const v = c[k]; if (typeof v === 'string' && ((CS_FREE[k] || []).some(x => x[0] === v) || own.includes(v))) o[k] = v; } if (CS_HUES.some(x => x[0] === c.hue)) o.hue = c.hue; return o; };
 function csFont(sel) { for (const v of Object.values(sel)) { const f = CS_FONT[v]; if (f && !FONT_LOADED.has('cs-' + v)) { FONT_LOADED.add('cs-' + v); const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=' + f + '&display=swap'; document.head.appendChild(l); } } }
-function csApply(el, sel) { sel = sel || csSel(); csFont(sel); for (const [k] of CS_PIECES) el.setAttribute('data-sk-' + k, sel[k] || ''); }
+function csApply(el, sel) { sel = sel || csSel(); csFont(sel); for (const [k] of CS_PIECES) el.setAttribute('data-sk-' + k, sel[k] || ''); el.setAttribute('data-sk-hue', sel.hue || ''); }
 function csSet(patch) { setCfg('chatSkin', { ...csSel(), ...patch }); KEEP = true; render(); }
 function csPreview() {
   const sel = csSel(); csFont(sel);
-  return `<div class="cr cs-prev" ${CS_PIECES.map(([k]) => `data-sk-${k}="${esc(sel[k] || '')}"`).join(' ')} aria-hidden="true"><header class="cr-top"><span class="cr-who"><span class="cc-av"><em>M</em></span><span><b>Mizuki</b><small>${t('en línea')}</small></span></span></header>
+  return `<div class="cr cs-prev" ${CS_PIECES.map(([k]) => `data-sk-${k}="${esc(sel[k] || '')}"`).join(' ')} data-sk-hue="${esc(sel.hue || '')}" aria-hidden="true"><header class="cr-top"><span class="cr-who"><span class="cc-av"><em>M</em></span><span><b>Mizuki</b><small>${t('en línea')}</small></span></span></header>
   <div class="cr-body"><div class="cr-msgs"><div class="cr-day">${t('Hoy')} · ${chatTime('23:42')}</div><div class="cr-b them tail">${t('¿Sigues despierta?')}</div><div class="cr-b me tail">${t('Sí, ¿qué pasó?')}</div><small class="cr-seen">${t('Visto')}</small></div></div>
   <footer class="cr-foot pick"><button type="button" class="cr-opt" tabindex="-1">${t('Contarle todo')}</button><button type="button" class="cr-opt" tabindex="-1">${t('Mejor mañana')}</button></footer></div>`;
 }
@@ -1243,7 +1244,8 @@ function csBody() {
   const sel = csSel(), own = csOwned(S.user), btn = (p, v, l) => `<button type="button" class="seg-b ${sel[p] === v ? 'on' : ''}" role="radio" aria-checked="${sel[p] === v}" data-act="cs-piece" data-p="${p}" data-v="${v}">${esc(t(l))}</button>`;
   return `<section class="panel set-sec"><p class="helper" style="margin:0 0 10px">${t('Así se verán los chats que leas. El color de las burbujas gratis sale del color de tu tema.')}</p>${csPreview()}
   ${own.length ? `<div class="set-col"><span>${t('Aplicar un paquete completo')}</span><div class="cs-packs">${own.map(k => `<button type="button" class="button secondary sm" data-act="cs-all" data-v="${k}">${esc(t(CS_PACKS[k][0]))}</button>`).join('')}<button type="button" class="button ghost sm" data-act="cs-all" data-v="">${t('Restablecer')}</button></div></div>` : ''}
-  ${CS_PIECES.map(([p, l]) => `<div class="set-col"><span>${t(l)}</span><div class="seg cs-seg" role="radiogroup">${p === 'bubble' ? CS_FREE.bubble.map(([v, n]) => btn(p, v, n)).join('') : btn(p, '', 'Normal')}${own.map(k => btn(p, k, CS_PACKS[k][0])).join('')}</div></div>`).join('')}</section>`;
+  ${CS_PIECES.map(([p, l]) => `<div class="set-col"><span>${t(l)}</span><div class="seg cs-seg" role="radiogroup">${p === 'bubble' ? CS_FREE.bubble.map(([v, n]) => btn(p, v, n)).join('') : btn(p, '', 'Normal')}${own.map(k => btn(p, k, CS_PACKS[k][0])).join('')}</div></div>`).join('')}
+  ${CS_PIECES.some(([p]) => sel[p] === 'retro') ? `<div class="set-col"><span>${t('Color del paquete Retro 2000')}</span><div class="cs-hues" role="radiogroup">${CS_HUES.map(([v, n, c]) => `<button type="button" class="cs-hue ${sel.hue === v ? 'on' : ''}" style="--c:${c}" role="radio" aria-checked="${sel.hue === v}" aria-label="${esc(t(n))}" data-act="cs-hue" data-v="${v}"></button>`).join('')}</div></div>` : ''}</section>`;
 }
 function openSkinGift(tg) {
   const m = document.createElement('div'); m.className = 'modal sheet';
@@ -4855,7 +4857,8 @@ document.addEventListener('click', e => {
     'bow-gift': () => { if (isOwner() && canAct(id)) openBowGift(id); },
     'skin-gift': () => { if (isOwner() && canAct(id)) openSkinGift(id); },
     'cs-piece': () => { csSet({ [el.dataset.p]: el.dataset.v }); },
-    'cs-all': () => { const v = el.dataset.v; csSet(Object.fromEntries(CS_PIECES.map(([k]) => [k, k === 'bubble' && !v ? 'fluid' : v]))); },
+    'cs-all': () => { const v = el.dataset.v; csSet({ ...Object.fromEntries(CS_PIECES.map(([k]) => [k, k === 'bubble' && !v ? 'fluid' : v])), ...(v ? {} : { hue: '' }) }); },
+    'cs-hue': () => csSet({ hue: el.dataset.v }),
     'gift-profile': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Regalar el marco Top 50 a {n}?', { n: uName(id) }), t('Tendrá 24 h para reclamarlo. Si no lo hace, el regalo se cancela y el cupo vuelve a ti. Quedan {a} de {b}.', { a: giftLeft(), b: GIFT_TOTAL }), t('Regalar'), t('Cancelar'), async () => { const r = await giftSend(id); toast(r || t('Regalo enviado ✓')); KEEP = true; render(); }); },
     'gift-claim': async () => { const r = await giftClaim(id), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('¡Marco reclamado!')); KEEP = true; render(); },
     'gift-cancel': () => { if (!isOwner()) return; const g = giftsAll().find(x => x.id === id); if (!g) return; dialog(g.status === 'claimed' ? t('¿Quitar el marco a {n}?', { n: uName(g.to) }) : t('¿Cancelar el regalo para {n}?', { n: uName(g.to) }), t('El cupo volverá a ti.'), t('Sí, continuar'), t('No'), async () => { await giftCancel(id); KEEP = true; render(); }, true); },

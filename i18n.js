@@ -2020,4 +2020,12 @@ window.I18N = { en: {
   'Crea los tuyos: sube una imagen (mejor PNG con fondo transparente). Pasan por la misma revisión que las fotos del chat y los puedes usar en todos tus chats.': 'Make your own: upload an image (ideally a PNG with a transparent background). They go through the same review as chat photos and you can use them in all your chats.',
   'Nuevo sticker': 'New sticker',
   'Este mensaje fue eliminado': 'This message was deleted',
+  'Cyberpunk': 'Cyberpunk',
+  'Monitor CRT, neón y rejilla de pantalla': 'CRT monitor, neon and screen grid',
+  'Color del paquete Retro 2000': 'Retro 2000 pack color',
+  'Azul': 'Blue',
+  'Rosa': 'Pink',
+  'Verde': 'Green',
+  'Amarillo': 'Yellow',
+  'Morado': 'Purple',
 } };
