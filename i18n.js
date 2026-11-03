@@ -2056,4 +2056,6 @@ window.I18N = { en: {
   'Papel roto, tintas y colores tierra': 'Torn paper, inks and earth tones',
   'Misterio nocturno': 'Night mystery',
   'Noche, luna, niebla y expediente': 'Night, moon, fog and case file',
+  'Añadido a favoritos': 'Added to favorites',
+  'Silenciar': 'Mute',
 } };

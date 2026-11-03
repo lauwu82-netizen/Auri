@@ -2557,12 +2557,19 @@ function chatOpen(k) {
   CR = { k, c, m: chatExpand(c, k), n: 0, busy: false, dead: false, side: null };
   const dh = [c.d, chatTime(c.h)].filter(Boolean).join(' · '); if (dh) { const dd = document.createElement('div'); dd.className = 'cr-day'; dd.textContent = dh; $('#cr-msgs').appendChild(dd); }
   let n0 = Math.min(chatPos(k), CR.m.length); for (let i = 0; i < n0; i++) { if (CR.m[i].ch) { n0 = i; break; } crAdd(CR.m[i], false); } CR.n = n0;
-  crFoot(); const b = $('.cr-body'); if (b) b.scrollTop = b.scrollHeight; chatImgSync(0);
+  crFoot(); crSh(m); const b = $('.cr-body'); if (b) b.scrollTop = b.scrollHeight; chatImgSync(0);
   if (n0 === 0 && !LS.get('auri.crhint', false)) { const h = document.createElement('div'); h.id = 'cr-hint'; h.className = 'cr-hint'; h.innerHTML = `<svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V10m0-1.5a1.5 1.5 0 0 1 3 0V11m0-1a1.5 1.5 0 0 1 3 0v4.5c0 3-2 5.5-5.5 5.5-2.6 0-4.1-1.2-5.2-3L5 14.3a1.4 1.4 0 0 1 2.2-1.7L9 14"/></svg><b>${t('Toca la pantalla para continuar')}</b>`; m.appendChild(h); }
+}
+/* Los adornos del fondo (encaje, estrellas, niebla…) miden lo mismo que todo el chat, no solo lo que se ve de primeras */
+function crSh(root) {
+  const b = root.querySelector('.cr-body'), ms = root.querySelector('#cr-msgs'); if (!b || !ms) return;
+  const go = () => { const cs = getComputedStyle(b), last = b.lastElementChild || ms, h = Math.max(b.clientHeight, last.offsetTop + last.offsetHeight + (parseFloat(cs.paddingBottom) || 0)); b.style.setProperty('--sh', h + 'px'); };
+  go(); if (window.ResizeObserver) { const ro = new ResizeObserver(go); ro.observe(ms); ro.observe(b); [...b.children].forEach(c => ro.observe(c)); root._ro = ro; }
 }
 /* Fotos dentro del chat: solo se ven cuando el servidor confirma que la IA las revisó y están limpias. Mientras tanto (o si se ocultaron) sale un relleno. */
 const CIMG = new Map();                                       // enlace → 'ok' | 'hidden'; sin dato = todavía revisándose
-const chatImgSt = u => CIMG.get(u) || (CR && CR.k.indexOf('w|') === 0 ? 'ok' : 'wait');     // la vista previa de la autoría las muestra siempre
+const ownImg = u => { const ses = sbSes(); return !!(ses && ses.uid && String(u).startsWith(IMG_PUB() + ses.uid + '/')); };
+const chatImgSt = u => CIMG.get(u) || (CR && CR.k.indexOf('w|') === 0 ? 'ok' : ownImg(u) ? 'ok' : 'wait');     // la vista previa de la autoría las muestra siempre
 const chatImgHTML = u => { const st = chatImgSt(u); return st === 'ok' ? `<button type="button" class="cr-imgb" data-act="cr-img" data-u="${esc(u)}" aria-label="${esc(t('Ver foto'))}"><img class="cr-img" src="${esc(u)}" alt="" loading="lazy" data-noguard></button>` : `<span class="cr-imgph ${st}" data-u="${esc(u)}">${t(st === 'hidden' ? 'Foto oculta' : 'Revisando la foto…')}</span>`; };
 function chatImgPaint() {
   document.querySelectorAll('#chat-rd .cr-imgph[data-u], #chat-rd .cr-imgb[data-u]').forEach(el => { const u = el.dataset.u, ok = el.classList.contains('cr-imgb'), st = chatImgSt(u); if ((st === 'ok') === ok && (ok || el.classList.contains(st))) return; const d = document.createElement('div'); d.innerHTML = chatImgHTML(u); el.replaceWith(d.firstChild); });
@@ -3042,7 +3049,7 @@ function storyDetail(s, mine) {
   ${staffBar(s, mine)}
   ${mine && statusNote(ownOf(s)) ? `<p class="notice">${esc(statusNote(ownOf(s)))}</p>` : ''}
   <a class="button" data-replace data-dir="next" ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} style="width:100%;max-width:420px" href="#/story/${esc(s.id)}/${next.idx + 1}">${!read.length && !at ? t('Empezar a leer') : all ? t('Leer otra vez') : t('Continuar: cap. {n}', { n: next.idx + 1 })}</a>
-  <div class="row-btns"><button class="button secondary like-btn ${likes(s.id).includes(S.user) ? 'on' : ''}" data-act="like" data-id="${esc(s.id)}" aria-pressed="${likes(s.id).includes(S.user)}">${HEART}<span>${likes(s.id).includes(S.user) ? t('Te gusta') : t('Me gusta')}</span></button><button class="button secondary" data-act="fav" data-id="${esc(s.id)}">${fav ? '♥ ' + t('En favoritos') : '♡ ' + t('Favorito')}</button><button class="button secondary" data-act="lib-toggle" data-id="${esc(s.id)}">${S.lib.includes(s.id) ? '✓ ' + t('En tu biblioteca') : '📚 ' + t('Guardar en biblioteca')}</button>${mine ? `<a class="button ghost" href="#/write/${esc(s.id)}">${t('Editar')}</a>` : `<button class="button ghost" data-act="report-story" data-id="${esc(s.id)}">${t('Reportar')}</button>${imgrOk(s.cover) ? `<button class="button ghost" data-act="report-img" data-id="${esc(s.id)}">${t('Reportar portada')}</button>` : ''}`}</div>${imgrPanel(s)}
+  <div class="row-btns"><button type="button" class="ic-btn like-btn ${likes(s.id).includes(S.user) ? 'on' : ''}" data-act="like" data-id="${esc(s.id)}" aria-pressed="${likes(s.id).includes(S.user)}" aria-label="${esc(likes(s.id).includes(S.user) ? t('Quitar me gusta') : t('Me gusta'))}" title="${esc(t('Me gusta'))}">${HEART}</button><button type="button" class="ic-btn fav-btn ${fav ? 'on' : ''}" data-act="fav" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(fav ? t('En favoritos') : t('Favorito'))}" title="${esc(t('Favorito'))}"><svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.85 5.78 6.38.93-4.62 4.5 1.09 6.35L12 17.36l-5.7 3 1.09-6.35-4.62-4.5 6.38-.93L12 2.8z"/></svg></button><button class="button secondary" data-act="lib-toggle" data-id="${esc(s.id)}">${S.lib.includes(s.id) ? '✓ ' + t('En tu biblioteca') : '📚 ' + t('Guardar en biblioteca')}</button>${mine ? `<a class="ic-btn edit-btn" href="#/write/${esc(s.id)}" aria-label="${esc(t('Editar'))}" title="${esc(t('Editar'))}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19l-4 1z"/><path d="m14.5 6.5 3 3"/></svg></a>` : `<button class="button ghost" data-act="report-story" data-id="${esc(s.id)}">${t('Reportar')}</button>${imgrOk(s.cover) ? `<button class="button ghost" data-act="report-img" data-id="${esc(s.id)}">${t('Reportar portada')}</button>` : ''}`}</div>${imgrPanel(s)}
   <details class="ch-index"><summary>${t('Capítulos ({n})', { n: s.chapters.length })}</summary>${s.chapters.map(c => `<a data-replace ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} href="#/story/${esc(s.id)}/${c.idx + 1}"><b>${read.includes(c.idx) ? '✓' : c.idx + 1}</b><span>${esc(c.title || t('Capítulo {n}', { n: c.idx + 1 }))}${mine && c.status !== 'approved' ? ` (${t(CH_STATUS[c.status]).toLowerCase()})` : ''}</span></a>`).join('')}</details>
   </section></main>`;
 }
@@ -4012,13 +4019,13 @@ const likesReceived = e => publishedStories().filter(s => s.owner === e).reduce(
 /** Perfil: portada con desvanecimiento hacia abajo, foto circular con aro, cifras que se pueden tocar y la pestaña de libros publicados */
 let PFEDIT = false, EPD = null;                          // EPD: lo escrito en Editar perfil (no se pierde al cambiar una foto)
 document.addEventListener('input', ev => { if (ev.target && (ev.target.id === 'pf-name' || ev.target.id === 'pf-bio')) EPD = { name: ($('#pf-name') || {}).value || '', bio: ($('#pf-bio') || {}).value || '' }; const c = $('#pf-cnt'); if (c) c.textContent = EPD.bio.length + '/500'; });
-function profileHero(e, own, acts = '') {
+function profileHero(e, own, acts = '', corner = '') {
   const u = getUsers()[e] || {}, pubs = publishedStories().filter(s => s.owner === e), has = safeImg(u.banner), role = ROLE_LABEL[roleOf(e)], sk = own ? strikesOf(e) : [];
   const lk = !own && (getUsers()[e] || {}).hideLists, stat = (n, l, act, kind) => act && !(lk && act === 'pf-list') ? `<button type="button" class="pfs" data-act="${act}" data-id="${esc(e)}" data-kind="${kind || ''}"><b>${n}</b><small>${l}</small></button>` : `<span class="pfs"><b>${n}</b><small>${l}</small></span>`;
   return `<section class="pf-hero"><div class="pf-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>
     ${sk.length && !cfg('hideStrikeBtn') ? `<button type="button" class="pf-warn" data-act="strike-info" aria-label="${esc(t('Aviso de strikes'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5"/><circle cx="12" cy="16.6" r=".6" fill="currentColor"/></svg></button>` : ''}
     ${rdPill(e)}<div class="pf-fade"></div></div>
-  <div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}${stProfBubble(e)}</div>
+  ${corner}<div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}${stProfBubble(e)}</div>
     <div class="pf-info"><h1 class="pf-name serif ${nmCls(e)}">${esc(u.name || t('Mi perfil'))}${onlineDot(e)}</h1>${role || mbtiOf(e) ? `<div class="pf-tags">${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}${mbtiBadge(e)}</div>` : ''}
 </div>
     ${acts ? `<div class="pf-acts">${acts}</div>` : ''}</div>
@@ -4286,14 +4293,18 @@ function openLook() {
   });
   document.body.appendChild(m);
 }
+let PFM = null;                                        // perfil con el menú «⋯» abierto
 function userView(e) {
   const u = getUsers()[e]; sbPres(e);
   if (!u) return `<main class="page">${empty('Perfil no encontrado', 'Esta persona no existe en este dispositivo.', '<a class="button" href="#/">' + t('Volver') + '</a>')}</main>`;
   const works = publishedStories().filter(s => s.owner === e && matureOK(s)), fl = following(S.user).includes(e);
+  const ENV = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7.5 8 6 8-6"/></svg>', ml = t('Mensaje');
+  const pu = getUsers()[e] || {}, mi = (act, txt, cls = '', extra = '') => `<button type="button" role="menuitem" class="${cls}" data-act="${act}" data-id="${esc(e)}"${extra}>${txt}</button>`;
+  const menu = PFM === e ? `<div class="c-menu pf-menu" role="menu">${iMute(e) ? mi('unmute', t('Dejar de silenciar')) : mi('mute', t('Silenciar'))}${iBlock(e) ? mi('unblock', t('Desbloquear')) : mi('block', t('Bloquear'), 'danger-link')}${mi('report-user', t('Reportar'))}${imgrOk(pu.avatar) ? mi('report-pimg', t('Reportar foto'), '', ' data-k="avatar"') : ''}${imgrOk(pu.banner) ? mi('report-pimg', t('Reportar portada del perfil'), '', ' data-k="banner"') : ''}</div>` : '';
   const acts = `<button class="button ${fl ? 'secondary' : ''}" data-act="follow" data-id="${esc(e)}">${fl ? t('Siguiendo ✓') : t('＋ Seguir')}</button>
-  ${dmWhy(S.user, e) === '' ? `<a class="button secondary" href="#/messages/${encodeURIComponent(e)}" data-dir="next">${t('Mensaje')}</a>` : `<button type="button" class="button ghost" data-act="dm-why" data-id="${esc(e)}">${t('Mensaje')}</button>`}
-  <div class="pf-more"><button class="button ghost sm" data-act="${iMute(e) ? 'unmute' : 'mute'}" data-id="${esc(e)}">${iMute(e) ? t('🔔 Dejar de silenciar') : t('🔇 Silenciar')}</button><button class="button ghost sm" data-act="${iBlock(e) ? 'unblock' : 'block'}" data-id="${esc(e)}">${iBlock(e) ? t('✅ Desbloquear') : t('🚫 Bloquear')}</button><button class="button ghost sm" data-act="report-user" data-id="${esc(e)}">${t('Reportar')}</button>${imgrOk((getUsers()[e] || {}).avatar) ? `<button class="button ghost sm" data-act="report-pimg" data-id="${esc(e)}" data-k="avatar">${t('Reportar foto')}</button>` : ''}${imgrOk((getUsers()[e] || {}).banner) ? `<button class="button ghost sm" data-act="report-pimg" data-id="${esc(e)}" data-k="banner">${t('Reportar portada del perfil')}</button>` : ''}</div>${imgrProfile(e)}`;
-  return `<main class="page pf-page">${profileHero(e, false, acts)}${modUserBooks(e)}${repHistory(e)}${admMenu(e)}${worksSection(works, e)}</main>`;
+  ${dmWhy(S.user, e) === '' ? `<a class="pf-env" href="#/messages/${encodeURIComponent(e)}" data-dir="next" aria-label="${esc(ml)}" title="${esc(ml)}">${ENV}</a>` : `<button type="button" class="pf-env" data-act="dm-why" data-id="${esc(e)}" aria-label="${esc(ml)}" title="${esc(ml)}">${ENV}</button>`}
+  ${imgrProfile(e)}`, corner = `<span class="pf-mwrap"><button type="button" class="pf-dots" data-act="pf-menu" data-id="${esc(e)}" aria-label="${esc(t('Más opciones'))}" aria-expanded="${PFM === e}"><i></i><i></i><i></i></button>${menu}</span>`;
+  return `<main class="page pf-page">${profileHero(e, false, acts, corner)}${modUserBooks(e)}${repHistory(e)}${admMenu(e)}${worksSection(works, e)}</main>`;
 }
 
 /* --- Strikes, suspensión y menú de administración --- */
@@ -5027,7 +5038,8 @@ document.addEventListener('click', e => {
     'rp-delcomment': () => { if (!isStaff()) return; confirmBox(t('¿Eliminar este comentario por incumplir las normas?'), () => { updateComments(id, l => l.filter(c => String(c.id) !== el.dataset.cid && String(c.parent) !== el.dataset.cid)); logAction('del-comment', id, el.dataset.cid); KEEP = true; render(); }); },
     'td-on': () => { if (!isStaff()) return; dialog(t('¿Retirar esta obra de Descubrir?'), t('Nadie más podrá encontrarla ni leerla hasta que se restaure. Se avisará a su autoría.'), t('Retirar'), t('Cancelar'), () => { const s0 = findStory(id); G.set('takedown', [...takedown().filter(x => x !== id), id]); sbTakedown(id, true); logAction('takedown', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «{n}» fue retirada de Descubrir por moderación. Si crees que fue un error, escribe a la administración.', xv: { n: s0.title } }); toast(t('Obra retirada de Descubrir')); KEEP = true; render(); }, true); },
     'td-off': () => { if (!isStaff()) return; G.set('takedown', takedown().filter(x => x !== id)); sbTakedown(id, false); const s0 = findStory(id); logAction('restore', s0 ? s0.owner : '', id); if (s0 && s0.owner) pushNotif(s0.owner, { type: 'sys', extra: 'Tu obra «{n}» volvió a estar visible en Descubrir.', xv: { n: s0.title } }); toast(t('Obra restaurada ✓')); KEEP = true; render(); },
-    mute: () => { setBM('muted', id, true); toast(t('Silenciada: no verás sus comentarios ni recibirás avisos suyos.')); KEEP = true; render(); },
+    'pf-menu': () => { PFM = PFM === id ? null : id; KEEP = true; render(); },
+    mute: () => { PFM = null; setBM('muted', id, true); toast(t('Silenciada: no verás sus comentarios ni recibirás avisos suyos.')); KEEP = true; render(); },
     unmute: () => { setBM('muted', id, false); toast(t('Dejaste de silenciar a esta persona.')); KEEP = true; render(); },
     block: () => dialog(t('¿Bloquear a {n}?', { n: uName(id) }), t('No verás sus comentarios ni sus obras, dejarán de seguirse y no habrá avisos entre ustedes. Puedes desbloquearla en Ajustes.'), t('Bloquear'), t('Cancelar'), () => { blockUser(id); toast(t('Cuenta bloqueada')); KEEP = true; render(); }, true),
     unblock: () => { setBM('blocked', id, false); toast(t('Desbloqueada ✓')); KEEP = true; render(); },
@@ -5135,7 +5147,7 @@ document.addEventListener('click', e => {
     'search-close': () => { SEARCH_OPEN = false; syncSearch(); clearSearch(); },
     'notif-toggle': () => { NOTIF_OPEN = !NOTIF_OPEN; KEEP = true; render(); },
     logout,
-    fav: () => { S.favs = S.favs.includes(id) ? S.favs.filter(x => x !== id) : [...S.favs, id]; persist('favs', S.favs); render(); },
+    fav: () => { const was = S.favs.includes(id); S.favs = was ? S.favs.filter(x => x !== id) : [...S.favs, id]; persist('favs', S.favs); render(); if (!was) toast(t('Añadido a favoritos')); },
     read: () => readNext(id, +el.dataset.n),
     sm: () => { SM = id === 'users' ? 'users' : 'books'; GEN = 'All'; render(); const i = $('#sq'); if (i) i.placeholder = SM === 'users' ? t('Buscar usuarios…') : t('Buscar títulos, etiquetas o fandoms…'); sbSearchUsers(); },
     uf: () => { UF = id; render(); sbSearchUsers(); },
@@ -5260,6 +5272,7 @@ document.addEventListener('change', e => {
   if (id === 'av-file' || id === 'av-file2') { editPhoto(f, 'avatar'); e.target.value = ''; }
 });
 document.addEventListener('error', e => { if (e.target.classList && e.target.classList.contains('cover-img')) e.target.style.display = 'none'; if (e.target.classList && e.target.classList.contains('fr-img')) { e.target.style.display = 'none'; if (e.target.parentNode) e.target.parentNode.classList.add('fr-fallback'); } }, true);
+document.addEventListener('click', e => { if (PFM !== null && !e.target.closest('.pf-mwrap')) { PFM = null; KEEP = true; if (!e.target.closest('[data-act]')) render(); } }, true);
 document.addEventListener('click', e => { if (MENUC !== null && !e.target.closest('.c-more-wrap')) { MENUC = null; KEEP = true; if (PCS) paintPcList(); if (!e.target.closest('[data-act]')) render(); } }, true);
 let WLX = null;                                        // deslizar a los lados en la presentación de bienvenida
 document.addEventListener('touchstart', e => { WLX = e.target.closest('.wl') && e.touches[0] ? e.touches[0].clientX : null; }, { passive: true });
