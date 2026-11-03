@@ -2052,4 +2052,8 @@ window.I18N = { en: {
   'Rosa pastel': 'Pastel pink',
   'Rojo': 'Red',
   'Lila': 'Lilac',
+  'Antiguo': 'Ancient',
+  'Papel roto, tintas y colores tierra': 'Torn paper, inks and earth tones',
+  'Misterio nocturno': 'Night mystery',
+  'Noche, luna, niebla y expediente': 'Night, moon, fog and case file',
 } };
