@@ -2046,4 +2046,10 @@ window.I18N = { en: {
   '{n} reaccionó a este mensaje': '{n} reacted to this message',
   'Contactos que ya creaste: toca uno para usarlo': 'Contacts you already made: tap one to use it',
   'Este chat ya tiene el máximo de personas.': 'This chat already has the maximum number of people.',
+  'San Valentín': "Valentine's Day",
+  'Cartas de amor, corazones y lazos': 'Love letters, hearts and bows',
+  'Color del paquete {n}': '{n} pack color',
+  'Rosa pastel': 'Pastel pink',
+  'Rojo': 'Red',
+  'Lila': 'Lilac',
 } };

@@ -1225,12 +1225,13 @@ async function modReport(o) {
    Por ahora solo la Owner tiene los paquetes y los regala (para probar). La tienda y el pase vendrán después. */
 const CS_PIECES = [['bubble', 'Burbujas'], ['font', 'Letra'], ['bg', 'Fondo'], ['top', 'Barra de arriba'], ['bot', 'Barra de abajo y elecciones'], ['det', 'Detalles']];
 const CS_HUES = [['', 'Azul', '#4b8ae8'], ['pink', 'Rosa', '#ff6fae'], ['green', 'Verde', '#4fcf72'], ['yellow', 'Amarillo', '#ffc828'], ['purple', 'Morado', '#9b6bf0']];       // colores del paquete Retro 2000 (paquetes de colores personalizables; los demás vienen fijos)
+const CS_HUES2 = { retro: CS_HUES, sanvalentin: [['', 'Rosa pastel', '#ffb3d1'], ['red', 'Rojo', '#e0314b'], ['lilac', 'Lila', '#c9a7f5']] };       // cada paquete de colores trae los suyos
 const CS_FREE = { bubble: [['fluid', 'Fluida'], ['square', 'Cuadrada']] };
-const CS_PACKS = { kawaii: ['Kawaii', 'Pastel, corazones y letra redondita'], retro: ['Retro 2000', 'Mensajería de los 2000: cromado y ventanas'], victoriano: ['Victoriano', 'Papel antiguo, tinta y sellos'], futurista: ['Cyberpunk', 'Monitor CRT, neón y rejilla de pantalla'] };               // paquetes ya hechos (los demás se irán sumando)
-const CS_FONT = { kawaii: 'Fredoka:wght@400;600', victoriano: 'Cormorant+Garamond:ital,wght@0,500;0,700;1,500;1,700', futurista: 'Share+Tech+Mono&family=Orbitron:wght@600' };
+const CS_PACKS = { kawaii: ['Kawaii', 'Pastel, corazones y letra redondita'], retro: ['Retro 2000', 'Mensajería de los 2000: cromado y ventanas'], victoriano: ['Victoriano', 'Papel antiguo, tinta y sellos'], futurista: ['Cyberpunk', 'Monitor CRT, neón y rejilla de pantalla'], sanvalentin: ['San Valentín', 'Cartas de amor, corazones y lazos'] };               // paquetes ya hechos (los demás se irán sumando)
+const CS_FONT = { kawaii: 'Fredoka:wght@400;600', victoriano: 'Cormorant+Garamond:ital,wght@0,500;0,700;1,500;1,700', futurista: 'Share+Tech+Mono&family=Orbitron:wght@600', sanvalentin: 'Quicksand:wght@500;700&family=Dancing+Script:wght@600;700' };
 const csOwned = e => (roleOf(e) === 'OWNER' ? Object.keys(CS_PACKS) : ((getUsers()[e] || {}).skins || [])).filter(k => CS_PACKS[k]);
 const csSel = () => { const o = { bubble: 'fluid', font: '', bg: '', top: '', bot: '', det: '', hue: '' }, c = cfg('chatSkin') || {}, own = csOwned(S.user);
-  for (const [k] of CS_PIECES) { const v = c[k]; if (typeof v === 'string' && ((CS_FREE[k] || []).some(x => x[0] === v) || own.includes(v))) o[k] = v; } if (CS_HUES.some(x => x[0] === c.hue)) o.hue = c.hue; return o; };
+  for (const [k] of CS_PIECES) { const v = c[k]; if (typeof v === 'string' && ((CS_FREE[k] || []).some(x => x[0] === v) || own.includes(v))) o[k] = v; } if (Object.values(CS_HUES2).some(l => l.some(x => x[0] === c.hue))) o.hue = c.hue; return o; };
 function csFont(sel) { for (const v of Object.values(sel)) { const f = CS_FONT[v]; if (f && !FONT_LOADED.has('cs-' + v)) { FONT_LOADED.add('cs-' + v); const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=' + f + '&display=swap'; document.head.appendChild(l); } } }
 function csApply(el, sel) { sel = sel || csSel(); csFont(sel); for (const [k] of CS_PIECES) el.setAttribute('data-sk-' + k, sel[k] || ''); el.setAttribute('data-sk-hue', sel.hue || ''); }
 function csSet(patch) { setCfg('chatSkin', { ...csSel(), ...patch }); KEEP = true; render(); }
@@ -1246,7 +1247,7 @@ function csBody() {
   <p class="helper" style="margin:0 0 10px">${t('Así se verán los chats que leas. El color de las burbujas gratis sale del color de tu tema.')}</p>${csPreview()}
   ${own.length ? `<div class="set-col"><span>${t('Aplicar un paquete completo')}</span><div class="cs-packs">${own.map(k => `<button type="button" class="button secondary sm" data-act="cs-all" data-v="${k}">${esc(t(CS_PACKS[k][0]))}</button>`).join('')}<button type="button" class="button ghost sm" data-act="cs-all" data-v="">${t('Restablecer')}</button></div></div>` : ''}
   ${CS_PIECES.map(([p, l]) => `<div class="set-col"><span>${t(l)}</span><div class="seg cs-seg" role="radiogroup">${p === 'bubble' ? CS_FREE.bubble.map(([v, n]) => btn(p, v, n)).join('') : btn(p, '', 'Normal')}${own.map(k => btn(p, k, CS_PACKS[k][0])).join('')}</div></div>`).join('')}
-  ${CS_PIECES.some(([p]) => sel[p] === 'retro') ? `<div class="set-col"><span>${t('Color del paquete Retro 2000')}</span><div class="cs-hues" role="radiogroup">${CS_HUES.map(([v, n, c]) => `<button type="button" class="cs-hue ${sel.hue === v ? 'on' : ''}" style="--c:${c}" role="radio" aria-checked="${sel.hue === v}" aria-label="${esc(t(n))}" data-act="cs-hue" data-v="${v}"></button>`).join('')}</div></div>` : ''}</section>`;
+  ${Object.keys(CS_HUES2).filter(pk => CS_PIECES.some(([p]) => sel[p] === pk)).map(pk => `<div class="set-col"><span>${t('Color del paquete {n}', { n: t(CS_PACKS[pk][0]) })}</span><div class="cs-hues" role="radiogroup">${CS_HUES2[pk].map(([v, n, c]) => `<button type="button" class="cs-hue ${sel.hue === v ? 'on' : ''}" style="--c:${c}" role="radio" aria-checked="${sel.hue === v}" aria-label="${esc(t(n))}" data-act="cs-hue" data-v="${v}"></button>`).join('')}</div></div>`).join('')}</section>`;
 }
 function openSkinGift(tg) {
   const m = document.createElement('div'); m.className = 'modal sheet';
@@ -2627,6 +2628,7 @@ const SND = {
   kawaii: { recv: [[1046, 0, .09, 'sine', .07], [1318, .08, .09, 'sine', .06], [1568, .16, .16, 'sine', .055]], send: [[880, 0, .08, 'triangle', .06], [1175, .07, .1, 'triangle', .05]], react: [[1568, 0, .08, 'sine', .06], [2093, .07, .14, 'sine', .05]] },
   retro: { recv: [[784, 0, .07, 'square', .035], [1047, .09, .1, 'square', .035]], send: [[587, 0, .06, 'square', .03], [784, .07, .08, 'square', .03]], react: [[1047, 0, .06, 'square', .03], [1319, .07, .1, 'square', .03]] },
   victoriano: { recv: [[523, 0, .45, 'sine', .07], [1046, 0, .3, 'sine', .03]], send: [[392, 0, .32, 'sine', .06]], react: [[784, 0, .38, 'sine', .05]] },
+  sanvalentin: { recv: [[1318, 0, .28, 'sine', .05], [1568, .12, .28, 'sine', .045], [2093, .24, .4, 'sine', .04]], send: [[1046, 0, .22, 'sine', .05], [1318, .1, .3, 'sine', .045]], react: [[1568, 0, .2, 'sine', .05], [2093, .1, .32, 'sine', .045], [2637, .2, .4, 'sine', .035]] },
   futurista: { recv: [[1200, 0, .05, 'square', .028, 600], [900, .07, .08, 'square', .028, 1400]], send: [[500, 0, .05, 'square', .028, 900]], react: [[1800, 0, .05, 'square', .028, 1200], [1200, .06, .08, 'square', .028]], call: [[900, 0, .12, 'square', .03], [900, .2, .12, 'square', .03]] }
 };
 let SND_CTX = null;
