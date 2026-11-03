@@ -1242,7 +1242,8 @@ function csPreview() {
 }
 function csBody() {
   const sel = csSel(), own = csOwned(S.user), btn = (p, v, l) => `<button type="button" class="seg-b ${sel[p] === v ? 'on' : ''}" role="radio" aria-checked="${sel[p] === v}" data-act="cs-piece" data-p="${p}" data-v="${v}">${esc(t(l))}</button>`;
-  return `<section class="panel set-sec"><p class="helper" style="margin:0 0 10px">${t('Así se verán los chats que leas. El color de las burbujas gratis sale del color de tu tema.')}</p>${csPreview()}
+  return `<section class="panel set-sec"><div class="set-col"><span>${t('Sonido del chat')}</span><div class="seg" role="radiogroup"><button type="button" class="seg-b ${sndOn() ? '' : 'on'}" role="radio" aria-checked="${!sndOn()}" data-act="cs-snd" data-v="off">${t('Apagado')}</button><button type="button" class="seg-b ${sndOn() ? 'on' : ''}" role="radio" aria-checked="${sndOn()}" data-act="cs-snd" data-v="on">${t('Encendido')}</button>${sndOn() ? `<button type="button" class="button ghost sm" data-act="cs-sndtest">${t('Probar')}</button>` : ''}</div><small class="helper">${t('Sonidos suaves al llegar y enviar mensajes. Cada estilo tiene el suyo.')}</small></div>
+  <p class="helper" style="margin:0 0 10px">${t('Así se verán los chats que leas. El color de las burbujas gratis sale del color de tu tema.')}</p>${csPreview()}
   ${own.length ? `<div class="set-col"><span>${t('Aplicar un paquete completo')}</span><div class="cs-packs">${own.map(k => `<button type="button" class="button secondary sm" data-act="cs-all" data-v="${k}">${esc(t(CS_PACKS[k][0]))}</button>`).join('')}<button type="button" class="button ghost sm" data-act="cs-all" data-v="">${t('Restablecer')}</button></div></div>` : ''}
   ${CS_PIECES.map(([p, l]) => `<div class="set-col"><span>${t(l)}</span><div class="seg cs-seg" role="radiogroup">${p === 'bubble' ? CS_FREE.bubble.map(([v, n]) => btn(p, v, n)).join('') : btn(p, '', 'Normal')}${own.map(k => btn(p, k, CS_PACKS[k][0])).join('')}</div></div>`).join('')}
   ${CS_PIECES.some(([p]) => sel[p] === 'retro') ? `<div class="set-col"><span>${t('Color del paquete Retro 2000')}</span><div class="cs-hues" role="radiogroup">${CS_HUES.map(([v, n, c]) => `<button type="button" class="cs-hue ${sel.hue === v ? 'on' : ''}" style="--c:${c}" role="radio" aria-checked="${sel.hue === v}" aria-label="${esc(t(n))}" data-act="cs-hue" data-v="${v}"></button>`).join('')}</div></div>` : ''}</section>`;
@@ -2275,6 +2276,7 @@ function dcap(h) {                                  // letra capital: la primera
 /* ---------- CHATS dentro de los capítulos ----------
    Un chat es un párrafo del capítulo: «::chat {json}» en una sola línea. Viaja con el texto, así que se guarda, se revisa y se publica igual que todo lo demás.
    {id, k:'i'|'g', n, av, bg, p:[{n,av}], m:[{w,t} | {s:1,t}]}   w = quién escribe: -1 es «yo» (a la derecha), 0.. es p[w] (a la izquierda). s:1 es un aviso del sistema. */
+const chatEmo = v => { const e = String(v || '').trim(); return e && e.length <= 16 && /\p{Extended_Pictographic}/u.test(e) && !/[A-Za-z0-9<>&"'\s]/.test(e) ? e : ''; }, chatRid = v => /^[a-z0-9]{1,6}$/i.test(String(v || '')) ? String(v) : '';
 const CHAT_FX = ['glitch', 'shake', 'del'], CE_PASS = () => isStaff();       // efectos de mensaje y stickers: pase de escritor (por ahora solo el equipo los ve en el editor)
 const CHAT_MAX = 300, CHAT_LEN = 500, CH_OPT = 120, CH_REACT = 5, CHAT_IMG = 12;      // CHAT_IMG: fotos por chat (cada una pasa por la IA)
 const chatId = () => 'c' + Math.random().toString(36).slice(2, 7);
@@ -2283,17 +2285,19 @@ function chatClean(c) {                                 // lo que llega del text
   const k = c.k === 'g' ? 'g' : 'i', img = u => safeImg(u) ? u : '';
   const p = (Array.isArray(c.p) ? c.p : []).slice(0, 12).map(x => ({ n: String((x && x.n) || '').slice(0, 40), av: img(x && x.av) }));
   if (!p.length) p.push({ n: String(c.n || '').slice(0, 40), av: img(c.av) });
-  const tx = (x, n) => String((x && x.t) || '').slice(0, n), pic = u => isStoreUrl(u) ? u : '', hm = v => /^([01]?\d|2[0-3]):[0-5]\d$/.test(String(v || '')) ? String(v) : '', wv = x => Number.isInteger(x && x.w) && x.w >= 0 && x.w < p.length ? x.w : -1, cm = (x, im) => im && x && x.call ? { call: 1, w: wv(x), t: '' } : x && x.st ? (im ? { st: 1, t: tx(x, 30) } : { s: 1, t: '' }) : x && x.s ? { s: 1, t: tx(x, CHAT_LEN) } : x && x.n ? { n: 1, t: tx(x, CHAT_LEN) } : { w: Number.isInteger(x && x.w) && x.w >= 0 && x.w < p.length ? x.w : -1, t: tx(x, CHAT_LEN), ...(im && pic(x && x.i) ? { i: x.i } : {}), ...(im && hm(x && x.h) ? { h: x.h } : {}), ...(im && x && x.star ? { star: 1 } : {}), ...(im && x && CHAT_FX.includes(x.fx) && !x.i ? { fx: x.fx } : {}), ...(im && x && x.sk && pic(x.i) ? { sk: 1 } : {}) };      // st: estado del personaje (no es una burbuja); h: hora opcional del mensaje; star: mensaje destacado   // las fotos solo van en mensajes normales (no en reacciones) y solo si están en la nube
-  const m = (Array.isArray(c.m) ? c.m : []).slice(0, CHAT_MAX).map(x => x && x.ch ? { ch: 1, id: String(x.id || '').replace(/[^a-z0-9]/gi, '').slice(0, 8) || chatId(), o: (Array.isArray(x.o) ? x.o : []).slice(0, 4).map(o => ({ t: tx(o, CH_OPT), r: (Array.isArray(o && o.r) ? o.r : []).slice(0, CH_REACT).map(y => cm(y, false)).filter(y => y.t.trim()) })).filter(o => o.t.trim()) } : cm(x, true)).filter(x => x.ch ? x.o.length >= 2 : x.call || x.i || x.t.trim());
+  const tx = (x, n) => String((x && x.t) || '').slice(0, n), pic = u => isStoreUrl(u) ? u : '', hm = v => /^([01]?\d|2[0-3]):[0-5]\d$/.test(String(v || '')) ? String(v) : '', wv = x => Number.isInteger(x && x.w) && x.w >= 0 && x.w < p.length ? x.w : -1, cm = (x, im) => im && x && x.rx ? { rx: 1, r: chatRid(x.r), e: chatEmo(x.e), u: [...new Set((Array.isArray(x.u) ? x.u : []).filter(n => Number.isInteger(n) && n >= 0 && n < p.length))].slice(0, 12) } : im && x && x.call ? { call: 1, w: wv(x), t: '' } : x && x.st ? (im ? { st: 1, t: tx(x, 30) } : { s: 1, t: '' }) : x && x.s ? { s: 1, t: tx(x, CHAT_LEN) } : x && x.n ? { n: 1, t: tx(x, CHAT_LEN) } : { w: Number.isInteger(x && x.w) && x.w >= 0 && x.w < p.length ? x.w : -1, t: tx(x, CHAT_LEN), ...(im && pic(x && x.i) ? { i: x.i } : {}), ...(im && hm(x && x.h) ? { h: x.h } : {}), ...(im && x && x.star ? { star: 1 } : {}), ...(im && x && CHAT_FX.includes(x.fx) && !x.i ? { fx: x.fx } : {}), ...(im && x && x.sk && pic(x.i) ? { sk: 1 } : {}), ...(im && x && chatRid(x.r) ? { r: chatRid(x.r) } : {}) };      // st: estado del personaje (no es una burbuja); h: hora opcional del mensaje; star: mensaje destacado   // las fotos solo van en mensajes normales (no en reacciones) y solo si están en la nube
+  const m = (Array.isArray(c.m) ? c.m : []).slice(0, CHAT_MAX).map(x => x && x.ch ? { ch: 1, id: String(x.id || '').replace(/[^a-z0-9]/gi, '').slice(0, 8) || chatId(), o: (Array.isArray(x.o) ? x.o : []).slice(0, 4).map(o => ({ t: tx(o, CH_OPT), r: (Array.isArray(o && o.r) ? o.r : []).slice(0, CH_REACT).map(y => cm(y, false)).filter(y => y.t.trim()) })).filter(o => o.t.trim()) } : cm(x, true)).filter(x => x.ch ? x.o.length >= 2 : x.rx ? x.e && x.r && x.u.length : x.call || x.i || x.t.trim());
   let ni = 0; for (const x of m) if (x.i && !x.sk && ++ni > CHAT_IMG) delete x.i;
-  for (let i = m.length - 1; i >= 0; i--) if (!m[i].ch && !m[i].call && !m[i].i && !m[i].t.trim()) m.splice(i, 1);
+  { const ids = new Set(m.filter(x => x.r && !x.rx).map(x => x.r)); for (let i = m.length - 1; i >= 0; i--) if (m[i].rx && !ids.has(m[i].r)) m.splice(i, 1);           // una reacción sin su mensaje se descarta; y el mensaje sin reacciones no guarda su marca
+    const used = new Set(m.filter(x => x.rx).map(x => x.r)); m.forEach(x => { if (!x.rx && x.r && !used.has(x.r)) delete x.r; }); }
+  for (let i = m.length - 1; i >= 0; i--) if (!m[i].ch && !m[i].rx && !m[i].call && !m[i].i && !m[i].t.trim()) m.splice(i, 1);
   return { id: String(c.id || '').replace(/[^a-z0-9]/gi, '').slice(0, 8) || chatId(), k, n: String(c.n || p[0].n || '').slice(0, 40), av: k === 'g' ? img(c.av) : img(c.av) || p[0].av, bg: isStoreUrl(c.bg) ? c.bg : '', d: String(c.d || '').slice(0, 24), h: hm(c.h), p, m };
 }
 const chatLine = c => '::chat ' + JSON.stringify(chatClean(c));
 const chatTitle = c => (c.k === 'g' ? c.n : (c.p[0] && c.p[0].n) || c.n) || t('Chat');
 const chatHead = c => c.k === 'g' ? { n: c.n, av: c.av } : c.p[0];
 const chatName = c => c.k === 'g' ? t('Grupo «{n}»', { n: chatTitle(c) }) : t('Chat con {n}', { n: chatTitle(c) });
-const chatLn = (c, x) => x.st ? '(' + t('Estado') + ') ' + x.t : x.s ? '— ' + x.t + ' —' : x.n ? '(' + t('Narración') + ') ' + x.t : (x.w < 0 ? t('Yo') : (c.p[x.w] || {}).n || '?') + ': ' + (x.call ? '[' + t('Llamada perdida') + ']' : x.sk ? '[Sticker]' : (x.i ? '[' + t('Imagen') + '] ' : '') + x.t);
+const chatLn = (c, x) => x.rx ? '(' + t('Reacción') + ') ' + x.e + ' · ' + x.u.map(i => (c.p[i] || {}).n || '?').join(', ') : x.st ? '(' + t('Estado') + ') ' + x.t : x.s ? '— ' + x.t + ' —' : x.n ? '(' + t('Narración') + ') ' + x.t : (x.w < 0 ? t('Yo') : (c.p[x.w] || {}).n || '?') + ': ' + (x.call ? '[' + t('Llamada perdida') + ']' : x.sk ? '[Sticker]' : (x.i ? '[' + t('Imagen') + '] ' : '') + x.t);
 const chatLn0 = chatLn, chatTime = h => { const m = /^(\d{1,2}):(\d{2})$/.exec(h || ''); if (!m) return ''; try { return new Date(2000, 0, 1, +m[1], +m[2]).toLocaleTimeString(uiLang() === 'en' ? 'en-US' : 'es', { hour: 'numeric', minute: '2-digit' }); } catch (e) { return h; } };
 const chatPlain = c => (c.k === 'g' ? '👥 ' : '💬 ') + chatName(c) + '\n' + c.m.map(x => x.ch ? t('Elección') + ':\n' + x.o.map((o, i) => '  ' + t('Opción {n}', { n: i + 1 }) + ' — ' + t('Yo') + ': ' + o.t + o.r.map(y => '\n    ' + chatLn(c, y)).join('')).join('\n') : chatLn(c, x)).join('\n');
 /* En el editor, cada chat se ve como una línea corta («::chat c1a2b · Mizuki»); el contenido real vive aquí, por id */
@@ -2314,9 +2318,9 @@ function insertBlock(line) {                           // inserta un bloque (sep
 let CE = null, CE_FIT = null;
 const CE_FXN = { glitch: 'Glitch', shake: 'Temblor', del: 'Eliminado' };
 const ceMsgHTML = (c, x, i) => {
-  const me = !x.s && !x.n && !x.ch && !x.st && x.w < 0, who = x.s || x.n || x.ch || x.st ? '' : me ? t('Yo') : (c.p[x.w] || {}).n || '?', norm = !x.s && !x.n && !x.ch && !x.st;
-  return `<div class="ce-row ${x.ch ? 'chs' : x.s || x.st ? 'sys' : x.n ? 'nar' : me ? 'me' : 'them'}${CE.ed === i ? ' ed' : ''}${x.star ? ' star' : ''}"><div class="ce-bub">${x.st ? `<small>${t('Estado')}</small>` : ''}${x.star ? '<i class="ce-star" aria-hidden="true">★</i>' : ''}${x.h ? `<i class="ce-hr">${esc(chatTime(x.h))}</i>` : ''}${x.ch ? `<small>${t('Elección')}</small>${x.o.map((o, k) => `<span class="ce-o">${k + 1}. ${esc(o.t)}${o.r.length ? ` <em>(${tn(o.r.length, '{n} reacción', '{n} reacciones')})</em>` : ''}</span>`).join('')}` : (x.s ? '' : x.n ? `<small>${t('Narración')}</small>` : `<small>${esc(who)}</small>`) + (x.call ? `<span class="ce-call">${t('Llamada perdida')}</span>` : '') + (x.fx ? `<i class="ce-fx">${t(CE_FXN[x.fx])}</i>` : '') + (x.i ? `<img class="ce-img${x.sk ? ' sk' : ''}" src="${esc(x.i)}" alt="" data-noguard>` : '') + esc(x.t)}</div>
-  <div class="ce-tools"><button type="button" data-act="ce-up" data-id="${i}" aria-label="${esc(t('Subir mensaje'))}"${i ? '' : ' disabled'}>↑</button><button type="button" data-act="ce-down" data-id="${i}" aria-label="${esc(t('Bajar mensaje'))}"${i < c.m.length - 1 ? '' : ' disabled'}>↓</button>${norm && !x.call && !x.i && CE_PASS() ? `<button type="button" data-act="ce-fx" data-id="${i}" aria-label="${esc(t('Efecto del mensaje'))}" class="ce-fxb${x.fx ? ' on' : ''}">✦</button>` : ''}${norm && !x.call ? `<button type="button" data-act="ce-star" data-id="${i}" aria-label="${esc(t('Destacar mensaje'))}" aria-pressed="${!!x.star}">${x.star ? '★' : '☆'}</button><button type="button" data-act="ce-time" data-id="${i}" aria-label="${esc(t('Hora del mensaje'))}">◷</button>` : ''}${x.call || x.sk ? '' : `<button type="button" data-act="ce-edit" data-id="${i}" aria-label="${esc(t('Editar mensaje'))}">✎</button>`}<button type="button" data-act="ce-del" data-id="${i}" aria-label="${esc(t('Borrar mensaje'))}">✕</button></div></div>`;
+  const me = !x.s && !x.n && !x.ch && !x.st && !x.rx && x.w < 0, who = x.s || x.n || x.ch || x.st || x.rx ? '' : me ? t('Yo') : (c.p[x.w] || {}).n || '?', norm = !x.s && !x.n && !x.ch && !x.st && !x.rx;
+  return `<div class="ce-row ${x.ch ? 'chs' : x.s || x.st || x.rx ? 'sys' : x.n ? 'nar' : me ? 'me' : 'them'}${CE.ed === i ? ' ed' : ''}${x.star ? ' star' : ''}"><div class="ce-bub">${x.st ? `<small>${t('Estado')}</small>` : ''}${x.star ? '<i class="ce-star" aria-hidden="true">★</i>' : ''}${x.h ? `<i class="ce-hr">${esc(chatTime(x.h))}</i>` : ''}${x.rx ? `<small>${t('Reacción')}</small>${esc(x.e)} · ${esc(x.u.map(i => (c.p[i] || {}).n || '?').join(', '))}` : x.ch ? `<small>${t('Elección')}</small>${x.o.map((o, k) => `<span class="ce-o">${k + 1}. ${esc(o.t)}${o.r.length ? ` <em>(${tn(o.r.length, '{n} reacción', '{n} reacciones')})</em>` : ''}</span>`).join('')}` : (x.s ? '' : x.n ? `<small>${t('Narración')}</small>` : `<small>${esc(who)}</small>`) + (x.call ? `<span class="ce-call">${t('Llamada perdida')}</span>` : '') + (x.fx ? `<i class="ce-fx">${t(CE_FXN[x.fx])}</i>` : '') + (x.i ? `<img class="ce-img${x.sk ? ' sk' : ''}" src="${esc(x.i)}" alt="" data-noguard>` : '') + esc(x.t)}</div>
+  <div class="ce-tools"><button type="button" data-act="ce-up" data-id="${i}" aria-label="${esc(t('Subir mensaje'))}"${i ? '' : ' disabled'}>↑</button><button type="button" data-act="ce-down" data-id="${i}" aria-label="${esc(t('Bajar mensaje'))}"${i < c.m.length - 1 ? '' : ' disabled'}>↓</button>${norm && !x.call && !x.i && CE_PASS() ? `<button type="button" data-act="ce-fx" data-id="${i}" aria-label="${esc(t('Efecto del mensaje'))}" class="ce-fxb${x.fx ? ' on' : ''}">✦</button>` : ''}${norm && !x.call ? `<button type="button" data-act="ce-rx" data-id="${i}" aria-label="${esc(t('Reacción'))}">☺</button><button type="button" data-act="ce-star" data-id="${i}" aria-label="${esc(t('Destacar mensaje'))}" aria-pressed="${!!x.star}">${x.star ? '★' : '☆'}</button><button type="button" data-act="ce-time" data-id="${i}" aria-label="${esc(t('Hora del mensaje'))}">◷</button>` : ''}${x.call || x.sk || x.rx ? '' : `<button type="button" data-act="ce-edit" data-id="${i}" aria-label="${esc(t('Editar mensaje'))}">✎</button>`}<button type="button" data-act="ce-del" data-id="${i}" aria-label="${esc(t('Borrar mensaje'))}">✕</button></div></div>`;
 };
 const ceMsgs = () => CE.c.m.length ? CE.c.m.map((x, i) => ceMsgHTML(CE.c, x, i)).join('') : `<p class="ce-empty">${t('Aquí aparecerá la conversación. Elige quién habla y escribe el primer mensaje.')}</p>`;
 const ceWho = () => { const c = CE.c; return `<button type="button" class="ce-chip ${CE.who === -1 ? 'on' : ''}" data-act="ce-who" data-id="-1" aria-pressed="${CE.who === -1}">${t('Yo')}</button>${c.p.map((x, i) => `<button type="button" class="ce-chip ${CE.who === i ? 'on' : ''}" data-act="ce-who" data-id="${i}" aria-pressed="${CE.who === i}">${esc(x.n || t('Personaje'))}</button>`).join('')}<button type="button" class="ce-chip sys ${CE.who === -2 ? 'on' : ''}" data-act="ce-who" data-id="-2" aria-pressed="${CE.who === -2}">${t('Aviso')}</button><button type="button" class="ce-chip sys ${CE.who === -3 ? 'on' : ''}" data-act="ce-who" data-id="-3" aria-pressed="${CE.who === -3}">${t('Narración')}</button><button type="button" class="ce-chip sys ${CE.who === -4 ? 'on' : ''}" data-act="ce-who" data-id="-4" aria-pressed="${CE.who === -4}">${t('Estado')}</button><button type="button" class="ce-chip ch" data-act="ce-choice">＋ ${t('Elección')}</button>${CE_PASS() ? `<button type="button" class="ce-chip sys ${CE.who === -5 ? 'on' : ''}" data-act="ce-who" data-id="-5" aria-pressed="${CE.who === -5}">${t('Llamada perdida')}</button>` : ''}`; };
@@ -2342,6 +2346,27 @@ function ceRender() {
   <footer class="ce-compose"><div class="ce-who" id="ce-who" role="group" aria-label="${esc(t('Quién escribe'))}">${ceWho()}</div><div id="ce-tplbox">${ceTpl()}</div>
   <div class="ce-send">${CE_PASS() ? `<button type="button" class="ce-photo" data-act="ce-stk" aria-label="${esc(t('Stickers'))}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v6l-7 7H7a3 3 0 0 1-3-3z"/><path d="M20 13h-4a3 3 0 0 0-3 3v4"/><circle cx="9" cy="10" r=".8" fill="currentColor"/><circle cx="14" cy="10" r=".8" fill="currentColor"/></svg></button>` : ''}<label class="ce-photo" aria-label="${esc(t('Enviar una foto'))}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10.5" r="1.6"/><path d="M4 17l5-4.5 4 3.5 3-2.5 4 3.5"/></svg><input id="ce-img" type="file" accept="image/*" hidden></label><textarea id="ce-txt" rows="1" maxlength="${CHAT_LEN}" placeholder="${esc(CE.who === -3 ? t('Escribe la narración…') : t('Escribe un mensaje…'))}">${esc(CE.txt || '')}</textarea><button type="button" class="button" data-act="ce-send">${CE.ed >= 0 ? t('Guardar') : t('Enviar')}</button></div></footer>`;
   const l = $('#ce-body'); if (l) l.scrollTop = l.scrollHeight;
+}
+const RX_EMO = ['❤️', '😂', '😮', '😢', '😡', '👍', '🔥', '✨', '🥺', '😭', '😍', '💀'];
+function rxSheet(i) {                                    // la autoría pone la reacción de un personaje (o de varios) a un mensaje
+  if (!CE || !CE.c.m[i]) return; const c = CE.c, g = c.k === 'g', x = CE.c.m[i]; let emo = '', who = new Set(g ? [] : [0]);
+  const m = document.createElement('div'); m.className = 'modal';
+  const draw = () => { m.querySelector('.rx-grid').innerHTML = RX_EMO.map(e => `<button type="button" class="rx-e ${emo === e ? 'on' : ''}" data-e="${e}" aria-pressed="${emo === e}">${e}</button>`).join('');
+    if (g) m.querySelector('.rx-who').innerHTML = c.p.map((p, k) => `<label class="check"><input type="checkbox" data-k="${k}" ${who.has(k) ? 'checked' : ''}><span>${esc(p.n || t('Personaje'))}</span></label>`).join(''); };
+  m.innerHTML = `<div class="modal-box rx-sheet" role="dialog" aria-modal="true"><h2>${t('Reacción')}</h2><p class="helper">${g ? t('Elige el emoji y quién reacciona. Si reaccionan varios, se ve el emoji con un número.') : t('Elige el emoji con el que reacciona el personaje.')}</p>
+  <div class="rx-grid"></div><input class="field rx-own" maxlength="8" placeholder="${esc(t('O escribe otro emoji'))}" aria-label="${esc(t('O escribe otro emoji'))}" autocomplete="off">${g ? `<div class="rx-who"></div>` : ''}<p class="error-line" data-err role="alert"></p>
+  <div style="display:flex;gap:10px;margin-top:12px"><button type="button" class="button ghost" data-no style="flex:1">${t('Cancelar')}</button><button type="button" class="button" data-ok style="flex:1">${t('Agregar reacción')}</button></div></div>`;
+  draw();
+  m.addEventListener('click', ev => {
+    const b = ev.target.closest('[data-e]'); if (b) { emo = b.dataset.e; m.querySelector('.rx-own').value = ''; draw(); return; }
+    if (ev.target === m || ev.target.closest('[data-no]')) return m.remove();
+    if (ev.target.closest('[data-ok]')) { const own = chatEmo(m.querySelector('.rx-own').value), e = own || emo, er = m.querySelector('[data-err]');
+      if (!e) return void (er.textContent = t('Elige un emoji.')); if (!who.size) return void (er.textContent = t('Elige quién reacciona.'));
+      if (CE.c.m.length >= CHAT_MAX) return void (er.textContent = t('Este chat ya tiene el máximo de mensajes.'));
+      if (!x.r) x.r = Math.random().toString(36).slice(2, 7); CE.c.m.splice(i + 1, 0, { rx: 1, r: x.r, e, u: [...who].sort((a, b2) => a - b2) }); m.remove(); ceRefresh(); }
+  });
+  m.addEventListener('change', ev => { const k = ev.target.dataset && ev.target.dataset.k; if (k == null) return; if (ev.target.checked) who.add(+k); else who.delete(+k); });
+  document.body.appendChild(m);
 }
 function stkFit(file, cb) {                              // sticker: máximo 320 px, se conserva la transparencia (PNG)
   if (!file || !file.type.startsWith('image/')) return toast(t('Elige un archivo de imagen.'));
@@ -2506,7 +2531,7 @@ function crAfter() {                                    // qué sigue al termina
 function chatOpen(k) {
   const c = CHC.get(k); if (!c) return; if (CR) crClose();
   const m = document.createElement('div'); m.id = 'chat-rd'; m.className = 'cr'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
-  m.innerHTML = `<header class="cr-top"><button type="button" class="icon-btn" data-act="cr-close" aria-label="${esc(t('Cerrar chat'))}">✕</button><span class="cr-who"><span class="cc-av">${chatAv(chatHead(c))}</span><span><b>${esc(chatTitle(c))}</b><small${c.k === 'g' ? ' class="g"' : ''}>${c.k === 'g' ? esc([...c.p.map(x => x.n), t('Yo')].join(', ')) : t('en línea')}</small></span></span><button type="button" class="button ghost sm" data-act="cr-all">${t('Ver todo')}</button></header>
+  m.innerHTML = `<header class="cr-top"><button type="button" class="icon-btn" data-act="cr-close" aria-label="${esc(t('Cerrar chat'))}">✕</button><span class="cr-who"><span class="cc-av">${chatAv(chatHead(c))}</span><span><b>${esc(chatTitle(c))}</b><small${c.k === 'g' ? ' class="g"' : ''}>${c.k === 'g' ? esc([...c.p.map(x => x.n), t('Yo')].join(', ')) : t('en línea')}</small></span></span><button type="button" class="icon-btn cr-snd" data-act="cr-snd" aria-label="${esc(t('Sonido'))}" aria-pressed="${sndOn()}">${sndIcon()}</button><button type="button" class="button ghost sm" data-act="cr-all">${t('Ver todo')}</button></header>
   <div class="cr-body"><div class="cr-msgs" id="cr-msgs"></div></div><footer class="cr-foot" id="cr-foot"></footer>`;
   csApply(m);
   m.addEventListener('click', e => { const h = $('#cr-hint'); if (h) { h.remove(); LS.set('auri.crhint', true); } if (e.target.closest('button')) return; crNext(); });
@@ -2538,20 +2563,21 @@ function chatImgView(u) {
   document.body.appendChild(m);
 }
 const CALL_SVG = '<svg class="cr-callic" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.500 1.500a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/><path d="M15 3l6 6M21 3l-6 6"/></svg>', GONE_SVG = '<svg class="cr-callic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.600 5.600l12.800 12.800"/></svg>';
-function crGone(b) { if (!b || !b.isConnected) return; b.classList.remove('fx-del'); b.classList.add('fx-gone'); b.innerHTML = GONE_SVG + `<span>${t('Este mensaje fue eliminado')}</span>`; }
+function crGone(b) { if (!b || !b.isConnected) return; const rx = b.querySelector('.cr-rxs'); b.classList.remove('fx-del'); b.classList.add('fx-gone'); b.innerHTML = GONE_SVG + `<span>${t('Este mensaje fue eliminado')}</span>`; if (rx) b.appendChild(rx); }
 const crHue = i => (i * 67 + 265) % 360;
 function crBub(x, typing, joined) {                      // una burbuja (en grupo, la de otra persona lleva su foto y su nombre en color; si sigue a otra de la misma persona va pegadita y sin nombre)
   if (x.n && !typing) { const d = document.createElement('div'); d.className = 'cr-b narl'; d.textContent = x.t; return d; }     // narración ya leída: queda como línea tenue en el chat
   const c = CR.c, me = !x.s && x.w < 0, grp = c.k === 'g' && !x.s && !me, cls = 'cr-b ' + (x.s ? 'sys' : me ? 'me tail' : 'them tail') + (typing ? ' typing' : '') + (x.i && !x.sk && !typing ? ' img' : '') + (x.sk && !typing ? ' stk' : '') + (x.call && !typing ? ' call' : '') + (x.fx && !typing ? ' fx-' + x.fx : '') + (x.star && !typing ? ' star' : '') + (joined ? ' joined' : '');
   const tm = x.h && !typing ? `<span class="cr-time">${esc(chatTime(x.h))}</span>` : '';
   const inner = typing ? '<i></i><i></i><i></i>' : x.s ? esc(x.t) : x.call ? CALL_SVG + `<span><b>${t('Llamada perdida')}</b>${tm}</span>` : (grp && !joined ? `<small style="color:hsl(${crHue(x.w)} 62% 50%)">${esc((c.p[x.w] || {}).n || '')}</small>` : '') + (x.i ? chatImgHTML(x.i) : '') + (x.t ? `<span class="${x.i ? 'cr-cap' : ''}">${esc(x.t).replace(/\n/g, '<br>')}</span>` : '') + tm;
-  if (!grp) { const d = document.createElement('div'); d.className = cls; d.innerHTML = inner; return d; }
-  const r = document.createElement('div'); r.className = 'cr-r' + (joined ? ' joined' : ''); r.innerHTML = `<span class="cc-av sm">${chatAv(c.p[x.w])}</span><div class="${cls}">${inner}</div>`; return r;
+  if (!grp) { const d = document.createElement('div'); d.className = cls; d.innerHTML = inner; if (x.r) d.dataset.r = x.r; return d; }
+  const r = document.createElement('div'); r.className = 'cr-r' + (joined ? ' joined' : ''); r.innerHTML = `<span class="cc-av sm">${chatAv(c.p[x.w])}</span><div class="${cls}"${x.r ? ' data-r="' + esc(x.r) + '"' : ''}>${inner}</div>`; return r;
 }
 const crSide = x => x.s || x.n || x.st ? null : x.w;       // de quién es el mensaje (null: avisos y narración)
 function crStatus(txt) { const sm = $('#chat-rd .cr-who small'); if (sm) { sm.textContent = txt; sm.classList.remove('g'); } }
 function crAdd(x, anim = true) {
   if (x.st) { crStatus(x.t); return; }
+  if (x.rx) return crReact(x, anim);
   const box = $('#cr-msgs'); if (!box) return; const side = crSide(x), prev = box.lastElementChild;
   const joined = side !== null && CR.side === side && !!prev && !prev.classList.contains('cr-day') && !prev.classList.contains('narl') && !prev.classList.contains('sys') && prev.id !== 'cr-typing';
   const d = crBub(x, false, joined); if (anim) d.classList.add('in');
@@ -2559,10 +2585,49 @@ function crAdd(x, anim = true) {
   CR.side = side;
   const seen = box.querySelector('.cr-seen'); if (side !== null && side >= 0 && seen) seen.remove();
   box.appendChild(d);
+  if (anim) sndPlay(x.s ? '' : x.call ? 'call' : x.fx === 'glitch' ? 'glitch' : x.w < 0 ? 'send' : 'recv');
   if (x.fx === 'del') { const b = d.classList.contains('cr-b') ? d : d.querySelector('.cr-b'); if (b) { if (!anim || reduceMotion()) crGone(b); else setTimeout(() => crGone(b), 2000); } }
   if (side !== null && side >= 0) { const lm = [...box.querySelectorAll('.cr-b.me')].pop(); if (lm && !lm.nextElementSibling.classList.contains('cr-seen')) { const sn = document.createElement('small'); sn.className = 'cr-seen'; sn.textContent = t('Visto'); lm.after(sn); } }
   const b = $('.cr-body'); if (b) b.scrollTop = b.scrollHeight;
 }
+const crNames = l => l.length < 2 ? l[0] || '' : t('{a} y {b}', { a: l.slice(0, -1).join(', '), b: l[l.length - 1] });
+function crReact(x, anim) {                              // un personaje reacciona a un mensaje: sale el emoji volando y, en grupos, un aviso con los nombres que desaparece y deja solo el emoji (con número si fueron varios)
+  const box = $('#cr-msgs'); if (!box || !CR) return 0; const b = [...box.querySelectorAll('.cr-b[data-r]')].find(el => el.dataset.r === x.r); if (!b) return 0;
+  const c = CR.c, names = x.u.map(i => (c.p[i] || {}).n).filter(Boolean);
+  let row = b.querySelector('.cr-rxs'); if (!row) { row = document.createElement('span'); row.className = 'cr-rxs'; b.appendChild(row); b.classList.add('has-rx'); }
+  const bd = document.createElement('span'); bd.className = 'cr-rx'; bd.textContent = x.e; if (x.u.length > 1) { const n = document.createElement('i'); n.textContent = x.u.length; bd.appendChild(n); }
+  if (!anim || reduceMotion()) { row.appendChild(bd); return 0; }
+  sndPlay('react'); const fl = document.createElement('span'); fl.className = 'cr-rxf'; fl.textContent = x.e; fl.setAttribute('aria-hidden', 'true'); b.appendChild(fl); setTimeout(() => fl.remove(), 1100);
+  const show = () => { row.appendChild(bd); bd.classList.add('rxin'); };
+  if (c.k === 'g' && names.length) { const nt = document.createElement('div'); nt.className = 'cr-b sys rxn in'; nt.textContent = names.length > 1 ? t('{n} reaccionaron', { n: crNames(names) }) : t('{n} reaccionó a este mensaje', { n: names[0] }); box.appendChild(nt); const bo = $('.cr-body'); if (bo) bo.scrollTop = bo.scrollHeight;
+    setTimeout(() => nt.classList.add('out'), 1600); setTimeout(() => { nt.remove(); show(); }, 1900); return 1950; }
+  setTimeout(show, 450); return 900;
+}
+function crRxRun() {                                     // las reacciones que siguen a un mensaje salen solas, sin tocar
+  if (!CR || CR.rxb) return; const me0 = CR, x = CR.m[CR.n]; if (!x || !x.rx) return;
+  CR.rxb = true; CR.busy = true;
+  setTimeout(() => { if (CR !== me0 || me0.dead) return; if (me0.m[me0.n] !== x) { me0.rxb = false; me0.busy = false; return; }
+    const d = crAdd(x, true) || 600; me0.n++; chatPosSet(me0.k, me0.n);
+    setTimeout(() => { if (CR !== me0) return; me0.rxb = false; me0.busy = false; crFoot(); crRxRun(); }, d); }, 650);
+}
+/* Sonido del chat: sintetizado en el teléfono (no pesa nada), apagado por defecto. Cada paquete de estilo tiene el suyo. Las notas son [frecuencia, inicio, duración, onda, volumen, frecuencia final] */
+const SND = {
+  base: { recv: [[740, 0, .1, 'sine', .08], [988, .08, .14, 'sine', .07]], send: [[560, 0, .09, 'sine', .07]], react: [[988, 0, .07, 'sine', .07], [1480, .06, .12, 'sine', .06]], call: [[440, 0, .16, 'sine', .08], [440, .26, .16, 'sine', .08], [440, .52, .16, 'sine', .08]], glitch: [[220, 0, .05, 'sawtooth', .04, 80], [900, .06, .04, 'square', .03, 300], [130, .12, .08, 'sawtooth', .04, 60]] },
+  kawaii: { recv: [[1046, 0, .09, 'sine', .07], [1318, .08, .09, 'sine', .06], [1568, .16, .16, 'sine', .055]], send: [[880, 0, .08, 'triangle', .06], [1175, .07, .1, 'triangle', .05]], react: [[1568, 0, .08, 'sine', .06], [2093, .07, .14, 'sine', .05]] },
+  retro: { recv: [[784, 0, .07, 'square', .035], [1047, .09, .1, 'square', .035]], send: [[587, 0, .06, 'square', .03], [784, .07, .08, 'square', .03]], react: [[1047, 0, .06, 'square', .03], [1319, .07, .1, 'square', .03]] },
+  victoriano: { recv: [[523, 0, .45, 'sine', .07], [1046, 0, .3, 'sine', .03]], send: [[392, 0, .32, 'sine', .06]], react: [[784, 0, .38, 'sine', .05]] },
+  futurista: { recv: [[1200, 0, .05, 'square', .028, 600], [900, .07, .08, 'square', .028, 1400]], send: [[500, 0, .05, 'square', .028, 900]], react: [[1800, 0, .05, 'square', .028, 1200], [1200, .06, .08, 'square', .028]], call: [[900, 0, .12, 'square', .03], [900, .2, .12, 'square', .03]] }
+};
+let SND_CTX = null;
+const sndOn = () => cfg('chatSnd') === 'on';
+function sndUnlock() { if (!sndOn()) return; try { if (!SND_CTX) { const A = window.AudioContext || window.webkitAudioContext; if (A) SND_CTX = new A(); } if (SND_CTX && SND_CTX.state === 'suspended') SND_CTX.resume(); } catch (e) { /* sin audio */ } }
+function sndPlay(kind, force) {
+  if (!kind || (!force && !sndOn())) return; try { sndUnlock(); if (!SND_CTX) return;
+    const sk = csSel().bubble, pr = { ...SND.base, ...(SND[sk] || {}) }, notes = pr[kind] || SND.base[kind]; if (!notes) return; const t0 = SND_CTX.currentTime + .01;
+    for (const [f, st, d, w, g, f2] of notes) { const o = SND_CTX.createOscillator(), a = SND_CTX.createGain(); o.type = w; o.frequency.setValueAtTime(f, t0 + st); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + st + d);
+      a.gain.setValueAtTime(.0001, t0 + st); a.gain.exponentialRampToValueAtTime(g, t0 + st + .008); a.gain.exponentialRampToValueAtTime(.0001, t0 + st + d); o.connect(a); a.connect(SND_CTX.destination); o.start(t0 + st); o.stop(t0 + st + d + .03); } } catch (e) { /* sin audio */ }
+}
+const sndIcon = () => sndOn() ? '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.500 8.500a5 5 0 0 1 0 7M19 6a8.500 8.500 0 0 1 0 12"/></svg>' : '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
 function crFoot() {
   const f = $('#cr-foot'); if (!f || !CR) return; const nx = CR.m[CR.n];
   if (nx && nx.ch) { f.classList.add('pick'); f.innerHTML = `<small class="cr-ph">${t('Elige tu respuesta')}</small>${nx.o.map((o, i) => `<button type="button" class="cr-opt" style="--i:${i}" data-act="cr-pick" data-id="${i}">${esc(o.t)}</button>`).join('')}`; f.classList.remove('end'); return; }
@@ -2576,7 +2641,7 @@ function crPick(i) {                                       // quien lee elige: s
   const me0 = CR, bt = document.querySelector(`.cr-opt[data-id="${i}"]`);
   if (bt && !reduceMotion() && !CR.pick) { CR.pick = 1; document.querySelectorAll('.cr-opt').forEach(b => b.classList.add(b === bt ? 'chosen' : 'gone')); return setTimeout(() => { if (CR === me0) { CR.pick = 2; crPick(i); } }, 240); }
   chatPickSet(CR.k, x.id, i); CR.m.splice(CR.n, 1, ...chatBranch(x.o[i]));
-  CR.pick = 0; crAdd(CR.m[CR.n]); CR.n++; chatPosSet(CR.k, CR.n); crFoot();
+  CR.pick = 0; crAdd(CR.m[CR.n]); CR.n++; chatPosSet(CR.k, CR.n); crFoot(); crRxRun();
   if (CR.n < CR.m.length && !CR.m[CR.n].ch) setTimeout(() => { if (CR === me0 && !CR.busy && !CR.nar && !CR.dead) crNext(); }, 450);
 }
 function crNarShow(txt) {                                // el chat se oscurece y el texto se va escribiendo
@@ -2596,12 +2661,13 @@ function crNarTap() {
   CR.nar = null; if (o) { o.classList.remove('on'); setTimeout(() => o.remove(), 450); } crFoot();
 }
 function crNext() {
-  if (!CR) return; if (CR.nar) return crNarTap(); if (CR.busy || CR.n >= CR.m.length) return;
+  if (!CR) return; sndUnlock(); if (CR.nar) return crNarTap(); if (CR.busy || CR.n >= CR.m.length) return;
   const me0 = CR, x = CR.m[CR.n]; if (x.ch) return;
+  if (x.rx) { crAdd(x, false); CR.n++; chatPosSet(CR.k, CR.n); crFoot(); return crNext(); }
   if (x.st) { crAdd(x); CR.n++; chatPosSet(CR.k, CR.n); crFoot(); return crNext(); }              // un cambio de estado no necesita toque
   const mine = x.s || x.w < 0;
   if (x.n) return crNarShow(x.t);
-  const go1 = () => { if (CR !== me0 || CR.dead) return; const tp = $('#cr-typing'); if (tp) tp.remove(); crAdd(x); CR.n++; CR.busy = false; chatPosSet(CR.k, CR.n); crFoot(); };
+  const go1 = () => { if (CR !== me0 || CR.dead) return; const tp = $('#cr-typing'); if (tp) tp.remove(); crAdd(x); CR.n++; CR.busy = false; chatPosSet(CR.k, CR.n); crFoot(); crRxRun(); };
   if (mine) return go1();
   CR.busy = true; const box = $('#cr-msgs'); if (box) { const d = crBub(x, true); d.id = 'cr-typing'; d.classList.add('in'); box.appendChild(d); const b = $('.cr-body'); if (b) b.scrollTop = b.scrollHeight; }
   setTimeout(go1, x.i && !x.t ? 700 : Math.min(1600, 450 + x.t.length * 18));
@@ -4859,6 +4925,9 @@ document.addEventListener('click', e => {
     'cs-piece': () => { csSet({ [el.dataset.p]: el.dataset.v }); },
     'cs-all': () => { const v = el.dataset.v; csSet({ ...Object.fromEntries(CS_PIECES.map(([k]) => [k, k === 'bubble' && !v ? 'fluid' : v])), ...(v ? {} : { hue: '' }) }); },
     'cs-hue': () => csSet({ hue: el.dataset.v }),
+    'cs-snd': () => { setCfg('chatSnd', el.dataset.v); sndUnlock(); KEEP = true; render(); sndPlay('recv'); },
+    'cs-sndtest': () => { sndUnlock(); sndPlay('recv', true); setTimeout(() => sndPlay('send', true), 700); setTimeout(() => sndPlay('react', true), 1300); },
+    'cr-snd': () => { setCfg('chatSnd', sndOn() ? 'off' : 'on'); sndUnlock(); el.innerHTML = sndIcon(); el.setAttribute('aria-pressed', sndOn()); sndPlay('recv'); },
     'gift-profile': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Regalar el marco Top 50 a {n}?', { n: uName(id) }), t('Tendrá 24 h para reclamarlo. Si no lo hace, el regalo se cancela y el cupo vuelve a ti. Quedan {a} de {b}.', { a: giftLeft(), b: GIFT_TOTAL }), t('Regalar'), t('Cancelar'), async () => { const r = await giftSend(id); toast(r || t('Regalo enviado ✓')); KEEP = true; render(); }); },
     'gift-claim': async () => { const r = await giftClaim(id), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('¡Marco reclamado!')); KEEP = true; render(); },
     'gift-cancel': () => { if (!isOwner()) return; const g = giftsAll().find(x => x.id === id); if (!g) return; dialog(g.status === 'claimed' ? t('¿Quitar el marco a {n}?', { n: uName(g.to) }) : t('¿Cancelar el regalo para {n}?', { n: uName(g.to) }), t('El cupo volverá a ti.'), t('Sí, continuar'), t('No'), async () => { await giftCancel(id); KEEP = true; render(); }, true); },
@@ -5074,6 +5143,7 @@ document.addEventListener('click', e => {
     'ce-fx': () => { if (!CE) return; const x = CE.c.m[+id]; if (!x) return; const l = ['', ...CHAT_FX], n = l[(l.indexOf(x.fx || '') + 1) % l.length]; if (n) x.fx = n; else delete x.fx; ceRefresh(); toast(n ? t('Efecto: {n}', { n: t(CE_FXN[n]) }) : t('Sin efecto')); },
     'ce-call': () => { if (!CE) return; if (CE.c.m.length >= CHAT_MAX) return toast(t('Este chat ya tiene el máximo de mensajes.')); CE.c.m.push({ call: 1, w: +id, t: '' }); ceRefresh(); },
     'ce-stk': () => stkSheet(),
+    'ce-rx': () => rxSheet(+id),
     'ce-stkpick': () => { const u = el.dataset.u; if (!CE || !u) return; if (CE.who < -1) return toast(t('Los stickers los envía una persona.')); if (CE.c.m.length >= CHAT_MAX) return toast(t('Este chat ya tiene el máximo de mensajes.')); CE.c.m.push({ w: CE.who, t: '', i: u, sk: 1 }); const m = el.closest('.modal'); if (m) m.remove(); ceRefresh(); },
     'ce-del': () => { if (!CE) return; CE.c.m.splice(+id, 1); CE.ed = -1; const ta = $('#ce-txt'); if (ta) ta.value = ''; ceRefresh(); },
     'ce-up': () => { if (!CE || +id < 1) return; const m = CE.c.m, i = +id; [m[i - 1], m[i]] = [m[i], m[i - 1]]; CE.ed = -1; ceRefresh(); },
@@ -5086,7 +5156,7 @@ document.addEventListener('click', e => {
       formModal(t('Hora del mensaje'), `<p class="helper">${t('Opcional. Sale chiquita junto al mensaje. Déjala vacía para quitarla.')}</p><input class="field" type="time" data-h value="${esc(x.h || '')}">`, 'Guardar', m => { const v = m.querySelector('[data-h]').value; const y = CE && CE.c.m[i]; if (y) { if (/^\d{1,2}:\d{2}$/.test(v)) y.h = v; else delete y.h; ceRefresh(); } return ''; }); },
     'cr-img': () => chatImgView(el.dataset.u),
     'ce-bgdel': () => { if (CE) { CE.c.bg = ''; ceRender(); } },
-    'ce-edit': () => { if (!CE) return; const x = CE.c.m[+id]; if (!x || x.call || x.sk) return; if (x.ch) return chmOpen(+id); CE.ed = +id; const ta = $('#ce-txt'); if (ta) { ta.value = x.t; ta.focus(); } const bt = $('.ce-send .button'); if (bt) bt.textContent = t('Guardar'); ceRefresh(); },
+    'ce-edit': () => { if (!CE) return; const x = CE.c.m[+id]; if (!x || x.call || x.sk || x.rx) return; if (x.ch) return chmOpen(+id); CE.ed = +id; const ta = $('#ce-txt'); if (ta) { ta.value = x.t; ta.focus(); } const bt = $('.ce-send .button'); if (bt) bt.textContent = t('Guardar'); ceRefresh(); },
     'story-menu': () => openStoryMenu(id),
     'cr-close': () => crClose(), 'cr-all': () => crShowAll(), 'cr-pick': () => crPick(+id),
     'cr-nextchat': () => { const a = CR && crAfter(); crClose(); if (a && a.kind === 'chat') chatOpen(a.key); },

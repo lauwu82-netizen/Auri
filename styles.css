@@ -2355,3 +2355,20 @@ html.lite .cr-b.fx-glitch{animation:none}
 .stk-i,.stk-new{aspect-ratio:1;border-radius:14px;border:1.5px solid hsl(var(--border));background:hsl(var(--background));display:grid;place-items:center;padding:6px;cursor:pointer}
 .stk-i img{max-width:100%;max-height:100%;object-fit:contain}
 .stk-new{border-style:dashed;color:hsl(var(--primary));font:600 12px var(--sans);text-align:center}
+
+/* 95 · Reacciones y sonido del chat */
+.cr-b.has-rx{position:relative;margin-bottom:18px!important}
+.cr-rxs{position:absolute;bottom:-14px;right:8px;display:flex;gap:4px;z-index:2}
+.cr-b.me .cr-rxs{right:auto;left:8px}
+.cr-rx{display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:99px;background:hsl(var(--card));border:1px solid hsl(var(--border));font:400 14px/1.45 var(--sans);color:var(--soft);box-shadow:0 1px 4px rgba(0,0,0,.18);text-shadow:none}
+.cr-rx i{font:700 11px var(--sans);font-style:normal}
+.cr-rx.rxin{animation:rxPop .45s cubic-bezier(.3,1.7,.5,1)}@keyframes rxPop{from{transform:scale(.2);opacity:0}to{transform:none;opacity:1}}
+.cr-rxf{position:absolute;left:50%;top:50%;font-size:32px;line-height:1;pointer-events:none;z-index:4;animation:rxFly 1.05s ease-out forwards}
+@keyframes rxFly{0%{transform:translate(-50%,-50%) scale(.3);opacity:0}20%{transform:translate(-50%,-90%) scale(1.5);opacity:1}100%{transform:translate(-50%,-230%) scale(1);opacity:0}}
+.cr-b.sys.rxn{transition:opacity .3s}.cr-b.sys.rxn.out{opacity:0}
+.cr-snd{margin-left:auto}.cr-snd+.button{margin-left:4px}
+.rx-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:12px 0 10px}
+.rx-e{font-size:24px;line-height:1;aspect-ratio:1;border-radius:12px;border:1.5px solid hsl(var(--border));background:hsl(var(--background));cursor:pointer}
+.rx-e.on{border-color:hsl(var(--primary));background:hsl(var(--accent))}
+.rx-own{margin-bottom:10px}.rx-who{display:flex;flex-direction:column;gap:6px;max-height:26vh;overflow-y:auto}
+@media (prefers-reduced-motion:reduce){.cr-rx.rxin,.cr-rxf{animation:none}}
