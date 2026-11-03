@@ -2044,4 +2044,6 @@ window.I18N = { en: {
   '{a} y {b}': '{a} and {b}',
   '{n} reaccionaron': '{n} reacted',
   '{n} reaccionó a este mensaje': '{n} reacted to this message',
+  'Contactos que ya creaste: toca uno para usarlo': 'Contacts you already made: tap one to use it',
+  'Este chat ya tiene el máximo de personas.': 'This chat already has the maximum number of people.',
 } };

@@ -2372,3 +2372,9 @@ html.lite .cr-b.fx-glitch{animation:none}
 .rx-e.on{border-color:hsl(var(--primary));background:hsl(var(--accent))}
 .rx-own{margin-bottom:10px}.rx-who{display:flex;flex-direction:column;gap:6px;max-height:26vh;overflow-y:auto}
 @media (prefers-reduced-motion:reduce){.cr-rx.rxin,.cr-rxf{animation:none}}
+
+/* 96 · Contactos guardados en el editor de chat */
+.ce-ctcs-w{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.ce-ctcs{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;-webkit-overflow-scrolling:touch}
+.ce-ctc{flex:none;display:flex;align-items:center;gap:8px;padding:4px 14px 4px 4px;border-radius:99px;border:1.5px solid hsl(var(--border));background:hsl(var(--background));color:var(--title);font:600 13.5px var(--sans);cursor:pointer}
+.ce-ctc .ce-av.sm{width:30px;height:30px}

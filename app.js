@@ -2337,8 +2337,10 @@ function ceRender() {
   ${c.p.length < 12 ? `<button type="button" class="button ghost sm" data-act="ce-padd" style="width:fit-content">＋ ${t('Añadir persona')}</button>` : ''}`
     : `<section class="ce-head"><label class="ce-avb" aria-label="${esc(t('Foto del personaje'))}"><span class="ce-av">${chatAv(p0)}</span><small>${t('Foto')}</small><input id="ce-av" type="file" accept="image/*" hidden></label>
   <div class="ce-nm"><label for="ce-name">${t('Nombre del personaje')}</label><input id="ce-name" class="field" maxlength="40" value="${esc(p0.n)}" placeholder="${esc(t('Ej. Mizuki'))}" autocomplete="off"></div></section>`;
+  const ctc = ctcList(); CE.ctc = ctc;
+  const ctcRow = ctc.length ? `<div class="ce-ctcs-w"><span class="helper">${t('Contactos que ya creaste: toca uno para usarlo')}</span><div class="ce-ctcs">${ctc.map((k, i) => `<button type="button" class="ce-ctc" data-act="ce-ctc" data-i="${i}"><span class="ce-av sm">${chatAv(k)}</span>${esc(k.n)}</button>`).join('')}</div></div>` : '';
   el.innerHTML = `<header class="ce-top"><button type="button" class="icon-btn" data-act="ce-close" aria-label="${esc(t('Cerrar'))}">✕</button><strong>${g ? t('Chat grupal') : t('Chat individual')}</strong><button type="button" class="button sm" data-act="ce-done">${t('Listo')}</button></header>
-  <div class="ce-body" id="ce-body">${head}
+  <div class="ce-body" id="ce-body">${ctcRow}${head}
   <div class="ce-when"><span class="helper">${t('Día y hora en que empieza el chat (opcional)')}</span><div class="ce-when-r"><input id="ce-day" class="field" maxlength="24" value="${esc(c.d || '')}" placeholder="${esc(t('Ej. Viernes'))}" autocomplete="off"><input id="ce-h" class="field" type="time" value="${esc(c.h || '')}" aria-label="${esc(t('Hora'))}"></div></div>
   <div class="ce-bgrow"><label class="button ghost sm">${t(c.bg ? 'Cambiar fondo' : 'Fondo del chat')}<input id="ce-bg" type="file" accept="image/*" hidden></label>${c.bg ? `<span class="ce-bgp" style="background-image:url('${esc(c.bg)}')"></span><button type="button" class="link-btn" data-act="ce-bgdel">${t('Quitar fondo')}</button>` : ''}</div>
   <p class="helper ce-help">${t('«Yo» es quien lee el chat: sus mensajes salen a la derecha.')}</p>
@@ -2381,6 +2383,15 @@ function stkSheet() {
   <div class="stk-grid">${l.map(u => `<button type="button" class="stk-i" data-act="ce-stkpick" data-u="${esc(u)}" aria-label="Sticker"><img src="${esc(u)}" alt="" data-noguard loading="lazy"></button>`).join('')}<label class="stk-new">＋ ${t('Nuevo sticker')}<input id="ce-stkf" type="file" accept="image/*" hidden></label></div>
   <button type="button" class="button ghost" style="margin-top:14px;width:100%" data-no>${t('Cerrar')}</button></div>`;
   m.querySelector('[data-no]').onclick = () => m.remove(); m.addEventListener('click', e => { if (e.target === m) m.remove(); }); document.body.appendChild(m);
+}
+/* Contactos guardados: los personajes (nombre y foto) de todos tus chats, para no volver a crearlos en cada capítulo. Salen de lo que ya escribiste; primero los de este libro */
+function ctcList() {
+  const mine = new Map(), add = (map, c) => (c.k === 'g' ? c.p : [c.p[0]]).forEach(q => { const n = ((q && q.n) || '').trim(); if (!n) return; const key = n.toLowerCase(), old = map.get(key); if (!old || q.av || !old.av) map.set(key, { n, av: q.av || (old && old.av) || '' }); });
+  const book = new Map(), other = new Map(), cur = id => (W && W.id === id);
+  const scan = (map, chs) => (chs || []).forEach(ch => { if (String(ch.text || '').indexOf('::chat ') >= 0) chatsIn(ch.text).forEach(c => add(map, c)); });
+  if (W) scan(book, W.chapters); allStories().filter(x => x.owner === S.user && !cur(x.id)).forEach(x => scan(other, x.chapters));
+  const used = new Set(CE ? CE.c.p.map(q => (q.n || '').trim().toLowerCase()).filter(Boolean) : []);
+  return [...book.values(), ...[...other.entries()].filter(([k]) => !book.has(k)).map(([, v]) => v)].filter(k => !used.has(k.n.toLowerCase())).slice(0, 60);
 }
 function ceOpen(id, kind) {
   collect();
@@ -5143,6 +5154,10 @@ document.addEventListener('click', e => {
     'ce-fx': () => { if (!CE) return; const x = CE.c.m[+id]; if (!x) return; const l = ['', ...CHAT_FX], n = l[(l.indexOf(x.fx || '') + 1) % l.length]; if (n) x.fx = n; else delete x.fx; ceRefresh(); toast(n ? t('Efecto: {n}', { n: t(CE_FXN[n]) }) : t('Sin efecto')); },
     'ce-call': () => { if (!CE) return; if (CE.c.m.length >= CHAT_MAX) return toast(t('Este chat ya tiene el máximo de mensajes.')); CE.c.m.push({ call: 1, w: +id, t: '' }); ceRefresh(); },
     'ce-stk': () => stkSheet(),
+    'ce-ctc': () => { if (!CE || !CE.ctc) return; const k = CE.ctc[+el.dataset.i]; if (!k) return; const c = CE.c;
+      if (c.k === 'g') { const slot = c.p.findIndex(q => !(q.n || '').trim()); if (slot >= 0) c.p[slot] = { n: k.n, av: k.av }; else if (c.p.length < 12) c.p.push({ n: k.n, av: k.av }); else return toast(t('Este chat ya tiene el máximo de personas.')); }
+      else { c.p[0].n = k.n; c.n = k.n; c.p[0].av = k.av; c.av = k.av; }
+      ceRender(); },
     'ce-rx': () => rxSheet(+id),
     'ce-stkpick': () => { const u = el.dataset.u; if (!CE || !u) return; if (CE.who < -1) return toast(t('Los stickers los envía una persona.')); if (CE.c.m.length >= CHAT_MAX) return toast(t('Este chat ya tiene el máximo de mensajes.')); CE.c.m.push({ w: CE.who, t: '', i: u, sk: 1 }); const m = el.closest('.modal'); if (m) m.remove(); ceRefresh(); },
     'ce-del': () => { if (!CE) return; CE.c.m.splice(+id, 1); CE.ed = -1; const ta = $('#ce-txt'); if (ta) ta.value = ''; ceRefresh(); },
