@@ -2540,12 +2540,18 @@ function crAfter() {                                    // qué sigue al termina
   if (i >= 0 && i < keys.length - 1) return { kind: 'chat', key: keys[i + 1] };
   const nx = s.chapters[s.chapters.findIndex(c => c.idx === ci) + 1]; return { kind: nx ? 'chap' : 'fin', sid, ci };
 }
+function crPetals(m) {                                   // paquete San Valentín: una ráfaga corta de pétalos al abrir el chat (no sale con movimiento reducido ni en modo ligero)
+  if (reduceMotion() || document.documentElement.classList.contains('lite') || !CS_PIECES.some(([p]) => m.getAttribute('data-sk-' + p) === 'sanvalentin')) return;
+  const w = document.createElement('div'); w.className = 'cr-petals'; w.setAttribute('aria-hidden', 'true');
+  for (let i = 0; i < 16; i++) { const p = document.createElement('i'); p.style.cssText = `left:${Math.round(Math.random() * 96)}%;--d:${(Math.random() * .9).toFixed(2)}s;--t:${(2.2 + Math.random() * 1.4).toFixed(2)}s;--s:${(10 + Math.random() * 10).toFixed(0)}px;--r:${Math.round(Math.random() * 360)}deg;--x:${Math.round(Math.random() * 80 - 40)}px`; p.className = i % 3 ? 'a' : 'b'; w.appendChild(p); }
+  m.appendChild(w); setTimeout(() => w.remove(), 4200);
+}
 function chatOpen(k) {
   const c = CHC.get(k); if (!c) return; if (CR) crClose();
   const m = document.createElement('div'); m.id = 'chat-rd'; m.className = 'cr'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
   m.innerHTML = `<header class="cr-top"><button type="button" class="icon-btn" data-act="cr-close" aria-label="${esc(t('Cerrar chat'))}">✕</button><span class="cr-who"><span class="cc-av">${chatAv(chatHead(c))}</span><span><b>${esc(chatTitle(c))}</b><small${c.k === 'g' ? ' class="g"' : ''}>${c.k === 'g' ? esc([...c.p.map(x => x.n), t('Yo')].join(', ')) : t('en línea')}</small></span></span><button type="button" class="icon-btn cr-snd" data-act="cr-snd" aria-label="${esc(t('Sonido'))}" aria-pressed="${sndOn()}">${sndIcon()}</button><button type="button" class="button ghost sm" data-act="cr-all">${t('Ver todo')}</button></header>
   <div class="cr-body"><div class="cr-msgs" id="cr-msgs"></div></div><footer class="cr-foot" id="cr-foot"></footer>`;
-  csApply(m);
+  csApply(m); crPetals(m);
   m.addEventListener('click', e => { const h = $('#cr-hint'); if (h) { h.remove(); LS.set('auri.crhint', true); } if (e.target.closest('button')) return; crNext(); });
   document.body.appendChild(m);
   CR = { k, c, m: chatExpand(c, k), n: 0, busy: false, dead: false, side: null };

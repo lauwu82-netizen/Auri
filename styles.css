@@ -2444,3 +2444,9 @@ html.lite [data-sk-bg=sanvalentin] .cr-body::after,.cs-prev[data-sk-bg=sanvalent
 [data-sk-det=sanvalentin] .cr-b.typing i:nth-child(2){animation-delay:.15s}[data-sk-det=sanvalentin] .cr-b.typing i:nth-child(3){animation-delay:.3s}
 @keyframes vBeat{0%,100%{transform:scale(.8);opacity:.6}40%{transform:scale(1.25);opacity:1}}
 [data-sk-bubble=sanvalentin] .cr-b.stk::before,[data-sk-bubble=sanvalentin] .cr-b.stk::after,[data-sk-bubble=sanvalentin] .cr-b.fx-gone::before,[data-sk-bubble=sanvalentin] .cr-b.fx-gone::after{display:none!important}
+
+/* 98 · Pétalos al abrir un chat con San Valentín */
+.cr-petals{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:5}
+.cr-petals i{position:absolute;top:-24px;width:var(--s);height:calc(var(--s)*1.3);border-radius:80% 0 80% 0;opacity:0;background:var(--vb2,#ff9cc2);animation:petalFall var(--t) var(--d) ease-in forwards;will-change:transform,opacity}
+.cr-petals i.b{background:var(--vb1,#ffc2d9);border-radius:0 80% 0 80%}
+@keyframes petalFall{0%{opacity:0;transform:translate(0,0) rotate(var(--r))}12%{opacity:.95}100%{opacity:0;transform:translate(var(--x),105vh) rotate(calc(var(--r) + 420deg))}}
