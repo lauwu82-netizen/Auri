@@ -3339,7 +3339,7 @@ document.addEventListener('input', e => { if (e.target && e.target.id === 'w-tit
 /* ---------- Imágenes marcadas por la IA ----------
    La función "moderate-image" revisa las imágenes subidas. Si marca una, queda oculta para todos (relleno en su lugar).
    La autoría puede pedir revisión humana ("es un error"); el equipo la aprueba o rechaza en Moderación › Imágenes. */
-const IMGK = 'auri.imghid', IMGC = 'auri.imgchk';
+const IMGK = 'auri.imghid', IMGC = 'auri.imgchk2';
 let IMG_STRICT = new Set(), IMG_RETRY = 0, IMG_HID = new Set(LS.get(IMGK, [])), IMG_MINE = [], IMG_Q = [], IMG_BUSY = false, IMG_SW = 0, IMG_QL = 0;
 const imgOn = () => !!(cloud() && sbSes() && S.user && !isGuest());
 const IMG_KIND = { avatar: 'Foto de perfil', banner: 'Portada del perfil', cover: 'Portada de libro', chapter: 'Portada de capítulo', chat: 'Imagen de chat' };
