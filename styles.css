@@ -2532,3 +2532,19 @@ html.lite [data-sk-bg=misterio] .cr-body::before,html.lite [data-sk-bg=misterio]
 [data-sk-bubble=kawaii] .cr-msgs,[data-sk-bubble=sanvalentin] .cr-msgs,[data-sk-bubble=victoriano] .cr-msgs{gap:18px}
 #chat-rd .cr-b:has(.cr-rx){margin-bottom:12px}
 #chat-rd .cr-b.stk{margin-top:10px!important}
+
+/* 103 · Adornos de arriba ajustables (posición, giro y tamaño) */
+.orn-top.adj{right:auto;bottom:auto}
+.adj-stage{display:flex;justify-content:center;padding:44px 0 30px;margin-bottom:12px;background:hsl(var(--accent)/.35);border-radius:18px;touch-action:none}
+.orn.ed{pointer-events:auto;cursor:grab;touch-action:none;transition:none;z-index:3;-webkit-user-select:none;user-select:none}
+.orn.ed:active{cursor:grabbing}
+.orn.ed img{-webkit-user-drag:none;pointer-events:none}
+.orn.ed.sel{outline:2px dashed hsl(var(--primary));outline-offset:3px;border-radius:10px}
+.adj-tabs{display:flex;gap:8px;margin:0 0 10px}
+.adj-tab{flex:1;padding:9px 10px;border-radius:12px;border:1px solid hsl(var(--border));background:hsl(var(--card));color:hsl(var(--muted-foreground));font:600 13px var(--sans);cursor:pointer}
+.adj-tab.on{background:hsl(var(--primary)/.14);border-color:hsl(var(--primary));color:hsl(var(--primary))}
+.adj-row{display:flex;align-items:center;gap:12px;margin:8px 0;font:600 13px var(--sans);color:hsl(var(--muted-foreground))}
+.adj-row span{width:64px;flex:none}
+.adj-row input[type=range]{flex:1;min-width:0;accent-color:hsl(var(--primary))}
+.adj-btns{display:flex;gap:8px;margin-top:6px}
+.cos-b:disabled{opacity:.4;cursor:not-allowed}
