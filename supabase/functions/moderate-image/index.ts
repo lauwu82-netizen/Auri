@@ -65,6 +65,7 @@ async function run(req: Request, env: Record<string, string | undefined>): Promi
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
   const URL_ = env.SUPABASE_URL, ANON = env.SUPABASE_ANON_KEY, SVC = env.SUPABASE_SERVICE_ROLE_KEY, KEY = env.OPENAI_API_KEY, MODE = (env.AI_MODE || 'auto').toLowerCase();
   if (!URL_ || !ANON || !SVC) { console.error('faltan variables de Supabase'); return json({ error: 'config' }, 500); }
+  console.log('moderate-image: llamada, modo =', MODE);
   if (MODE === 'off') return json({ results: {}, off: true });
   const auth = req.headers.get('Authorization') || '';
   const ur = await fetch(URL_ + '/auth/v1/user', { headers: { apikey: ANON, Authorization: auth } });
@@ -73,6 +74,7 @@ async function run(req: Request, env: Record<string, string | undefined>): Promi
   let body: { urls?: string[] } = {}; try { body = await req.json(); } catch { /* vacío */ }
   const prefix = `${URL_}/storage/v1/object/public/images/${user.id}/`;
   const urls = [...new Set((Array.isArray(body.urls) ? body.urls : []).map(String))].filter((u) => u.startsWith(prefix) && u.length < 400).slice(0, 8);
+  console.log('moderate-image: enlaces recibidos', Array.isArray(body.urls) ? body.urls.length : 0, 'validos', urls.length);
   if (!urls.length) return json({ results: {} });
   const H = { apikey: SVC, Authorization: 'Bearer ' + SVC, 'Content-Type': 'application/json' };
   const q = async (path: string) => { const r = await fetch(URL_ + '/rest/v1/' + path, { headers: H }); return r.ok ? await r.json() : []; };
