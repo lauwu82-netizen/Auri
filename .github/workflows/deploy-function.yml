@@ -1,4 +1,4 @@
-# Publica solo la función de moderación con IA cada vez que cambia su código (no hay que pegar nada en Supabase)
+# Publica las funciones de moderación con IA (capítulos e imágenes) cada vez que cambia su código (no hay que pegar nada en Supabase)
 name: Publicar función de IA
 on:
   push:
@@ -13,5 +13,8 @@ jobs:
       - uses: supabase/setup-cli@v1
         with: { version: latest }
       - run: supabase functions deploy moderate-chapter --project-ref gnhhxvqjtvchjmtizzua --use-api --yes
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      - run: supabase functions deploy moderate-image --project-ref gnhhxvqjtvchjmtizzua --use-api --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
