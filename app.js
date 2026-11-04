@@ -2702,7 +2702,7 @@ function crNext() {
 }
 function crShowAll() { if (!CR) return; clearInterval(CR.tm); CR.nar = null; const ov = $('#cr-nar'); if (ov) ov.remove(); CR.dead = false; const tp = $('#cr-typing'); if (tp) tp.remove(); CR.busy = false; while (CR.n < CR.m.length && !CR.m[CR.n].ch) { crAdd(CR.m[CR.n], false); CR.n++; } chatPosSet(CR.k, CR.n); crFoot(); }
 function crClose() {
-  if (!CR) return; clearInterval(CR.tm); CR.dead = true; const k = CR.k, c = CR.c; CR = null; const m = $('#chat-rd'); if (m) m.remove();
+  if (!CR) return; clearInterval(CR.tm); CR.dead = true; const k = CR.k, c = CR.c; CR = null; const m = $('#chat-rd'); if (m) { if (m._ro) m._ro.disconnect(); m.remove(); }
   document.querySelectorAll('.chat-card').forEach(el => { if (el.dataset.key === k) { const s = el.querySelector('small'); if (s) s.textContent = chatStatus(k, c); } });
 }
 function readerText(text, on, pc) {
