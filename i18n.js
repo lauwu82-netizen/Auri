@@ -2058,4 +2058,6 @@ window.I18N = { en: {
   'Noche, luna, niebla y expediente': 'Night, moon, fog and case file',
   'Añadido a favoritos': 'Added to favorites',
   'Silenciar': 'Mute',
+  'No pudimos abrir esto': 'We could not open this',
+  'Algo del contenido falló al mostrarse. Ya quedó guardado el error para revisarlo.': 'Something in the content failed to display. The error was saved so it can be checked.',
 } };

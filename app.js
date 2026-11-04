@@ -4796,6 +4796,14 @@ function clearSearch() {
 }
 let SETDEEP = false;                                   // true = entraste a una sección de Ajustes desde el menú (el "atrás" vuelve a él, sin bucles)
 let SHOWC = false, LASTP = '', ASV = null, KEEP = false;   // true = no volver arriba al re-dibujar (likes, comentarios…)
+/** Si una pantalla falla al armarse (por ejemplo, un capítulo con algo raro), en vez de quedarse congelada se avisa y se guarda el error para poder arreglarlo */
+function safeView(fn, sid) {
+  try { return fn(); } catch (e) {
+    const msg = String((e && e.message) || e).slice(0, 160), st = String((e && e.stack) || '').split('\n').slice(0, 3).join(' | ').slice(0, 300);
+    try { LS.set('auri.lastrender', { at: new Date().toISOString(), path: location.hash, msg, st }); console.error('render', e); } catch (x) { /* sin almacenamiento */ }
+    return `<main class="page">${empty(t('No pudimos abrir esto'), t('Algo del contenido falló al mostrarse. Ya quedó guardado el error para revisarlo.'), `<a class="button" href="#/story/${esc(sid || '')}">${t('Volver a la historia')}</a>`)}<p class="helper" style="text-align:center;word-break:break-word;opacity:.7">${esc(msg)}</p></main>`;
+  }
+}
 function render() {
   uiReset(); applyAccent();
   giftSweep();                                                   // vence regalos sin reclamar (24 h) y devuelve el cupo
@@ -4823,7 +4831,7 @@ function render() {
   else if (isGuest() && ['write', 'stats', 'moderation', 'strike', 'messages', 'gift'].includes(a)) app.innerHTML = shell(a === 'write' ? '/write' : '', guestWall(a === 'write' ? 'escribir historias' : a === 'stats' ? 'ver estadísticas' : a === 'messages' ? 'enviar mensajes' : 'entrar aquí'));
   else if (a === 'signup') app.innerHTML = signupView();
   else if (a === 'write') { const v = writeRoute(b, c, d); app.innerHTML = c === 'ch' && W ? v : shell('/write', v); }   // escribir un capítulo = pantalla completa
-  else if (a === 'story') { const v = storyView(b, c); app.innerHTML = c ? v : shell('', v); }   // leer un capítulo = pantalla completa
+  else if (a === 'story') { const v = safeView(() => storyView(b, c), b); app.innerHTML = c ? v : shell('', v); }   // leer un capítulo = pantalla completa
   else if (a === 'explore') app.innerHTML = shell('', exploreView(decodeURIComponent(b || '')));
   else if (a === 'library') app.innerHTML = shell('/library', libraryView());
   else if (a === 'profile' && b === 'edit' && !isGuest()) app.innerHTML = shell('/profile', editProfileView());
