@@ -102,7 +102,10 @@ async function run(req: Request, env: Record<string, string | undefined>): Promi
       }
     }
     if (again && (!ctx || ctx.mature)) { results[u] = 'ok'; continue; }
-    if (!ctx) { results[u] = 'unlinked'; continue; }
+    if (!ctx && /^[A-Za-z0-9._-]{8,80}$/.test(u.slice(prefix.length))) {                                         // la app solo manda enlaces que salen de los libros de esta misma cuenta: si no se halla en el texto guardado, se revisa igual con la regla estricta
+      ctx = { kind: 'chat', story: '', mature: false }; console.log('moderate-image: sin enlace en la nube, se revisa como foto de chat', u.slice(prefix.length));
+    }
+    if (!ctx) { results[u] = 'unlinked'; console.log('moderate-image: unlinked', u.slice(prefix.length)); continue; }
     if (!KEY) { console.error('falta el secreto OPENAI_API_KEY'); results[u] = 'error'; continue; }
     let scores: Record<string, number>;
     try { scores = await moderateImage(u, KEY); } catch (e) { console.error('moderateImage', e); results[u] = 'error'; continue; }
@@ -118,6 +121,7 @@ async function run(req: Request, env: Record<string, string | undefined>): Promi
     if (!rr.ok) { console.error('img_report', (await rr.text()).slice(0, 200)); results[u] = 'error'; continue; }
     results[u] = v.hard ? 'rejected' : 'flagged';
   }
+  console.log('moderate-image: resultado', JSON.stringify(Object.fromEntries(Object.entries(results).map(([k, v]) => [k.slice(prefix.length).slice(0, 12), v]))));
   return json({ results });
 }
 
