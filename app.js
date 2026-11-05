@@ -4076,8 +4076,8 @@ function profileHero(e, own, acts = '', corner = '') {
   return `<section class="pf-hero"><div class="pf-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>
     ${sk.length && !cfg('hideStrikeBtn') ? `<button type="button" class="pf-warn" data-act="strike-info" aria-label="${esc(t('Aviso de strikes'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5"/><circle cx="12" cy="16.6" r=".6" fill="currentColor"/></svg></button>` : ''}
     ${rdPill(e)}<div class="pf-fade"></div></div>
-  ${petHTML(e)}${corner}<div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}${stProfBubble(e)}</div>
-    <div class="pf-info"><h1 class="pf-name serif ${nmCls(e)}">${esc(u.name || t('Mi perfil'))}${onlineDot(e)}</h1>${role || mbtiOf(e) ? `<div class="pf-tags">${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}${mbtiBadge(e)}</div>` : ''}
+  ${corner}<div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}${stProfBubble(e)}</div>
+    <div class="pf-info"><h1 class="pf-name serif ${nmCls(e)}">${esc(u.name || t('Mi perfil'))}${onlineDot(e)}</h1>${petHTML(e)}${role || mbtiOf(e) ? `<div class="pf-tags">${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}${mbtiBadge(e)}</div>` : ''}
 </div>
     ${acts ? `<div class="pf-acts">${acts}</div>` : ''}</div>
   <div class="pf-stats-row">${stat(followers(e).length, t('Seguidores'), 'pf-list', 'followers')}${stat(following(e).length, t('Seguidos'), 'pf-list', 'following')}${stat(pubs.length, t('Libros publicados'), 'pf-works')}${stat(likesReceived(e), t('Likes'))}</div>

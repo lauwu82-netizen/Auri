@@ -2572,7 +2572,7 @@ html.lite .amb{display:none}
 
 /* 105 · Mascotas 8-bit del perfil */
 .pf-hero{position:relative}
-.pet-strip{position:absolute;left:0;right:0;top:26px;height:92px;z-index:3;pointer-events:none}
+.pet-strip{position:relative;height:48px;margin:-2px 0 2px;pointer-events:none}
 .pet-run{position:absolute;left:18%;bottom:0;width:48px;height:48px;animation:petRun 48s linear infinite}
 .pet-hop{position:relative;width:48px;height:48px;animation:petHop .5s ease-out 2}
 .pet-flip{width:48px;height:48px;animation:petFlip 48s steps(1) infinite}
@@ -2582,7 +2582,7 @@ html.lite .amb{display:none}
 .pet-sleep{visibility:hidden;background-position:100% 0}
 .pet-idle{animation:petIdleV 48s steps(1) infinite}
 .pet-sleep{animation:petSleepV 48s steps(1) infinite}
-.pet-hi{position:absolute;left:30px;bottom:50px;background:#fff;border:2px solid #3c2832;color:#3c2832;font:700 11px/1 system-ui,sans-serif;padding:4px 7px;border-radius:8px;white-space:nowrap;animation:petHi 4.5s both}
+.pet-hi{position:absolute;left:46px;bottom:18px;background:#fff;border:2px solid #3c2832;color:#3c2832;font:700 11px/1 system-ui,sans-serif;padding:4px 7px;border-radius:8px;white-space:nowrap;animation:petHi 4.5s both}
 .pet-zz{position:absolute;left:2px;top:-4px;font:700 11px/1 system-ui,sans-serif;color:#9b87c9;opacity:0;animation:petZz 48s infinite}
 .pet-run.still,.pet-run.still .pet-flip,.pet-run.still .pet-s,.pet-run.still .pet-zz{animation:none}
 .pet-run.still .pet-walk,.pet-run.still .pet-sleep,.pet-run.still .pet-zz{display:none}
