@@ -2825,13 +2825,13 @@ const sepOK = k => !SEPS[k] ? false : SEPS[k][1] === 'free' || isStaff(S.user); 
 const sepKey = () => sepOK(cfg('sepStyle')) ? cfg('sepStyle') : 'classic';
 /* Ambientes de lectura (solo libros tradicionales): partículas suaves sobre el texto. Gratis o con pase; quien lee puede apagarlos */
 const AMBS = { off: ['Ninguno', 'free', '🚫'], rain: ['Lluvia', 'free', '🌧️'], snow: ['Nieve', 'free', '❄️'], fog: ['Niebla', 'free', '🌫️'], fireflies: ['Luciérnagas', 'pass', '✨'], stars: ['Estrellas', 'pass', '⭐'], petals: ['Pétalos', 'pass', '🌸'] };
-const AMB_N = { rain: 34, snow: 26, fog: 4, fireflies: 9, stars: 4, petals: 12 };
+const AMB_N = { rain: 34, snow: 14, fog: 4, fireflies: 9, stars: 4, petals: 12 };
 const ambOK = k => !AMBS[k] ? false : AMBS[k][1] === 'free' || isStaff(S.user);
 const ambKey = () => ambOK(cfg('amb')) ? cfg('amb') : 'off';
 const STAR_POS = [[12, 17, 1.0], [83, 24, 0.6], [26, 63, 0.3], [78, 79, 0.9]];   // estrellas fijas: x%, y%, tamaño
 function ambHTML(s) {
   const k = ambKey(); if (k === 'off' || !s || s.mode === 'chat') return '';
-  const D = { rain: [2.6, 2.4], snow: [32, 22], fog: [60, 40], fireflies: [6, 5], petals: [55, 35] }[k] || [0, 0];   // [mínimo, variación] en segundos: todo va lento y calmado para no distraer
+  const D = { rain: [2.6, 2.4], snow: [90, 60], fog: [60, 40], fireflies: [6, 5], petals: [55, 35] }[k] || [0, 0];   // [mínimo, variación] en segundos: todo va lento y calmado para no distraer
   const r = (i, m) => { const x = Math.sin(i * 12.9898 + m * 78.233) * 43758.5453; return x - Math.floor(x); };
   let h = '';
   if (k === 'stars') STAR_POS.forEach(([x, y, z], i) => h += `<i style="--x:${x}%;--y:${y}%;--s:${z};--d:${16 + i * 3}s;--dl:-${i * 5}s"></i>`);
