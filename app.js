@@ -2825,13 +2825,14 @@ const sepOK = k => !SEPS[k] ? false : SEPS[k][1] === 'free' || isStaff(S.user); 
 const sepKey = () => sepOK(cfg('sepStyle')) ? cfg('sepStyle') : 'classic';
 /* Ambientes de lectura (solo libros tradicionales): partículas suaves sobre el texto. Gratis o con pase; quien lee puede apagarlos */
 const AMBS = { off: ['Ninguno', 'free', '🚫'], rain: ['Lluvia', 'free', '🌧️'], snow: ['Nieve', 'free', '❄️'], fog: ['Niebla', 'free', '🌫️'], fireflies: ['Luciérnagas', 'pass', '✨'], stars: ['Estrellas', 'pass', '⭐'], petals: ['Pétalos', 'pass', '🌸'] };
-const AMB_N = { rain: 34, snow: 26, fog: 4, fireflies: 14, stars: 30, petals: 14 };
+const AMB_N = { rain: 34, snow: 26, fog: 4, fireflies: 14, stars: 30, petals: 12 };
 const ambOK = k => !AMBS[k] ? false : AMBS[k][1] === 'free' || isStaff(S.user);
 const ambKey = () => ambOK(cfg('amb')) ? cfg('amb') : 'off';
 function ambHTML(s) {
   const k = ambKey(); if (k === 'off' || !s || s.mode === 'chat') return '';
-  let h = ''; const r = (i, m) => ((i * m + 13) % 997) / 997;
-  for (let i = 0; i < AMB_N[k]; i++) h += `<i style="--x:${(r(i, 7919) * 100).toFixed(1)}%;--y:${(r(i, 104729) * 100).toFixed(1)}%;--d:${(k === 'rain' ? 0.9 + r(i, 31) * 0.9 : k === 'fog' ? 36 + r(i, 31) * 30 : 9 + r(i, 31) * 9).toFixed(2)}s;--dl:-${(r(i, 17) * 20).toFixed(2)}s;--s:${(0.5 + r(i, 53)).toFixed(2)}"></i>`;
+  const D = { rain: [2.6, 2.4], snow: [32, 22], fog: [60, 40], fireflies: [26, 18], stars: [14, 10], petals: [55, 35] }[k];   // [mínimo, variación] en segundos: todo va lento y calmado para no distraer
+  const r = (i, m) => { const x = Math.sin(i * 12.9898 + m * 78.233) * 43758.5453; return x - Math.floor(x); };
+  let h = ''; for (let i = 0; i < AMB_N[k]; i++) { const d = D[0] + r(i, 3) * D[1]; h += `<i style="--x:${(r(i, 1) * 100).toFixed(1)}%;--y:${(r(i, 2) * 100).toFixed(1)}%;--d:${d.toFixed(1)}s;--dl:-${(r(i, 4) * d).toFixed(1)}s;--s:${(0.5 + r(i, 5)).toFixed(2)}"></i>`; }
   return `<div class="amb amb-${k}" aria-hidden="true">${h}</div>`;
 }
 const sepSvg = k => `<svg viewBox="0 0 44 24" aria-hidden="true" fill="currentColor">${SEPS[k][2]}</svg>`;
