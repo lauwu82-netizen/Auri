@@ -2098,4 +2098,7 @@ window.I18N = { en: {
   "Corazones flotantes": "Floating hearts",
   "Moño vichy con cerezas": "Gingham bow with cherries",
   "Collar de perlas con lazos": "Pearl necklace with bows",
+  "Ajusta el adorno de abajo para que quede bien con la forma de tu foto: súbelo, bájalo o cambia su tamaño.": "Adjust the bottom decoration so it fits your photo shape: move it up or down or change its size.",
+  "Posición": "Position",
+  "Ajuste guardado": "Adjustment saved",
 } };

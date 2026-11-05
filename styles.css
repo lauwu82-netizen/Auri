@@ -2573,7 +2573,7 @@ html.lite .amb{display:none}
 /* 105 · Mascotas 8-bit del perfil */
 .pf-hero{position:relative}
 .pet-strip{position:relative;height:48px;margin:-2px 0 2px;pointer-events:none}
-.pet-run{position:absolute;left:18%;bottom:0;width:48px;height:48px;animation:petRun 48s linear infinite}
+.pet-run{position:absolute;left:calc((100% - 48px)*.1);bottom:0;width:48px;height:48px;animation:petRun 48s linear infinite}
 .pet-hop{position:relative;width:48px;height:48px;animation:petHop .5s ease-out 2}
 .pet-flip{width:48px;height:48px;animation:petFlip 48s steps(1) infinite}
 .pet-s{position:absolute;inset:0;background:var(--pet) 0 0/400% 100% no-repeat;image-rendering:pixelated}
@@ -2586,7 +2586,7 @@ html.lite .amb{display:none}
 .pet-zz{position:absolute;left:2px;top:-4px;font:700 11px/1 system-ui,sans-serif;color:#9b87c9;opacity:0;animation:petZz 48s infinite}
 .pet-run.still,.pet-run.still .pet-flip,.pet-run.still .pet-s,.pet-run.still .pet-zz{animation:none}
 .pet-run.still .pet-walk,.pet-run.still .pet-sleep,.pet-run.still .pet-zz{display:none}
-@keyframes petRun{0%{left:18%}25%{left:70%}40%{left:70%}65%{left:18%}100%{left:18%}}
+@keyframes petRun{0%{left:calc((100% - 48px)*.1)}25%{left:calc((100% - 48px)*.96)}40%{left:calc((100% - 48px)*.96)}65%{left:calc((100% - 48px)*.1)}100%{left:calc((100% - 48px)*.1)}}
 @keyframes petFlip{0%{transform:scaleX(1)}40%,100%{transform:scaleX(-1)}}
 @keyframes petStep{0%{background-position:33.333% 0}50%{background-position:66.667% 0}}
 @keyframes petWalkV{0%{visibility:visible}25%{visibility:hidden}40%{visibility:visible}65%{visibility:hidden}}
@@ -2607,3 +2607,10 @@ html.lite .amb{display:none}
 .orn-bot.bq.perlas{left:-22%;bottom:-40%;width:144%}
 .fr.sm .orn-bot.bq.joya{left:-18%;bottom:-27%;width:136%}
 .fr.sm .orn-bot.bq.perlas{left:-26%;bottom:-44%;width:152%}
+
+/* 107 · Mascota junto al nombre y ajuste del adorno de abajo */
+.pf-namerow{display:flex;align-items:flex-end;gap:6px;width:100%;min-width:0}
+.pf-namerow .pf-name{flex:0 1 auto;min-width:0}
+.pf-namerow .pet-strip{flex:1 1 0;min-width:64px;height:48px;margin:-20px 0 0}
+.adj-stage.bot{padding:24px 0 64px}
+.orn-bot{transition:none}

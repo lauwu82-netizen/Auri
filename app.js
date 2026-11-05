@@ -346,9 +346,11 @@ const adjOk = (e, k) => typeof k === 'string' && !!COS_IMG[k] && (CQ[k] ? CQ[k][
 const adjClean = (e, l) => (Array.isArray(l) ? l : []).filter(o => o && adjOk(e, o.k)).slice(0, ADJ_MAX).map(o => { const d = adjDefault(o.k); return { k: o.k, x: adjNum(o.x, -40, 140, d.x), y: adjNum(o.y, -40, 140, d.y), r: adjNum(o.r, -180, 180, d.r), s: adjNum(o.s, .4, 3, d.s) }; });
 const topItems = e => { const u = getUsers()[e] || {}; if (Array.isArray(u.cosAdj)) return adjClean(e, u.cosAdj); const k = topKey(e); return k && COS_IMG[k] ? [adjDefault(k)] : []; };   // sin ajustes guardados = el adorno de siempre en su sitio de siempre
 const adjHTML = (o, extra = '') => cosImg(o.k) ? `<span class="orn orn-top adj${extra}" style="left:${o.x}%;top:${o.y}%;width:${Math.round(ADJ_W * o.s * 10) / 10}%;transform:translate(-50%,-50%) rotate(${o.r}deg)">${cosImg(o.k)}</span>` : '';
-const ornHTMLk = (bot, top) => { const items = Array.isArray(top) ? top : top && cosImg(top) ? [adjDefault(top)] : []; return items.map(o => adjHTML(o)).join('') + (bot && cosImg(bot) ? `<span class="orn orn-bot ${bot === 'top' ? 'b50' : CQ[bot] ? 'bq ' + bot.slice(3) : 'bA'}">${cosImg(bot)}</span>` : ''); };
+const botAdjOf = e => { const b = (getUsers()[e] || {}).cosBot; return b && typeof b === 'object' ? { y: adjNum(b.y, -40, 40, 0), s: adjNum(b.s, .5, 1.8, 1) } : null; };   // adorno de abajo: solo sube/baja y cambia de tamaño
+const botSty = ba => ba && (ba.y || ba.s !== 1) ? ` style="margin-bottom:${-ba.y}%;transform:scale(${ba.s});transform-origin:50% 30%"` : '';
+const ornHTMLk = (bot, top, ba) => { const items = Array.isArray(top) ? top : top && cosImg(top) ? [adjDefault(top)] : []; return items.map(o => adjHTML(o)).join('') + (bot && cosImg(bot) ? `<span class="orn orn-bot ${bot === 'top' ? 'b50' : CQ[bot] ? 'bq ' + bot.slice(3) : 'bA'}"${botSty(ba)}>${cosImg(bot)}</span>` : ''); };
 const nmCls = e => ({ OWNER: 'nm-own', ADMIN: 'nm-adm', MODERATOR: 'nm-mod' }[roleOf(e)] || '');   // solo el equipo tiene el usuario con color
-const ornHTML = e => ornHTMLk(frameKey(e), topItems(e));
+const ornHTML = e => ornHTMLk(frameKey(e), topItems(e), frameLocked(e) ? null : botAdjOf(e));
 /* --- Forma y borde de la foto de perfil (por ahora solo la Owner; todo queda guardado para ponerlo a la venta después) --- */
 const SHAPES = { '': 'Círculo', cat: 'Gato', heart: 'Corazón', star: 'Estrella', flower: 'Flor', cloud: 'Nube' };
 const SHAPE_D = {"cat": "M.08 .6A.42 .4 0 1 1 .92 .6A.42 .4 0 1 1 .08 .6ZM.11 .44L0.22 0.06L.44 .2ZM.56 .2L0.78 0.06L.89 .44Z", "heart": "M.5 .95C.1 .66 .02 .42 .08 .27C.15 .08 .39 .06 .5 .27C.61 .06 .85 .08 .92 .27C.98 .42 .9 .66 .5 .95Z", "star": "M0.466 0.111Q0.5 0.05 0.534 0.111L0.624 0.271Q0.659 0.332 0.727 0.345L0.907 0.382Q0.976 0.395 0.928 0.447L0.804 0.582Q0.757 0.633 0.765 0.703L0.786 0.885Q0.794 0.955 0.73 0.925L0.564 0.849Q0.5 0.82 0.436 0.849L0.27 0.925Q0.206 0.955 0.214 0.885L0.235 0.703Q0.243 0.633 0.196 0.582L0.072 0.447Q0.024 0.395 0.093 0.382L0.273 0.345Q0.341 0.332 0.376 0.271Z", "flower": "M0.3 0.5A0.2 0.2 0 1 1 0.7 0.5A0.2 0.2 0 1 1 0.3 0.5ZM0.3 0.23A0.2 0.2 0 1 1 0.7 0.23A0.2 0.2 0 1 1 0.3 0.23ZM0.534 0.365A0.2 0.2 0 1 1 0.934 0.365A0.2 0.2 0 1 1 0.534 0.365ZM0.534 0.635A0.2 0.2 0 1 1 0.934 0.635A0.2 0.2 0 1 1 0.534 0.635ZM0.3 0.77A0.2 0.2 0 1 1 0.7 0.77A0.2 0.2 0 1 1 0.3 0.77ZM0.066 0.635A0.2 0.2 0 1 1 0.466 0.635A0.2 0.2 0 1 1 0.066 0.635ZM0.066 0.365A0.2 0.2 0 1 1 0.466 0.365A0.2 0.2 0 1 1 0.066 0.365Z", "cloud": "M0.1 0.56A0.2 0.2 0 1 1 0.5 0.56A0.2 0.2 0 1 1 0.1 0.56ZM0.25 0.42A0.27 0.27 0 1 1 0.79 0.42A0.27 0.27 0 1 1 0.25 0.42ZM0.54 0.56A0.2 0.2 0 1 1 0.94 0.56A0.2 0.2 0 1 1 0.54 0.56ZM0.1 0.66A0.16 0.16 0 1 1 0.42 0.66A0.16 0.16 0 1 1 0.1 0.66ZM0.58 0.66A0.16 0.16 0 1 1 0.9 0.66A0.16 0.16 0 1 1 0.58 0.66ZM.26 .5H.74V.82H.26Z"};
@@ -632,7 +634,7 @@ async function sbMirror() {
   const pv = (q.ok && Array.isArray(q.data) && q.data[0]) || {};
   const email = String(s.email || pv.email || '').toLowerCase(), us = LS.get('auri.users', {}), old = us[email] || {};
   us[email] = { ...old, uid: s.uid, cloud: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || old.bio || '', avatar: pr.avatar || old.avatar || '', banner: pr.banner || old.banner || '',
-    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
+    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
     birth: pv.birth || old.birth || '', gender: pv.gender || old.gender || '', interests: pv.interests || old.interests || [], onboarded: true,
     termsAccepted: pr.terms_accepted || old.termsAccepted, created: String(pr.created_at || '').slice(0, 10) || old.created, strikes: old.strikes || [] };
   LS.set('auri.users', us);
@@ -680,6 +682,7 @@ async function sbPushFrame() {
 async function sbPushCos() {
   const s = sbSes(); if (!cloud() || !s || PRES_OFF) return; const u = LS.get('auri.users', {})[String(s.email).toLowerCase()]; if (!u) return;
   await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { cos_top: u.cosTop === undefined ? null : u.cosTop } });
+  if (u.cosBot) await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { cos_bot: u.cosBot } });
   if (Array.isArray(u.cosAdj)) await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { cos_adj: u.cosAdj } });   // aparte: si falta el SQL 35, lo anterior igual se guarda
 }
 async function sbPushLook() {
@@ -918,7 +921,7 @@ async function sbPullPublic() {                           // trae las obras de o
   for (const o of owners) {
     const pr = prof.find(x => x.id === o); if (!pr) continue; const key = remoteKey(o), old = us[key] || {};
     us[key] = { ...old, uid: o, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
     const list = [];
     for (const r of stories.filter(x => x.owner === o)) {
       const pubs = (pubBy.get(r.id) || []), wk = (wkBy.get(r.id) || []), cmap = new Map();
@@ -1090,7 +1093,7 @@ async function sbSyncSocial(only) {
 function sbPseudo(pr, old) {                                   // copia local de la cuenta de otra persona (sin datos privados)
   old = old || {};
   return { ...old, uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
 }
 const SOC_G = { 'auri.likes': ['likes'], 'auri.follows': ['follows'], 'auri.comments': ['comments', 'comment_likes'], 'auri.pcom': ['pcom', 'pcom_likes'], 'auri.subs': ['subscriptions'] };
 let SB_SOC_T;
@@ -1881,7 +1884,7 @@ async function sbSearchUsers() {                         // trae de Supabase a l
   const us = LS.get('auri.users', {}), me = sbSes() && sbSes().uid; let ch = false;
   r.data.filter(p => p.id !== me).forEach(pr => { const key = remoteKey(pr.id), old = us[key];
     const n = { ...(old || {}), uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
     if (JSON.stringify(old) !== JSON.stringify(n)) { us[key] = n; ch = true; } });
   if (ch) { LS.set('auri.users', us); const l = $('#list'); if (l && SM === 'users') l.innerHTML = usersList(); }
 }
@@ -4087,7 +4090,7 @@ function profileHero(e, own, acts = '', corner = '') {
     ${sk.length && !cfg('hideStrikeBtn') ? `<button type="button" class="pf-warn" data-act="strike-info" aria-label="${esc(t('Aviso de strikes'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5"/><circle cx="12" cy="16.6" r=".6" fill="currentColor"/></svg></button>` : ''}
     ${rdPill(e)}<div class="pf-fade"></div></div>
   ${corner}<div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}${stProfBubble(e)}</div>
-    <div class="pf-info"><h1 class="pf-name serif ${nmCls(e)}">${esc(u.name || t('Mi perfil'))}${onlineDot(e)}</h1>${petHTML(e)}${role || mbtiOf(e) ? `<div class="pf-tags">${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}${mbtiBadge(e)}</div>` : ''}
+    <div class="pf-info"><div class="pf-namerow"><h1 class="pf-name serif ${nmCls(e)}">${esc(u.name || t('Mi perfil'))}${onlineDot(e)}</h1>${petHTML(e)}</div>${role || mbtiOf(e) ? `<div class="pf-tags">${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}${mbtiBadge(e)}</div>` : ''}
 </div>
     ${acts ? `<div class="pf-acts">${acts}</div>` : ''}</div>
   <div class="pf-stats-row">${stat(followers(e).length, t('Seguidores'), 'pf-list', 'followers')}${stat(following(e).length, t('Seguidos'), 'pf-list', 'following')}${stat(pubs.length, t('Libros publicados'), 'pf-works')}${stat(likesReceived(e), t('Likes'))}</div>
@@ -4263,13 +4266,29 @@ function openFrames() {
     : n.length ? `<div class="fr-list">${n.map(k => row(k, t(FR_NAME[k]))).join('')}${row('', t('Sin insignia'))}</div>` : `<p class="helper">${t('Aún no tienes insignias.')}</p>`;
   const mine = bowsOf(me), avail = [...(owner ? ['crown'] : []), ...mine.map(k => 'bow:' + k), ...cqOf(me).filter(k => CQ[k][1] === 'top')].filter(k => COS_IMG[k]);
   const top = avail.length ? '<div class="adj-ed"></div>' : `<p class="helper">${t('Pronto habrá adornos para ponerte aquí, en la tienda.')}</p>`;
+  const ba0 = botAdjOf(me) || { y: 0, s: 1 };
+  const botEd = !locked && cur ? `<div class="bot-ed"><p class="helper" style="margin:10px 0 6px">${t('Ajusta el adorno de abajo para que quede bien con la forma de tu foto: súbelo, bájalo o cambia su tamaño.')}</p>
+    <div class="adj-stage bot"><span class="fr" style="--a:132px">${avatarHTML(u.avatar, u.name, 'xl')}${ornHTMLk(cur, '', ba0)}</span></div>
+    <label class="adj-row"><span>${t('Posición')}</span><input type="range" id="bot-y" min="-40" max="40" step="1" value="${Math.round(ba0.y)}"></label>
+    <label class="adj-row"><span>${t('Tamaño')}</span><input type="range" id="bot-s" min="50" max="180" step="2" value="${Math.round(ba0.s * 100)}"></label>
+    <div class="adj-btns"><button type="button" class="button ghost sm" data-bot="reset">${t('Restablecer')}</button><button type="button" class="button sm" data-bot="save">${t('Guardar')}</button></div></div>` : '';
   const m = document.createElement('div'); m.className = 'modal sheet';
-  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Insignias y adornos')}</h2><h3 class="fr-h">${t('Abajo')}</h3>${bot}<h3 class="fr-h">${t('Arriba')}</h3>${top}</div>`;
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Insignias y adornos')}</h2><h3 class="fr-h">${t('Abajo')}</h3>${bot}${botEd}<h3 class="fr-h">${t('Arriba')}</h3>${top}</div>`;
   m.addEventListener('click', ev => {
     const b = ev.target.closest('[data-fr]'), c = ev.target.closest('[data-cos]');
     if (b && !locked) { const us = getUsers(); us[me].frameSel = b.dataset.fr; G.set('users', us); sbPushFrame(); m.remove(); KEEP = true; render(); return; }
     if (c && (owner || c.dataset.cos === '' || bowsOf(me).includes(String(c.dataset.cos).split(':')[1] || ''))) { const us = getUsers(); us[me].cosTop = c.dataset.cos; G.set('users', us); sbPushCos(); m.remove(); KEEP = true; render(); return; }
+    const bt = ev.target.closest('[data-bot]');
+    if (bt) {
+      const y = m.querySelector('#bot-y'), z = m.querySelector('#bot-s'); if (bt.dataset.bot === 'reset') { y.value = 0; z.value = 100; y.dispatchEvent(new Event('input', { bubbles: true })); return; }
+      const us = getUsers(); if (!us[me]) return; const v = { y: adjNum(y.value, -40, 40, 0), s: adjNum(z.value / 100, .5, 1.8, 1) }; us[me].cosBot = v; G.set('users', us); sbPushCos(); m.remove(); KEEP = true; render(); toast(t('Ajuste guardado')); return;
+    }
     if (ev.target === m || ev.target.closest('[data-no]')) m.remove();
+  });
+  m.addEventListener('input', ev => {
+    if (ev.target.id !== 'bot-y' && ev.target.id !== 'bot-s') return; const el = m.querySelector('.adj-stage.bot .orn-bot'); if (!el) return;
+    const y = adjNum(m.querySelector('#bot-y').value, -40, 40, 0), z = adjNum(m.querySelector('#bot-s').value / 100, .5, 1.8, 1);
+    el.style.marginBottom = -y + '%'; el.style.transform = `scale(${z})`; el.style.transformOrigin = '50% 30%';
   });
   document.body.appendChild(m);
   const box = m.querySelector('.adj-ed'); if (box) adjEditor(m, box, me, avail);
