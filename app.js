@@ -78,7 +78,7 @@ function perfProbe() {                                   // mide unos 50 fotogra
   requestAnimationFrame(step);
 }
 perfApply(); window.addEventListener('load', () => setTimeout(perfProbe, 3500));
-const CFG_DEFAULTS = { align: 'left', margin: 'md', sepStyle: 'classic', rbg: 'auto', chatSkin: null, dropcap: true, fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], avoidWarns: [], hideDone: true, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
+const CFG_DEFAULTS = { align: 'left', margin: 'md', sepStyle: 'classic', amb: 'off', rbg: 'auto', chatSkin: null, dropcap: true, fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], avoidWarns: [], hideDone: true, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
 const cfg = k => {
   const c = S.cfg || {};
   if (k === 'showMature') { const u = getUsers()[S.user]; if (isMinor(u)) return false; return c.showMature == null ? isAdult(u) : c.showMature; }   // por defecto: visible solo si ya declaraste ser mayor de edad
@@ -2823,6 +2823,17 @@ const SEPS = { classic: ['Clásico', 'free', '<rect x="17" y="7" width="10" heig
   bow: ['Moño', 'free', '<path d="M22 12c-5-8-15-6-12 1c3 5 12 0 12-1zM22 12c5-8 15-6 12 1c-3 5-12 0-12-1z"/><circle cx="22" cy="12" r="3"/>'] };
 const sepOK = k => !SEPS[k] ? false : SEPS[k][1] === 'free' || isStaff(S.user);      // los de tienda/pase se desbloquean con compra (por ahora solo el equipo los ve)
 const sepKey = () => sepOK(cfg('sepStyle')) ? cfg('sepStyle') : 'classic';
+/* Ambientes de lectura (solo libros tradicionales): partículas suaves sobre el texto. Gratis o con pase; quien lee puede apagarlos */
+const AMBS = { off: ['Ninguno', 'free', '🚫'], rain: ['Lluvia', 'free', '🌧️'], snow: ['Nieve', 'free', '❄️'], fog: ['Niebla', 'free', '🌫️'], fireflies: ['Luciérnagas', 'pass', '✨'], stars: ['Estrellas', 'pass', '⭐'], petals: ['Pétalos', 'pass', '🌸'] };
+const AMB_N = { rain: 34, snow: 26, fog: 4, fireflies: 14, stars: 30, petals: 14 };
+const ambOK = k => !AMBS[k] ? false : AMBS[k][1] === 'free' || isStaff(S.user);
+const ambKey = () => ambOK(cfg('amb')) ? cfg('amb') : 'off';
+function ambHTML(s) {
+  const k = ambKey(); if (k === 'off' || !s || s.mode === 'chat') return '';
+  let h = ''; const r = (i, m) => ((i * m + 13) % 997) / 997;
+  for (let i = 0; i < AMB_N[k]; i++) h += `<i style="--x:${(r(i, 7919) * 100).toFixed(1)}%;--y:${(r(i, 104729) * 100).toFixed(1)}%;--d:${(k === 'rain' ? 0.9 + r(i, 31) * 0.9 : k === 'fog' ? 36 + r(i, 31) * 30 : 9 + r(i, 31) * 9).toFixed(2)}s;--dl:-${(r(i, 17) * 20).toFixed(2)}s;--s:${(0.5 + r(i, 53)).toFixed(2)}"></i>`;
+  return `<div class="amb amb-${k}" aria-hidden="true">${h}</div>`;
+}
 const sepSvg = k => `<svg viewBox="0 0 44 24" aria-hidden="true" fill="currentColor">${SEPS[k][2]}</svg>`;
 const sepHTML = (cls, k = sepKey()) => `<div class="${cls} sp-${k}" aria-hidden="true"><i></i><span class="sp-mid">${sepSvg(k)}</span><i></i></div>`;
 const chHead = (num, title) => { const plain = /^\s*cap[ií]tulo\s*\d+\s*$/i.test(title || '') || !(title || '').trim(); return `<div class="ch-head">${plain ? '' : `<span class="ch-no">${t('Capítulo {n}', { n: num })}</span>`}<h1 class="rf-h">${esc(plain ? (title || '').trim() || t('Capítulo {n}', { n: num }) : title)}</h1>${sepHTML('ch-orn')}</div>`; };
@@ -3128,7 +3139,7 @@ function chapterRead(s, N) {
   const ch = s.chapters[pos], before = s.chapters[pos - 1], after = s.chapters[pos + 1];
   if (!ch) return `<main class="page">${empty(t('Aún no hay capítulos'), t('Esta historia todavía no tiene capítulos publicados.'), `<a class="button" href="#/story/${esc(s.id)}">${t('Volver a la historia')}</a>`)}</main>`;
   const nc = comments(s.id, ch.idx).length, exit = `data-act="exit-book" data-id="${esc(s.id)}" data-n="${ch.idx}"`;
-  return `<div class="rf"><div class="rf-bar"><i id="rf-bar-i"></i></div>
+  return `<div class="rf">${ambHTML(s)}<div class="rf-bar"><i id="rf-bar-i"></i></div>
   <header class="rf-top"><button class="button ghost sm" ${exit} aria-label="${esc(t('Guardar progreso y salir del libro'))}">✕ ${t('Salir')}</button><div class="rf-title"><b>${t('Cap. {n}', { n: ch.idx + 1 })}</b> · ${esc(ch.title)}<small class="rf-left" id="rf-left" data-tot="${readMin(ch.text)}"></small></div><button class="icon-btn" data-act="comments" aria-label="${esc(t('Comentarios'))}">💬</button></header>
   <article class="rf-body">${chHero(ch)}${chHead(ch.idx + 1, ch.title)}${s.useReaderCharacter && S.chars.length > 1 ? `<label class="helper" style="display:flex;align-items:center;gap:8px;margin-bottom:14px">${t('Leyendo como')} <select id="char-sel" class="select" style="max-width:200px">${S.chars.map((x, k) => `<option value="${x.id}" ${x.id === S.activeId ? 'selected' : ''}>${esc(x.name || t('Personaje {n}', { n: k + 1 }))}</option>`).join('')}</select></label>` : ''}${ch.music && musicEmbed(ch.music) ? `<button class="button secondary sm ch-music" data-act="music" data-url="${esc(ch.music)}">🎵 ${t('Escuchar la canción de este capítulo')}</button>` : ''}${readerText(ch.text, s.useReaderCharacter, { sid: s.id, ci: ch.idx })}</article>
   <footer class="rf-end"><div class="ch-end">${sepHTML('scene-sep')}<b class="ch-fin">${after ? t('Fin del capítulo') : t('Fin del último capítulo disponible')}</b><small class="ch-min">${t('Lectura de ~{n} min', { n: readMin(ch.text) })}</small>
@@ -3864,6 +3875,7 @@ function settingsView(secId) {
       <div class="set-col"><span>${t('Tipografía')}</span><div class="font-grid">${(FONTS.forEach(f => loadFont(f[0])), FONTS).map(f => `<button type="button" class="font-opt ${cfg('font') === f[0] ? 'on' : ''}" data-act="cfg" data-k="font" data-v="${f[0]}" style="font-family:${READ.font[f[0]]}" aria-pressed="${cfg('font') === f[0]}"><b>Aa</b><span>${esc(t(f[1]))}</span></button>`).join('')}</div></div>
       <div class="set-col"><span>${t('Fondo de lectura')}</span><div class="rbg-grid">${[['auto', 'Del tema'], ['cream', 'Crema'], ['sepia', 'Sepia'], ['night', 'Noche'], ['paper', 'Papel']].map(b => `<button type="button" class="rbg-opt ${cfg('rbg') === b[0] ? 'on' : ''}" data-act="cfg" data-k="rbg" data-v="${b[0]}" data-rbg="${b[0]}" aria-pressed="${cfg('rbg') === b[0]}"><span class="rbg-sw"></span>${t(b[1])}</button>`).join('')}</div></div>
       <div class="set-col"><span>${t('Separador de escena')}</span><div class="sep-prev">${sepHTML('scene-sep')}</div><div class="sep-grid">${Object.entries(SEPS).map(([k, v]) => `<button type="button" class="sep-opt ${sepKey() === k ? 'on' : ''} ${sepOK(k) ? '' : 'lock'}" ${sepOK(k) ? `data-act="cfg" data-k="sepStyle" data-v="${k}"` : 'data-act="sep-lock"'} aria-pressed="${sepKey() === k}">${sepHTML('sep-mini', k)}<span>${t(v[0])}</span><em>${t(v[1] === 'free' ? 'Gratis' : v[1] === 'shop' ? 'Tienda' : 'Pase')}</em></button>`).join('')}</div></div>
+      <div class="set-col"><span>${t('Ambiente de lectura')}</span><p class="helper" style="margin:0">${t('Pequeñas animaciones suaves mientras lees libros tradicionales. Se quitan solas en modo Ahorro.')}</p><div class="sep-grid">${Object.entries(AMBS).map(([k, v]) => `<button type="button" class="sep-opt amb-opt ${ambKey() === k ? 'on' : ''} ${ambOK(k) ? '' : 'lock'}" ${ambOK(k) ? `data-act="cfg" data-k="amb" data-v="${k}"` : 'data-act="amb-lock"'} aria-pressed="${ambKey() === k}"><span class="amb-ico">${v[2]}</span><span>${t(v[0])}</span>${k === 'off' ? '' : `<em>${t(v[1] === 'free' ? 'Gratis' : 'Pase')}</em>`}</button>`).join('')}</div></div>
       ${sw('dropcap', cfg('dropcap'), 'Letra capital', 'La primera letra de cada capítulo se ve grande y decorada.')}
       <div class="set-row"><span>${t('Márgenes del texto')}</span>${seg('margin', [['sm', 'Pequeños'], ['md', 'Normales'], ['lg', 'Amplios']], cfg('margin'))}</div>
       <div class="set-row"><span>${t('Alineación del texto')}</span>${seg('align', [['left', 'Izquierda'], ['justify', 'Justificado']], cfg('align'))}</div>
@@ -5258,6 +5270,7 @@ document.addEventListener('click', e => {
     'img-ok': () => imgDecide(decodeURIComponent(id), true),
     'img-no': () => imgDecide(decodeURIComponent(id), false),
     'bio-more': () => { el.closest('.pf-bio-box').classList.toggle('open'); bioFit(); },
+    'amb-lock': () => toast('Este ambiente estará disponible pronto con el pase.'),
     'sep-lock': () => toast('Este diseño estará disponible pronto en la tienda.'),
     'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },
     'toggle-tn': () => { collect(); W.useReaderCharacter = !W.useReaderCharacter; el.setAttribute('aria-checked', W.useReaderCharacter); },
