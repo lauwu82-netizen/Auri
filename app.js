@@ -2825,14 +2825,17 @@ const sepOK = k => !SEPS[k] ? false : SEPS[k][1] === 'free' || isStaff(S.user); 
 const sepKey = () => sepOK(cfg('sepStyle')) ? cfg('sepStyle') : 'classic';
 /* Ambientes de lectura (solo libros tradicionales): partículas suaves sobre el texto. Gratis o con pase; quien lee puede apagarlos */
 const AMBS = { off: ['Ninguno', 'free', '🚫'], rain: ['Lluvia', 'free', '🌧️'], snow: ['Nieve', 'free', '❄️'], fog: ['Niebla', 'free', '🌫️'], fireflies: ['Luciérnagas', 'pass', '✨'], stars: ['Estrellas', 'pass', '⭐'], petals: ['Pétalos', 'pass', '🌸'] };
-const AMB_N = { rain: 34, snow: 26, fog: 4, fireflies: 14, stars: 30, petals: 12 };
+const AMB_N = { rain: 34, snow: 26, fog: 4, fireflies: 9, stars: 4, petals: 12 };
 const ambOK = k => !AMBS[k] ? false : AMBS[k][1] === 'free' || isStaff(S.user);
 const ambKey = () => ambOK(cfg('amb')) ? cfg('amb') : 'off';
+const STAR_POS = [[12, 17, 1.0], [83, 24, 0.6], [26, 63, 0.3], [78, 79, 0.9]];   // estrellas fijas: x%, y%, tamaño
 function ambHTML(s) {
   const k = ambKey(); if (k === 'off' || !s || s.mode === 'chat') return '';
-  const D = { rain: [2.6, 2.4], snow: [32, 22], fog: [60, 40], fireflies: [26, 18], stars: [14, 10], petals: [55, 35] }[k];   // [mínimo, variación] en segundos: todo va lento y calmado para no distraer
+  const D = { rain: [2.6, 2.4], snow: [32, 22], fog: [60, 40], fireflies: [6, 5], petals: [55, 35] }[k] || [0, 0];   // [mínimo, variación] en segundos: todo va lento y calmado para no distraer
   const r = (i, m) => { const x = Math.sin(i * 12.9898 + m * 78.233) * 43758.5453; return x - Math.floor(x); };
-  let h = ''; for (let i = 0; i < AMB_N[k]; i++) { const d = D[0] + r(i, 3) * D[1]; h += `<i style="--x:${(r(i, 1) * 100).toFixed(1)}%;--y:${(r(i, 2) * 100).toFixed(1)}%;--d:${d.toFixed(1)}s;--dl:-${(r(i, 4) * d).toFixed(1)}s;--s:${(0.5 + r(i, 5)).toFixed(2)}"></i>`; }
+  let h = '';
+  if (k === 'stars') STAR_POS.forEach(([x, y, z], i) => h += `<i style="--x:${x}%;--y:${y}%;--s:${z};--d:${16 + i * 3}s;--dl:-${i * 5}s"></i>`);
+  else for (let i = 0; i < AMB_N[k]; i++) { const d = D[0] + r(i, 3) * D[1], gx = (i * 0.618034) % 1, gy = (i * 0.754878) % 1; h += `<i style="--x:${(gx * 100).toFixed(1)}%;--y:${(gy * 100).toFixed(1)}%;--d:${d.toFixed(1)}s;--dl:-${(r(i, 4) * d).toFixed(1)}s;--s:${(0.5 + r(i, 5)).toFixed(2)}"></i>`; }   // reparto uniforme (razón áurea): nunca quedan en fila
   return `<div class="amb amb-${k}" aria-hidden="true">${h}</div>`;
 }
 const sepSvg = k => `<svg viewBox="0 0 44 24" aria-hidden="true" fill="currentColor">${SEPS[k][2]}</svg>`;
