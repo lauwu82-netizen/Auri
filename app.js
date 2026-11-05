@@ -78,7 +78,7 @@ function perfProbe() {                                   // mide unos 50 fotogra
   requestAnimationFrame(step);
 }
 perfApply(); window.addEventListener('load', () => setTimeout(perfProbe, 3500));
-const CFG_DEFAULTS = { align: 'left', margin: 'md', sepStyle: 'classic', amb: 'off', rbg: 'auto', chatSkin: null, dropcap: true, fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], avoidWarns: [], hideDone: true, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
+const CFG_DEFAULTS = { align: 'left', margin: 'md', sepStyle: 'classic', amb: 'off', petStill: false, rbg: 'auto', chatSkin: null, dropcap: true, fontSize: 'md', font: 'serif', lh: 'normal', music: 'ask', musicLast: '', skipReadAs: false, pcom: 'tap', spoilers: 'hide', showMature: null, lang: 'es', otherComm: 'no', hideStrikeBtn: false, hideBugFab: false, avoidTags: [], avoidWarns: [], hideDone: true, accent: 'violeta', showOnline: true, modShuffle: true, notif: { chapter: true, like: true, comment: true, follow: true } };
 const cfg = k => {
   const c = S.cfg || {};
   if (k === 'showMature') { const u = getUsers()[S.user]; if (isMinor(u)) return false; return c.showMature == null ? isAdult(u) : c.showMature; }   // por defecto: visible solo si ya declaraste ser mayor de edad
@@ -622,7 +622,7 @@ async function sbMirror() {
   const pv = (q.ok && Array.isArray(q.data) && q.data[0]) || {};
   const email = String(s.email || pv.email || '').toLowerCase(), us = LS.get('auri.users', {}), old = us[email] || {};
   us[email] = { ...old, uid: s.uid, cloud: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || old.bio || '', avatar: pr.avatar || old.avatar || '', banner: pr.banner || old.banner || '',
-    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
+    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
     birth: pv.birth || old.birth || '', gender: pv.gender || old.gender || '', interests: pv.interests || old.interests || [], onboarded: true,
     termsAccepted: pr.terms_accepted || old.termsAccepted, created: String(pr.created_at || '').slice(0, 10) || old.created, strikes: old.strikes || [] };
   LS.set('auri.users', us);
@@ -908,7 +908,7 @@ async function sbPullPublic() {                           // trae las obras de o
   for (const o of owners) {
     const pr = prof.find(x => x.id === o); if (!pr) continue; const key = remoteKey(o), old = us[key] || {};
     us[key] = { ...old, uid: o, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
     const list = [];
     for (const r of stories.filter(x => x.owner === o)) {
       const pubs = (pubBy.get(r.id) || []), wk = (wkBy.get(r.id) || []), cmap = new Map();
@@ -1080,7 +1080,7 @@ async function sbSyncSocial(only) {
 function sbPseudo(pr, old) {                                   // copia local de la cuenta de otra persona (sin datos privados)
   old = old || {};
   return { ...old, uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
 }
 const SOC_G = { 'auri.likes': ['likes'], 'auri.follows': ['follows'], 'auri.comments': ['comments', 'comment_likes'], 'auri.pcom': ['pcom', 'pcom_likes'], 'auri.subs': ['subscriptions'] };
 let SB_SOC_T;
@@ -1871,7 +1871,7 @@ async function sbSearchUsers() {                         // trae de Supabase a l
   const us = LS.get('auri.users', {}), me = sbSes() && sbSes().uid; let ch = false;
   r.data.filter(p => p.id !== me).forEach(pr => { const key = remoteKey(pr.id), old = us[key];
     const n = { ...(old || {}), uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
     if (JSON.stringify(old) !== JSON.stringify(n)) { us[key] = n; ch = true; } });
   if (ch) { LS.set('auri.users', us); const l = $('#list'); if (l && SM === 'users') l.innerHTML = usersList(); }
 }
@@ -2823,6 +2823,31 @@ const SEPS = { classic: ['Clásico', 'free', '<rect x="17" y="7" width="10" heig
   bow: ['Moño', 'free', '<path d="M22 12c-5-8-15-6-12 1c3 5 12 0 12-1zM22 12c5-8 15-6 12 1c-3 5-12 0-12-1z"/><circle cx="22" cy="12" r="3"/>'] };
 const sepOK = k => !SEPS[k] ? false : SEPS[k][1] === 'free' || isStaff(S.user);      // los de tienda/pase se desbloquean con compra (por ahora solo el equipo los ve)
 const sepKey = () => sepOK(cfg('sepStyle')) ? cfg('sepStyle') : 'classic';
+/* Mascotas 8-bit del perfil: hoja de 4 cuadros (quieta, paso 1, paso 2, dormida) en pets/<clave>.png. Para usar un dibujo propio basta con reemplazar el PNG */
+const PETS = { gato: ['Gatito', '¡Miau!'], perro: ['Perrito', '¡Guau!'], conejo: ['Conejito', '¡Hola!'] };
+let PETG = { e: '', t: 0 };
+function petHTML(e) {
+  const k = (getUsers()[e] || {}).pet; if (!PETS[k]) return '';
+  if (PETG.e !== e || Date.now() - PETG.t > 45000) PETG = { e, t: Date.now() };
+  const hi = Date.now() - PETG.t < 4500, still = cfg('petStill') || document.documentElement.classList.contains('lite') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  return `<div class="pet-strip" aria-hidden="true"><div class="pet-run ${still ? 'still' : ''}" style="--pet:url('pets/${k}.png')"><div class="pet-hop">${hi ? `<span class="pet-hi">${t(PETS[k][1])}</span>` : ''}<div class="pet-flip"><i class="pet-s pet-idle"></i><i class="pet-s pet-walk"></i><i class="pet-s pet-sleep"></i></div><span class="pet-zz">z z</span></div></div></div>`;
+}
+async function sbPushPet() {
+  const s = sbSes(); if (!cloud() || !s || PRES_OFF) return; const u = LS.get('auri.users', {})[String(s.email).toLowerCase()]; if (!u) return;
+  await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { pet: u.pet || null } });
+}
+function openPets() {
+  const me = S.user, cur = (getUsers()[me] || {}).pet || '';
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Mascota 8-bit')}</h2><p class="helper">${t('Camina por tu portada, saluda cuando alguien entra a tu perfil y se duerme un rato. Solo para ti por ahora.')}</p>
+    <div class="pet-grid"><button type="button" class="pet-opt ${cur ? '' : 'on'}" data-pet=""><span class="pet-prev none">✕</span><b>${t('Ninguna')}</b></button>${Object.entries(PETS).map(([k, v]) => `<button type="button" class="pet-opt ${cur === k ? 'on' : ''}" data-pet="${k}"><span class="pet-prev" style="--pet:url('pets/${k}.png')"></span><b>${t(v[0])}</b></button>`).join('')}</div></div>`;
+  m.addEventListener('click', ev => {
+    const b = ev.target.closest('[data-pet]');
+    if (b) { const us = getUsers(); if (!us[me]) return; us[me].pet = b.dataset.pet; G.set('users', us); sbPushPet(); toast(t('Mascota guardada')); m.remove(); PETG = { e: '', t: 0 }; render(); return; }
+    if (ev.target === m || ev.target.closest('[data-no]')) m.remove();
+  });
+  document.body.appendChild(m);
+}
 /* Ambientes de lectura (solo libros tradicionales): partículas suaves sobre el texto. Gratis o con pase; quien lee puede apagarlos */
 const AMBS = { off: ['Ninguno', 'free', '🚫'], rain: ['Lluvia', 'free', '🌧️'], snow: ['Nieve', 'free', '❄️'], fog: ['Niebla', 'free', '🌫️'], fireflies: ['Luciérnagas', 'pass', '✨'], stars: ['Estrellas', 'pass', '⭐'], petals: ['Pétalos', 'pass', '🌸'] };
 const AMB_N = { rain: 34, snow: 14, fog: 4, fireflies: 9, stars: 4, petals: 12 };
@@ -3880,6 +3905,7 @@ function settingsView(secId) {
       <div class="set-col"><span>${t('Fondo de lectura')}</span><div class="rbg-grid">${[['auto', 'Del tema'], ['cream', 'Crema'], ['sepia', 'Sepia'], ['night', 'Noche'], ['paper', 'Papel']].map(b => `<button type="button" class="rbg-opt ${cfg('rbg') === b[0] ? 'on' : ''}" data-act="cfg" data-k="rbg" data-v="${b[0]}" data-rbg="${b[0]}" aria-pressed="${cfg('rbg') === b[0]}"><span class="rbg-sw"></span>${t(b[1])}</button>`).join('')}</div></div>
       <div class="set-col"><span>${t('Separador de escena')}</span><div class="sep-prev">${sepHTML('scene-sep')}</div><div class="sep-grid">${Object.entries(SEPS).map(([k, v]) => `<button type="button" class="sep-opt ${sepKey() === k ? 'on' : ''} ${sepOK(k) ? '' : 'lock'}" ${sepOK(k) ? `data-act="cfg" data-k="sepStyle" data-v="${k}"` : 'data-act="sep-lock"'} aria-pressed="${sepKey() === k}">${sepHTML('sep-mini', k)}<span>${t(v[0])}</span><em>${t(v[1] === 'free' ? 'Gratis' : v[1] === 'shop' ? 'Tienda' : 'Pase')}</em></button>`).join('')}</div></div>
       <div class="set-col"><span>${t('Ambiente de lectura')}</span><p class="helper" style="margin:0">${t('Pequeñas animaciones suaves mientras lees libros tradicionales. Se quitan solas en modo Ahorro.')}</p><div class="sep-grid">${Object.entries(AMBS).map(([k, v]) => `<button type="button" class="sep-opt amb-opt ${ambKey() === k ? 'on' : ''} ${ambOK(k) ? '' : 'lock'}" ${ambOK(k) ? `data-act="cfg" data-k="amb" data-v="${k}"` : 'data-act="amb-lock"'} aria-pressed="${ambKey() === k}"><span class="amb-ico">${v[2]}</span><span>${t(v[0])}</span>${k === 'off' ? '' : `<em>${t(v[1] === 'free' ? 'Gratis' : 'Pase')}</em>`}</button>`).join('')}</div></div>
+      ${sw('petStill', !!cfg('petStill'), 'Mascota quieta', 'La mascota de los perfiles se queda quieta, sin caminar ni dormirse.')}
       ${sw('dropcap', cfg('dropcap'), 'Letra capital', 'La primera letra de cada capítulo se ve grande y decorada.')}
       <div class="set-row"><span>${t('Márgenes del texto')}</span>${seg('margin', [['sm', 'Pequeños'], ['md', 'Normales'], ['lg', 'Amplios']], cfg('margin'))}</div>
       <div class="set-row"><span>${t('Alineación del texto')}</span>${seg('align', [['left', 'Izquierda'], ['justify', 'Justificado']], cfg('align'))}</div>
@@ -4050,7 +4076,7 @@ function profileHero(e, own, acts = '', corner = '') {
   return `<section class="pf-hero"><div class="pf-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>
     ${sk.length && !cfg('hideStrikeBtn') ? `<button type="button" class="pf-warn" data-act="strike-info" aria-label="${esc(t('Aviso de strikes'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5"/><circle cx="12" cy="16.6" r=".6" fill="currentColor"/></svg></button>` : ''}
     ${rdPill(e)}<div class="pf-fade"></div></div>
-  ${corner}<div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}${stProfBubble(e)}</div>
+  ${petHTML(e)}${corner}<div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}${stProfBubble(e)}</div>
     <div class="pf-info"><h1 class="pf-name serif ${nmCls(e)}">${esc(u.name || t('Mi perfil'))}${onlineDot(e)}</h1>${role || mbtiOf(e) ? `<div class="pf-tags">${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}${mbtiBadge(e)}</div>` : ''}
 </div>
     ${acts ? `<div class="pf-acts">${acts}</div>` : ''}</div>
@@ -4210,6 +4236,7 @@ function editProfileView() {
     <button type="button" class="ep-row" data-act="mbti"><span><b>MBTI</b><small>${mbtiOf(S.user) ? `${mbtiOf(S.user)} · ${t(mbtiGroup(mbtiOf(S.user))[1])}` : t('Elige tu tipo de personalidad')}</small></span><i aria-hidden="true">›</i></button>
     <h3 class="ep-h">${EPI.frame}<span>${t('Insignias y adornos')}</span></h3>
     <button type="button" class="ep-row" data-act="frames"><span><b>${t('Marcos')}</b><small>${frameLine}</small></span><i aria-hidden="true">›</i></button>
+    ${isOwner() ? `<button type="button" class="ep-row" data-act="pets"><span><b>${t('Mascota 8-bit')}</b><small>${PETS[u.pet] ? t(PETS[u.pet][0]) : t('Ninguna')}</small></span><i aria-hidden="true">›</i></button>` : ''}
     <h3 class="ep-h">${EPI.shield}<span>${t('Privacidad')}</span></h3>
     <div class="ep-card ep-sw">${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}${sw('hideLists', !!u.hideLists, 'Ocultar mis listas', 'Nadie más ve quién te sigue ni a quién sigues. Los números siguen visibles.')}${sw('showReading', !!u.showReading, 'Mostrar lo que leo', 'En tu perfil aparece el libro que estás leyendo ahora (solo libros públicos y no +18). Está apagado por defecto.')}</div>
 ${isOwner() ? `<h3 class="ep-h">${EPI.spark}<span>${t('Pruebas de Auri')}</span></h3><button type="button" class="ep-row" data-act="isle-test" data-id="sleep"><span><b>${t('Reproducir: Auri dormido')}</b><small>${t('Solo para ti. No espera los 3 días.')}</small></span><i aria-hidden="true">›</i></button><button type="button" class="ep-row" data-act="isle-test" data-id="dizzy"><span><b>${t('Reproducir: Auri mareado')}</b><small>${t('Ojos de espiral.')}</small></span><i aria-hidden="true">›</i></button>` : ''}
@@ -5225,7 +5252,7 @@ document.addEventListener('click', e => {
     delete: () => { if (confirm(t('¿Eliminar este borrador? No se puede deshacer.'))) { S.stories = S.stories.filter(s => s.id !== id); persist('stories', S.stories); render(); } },
     'resume-read': () => { const p = VISIT && VISIT.pos; VISIT = null; if (p) { NAVDIR = 'next'; go('/story/' + id + '/' + (p.idx + 1)); } },
     'pf-list': () => openUserList(id, el.dataset.kind), 'pf-works': () => { const w = document.getElementById('pf-works'); if (w && w.scrollIntoView) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
-    'frames': () => openFrames(), 'look': () => openLook(),
+    'frames': () => openFrames(), 'pets': () => openPets(), 'look': () => openLook(),
     'ep-shape': () => { if (roleOf(S.user) !== 'OWNER') return; const us = getUsers(); us[S.user].shape = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
     'ep-halo': () => { if (roleOf(S.user) !== 'OWNER') return; const us = getUsers(); us[S.user].halo = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
     'avoid-add': () => avoidAdd(), 'avoid-del': () => { setCfg('avoidTags', avoidList().filter(x => x !== tagKey(id))); KEEP = true; render(); }, 'theme-colors': () => openThemes(), 'mod-order': () => { setCfg('modShuffle', cfg('modShuffle') === false); KEEP = true; render(); }, 'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
