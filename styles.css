@@ -2600,3 +2600,10 @@ html.lite .amb{display:none}
 .pet-opt.on{border-color:#8c5fc1;background:rgba(140,95,193,.1)}
 .pet-prev{width:48px;height:48px;background:var(--pet) 0 0/400% 100% no-repeat;image-rendering:pixelated;display:grid;place-items:center}
 .pet-prev.none{background:none;font-size:20px;opacity:.5}
+
+/* 106 · Packs coquette: adornos de abajo (joya con moño y collar de perlas) */
+.orn-bot.bq{right:auto}
+.orn-bot.bq.joya{left:-14%;bottom:-24%;width:128%}
+.orn-bot.bq.perlas{left:-22%;bottom:-40%;width:144%}
+.fr.sm .orn-bot.bq.joya{left:-18%;bottom:-27%;width:136%}
+.fr.sm .orn-bot.bq.perlas{left:-26%;bottom:-44%;width:152%}

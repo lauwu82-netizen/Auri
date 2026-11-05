@@ -286,9 +286,16 @@ function revokeMod(tg) {                                // "descender": Owner (A
   logAction(tr === 'ADMIN' ? 'demote-admin' : 'revoke', tg); return '';
 }
 /* Marcos de perfil: el de Owner solo existe para la Owner; el de moderación es obligatorio y no se puede quitar */
-const FR_NAME = { own: 'Insignia de Owner', mod: 'Insignia de moderación', adm: 'Insignia de administración', top: 'Insignia Top 50' };
+/* Packs coquette (cada pack: 2 adornos de arriba + 1 de abajo). Por ahora solo la Owner los tiene; luego se podrán regalar o vender (u.cq = lista de claves) */
+const CQ = {
+  'cq:flores': ['Corona de flores de porcelana', 'top'], 'cq:mariposas': ['Mariposas de encaje', 'top'], 'cq:joya': ['Joya con moño y rosas', 'bot'],
+  'cq:corazones': ['Corazones flotantes', 'top'], 'cq:vichy': ['Moño vichy con cerezas', 'top'], 'cq:perlas': ['Collar de perlas con lazos', 'bot']
+};
+const cqOf = e => roleOf(e) === 'OWNER' ? Object.keys(CQ) : ((getUsers()[e] || {}).cq || []).filter(k => CQ[k]);
+const cqBot = e => cqOf(e).filter(k => CQ[k][1] === 'bot');
+const FR_NAME = { own: 'Insignia de Owner', mod: 'Insignia de moderación', adm: 'Insignia de administración', top: 'Insignia Top 50', ...Object.fromEntries(Object.entries(CQ).filter(([, v]) => v[1] === 'bot').map(([k, v]) => [k, v[0]])) };
 const frameLocked = e => ['MODERATOR', 'ADMIN'].includes(roleOf(e));                      // moderación y administración: su marco es fijo
-function ownedFrames(e) { const u = getUsers()[e] || {}, l = []; if (roleOf(e) === 'OWNER') l.push('own'); if (u.frameTop) l.push('top'); return l; }   // los que esta persona tiene para elegir
+function ownedFrames(e) { const u = getUsers()[e] || {}, l = []; if (roleOf(e) === 'OWNER') l.push('own'); if (u.frameTop) l.push('top'); return l.concat(cqBot(e)); }   // los que esta persona tiene para elegir
 const frameKey = e => {
   const r = roleOf(e), u = getUsers()[e] || {};
   if (r === 'ADMIN' && u.frameWorn) return 'adm'; if (r === 'MODERATOR' && u.frameWorn) return 'mod';       // el marco del rol manda y no se quita
@@ -316,7 +323,9 @@ const COS_IMG = {
   top: 'https://i.postimg.cc/wxQP4XrM/Photoroom-20261029-062250.png', 'top:dark': 'https://i.postimg.cc/mksvzV6j/Photoroom-20261029-062208.png', crown: '',
   'bow:white': 'https://i.postimg.cc/rFzdZJpr/Photoroom-20261029-055834.png', 'bow:pink': 'https://i.postimg.cc/JzLLHrSt/Photoroom-20261029-060108.png', 'bow:blue': 'https://i.postimg.cc/259MGr94/Photoroom-20261029-060048.png',
   'bow:red': 'https://i.postimg.cc/zvCxsr7s/Photoroom-20261029-060014.png', 'bow:purple': 'https://i.postimg.cc/rFhmStCW/IMG-2622.png', 'bow:yellow': 'https://i.postimg.cc/GpTx0Rh9/Photoroom-20261029-055933.png',
-  'bow:green': 'https://i.postimg.cc/ncd4CrX3/Photoroom-20261029-055905.png'
+  'bow:green': 'https://i.postimg.cc/ncd4CrX3/Photoroom-20261029-055905.png',
+  'cq:flores': 'https://i.postimg.cc/C1V6LfmX/Photoroom-20261105-171117.png', 'cq:mariposas': 'https://i.postimg.cc/Zn5HCP3F/Photoroom-20261105-171218.png', 'cq:joya': 'https://i.postimg.cc/SsT81B2z/Photoroom-20261105-171311.png',
+  'cq:corazones': 'https://i.postimg.cc/9F3t3jgR/Photoroom-20261105-171355.png', 'cq:vichy': 'https://i.postimg.cc/PrtJv3CG/Photoroom-20261105-171440.png', 'cq:perlas': 'https://i.postimg.cc/3NfsRxyh/Photoroom-20261105-171507.png'
 };
 const AURI_LOGO = 'https://i.postimg.cc/QxZvxXBC/Photoroom-20261029-075902.png';
 const cosOne = (k, c = '') => COS_IMG[k] ? `<img${c ? ` class="${c}"` : ''} src="${esc(COS_IMG[k])}" alt="" referrerpolicy="no-referrer" decoding="async">` : '';
@@ -331,12 +340,13 @@ const topKey = e => {                                    // adorno de arriba que
 /* Adornos de arriba: hasta 2, cada uno con su posición (x, y en % de la foto), giro (grados) y tamaño (1 = normal) */
 const ADJ_MAX = 2, ADJ_W = 46;
 const adjNum = (v, a, b, d) => { v = +v; return Number.isFinite(v) ? Math.round(Math.min(b, Math.max(a, v)) * 10) / 10 : d; };
-const adjDefault = k => k === 'crown' ? { k, x: 27, y: -5, r: -27, s: 1 } : { k, x: 91, y: 4, r: 0, s: 1 };
-const adjOk = (e, k) => typeof k === 'string' && !!COS_IMG[k] && (k === 'crown' ? roleOf(e) === 'OWNER' : /^bow:/.test(k) && bowsOf(e).includes(k.slice(4)));
-const adjClean = (e, l) => (Array.isArray(l) ? l : []).filter(o => o && adjOk(e, o.k)).slice(0, ADJ_MAX).map(o => { const d = adjDefault(o.k); return { k: o.k, x: adjNum(o.x, -40, 140, d.x), y: adjNum(o.y, -40, 140, d.y), r: adjNum(o.r, -180, 180, d.r), s: adjNum(o.s, .4, 2, 1) }; });
+const CQ_ADJ = { 'cq:flores': { x: 50, y: -12, r: 0, s: 2.15 }, 'cq:mariposas': { x: 50, y: 16, r: 0, s: 2.4 }, 'cq:corazones': { x: 50, y: -8, r: 0, s: 2.2 }, 'cq:vichy': { x: 8, y: 6, r: -12, s: 1 } };
+const adjDefault = k => CQ_ADJ[k] ? { k, ...CQ_ADJ[k] } : k === 'crown' ? { k, x: 27, y: -5, r: -27, s: 1 } : { k, x: 91, y: 4, r: 0, s: 1 };
+const adjOk = (e, k) => typeof k === 'string' && !!COS_IMG[k] && (CQ[k] ? CQ[k][1] === 'top' && cqOf(e).includes(k) : k === 'crown' ? roleOf(e) === 'OWNER' : /^bow:/.test(k) && bowsOf(e).includes(k.slice(4)));
+const adjClean = (e, l) => (Array.isArray(l) ? l : []).filter(o => o && adjOk(e, o.k)).slice(0, ADJ_MAX).map(o => { const d = adjDefault(o.k); return { k: o.k, x: adjNum(o.x, -40, 140, d.x), y: adjNum(o.y, -40, 140, d.y), r: adjNum(o.r, -180, 180, d.r), s: adjNum(o.s, .4, 3, d.s) }; });
 const topItems = e => { const u = getUsers()[e] || {}; if (Array.isArray(u.cosAdj)) return adjClean(e, u.cosAdj); const k = topKey(e); return k && COS_IMG[k] ? [adjDefault(k)] : []; };   // sin ajustes guardados = el adorno de siempre en su sitio de siempre
 const adjHTML = (o, extra = '') => cosImg(o.k) ? `<span class="orn orn-top adj${extra}" style="left:${o.x}%;top:${o.y}%;width:${Math.round(ADJ_W * o.s * 10) / 10}%;transform:translate(-50%,-50%) rotate(${o.r}deg)">${cosImg(o.k)}</span>` : '';
-const ornHTMLk = (bot, top) => { const items = Array.isArray(top) ? top : top && cosImg(top) ? [adjDefault(top)] : []; return items.map(o => adjHTML(o)).join('') + (bot && cosImg(bot) ? `<span class="orn orn-bot ${bot === 'top' ? 'b50' : 'bA'}">${cosImg(bot)}</span>` : ''); };
+const ornHTMLk = (bot, top) => { const items = Array.isArray(top) ? top : top && cosImg(top) ? [adjDefault(top)] : []; return items.map(o => adjHTML(o)).join('') + (bot && cosImg(bot) ? `<span class="orn orn-bot ${bot === 'top' ? 'b50' : CQ[bot] ? 'bq ' + bot.slice(3) : 'bA'}">${cosImg(bot)}</span>` : ''); };
 const nmCls = e => ({ OWNER: 'nm-own', ADMIN: 'nm-adm', MODERATOR: 'nm-mod' }[roleOf(e)] || '');   // solo el equipo tiene el usuario con color
 const ornHTML = e => ornHTMLk(frameKey(e), topItems(e));
 /* --- Forma y borde de la foto de perfil (por ahora solo la Owner; todo queda guardado para ponerlo a la venta después) --- */
@@ -4251,7 +4261,7 @@ function openFrames() {
   const rowT = (val, label) => `<button type="button" class="fr-opt ${curTop === val ? 'on' : ''}" data-cos="${val}">${av('', val)}<b>${esc(label)}</b>${curTop === val ? '<i>✓</i>' : ''}</button>`;
   const bot = locked ? `<div class="fr-opt on" style="cursor:default">${av(cur, '')}<b>${esc(t(FR_NAME[cur] || 'Insignia de moderación'))}</b><i>🔒</i></div><p class="helper">${t('La insignia del equipo es fija: no se puede cambiar ni quitar.')}</p>`
     : n.length ? `<div class="fr-list">${n.map(k => row(k, t(FR_NAME[k]))).join('')}${row('', t('Sin insignia'))}</div>` : `<p class="helper">${t('Aún no tienes insignias.')}</p>`;
-  const mine = bowsOf(me), avail = [...(owner ? ['crown'] : []), ...mine.map(k => 'bow:' + k)].filter(k => COS_IMG[k]);
+  const mine = bowsOf(me), avail = [...(owner ? ['crown'] : []), ...mine.map(k => 'bow:' + k), ...cqOf(me).filter(k => CQ[k][1] === 'top')].filter(k => COS_IMG[k]);
   const top = avail.length ? '<div class="adj-ed"></div>' : `<p class="helper">${t('Pronto habrá adornos para ponerte aquí, en la tienda.')}</p>`;
   const m = document.createElement('div'); m.className = 'modal sheet';
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Insignias y adornos')}</h2><h3 class="fr-h">${t('Abajo')}</h3>${bot}<h3 class="fr-h">${t('Arriba')}</h3>${top}</div>`;
@@ -4272,11 +4282,11 @@ function adjEditor(m, box, me, avail) {
     box.innerHTML = `<p class="helper" style="margin:0 0 8px">${t('Arrastra cada adorno para moverlo. Máximo 2.')}</p>
     <div class="adj-stage"><span class="fr" style="--a:132px">${avatarHTML(u.avatar, u.name, 'xl')}${list.map((o, i) => adjHTML(o, ' ed' + (i === sel ? ' sel' : '')).replace('<span ', `<span data-i="${i}" `)).join('')}</span></div>
     ${list.length ? `<div class="adj-tabs">${list.map((o, i) => `<button type="button" class="adj-tab ${i === sel ? 'on' : ''}" data-adj="pick" data-i="${i}">${t('Adorno {n}', { n: i + 1 })}</button>`).join('')}</div>
-    <label class="adj-row"><span>${t('Tamaño')}</span><input type="range" id="adj-s" min="40" max="200" step="2" value="${Math.round(cur.s * 100)}"></label>
+    <label class="adj-row"><span>${t('Tamaño')}</span><input type="range" id="adj-s" min="40" max="300" step="4" value="${Math.round(cur.s * 100)}"></label>
     <label class="adj-row"><span>${t('Giro')}</span><input type="range" id="adj-r" min="-180" max="180" step="2" value="${Math.round(cur.r)}"></label>
     <div class="adj-btns"><button type="button" class="button ghost sm" data-adj="reset">${t('Restablecer')}</button><button type="button" class="button ghost sm" data-adj="del">${t('Quitar')}</button></div>` : ''}
     <p class="helper" style="margin:12px 0 6px">${list.length >= ADJ_MAX ? t('Ya tienes 2 adornos. Quita uno para cambiarlo.') : t('Añadir un adorno')}</p>
-    <div class="cos-sw">${avail.map(k => `<button type="button" class="cos-b" data-adj="add" data-k="${esc(k)}" ${list.length >= ADJ_MAX ? 'disabled' : ''} aria-label="${esc(k === 'crown' ? t('Corona de Owner') : t(BOWS[k.slice(4)] ? BOWS[k.slice(4)][3] : 'Adorno'))}">${cosImg(k)}</button>`).join('')}</div>
+    <div class="cos-sw">${avail.map(k => `<button type="button" class="cos-b" data-adj="add" data-k="${esc(k)}" ${list.length >= ADJ_MAX ? 'disabled' : ''} aria-label="${esc(k === 'crown' ? t('Corona de Owner') : CQ[k] ? t(CQ[k][0]) : t(BOWS[k.slice(4)] ? BOWS[k.slice(4)][3] : 'Adorno'))}">${cosImg(k)}</button>`).join('')}</div>
     <div class="ep-actions" style="margin-top:14px"><button type="button" class="button" data-adj="save">${t('Guardar')}</button></div>`;
   };
   const place = o => { const el = box.querySelector('.adj.sel'); if (el) { el.style.left = o.x + '%'; el.style.top = o.y + '%'; el.style.width = Math.round(ADJ_W * o.s * 10) / 10 + '%'; el.style.transform = `translate(-50%,-50%) rotate(${o.r}deg)`; } };
@@ -4288,7 +4298,7 @@ function adjEditor(m, box, me, avail) {
   box.addEventListener('pointermove', ev => { if (!drag) return; const o = list[drag.i]; o.x = adjNum(drag.ox + (ev.clientX - drag.sx) / drag.w * 100, -40, 140, o.x); o.y = adjNum(drag.oy + (ev.clientY - drag.sy) / drag.h * 100, -40, 140, o.y); place(o); });
   const end = () => { drag = null; };
   box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
-  box.addEventListener('input', ev => { const o = list[sel]; if (!o) return; if (ev.target.id === 'adj-s') o.s = adjNum(ev.target.value / 100, .4, 2, 1); else if (ev.target.id === 'adj-r') o.r = adjNum(ev.target.value, -180, 180, 0); else return; place(o); });
+  box.addEventListener('input', ev => { const o = list[sel]; if (!o) return; if (ev.target.id === 'adj-s') o.s = adjNum(ev.target.value / 100, .4, 3, 1); else if (ev.target.id === 'adj-r') o.r = adjNum(ev.target.value, -180, 180, 0); else return; place(o); });
   box.addEventListener('click', ev => {
     const b = ev.target.closest('[data-adj]'); if (!b) return; const a = b.dataset.adj;
     if (a === 'pick') { sel = +b.dataset.i; draw(); }

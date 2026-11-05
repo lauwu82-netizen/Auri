@@ -2092,4 +2092,10 @@ window.I18N = { en: {
   "Mascota guardada": "Pet saved",
   "Mascota quieta": "Still pet",
   "La mascota de los perfiles se queda quieta, sin caminar ni dormirse.": "Profile pets stay still, without walking or napping.",
+  "Corona de flores de porcelana": "Porcelain flower crown",
+  "Mariposas de encaje": "Lace butterflies",
+  "Joya con moño y rosas": "Jewel with bow and roses",
+  "Corazones flotantes": "Floating hearts",
+  "Moño vichy con cerezas": "Gingham bow with cherries",
+  "Collar de perlas con lazos": "Pearl necklace with bows",
 } };
