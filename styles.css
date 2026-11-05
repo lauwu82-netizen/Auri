@@ -2563,7 +2563,7 @@ html.lite .amb{display:none}
 @keyframes ambFog{from{transform:translate3d(-14vw,0,0)}to{transform:translate3d(14vw,3vh,0)}}
 .amb-fireflies i{left:var(--x);top:var(--y);width:5px;height:5px;border-radius:50%;background:#ffe98a;box-shadow:0 0 7px 2px rgba(255,214,90,.5);animation:ambGlow var(--d) ease-in-out infinite;animation-delay:var(--dl)}
 @keyframes ambGlow{0%,100%{opacity:.08}50%{opacity:.7}}
-.amb-stars i{left:var(--x);top:var(--y);width:calc(22px + 14px*var(--s));height:calc(22px + 14px*var(--s));margin:-18px 0 0 -18px;background:linear-gradient(160deg,#ffe58a,#f2b632);clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);animation:ambSpin var(--d) ease-in-out infinite alternate;animation-delay:var(--dl)}
+.amb-stars i{left:var(--x);top:var(--y);width:calc(32px + 20px*var(--s));height:calc(32px + 20px*var(--s));margin:-26px 0 0 -26px;background:linear-gradient(160deg,#fff3c4,#fbd98a);clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);animation:ambSpin var(--d) ease-in-out infinite alternate;animation-delay:var(--dl)}
 @keyframes ambSpin{from{transform:rotate(-14deg)}to{transform:rotate(14deg)}}
 .amb-petals i{left:var(--x);top:-6vh;width:calc(7px + 4px*var(--s));height:calc(5px + 3px*var(--s));border-radius:150% 0 150% 0;background:linear-gradient(135deg,#fde6ee,#f7c5d6);opacity:.4;animation:ambPet var(--d) linear infinite;animation-delay:var(--dl)}
 @keyframes ambPet{0%{transform:translate3d(0,0,0) rotate(0)}25%{transform:translate3d(14px,28vh,0) rotate(60deg)}50%{transform:translate3d(-8px,56vh,0) rotate(130deg)}75%{transform:translate3d(12px,84vh,0) rotate(190deg)}100%{transform:translate3d(0,112vh,0) rotate(240deg)}}
