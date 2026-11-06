@@ -3370,7 +3370,7 @@ function isleGo(k) {
 function isleFill() {
   const body = ISLE.querySelector('.isle-body');
   const ops = isleOps(); body.classList.toggle('five', ops.length > 4);
-  body.innerHTML = msBlock() + ops.map(o => { const n = o.n(); return `<button type="button" class="isle-op" role="menuitem" data-isle="${o.k}"><span class="isle-ic">${o.ic()}</span><span class="isle-l">${esc(t(o.l))}</span>${n ? `<b class="isle-n">${n > 99 ? '99+' : n}</b>` : '<b class="isle-n" style="visibility:hidden">0</b>'}</button>`; }).join('');
+  body.innerHTML = ops.map(o => { const n = o.n(); return `<button type="button" class="isle-op" role="menuitem" data-isle="${o.k}"><span class="isle-ic">${o.ic()}</span><span class="isle-l">${esc(t(o.l))}</span>${n ? `<b class="isle-n">${n > 99 ? '99+' : n}</b>` : '<b class="isle-n" style="visibility:hidden">0</b>'}</button>`; }).join('') + msBlock();
 }
 /** En pantallas anchas la isla se pega al borde del contenido (no al borde lejano de la ventana) */
 function isleEdges() {
@@ -5550,9 +5550,9 @@ function msBest() {
 const msBar = m => `<span class="ms-bar"><i style="width:${Math.round(Math.min(1, m.progress / m.goal) * 100)}%"></i></span>`;
 function msBlock() {
   if (!passOn()) return '';
-  const b = msBest(); if (!b) { msAll(); return `<div class="isle-ms"><span class="ms-t">${t('Cargando tus misiones…')}</span></div>`; }
-  if (b.allDone) return `<button type="button" class="isle-ms" data-isle="missions"><span class="ms-t">${t('¡Completaste todas tus misiones!')}</span><span class="ms-all">${t('Ver todas las misiones')} ›</span></button>`;
-  return `<button type="button" class="isle-ms" data-isle="missions"><span class="ms-k">${t(b.kind === 'daily' ? 'Misión del día' : 'Misión de temporada')}</span><span class="ms-t">${esc(t(b.title))}</span>${msBar(b)}<span class="ms-n">${b.progress}/${b.goal} · +${b.xp} XP</span><span class="ms-all">${t('Ver todas las misiones')} ›</span></button>`;
+  const b = msBest(); if (!b) { msAll(); return ''; }
+  if (b.allDone) return `<button type="button" class="isle-ms" data-isle="missions"><span class="ms-r"><span class="ms-t">${t('¡Completaste todas tus misiones!')}</span></span><span class="ms-all">${t('Ver todas las misiones')} ›</span></button>`;
+  return `<button type="button" class="isle-ms" data-isle="missions"><span class="ms-r"><span class="ms-t">${esc(t(b.title))}</span><span class="ms-n">${b.progress}/${b.goal}</span></span>${msBar(b)}<span class="ms-all">${t('Ver todas las misiones')} ›</span></button>`;
 }
 function msCard() {
   if (!passOn()) return ''; const b = msBest(); if (!b) { msAll(); return ''; }
