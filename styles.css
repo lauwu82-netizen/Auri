@@ -2614,3 +2614,48 @@ html.lite .amb{display:none}
 .pf-namerow .pet-strip{flex:1 1 0;min-width:64px;height:48px;margin:-20px 0 0}
 .adj-stage.bot{padding:24px 0 64px}
 .orn-bot{transition:none}
+
+/* 108 · Misiones, pases y tienda */
+.ms-bar{display:block;height:8px;border-radius:99px;background:color-mix(in srgb,hsl(var(--primary)) 16%,transparent);overflow:hidden}
+.ms-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,hsl(var(--primary)),color-mix(in srgb,hsl(var(--primary)) 55%,#fff));transition:width .5s ease}
+.ms-bar.big{height:12px;margin:10px 0 6px}
+.ms-k{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.7}
+.ms-card{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:14px 16px;text-decoration:none;color:inherit}
+.ms-card .ms-t{font-size:15px}
+.ms-n{font-size:12px;font-weight:700;opacity:.75}
+.shop-top,.shop-tabs,.shop-trk{margin-top:8px}
+.shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.shop-card{display:flex;flex-direction:column;gap:6px;padding:14px}
+.ms-lv{margin:12px 0;padding:14px 16px}
+.ms-lv-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ms-lv-h b{font-size:20px}.ms-lv-h span{font-size:12px;opacity:.7}
+.ms-list{display:flex;flex-direction:column;gap:8px;margin:8px 0 18px}
+.ms-row{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;padding:12px 14px;border-radius:16px;background:var(--panel,rgba(255,255,255,.7));border:1px solid color-mix(in srgb,hsl(var(--primary)) 14%,transparent)}
+.ms-row .ms-bar{grid-column:1}.ms-row .ms-n{grid-column:2;grid-row:1 / span 2;text-align:right;min-width:42px}
+.ms-main{display:flex;flex-direction:column;gap:2px;grid-column:1}.ms-main small{opacity:.7;font-size:12px}
+.ms-row.done{opacity:.6}
+.lv-head,.lv{display:grid;grid-template-columns:58px 1fr 1fr;gap:8px;align-items:stretch}
+.lv-head{margin:4px 0;text-align:center;font-size:12px;letter-spacing:.05em;text-transform:uppercase;opacity:.75}
+.lv-list{display:flex;flex-direction:column;gap:6px;margin-bottom:24px}
+.lv-n{display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:14px;background:color-mix(in srgb,hsl(var(--primary)) 12%,transparent);font-weight:800}
+.lv-n small{font-size:9px;font-weight:600;opacity:.65}
+.lv.reached .lv-n{background:hsl(var(--primary));color:#fff}
+.lv-c{display:flex;align-items:center;justify-content:center;text-align:center;padding:10px 8px;border-radius:14px;font-size:12px;line-height:1.25;border:1px dashed color-mix(in srgb,hsl(var(--primary)) 22%,transparent)}
+.lv-c.paid{border-style:solid;background:color-mix(in srgb,hsl(var(--primary)) 7%,transparent)}
+.lv-c.lock{opacity:.55}
+.lv-c i{opacity:.4;font-style:normal}
+/* bloque de misión dentro de la isla y aviso del gatito */
+.isle-body{flex-wrap:wrap}
+.isle-ms{flex:0 0 100%;display:flex;flex-direction:column;gap:4px;margin:2px 8px 8px;padding:10px 12px;border:0;border-radius:16px;background:rgba(255,255,255,.08);color:#fff;text-align:left;font:inherit;cursor:pointer}
+.isle-ms .ms-t{font-size:13px;font-weight:700}.isle-ms .ms-k{font-size:10px}.isle-ms .ms-all{font-size:11px;opacity:.8;margin-top:2px}
+.isle-ms .ms-bar{background:rgba(255,255,255,.18)}
+.isle-note{position:absolute;top:0;right:calc(100% - 10px);height:47px;z-index:-1;display:flex;flex-direction:column;justify-content:center;gap:1px;padding:0 24px 0 16px;border-radius:24px;background:rgba(24,18,34,.94);color:#fff;white-space:nowrap;animation:noteIn .55s cubic-bezier(.32,1.35,.45,1) both}
+.isle-note b{font-size:12px}.isle-note span{font-size:12px;font-weight:800;color:#ffe08a}
+.isle.left .isle-note{right:auto;left:calc(100% - 10px);padding:0 16px 0 24px}
+.isle-note.out{animation:noteOut .4s ease both}
+.isle.open .isle-note{display:none}
+@keyframes noteIn{from{opacity:0;transform:translateX(24px) scale(.8)}to{opacity:1;transform:none}}
+@keyframes noteOut{to{opacity:0;transform:translateX(16px) scale(.9)}}
+.isle.left .isle-note{animation-name:noteInL}
+@keyframes noteInL{from{opacity:0;transform:translateX(-24px) scale(.8)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.isle-note{animation:none}}

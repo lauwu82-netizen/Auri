@@ -1628,6 +1628,7 @@ const ICON = {
   books: IC('<path d="M4 4h5v16H4zM11 4h5v16h-5zM18 5l3 1-4 14-3-1z"/>'),
   plus: IC('<path d="M12 5v14M5 12h14"/>', 2.8),
   news: IC('<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"/>'),
+  shop: IC('<path d="M5.5 8h13l-1 12h-11z"/><path d="M9 8a3 3 0 0 1 6 0"/>'),
   user: IC('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
   mail: IC('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7.5 8.5 6 8.5-6"/>')
 };
@@ -1638,7 +1639,7 @@ function shell(path, html) {
   return `<div class="shell"><header class="topbar tb2">
     <div class="search-bar ${SEARCH_OPEN ? 'open' : ''}"><input id="sq" class="field" type="search" placeholder="${esc(SM === 'users' ? t('Buscar usuarios…') : t('Buscar títulos, etiquetas o fandoms…'))}" aria-label="${esc(t('Buscar'))}" value="${esc(Q)}"><button class="icon-btn" data-act="search-close" aria-label="${esc(t('Cerrar búsqueda'))}">✕</button></div>
   </header>${html}${pop}${fab}
-  <nav class="bottom-nav" aria-label="${esc(t('Navegación principal'))}">${item('#/', t('Inicio'), ICON.home, path === '/')}${item('#/library', t('Biblioteca'), ICON.books, path === '/library')}<a class="bn-plus ${path === '/write' ? 'active' : ''}" href="#/write" aria-label="${esc(t('Crear historia'))}">${ICON.plus}</a>${item('#/news', t('Noticias'), ICON.news, path === '/news')}${item('#/profile', t('Mi Perfil'), ICON.user, path === '/profile', mcTot)}</nav></div>`;
+  <nav class="bottom-nav" aria-label="${esc(t('Navegación principal'))}">${item('#/', t('Inicio'), ICON.home, path === '/')}${item('#/library', t('Biblioteca'), ICON.books, path === '/library')}<a class="bn-plus ${path === '/write' ? 'active' : ''}" href="#/write" aria-label="${esc(t('Crear historia'))}">${ICON.plus}</a>${passOn() ? item('#/shop', t('Tienda'), ICON.shop, path === '/shop') : item('#/news', t('Noticias'), ICON.news, path === '/news')}${item('#/profile', t('Mi Perfil'), ICON.user, path === '/profile', mcTot)}</nav></div>`;
 }
 const empty = (title, copy, action = '') => `<div class="empty">${mascot()}<h3>${esc(t(title))}</h3><p>${esc(t(copy))}</p>${action}</div>`;
 const badgeText = s => { const st = storyState(s), p = s.chapters.filter(c => c.status === 'pending').length; return st !== 'published' ? t(STATUS[st]) : p ? t('{n} cap. en revisión', { n: p }) : ''; };
@@ -2189,7 +2190,7 @@ function discoverView() {
   return `<main class="page">${AURI_LOGO ? `<div class="feed-logo"><img src="${esc(AURI_LOGO)}" alt="Auri" referrerpolicy="no-referrer" decoding="async"></div>` : ''}${carouselHTML() || `<section class="hero"><span class="eyebrow">${t('✦ Un pequeño hogar para grandes emociones')}</span>
   <h1>${t('Encuentra tu próxima emoción favorita.')}</h1><p>${t('Historias para leer a gusto, personajes que te acompañan y un rincón para crear algo propio.')}</p>
   <a class="button secondary" href="#/library">${t('Ir a mi biblioteca')}</a>${mascot('mascot')}</section>`}
-  ${stRow()}${modeRow}
+  ${msCard()}${stRow()}${modeRow}
   ${SM === 'users' ? `<div class="section-head"><div><h2>${t('Personas en Auri')}</h2><p>${t('Busca por nombre de usuario.')}</p></div></div>
   <div class="filter-row">${[['all', 'Todos'], ['authors', 'Con libros publicados'], ['team', 'Equipo']].map(([k, n]) => `<button class="chip ${UF === k ? 'active' : ''}" data-act="uf" data-id="${k}">${t(n)}</button>`).join('')}</div>` : `
   <div class="section-head"><div><h2>${t('Historias que te roban el sueño')}</h2><p>${t('Libros creados por personas usuarias.')}</p></div></div>
@@ -3363,13 +3364,13 @@ function isleTest(what) {
 const isleTop = () => 4;
 const isleBottom = () => innerHeight - 140;
 function isleGo(k) {
-  if (k === 'msg') go('/messages'); else if (k === 'noti') go('/notifications'); else if (k === 'set') go('/settings'); else if (k === 'mod') go('/moderation');
+  if (k === 'missions') go('/shop/misiones'); else if (k === 'msg') go('/messages'); else if (k === 'noti') go('/notifications'); else if (k === 'set') go('/settings'); else if (k === 'mod') go('/moderation');
   else if (k === 'find') { go('/'); setTimeout(() => { SEARCH_OPEN = true; syncSearch(); focusSearch(); const b = $('[data-act=search-toggle]'); if (b) b.setAttribute('aria-expanded', 'true'); }, 60); }
 }
 function isleFill() {
   const body = ISLE.querySelector('.isle-body');
   const ops = isleOps(); body.classList.toggle('five', ops.length > 4);
-  body.innerHTML = ops.map(o => { const n = o.n(); return `<button type="button" class="isle-op" role="menuitem" data-isle="${o.k}"><span class="isle-ic">${o.ic()}</span><span class="isle-l">${esc(t(o.l))}</span>${n ? `<b class="isle-n">${n > 99 ? '99+' : n}</b>` : '<b class="isle-n" style="visibility:hidden">0</b>'}</button>`; }).join('');
+  body.innerHTML = msBlock() + ops.map(o => { const n = o.n(); return `<button type="button" class="isle-op" role="menuitem" data-isle="${o.k}"><span class="isle-ic">${o.ic()}</span><span class="isle-l">${esc(t(o.l))}</span>${n ? `<b class="isle-n">${n > 99 ? '99+' : n}</b>` : '<b class="isle-n" style="visibility:hidden">0</b>'}</button>`; }).join('');
 }
 /** En pantallas anchas la isla se pega al borde del contenido (no al borde lejano de la ventana) */
 function isleEdges() {
@@ -4961,6 +4962,7 @@ function render() {
   else if (a === 'gift') app.innerHTML = shell('', giftView());
   else if (a === 'stats') app.innerHTML = shell('', statsView());
   else if (a === 'messages') app.innerHTML = b ? dmView(b) : shell('', dmView(''));
+  else if (a === 'shop') app.innerHTML = shell('/shop', shopView(b));
   else if (a === 'news') app.innerHTML = shell('/news', newsView(b));
   else if (a === 'settings') app.innerHTML = shell('', settingsView(b));
   else if (a === 'notifications') app.innerHTML = shell('', notifView());
@@ -4975,7 +4977,8 @@ function render() {
   else if (!KEEP) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); }
   imgGuard(app); chatAuto(); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); flowInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
-  if (nav && a === 'story' && c && c !== 'fin') { pcHintOnce(); readingPing(b); viewPing(b); }
+  if (nav && a === 'story' && c && c !== 'fin') { pcHintOnce(); readingPing(b); viewPing(b); chtStart(b, c); }
+  if (passOn()) msAll();
   if (S.user) { showModOverlay(); showGiftOverlay(); }                                      // moderador/a sin marco puesto: el aviso reaparece hasta que se lo ponga
   if (nav) { const m = from.match(/^\/story\/([^/]+)\/\d+$/); if (m && !(path + '/').startsWith('/story/' + m[1] + '/')) askSaveLib(decodeURIComponent(m[1])); }   // saliste de un capítulo por otro camino (p. ej. "atrás")
 }
@@ -5330,6 +5333,7 @@ document.addEventListener('click', e => {
     'img-ok': () => imgDecide(decodeURIComponent(id), true),
     'img-no': () => imgDecide(decodeURIComponent(id), false),
     'bio-more': () => { el.closest('.pf-bio-box').classList.toggle('open'); bioFit(); },
+    'ms-track': () => { MS.track = id === 'writer' ? 'writer' : 'reader'; KEEP = true; render(); },
     'amb-lock': () => toast('Este ambiente estará disponible pronto con el pase.'),
     'sep-lock': () => toast('Este diseño estará disponible pronto en la tienda.'),
     'kb-done': () => { const ta = $('#w-ch-text'); if (ta) ta.blur(); },
@@ -5499,8 +5503,104 @@ let POSQ;
 window.addEventListener('scroll', () => {                         // barra de avance y guardado automático del progreso al leer
   const m = (location.hash || '').match(/^#\/story\/([^/]+)\/(\d+)/); if (!m || !S.user) return;
   const bar = $('#rf-bar-i'); if (bar && bar.style) bar.style.width = (scrollPct() * 100) + '%'; rfLeft();
+  chtCheck();
   clearTimeout(POSQ); POSQ = setTimeout(() => { const n = (location.hash || '').match(/^#\/story\/([^/]+)\/(\d+)/); if (n && n[1] === m[1] && n[2] === m[2]) saveReadPos(decodeURIComponent(m[1]), +m[2] - 1); }, 500);
 }, { passive: true });
+
+/* ---------- Misiones, pases y tienda (por ahora solo la Owner) ----------
+   El servidor decide el progreso a partir de lo que de verdad pasó (likes, comentarios, lecturas, vistas...).
+   Aquí solo se muestra y se avisa. SQL: 38_misiones_pases.sql */
+const passOn = () => !!S.user && !isGuest() && isOwner() && cloud() && !!sbSes();
+let MS = { reader: null, writer: null, at: 0, busy: false, track: 'reader' }, CHT = { k: '', t: 0, sent: true, tm: 0 };
+const lvXp = n => n <= 1 ? 0 : 100 * (n - 1) + 25 * ((n - 1) * (n - 2) / 2);
+const MS_TIER = { easy: 'Fácil', mid: 'Media', hard: 'Difícil' };
+async function msAll(force) {
+  if (!passOn() || MS.busy || (!force && Date.now() - MS.at < 25000)) return;
+  MS.busy = true; MS.at = Date.now(); const fresh = [];
+  try {
+    for (const tr of ['reader', 'writer']) { const r = await sbApi('/rest/v1/rpc/mission_state', { method: 'POST', body: { p_track: tr } }); if (r.ok && r.data && typeof r.data === 'object') { MS[tr] = r.data; fresh.push(...(r.data.new || [])); } }
+  } catch (e) { /* sin conexión: se reintenta después */ }
+  MS.busy = false;
+  if (fresh.length) msNotify(fresh);
+  if (/^#\/shop/.test(location.hash) || $('.ms-card')) { KEEP = true; render(); } else if (ISLE_ST.open && ISLE) { isleFill(); isleLayout(); }
+}
+function msNotify(list) {
+  const xp = list.reduce((a, m) => a + (m.xp || 0), 0);
+  isleNote(list.length === 1 ? t('Misión completada') : t('{n} misiones completadas', { n: list.length }), '+' + xp + ' XP');
+}
+/** Aviso del gatito en la isla: aparece un ratito al lado y se va */
+function isleNote(a, b) {
+  if (!ISLE) isleSync(); if (!ISLE || isleHidden()) { toast(a + ' ' + b); return; }
+  ISLE.querySelectorAll('.isle-note').forEach(n => n.remove());
+  const n = document.createElement('div'); n.className = 'isle-note'; n.setAttribute('role', 'status'); n.innerHTML = `<b>${esc(a)}</b><span>${esc(b)}</span>`; ISLE.appendChild(n);
+  setTimeout(() => { n.classList.add('out'); setTimeout(() => n.remove(), 450); }, 4000);
+}
+/** La misión más cercana a terminar (entre lector y escritor) */
+function msBest() {
+  const all = ['reader', 'writer'].flatMap(tr => ((MS[tr] || {}).missions || []).map(m => ({ ...m, tr })));
+  if (!all.length) return null;
+  const open = all.filter(m => !m.done); if (!open.length) return { allDone: true };
+  return open.sort((a, b) => (b.progress / b.goal) - (a.progress / a.goal) || (a.kind === 'daily' ? -1 : 1) - (b.kind === 'daily' ? -1 : 1) || a.xp - b.xp)[0];
+}
+const msBar = m => `<span class="ms-bar"><i style="width:${Math.round(Math.min(1, m.progress / m.goal) * 100)}%"></i></span>`;
+function msBlock() {
+  if (!passOn()) return '';
+  const b = msBest(); if (!b) { msAll(); return `<div class="isle-ms"><span class="ms-t">${t('Cargando tus misiones…')}</span></div>`; }
+  if (b.allDone) return `<button type="button" class="isle-ms" data-isle="missions"><span class="ms-t">${t('¡Completaste todas tus misiones!')}</span><span class="ms-all">${t('Ver todas las misiones')} ›</span></button>`;
+  return `<button type="button" class="isle-ms" data-isle="missions"><span class="ms-k">${t(b.kind === 'daily' ? 'Misión del día' : 'Misión de temporada')}</span><span class="ms-t">${esc(t(b.title))}</span>${msBar(b)}<span class="ms-n">${b.progress}/${b.goal} · +${b.xp} XP</span><span class="ms-all">${t('Ver todas las misiones')} ›</span></button>`;
+}
+function msCard() {
+  if (!passOn()) return ''; const b = msBest(); if (!b) { msAll(); return ''; }
+  if (b.allDone) return `<a class="panel ms-card" href="#/shop/misiones"><span class="ms-k">${t('Misiones')}</span><b class="ms-t">${t('¡Completaste todas tus misiones!')}</b></a>`;
+  return `<a class="panel ms-card" href="#/shop/misiones" aria-label="${esc(t('Ver todas las misiones'))}"><span class="ms-k">${t(b.kind === 'daily' ? 'Misión del día' : 'Misión de temporada')}</span><b class="ms-t">${esc(t(b.title))}</b>${msBar(b)}<span class="ms-n">${b.progress}/${b.goal} · +${b.xp} XP</span></a>`;
+}
+/* Leer un capítulo completo: se avisa al servidor al llegar casi al final, pasados 25 s en la página */
+function chtStart(sid, n) { clearTimeout(CHT.tm); CHT = { k: sid + '/' + n, t: Date.now(), sent: false, tm: setTimeout(chtCheck, 26000) }; }
+function chtCheck() {
+  const m = (location.hash || '').match(/^#\/story\/([^/]+)\/(\d+)/); if (!m || CHT.sent || CHT.k !== m[1] + '/' + m[2] || Date.now() - CHT.t < 25000 || scrollPct() < .93) return;
+  const sid = decodeURIComponent(m[1]), su = sUuid(sid), st = findStory(sid); if (!su || !st || st.owner === S.user || !cloud() || !sbSes() || isGuest()) return;
+  CHT.sent = true;
+  sbApi('/rest/v1/rpc/mission_read', { method: 'POST', body: { p_story: su, p_pos: +m[2] - 1, p_secs: Math.round((Date.now() - CHT.t) / 1000) } }).then(() => { if (passOn()) msAll(true); });
+}
+/* Premios de ejemplo de cada pase (se cambian por los definitivos cuando estén los diseños) */
+const PASS_FREE = { 4: 'Gemas moradas ×5', 8: 'Gemas moradas ×5', 10: 'Insignia de temporada', 12: 'Gemas moradas ×10', 16: 'Gemas moradas ×10', 20: 'Gemas moradas ×15' };
+const PASS_PAID = {
+  reader: { 1: 'Halo de bienvenida', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador de San Valentín', 4: 'AuriGems ×10', 5: 'Decoración de perfil 1', 7: 'AuriGems ×10', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'AuriGems ×15', 11: 'Decoración de perfil 2', 13: 'AuriGems ×15', 14: 'Chat San Valentín · lila', 16: 'AuriGems ×20', 17: 'Mascota de San Valentín', 19: 'AuriGems ×20', 20: 'Título llamativo' },
+  writer: { 1: 'Título de creador', 2: 'AuriCoins ×50', 3: 'Stickers del chat', 4: 'AuriGems ×10', 5: 'Marco de portada 1', 6: 'AuriCoins ×50', 8: 'Efectos del chat', 9: 'AuriGems ×10', 10: 'Cosmético de perfil de creador', 11: 'Impulso a destacados ×1', 12: 'AuriCoins ×75', 13: 'Marco de portada 2', 15: 'AuriGems ×15', 16: 'Portada de San Valentín', 17: 'AuriCoins ×75', 18: 'Ambiente por capítulo', 19: 'AuriGems ×15', 20: 'Portada de San Valentín 2 · AuriCoins ×100' }
+};
+function shopView(tab) {
+  if (!passOn()) return `<main class="page">${empty('Aquí pronto habrá algo nuevo', 'La tienda y los pases todavía no están abiertos.')}</main>`;
+  tab = ['tienda', 'pases', 'misiones'].includes(tab) ? tab : 'misiones'; msAll();
+  const tabs = [['tienda', 'Tienda'], ['pases', 'Pases'], ['misiones', 'Misiones']];
+  const trk = tab === 'tienda' ? '' : `<div class="filter-row shop-trk" role="group" aria-label="${esc(t('Pista'))}"><button class="chip ${MS.track === 'reader' ? 'active' : ''}" data-act="ms-track" data-id="reader" aria-pressed="${MS.track === 'reader'}">${t('Lector')}</button><button class="chip ${MS.track === 'writer' ? 'active' : ''}" data-act="ms-track" data-id="writer" aria-pressed="${MS.track === 'writer'}">${t('Escritor')}</button></div>`;
+  return `<main class="page shop"><div class="section-head"><div><h1>${t('Tienda')}</h1><p>${t('Solo la ves tú por ahora.')}</p></div><a class="button ghost sm" href="#/news" data-dir="next">${t('Noticias')}</a></div>
+  <div class="filter-row shop-tabs">${tabs.map(([k, n]) => `<a class="chip ${tab === k ? 'active' : ''}" href="#/shop/${k}">${t(n)}</a>`).join('')}</div>${trk}
+  ${tab === 'tienda' ? shopTab() : tab === 'pases' ? passTab() : missionsTab()}</main>`;
+}
+function shopTab() {
+  const card = (n, d) => `<div class="panel shop-card"><b>${t(n)}</b><p class="helper">${t(d)}</p><span class="tag">${t('Próximamente')}</span></div>`;
+  return `<div class="shop-grid">${card('AuriGems cian', 'Se compran con dinero real y se pueden regalar.')}${card('AuriGems moradas', 'Se consiguen viendo anuncios y no se pueden regalar.')}${card('AuriCoins', 'Para los paquetes de cosméticos de la tienda oficial.')}${card('Pases', 'Pase de lector y pase de escritor de cada temporada.')}</div>`;
+}
+function msLevel(st) {
+  const span = st.next == null ? 1 : st.next - st.floor, got = st.next == null ? 1 : st.xp - st.floor;
+  return `<div class="panel ms-lv"><div class="ms-lv-h"><b>${t('Nivel {n}', { n: st.level })}</b><span>${esc(st.season.name)} · ${t('{n} días', { n: Math.max(0, Math.ceil((new Date(st.season.ends + 'T23:59:59Z') - Date.now()) / 864e5)) })}</span></div><span class="ms-bar big"><i style="width:${Math.round(Math.min(1, got / span) * 100)}%"></i></span><small class="helper">${st.next == null ? t('¡Nivel máximo!') : t('{a} de {b} XP para el nivel {n}', { a: st.xp - st.floor, b: st.next - st.floor, n: st.level + 1 })}</small></div>`;
+}
+function missionsTab() {
+  const st = MS[MS.track]; if (!st) return `<p class="helper">${t('Cargando tus misiones…')}</p>`;
+  if (!st.season) return `<p class="helper">${t('No hay una temporada activa ahora.')}</p>`;
+  const row = m => `<div class="ms-row ${m.done ? 'done' : ''}"><div class="ms-main"><b>${esc(t(m.title))}</b><small>+${m.xp} XP${m.tier ? ' · ' + t(MS_TIER[m.tier]) : ''}</small></div>${msBar(m)}<span class="ms-n">${m.done ? '✓' : m.progress + '/' + m.goal}</span></div>`;
+  const dl = st.missions.filter(m => m.kind === 'daily'), sn = st.missions.filter(m => m.kind === 'season');
+  return `${msLevel(st)}<div class="section-head"><div><h2>${t('Diarias')}</h2><p>${t('Cambian cada día (hora UTC).')}</p></div></div><div class="ms-list">${dl.map(row).join('')}</div>
+  <div class="section-head"><div><h2>${t('De temporada')}</h2><p>${t('Duran toda la temporada.')}</p></div></div><div class="ms-list">${sn.map(row).join('')}</div>`;
+}
+function passTab() {
+  const st = MS[MS.track]; if (!st) return `<p class="helper">${t('Cargando tus misiones…')}</p>`;
+  if (!st.season) return `<p class="helper">${t('No hay una temporada activa ahora.')}</p>`;
+  const paid = PASS_PAID[MS.track] || {};
+  return `${msLevel(st)}<p class="helper" style="margin:6px 2px 10px">${t('Premios de ejemplo: se cambian por los definitivos y se entregan cuando exista la tienda.')}</p>
+  <div class="lv-head"><span></span><b>${t('Gratis')}</b><b>${t('Pase')}</b></div>
+  <div class="lv-list">${Array.from({ length: 20 }, (_, i) => i + 1).map(n => `<div class="lv ${st.level >= n ? 'reached' : ''}"><span class="lv-n">${n}<small>${lvXp(n)} XP</small></span><div class="lv-c">${PASS_FREE[n] ? esc(t(PASS_FREE[n])) : '<i>—</i>'}</div><div class="lv-c paid ${st.owned ? '' : 'lock'}">${paid[n] ? esc(t(paid[n])) : '<i>—</i>'}</div></div>`).join('')}</div>`;
+}
 
 /* ARRANQUE */
 applyTheme(); applyReading();
