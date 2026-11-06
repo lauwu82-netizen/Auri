@@ -2122,4 +2122,12 @@ window.I18N = { en: {
   "De temporada": "Seasonal",
   "Duran toda la temporada.": "They last the whole season.",
   "Premios de ejemplo: se cambian por los definitivos y se entregan cuando exista la tienda.": "Sample rewards: they will be replaced by the final ones and delivered once the store exists.",
+  "Prioridad alta": "High priority",
+  "Prioridad media": "Medium priority",
+  "Prioridad baja": "Low priority",
+  "Sin peso": "No weight",
+  "Qué tanto pesa este reporte según la antigüedad y actividad de quien reporta": "How much this report weighs based on the reporter's account age and activity",
+  "Arriba van los reportes de cuentas con más antigüedad y actividad.": "Reports from older, more active accounts come first.",
+  "Peso: {n}": "Weight: {n}",
+  "Primero las que tienen reportes abiertos de cuentas con más peso. Abre una para ver las razones y decidir.": "Accounts with open reports from higher-weight accounts come first. Open one to see the reasons and decide.",
 } };

@@ -2659,3 +2659,9 @@ html.lite .amb{display:none}
 .isle.left .isle-note{animation-name:noteInL}
 @keyframes noteInL{from{opacity:0;transform:translateX(-24px) scale(.8)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.isle-note{animation:none}}
+
+/* 109 · Peso de los reportes */
+.pill.rw{font-size:11px}
+.pill.rw-hi{background:hsl(var(--primary));color:#fff}
+.pill.rw-mid{background:color-mix(in srgb,hsl(var(--primary)) 20%,transparent)}
+.pill.rw-lo,.pill.rw-zero{opacity:.65}

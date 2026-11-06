@@ -1352,7 +1352,7 @@ async function sbSyncMod(force) {
     }
     LS.set('auri.users', us);
     if (ap) G.set('appeals', ap.map(x => ({ id: x.id, user: k(x.user_id), banDate: x.ban_date, ban: { reason: x.ban_reason || '', by: k(x.ban_by), until: x.ban_until || null }, text: x.text, imgs: x.imgs || [], date: day(x.created_at), status: x.status, handledBy: k(x.handled_by), handledDate: day(x.handled_at), note: x.note || '' })));
-    if (rp) G.set('reports', rp.map(x => ({ id: x.id, by: k(x.by), type: x.type, imgs: x.imgs || [], sid: x.story_id ? sBack(x.story_id) : '', cid: x.comment_id ? cBack(x.comment_id) : '', ci: x.chapter_pos == null ? undefined : x.chapter_pos, target: k(x.target), owner: k(x.owner), title: x.title || '', excerpt: x.excerpt || '', reasons: x.reasons || [], text: x.text || '', label: x.label || '', date: day(x.created_at), status: x.status, handledBy: k(x.handled_by), handledDate: day(x.handled_at) })));
+    if (rp) G.set('reports', rp.map(x => ({ id: x.id, by: k(x.by), type: x.type, imgs: x.imgs || [], sid: x.story_id ? sBack(x.story_id) : '', cid: x.comment_id ? cBack(x.comment_id) : '', ci: x.chapter_pos == null ? undefined : x.chapter_pos, target: k(x.target), owner: k(x.owner), title: x.title || '', excerpt: x.excerpt || '', reasons: x.reasons || [], text: x.text || '', label: x.label || '', weight: x.weight == null ? undefined : x.weight, date: day(x.created_at), status: x.status, handledBy: k(x.handled_by), handledDate: day(x.handled_at) })));
     if (gf) G.set('gifts', gf.map(x => ({ id: x.id, kind: x.kind, to: k(x.to_user), by: k(x.by), date: x.created_at, expires: x.expires_at, status: x.status, claimedDate: x.claimed_at || '', endDate: x.ended_at || '' })));
     if (ml) G.set('modlog', ml.map(x => ({ id: x.id, type: x.type, by: k(x.by) || 'sistema', target: isUuid(x.target) ? k(x.target) || x.target : x.target, extra: x.extra || '', date: x.created_at })));
     return modSig() !== before;
@@ -3726,15 +3726,16 @@ function repHistory(e) {                                 // solo Moderación, Ad
 let RACC = null;
 function accRows() {
   const m = {}; reportsAll().filter(r => r.type !== 'problem' && r.type !== 'reclass').forEach(r => { const e = accOf(r); if (!e || !getUsers()[e]) return;
-    const a = m[e] = m[e] || { e, n: 0, open: 0, last: '', by: new Set(), why: {} }; a.n++; if ((r.status || 'open') === 'open') a.open++; if ((r.date || '') > a.last) a.last = r.date || ''; a.by.add(r.by); (r.reasons || []).forEach(x => { a.why[x] = (a.why[x] || 0) + 1; }); });
-  return Object.values(m).filter(a => inScope(commOf(a.e))).sort((x, y) => y.open - x.open || y.n - x.n || (y.last > x.last ? 1 : -1));
+    const a = m[e] = m[e] || { e, n: 0, open: 0, last: '', by: new Set(), why: {}, wt: {} }; a.wt[r.by] = Math.max(a.wt[r.by] || 0, rWt(r) || 0); a.n++; if ((r.status || 'open') === 'open') a.open++; if ((r.date || '') > a.last) a.last = r.date || ''; a.by.add(r.by); (r.reasons || []).forEach(x => { a.why[x] = (a.why[x] || 0) + 1; }); });
+  Object.values(m).forEach(a => { a.w = Object.values(a.wt).reduce((p, c) => p + c, 0); });
+  return Object.values(m).filter(a => inScope(commOf(a.e))).sort((x, y) => (y.open ? 1 : 0) - (x.open ? 1 : 0) || y.w - x.w || y.open - x.open || y.n - x.n || (y.last > x.last ? 1 : -1));
 }
 function accountsView(tabs) {
   const l = accRows();
-  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('Cuentas reportadas')}</span><h2 style="margin-top:8px">${tn(l.length, '{n} cuenta', '{n} cuentas')}</h2><p>${t('Ordenadas por reportes abiertos. Abre una para ver las razones y decidir.')}</p></div></div>
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('Cuentas reportadas')}</span><h2 style="margin-top:8px">${tn(l.length, '{n} cuenta', '{n} cuentas')}</h2><p>${t('Primero las que tienen reportes abiertos de cuentas con más peso. Abre una para ver las razones y decidir.')}</p></div></div>
   ${l.length ? l.map(a => { const top = Object.entries(a.why).sort((x, y) => y[1] - x[1]).slice(0, 4), ban = activeBan(a.e), sk = strikesOf(a.e).length, rl = t(ROLE_LABEL[roleOf(a.e)]);
     return `<article class="panel rp acc"><div class="acc-head">${userAvatar(a.e)}<div class="acc-id"><b>${esc(uName(a.e))}</b><span class="helper">${rl ? esc(rl) + ' · ' : ''}${tn(sk, '{n} strike', '{n} strikes')}${ban ? ' · ' + t('suspendida') : ''}</span></div><span class="pill acc-n">${tn(a.n, '{n} reporte', '{n} reportes')}</span></div>
-    <p class="helper" style="margin:8px 0 0">${tn(a.open, '{n} abierto', '{n} abiertos')} · ${tn(a.by.size, '{n} persona distinta', '{n} personas distintas')} · ${t('último: {d}', { d: esc(fmtDate(a.last) || a.last) })}</p>
+    <p class="helper" style="margin:8px 0 0">${a.w ? t('Peso: {n}', { n: a.w }) + ' · ' : ''}${tn(a.open, '{n} abierto', '{n} abiertos')} · ${tn(a.by.size, '{n} persona distinta', '{n} personas distintas')} · ${t('último: {d}', { d: esc(fmtDate(a.last) || a.last) })}</p>
     ${top.length ? `<div class="tags rp-why">${top.map(([x, c]) => `<span class="tag">${esc(t(x))}${c > 1 ? ' ×' + c : ''}</span>`).join('')}</div>` : ''}
     <div class="rp-acts"><a class="button ghost sm" href="#/user/${encodeURIComponent(a.e)}" data-dir="next">${t('Ver perfil')}</a><button type="button" class="button secondary sm" data-act="acc-reports" data-id="${esc(a.e)}">${t('Ver reportes')}</button></div></article>`; }).join('')
     : empty('Ninguna cuenta reportada', 'Cuando alguien reporte un perfil, una obra o un comentario, la cuenta aparecerá aquí con sus razones.')}</main>`;
@@ -3763,6 +3764,10 @@ function rpSet(id, st) {
   l[i] = st === 'open' ? { ...l[i], status: 'open', handledBy: '', handledDate: '' } : { ...l[i], status: st, handledBy: S.user, handledDate: today() };
   G.set('reports', l); logAction('report-' + st, l[i].owner || l[i].target || '', String(id)); KEEP = true; render();
 }
+const rWt = r => r.weight == null ? null : r.weight;
+const rWtTier = w => w == null ? '' : w >= 70 ? 'hi' : w >= 40 ? 'mid' : w > 0 ? 'lo' : 'zero';
+const RW_NAME = { hi: 'Prioridad alta', mid: 'Prioridad media', lo: 'Prioridad baja', zero: 'Sin peso' };
+const rpOrder = (a, b) => (rWt(b) || 0) - (rWt(a) || 0) || (b.date > a.date ? 1 : b.date < a.date ? -1 : 0);
 function reportCard(r) {
   const ty = r.type || 'problem', open = (r.status || 'open') === 'open', owner = r.owner || '', s = r.sid ? findStory(r.sid) : null, td = r.sid && takedown().includes(r.sid);
   const ctx = ty === 'story' ? `<div class="rp-ctx"><b>${esc(r.title || (s && s.title) || t('Obra'))}</b>${s ? ` · ${t('por {a}', { a: esc(s.author || '') })}${s.mature ? ' · +18' : ''}<div class="tags">${s.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ' · ' + t('ya no está disponible')}${td ? '<div class="helper">' + t('🚩 Retirada de Descubrir') + '</div>' : ''}</div>`
@@ -3771,7 +3776,7 @@ function reportCard(r) {
     : ty === 'user' ? `<div class="rp-ctx"><b>${esc(uName(r.target))}</b></div>` : '';
   const link = (ty === 'story' || ty === 'reclass') && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}" data-dir="next">${t('📖 Ir a la obra')}</a>` : ty === 'comment' && s ? `<button class="button secondary sm" data-act="rp-comments" data-id="${esc(r.sid)}" data-cid="${esc(r.cid == null ? '' : r.cid)}">${t('📖 Ir al comentario')}</button>` : ty === 'pcomment' && s ? `<a class="button secondary sm" href="#/story/${esc(r.sid)}/${(+r.ci || 0) + 1}" data-dir="next">${t('📖 Ir al párrafo')}</a>` : '';
   const who = ty === 'user' ? r.target : owner;
-  return `<article class="panel rp ${open ? '' : 'done'}"><div class="rp-head"><span class="pill">${t(RTYPE[ty])}</span><span class="helper">${esc(fmtDate(r.date) || r.date)} · ${t('reporta {n}', { n: esc(uName(r.by)) })}</span></div>${ctx}
+  return `<article class="panel rp ${open ? '' : 'done'}"><div class="rp-head"><span class="pill">${t(RTYPE[ty])}</span>${rWtTier(rWt(r)) ? `<span class="pill rw rw-${rWtTier(rWt(r))}" title="${esc(t('Qué tanto pesa este reporte según la antigüedad y actividad de quien reporta'))}">${t(RW_NAME[rWtTier(rWt(r))])}</span>` : ''}<span class="helper">${esc(fmtDate(r.date) || r.date)} · ${t('reporta {n}', { n: esc(uName(r.by)) })}</span></div>${ctx}
   ${(r.reasons || []).length ? `<div class="tags rp-why">${r.reasons.map(x => `<span class="tag">${esc(t(x))}</span>`).join('')}</div>` : ''}${r.text ? `<p class="rp-text">${esc(r.text)}</p>` : ''}${repImgs(r)}
   <div class="rp-acts">${link}${who && getUsers()[who] ? `<a class="button ghost sm" href="#/user/${encodeURIComponent(who)}" data-dir="next">${t('👤 Perfil')}</a>` : ''}
   ${open ? `${ty === 'reclass' ? `<button class="button sm" data-act="rc-ok" data-id="${r.id}">${t('Aprobar: quitar +18')}</button><button class="button secondary sm" data-act="rc-no" data-id="${r.id}">${t('Mantener +18')}</button>` : ''}${ty === 'story' && s ? `<button class="button secondary sm" data-act="rc-set" data-id="${esc(r.sid)}" data-v="${s.mature ? 0 : 1}">${s.mature ? t('Quitar +18') : t('Marcar como +18')}</button>` : ''}${ty === 'story' && s ? (td ? `<button class="button secondary sm" data-act="td-off" data-id="${esc(r.sid)}">${t('Restaurar')}</button>` : `<button class="button danger sm" data-act="td-on" data-id="${esc(r.sid)}">${t('Retirar de Descubrir')}</button>`) : ''}${ty === 'comment' && r.sid && comments(r.sid).some(c => String(c.id) === String(r.cid)) ? `<button class="button danger sm" data-act="rp-delcomment" data-id="${esc(r.sid)}" data-cid="${esc(r.cid)}">${t('Eliminar comentario')}</button>` : ''}${who && canAct(who) ? `<button class="button ghost sm" data-act="adm-strike" data-id="${esc(who)}">${t('⚠️ Strike')}</button><button class="button ghost sm" data-act="adm-ban" data-id="${esc(who)}">${t('🚫 Suspender')}</button>` : ''}
@@ -3780,8 +3785,8 @@ function reportCard(r) {
   ${ty === 'problem' && open ? `<button class="icon-btn" data-act="report-del" data-id="${r.id}" aria-label="${esc(t('Eliminar reporte'))}">${TRASH}</button>` : ''}</div></article>`;
 }
 function reportsView(tabs) {
-  const all = reportsAll().filter(r => inScope(commOf(accOf(r) || r.by))).filter(r => !RACC || accOf(r) === RACC), l = all.filter(r => ((r.status || 'open') === 'open') === (RFILT === 'open'));
-  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('🚩 Reportes')}</span><h2 style="margin-top:8px">${RFILT === 'open' ? t('Por revisar') : t('Ya atendidos')} (${l.length})</h2><p>${t('Abre la obra, analiza el caso y toma medidas. Todo queda en el registro.')}</p></div></div>
+  const all = reportsAll().filter(r => inScope(commOf(accOf(r) || r.by))).filter(r => !RACC || accOf(r) === RACC), l = all.filter(r => ((r.status || 'open') === 'open') === (RFILT === 'open')).sort(RFILT === 'open' ? rpOrder : () => 0);
+  return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('🚩 Reportes')}</span><h2 style="margin-top:8px">${RFILT === 'open' ? t('Por revisar') : t('Ya atendidos')} (${l.length})</h2><p>${t('Abre la obra, analiza el caso y toma medidas. Todo queda en el registro.')} ${t('Arriba van los reportes de cuentas con más antigüedad y actividad.')}</p></div></div>
   <div class="filter-row">${RACC ? `<button class="chip active" data-act="acc-clear">${t('Cuenta: {n}', { n: esc(uName(RACC)) })} ✕</button>` : ''}<button class="chip ${RFILT === 'open' ? 'active' : ''}" data-act="rp-filter" data-id="open">${t('Abiertos')} (${openReports()})</button><button class="chip ${RFILT === 'done' ? 'active' : ''}" data-act="rp-filter" data-id="done">${t('Atendidos')}</button></div>
   ${l.length ? l.map(reportCard).join('') : empty(RFILT === 'open' ? 'Sin reportes pendientes' : 'Nada atendido todavía', RFILT === 'open' ? 'Cuando alguien reporte una obra, un comentario o un perfil, aparecerá aquí.' : 'Los reportes resueltos o descartados se guardan aquí.')}</main>`;
 }
