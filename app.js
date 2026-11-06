@@ -2521,8 +2521,8 @@ function readNext(id, n) {                           // marca el capítulo como 
 function openStoryMenu(id) {
   const s = S.stories.find(x => x.id === id); if (!s) return;
   const m = document.createElement('div'); m.className = 'modal sheet';
-  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${esc(s.title || t('Sin título'))}</h2><div class="sm-list"><a class="sm-i" href="#/write/${esc(s.id)}">✎ ${t('Editar libro')}</a><button type="button" class="sm-i danger" data-del>🗑 ${t('Eliminar historia')}</button></div><button type="button" class="button ghost" data-no style="width:100%;margin-top:10px">${t('Cancelar')}</button></div>`;
-  m.querySelector('[data-no]').onclick = () => m.remove(); m.querySelector('a').onclick = () => m.remove();
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${esc(s.title || t('Sin título'))}</h2><div class="sm-list"><a class="sm-i" href="#/write/${esc(s.id)}">✎ ${t('Editar libro')}</a>${vnOn() ? `<a class="sm-i" href="#/vn/${esc(s.id)}">${t('Novela visual')}</a>` : ''}<button type="button" class="sm-i danger" data-del>🗑 ${t('Eliminar historia')}</button></div><button type="button" class="button ghost" data-no style="width:100%;margin-top:10px">${t('Cancelar')}</button></div>`;
+  m.querySelector('[data-no]').onclick = () => m.remove(); m.querySelectorAll('a').forEach(x => { x.onclick = () => m.remove(); });
   m.querySelector('[data-del]').onclick = () => { m.remove(); askDelStory(id); };
   document.body.appendChild(m);
 }
@@ -4952,6 +4952,7 @@ function render() {
   else if (a === 'login' || a === 'register') app.innerHTML = authView(a);
   else if (isGuest() && ['write', 'stats', 'moderation', 'strike', 'messages', 'gift'].includes(a)) app.innerHTML = shell(a === 'write' ? '/write' : '', guestWall(a === 'write' ? 'escribir historias' : a === 'stats' ? 'ver estadísticas' : a === 'messages' ? 'enviar mensajes' : 'entrar aquí'));
   else if (a === 'signup') app.innerHTML = signupView();
+  else if (a === 'vn') app.innerHTML = shell('/write', vnView(b));
   else if (a === 'write') { const v = writeRoute(b, c, d); app.innerHTML = c === 'ch' && W ? v : shell('/write', v); }   // escribir un capítulo = pantalla completa
   else if (a === 'story') { const v = safeView(() => storyView(b, c), b); app.innerHTML = c ? v : shell('', v); }   // leer un capítulo = pantalla completa
   else if (a === 'explore') app.innerHTML = shell('', exploreView(decodeURIComponent(b || '')));
@@ -5327,6 +5328,7 @@ document.addEventListener('click', e => {
     'ce-bgdel': () => { if (CE) { CE.c.bg = ''; ceRender(); } },
     'ce-edit': () => { if (!CE) return; const x = CE.c.m[+id]; if (!x || x.call || x.sk || x.rx) return; if (x.ch) return chmOpen(+id); CE.ed = +id; const ta = $('#ce-txt'); if (ta) { ta.value = x.t; ta.focus(); } const bt = $('.ce-send .button'); if (bt) bt.textContent = t('Guardar'); ceRefresh(); },
     'story-menu': () => openStoryMenu(id),
+    'vn-toggle': () => vnToggle(), 'vn-add': () => vnEdit(null), 'vn-edit': () => vnEdit(id),
     'cr-close': () => crClose(), 'cr-all': () => crShowAll(), 'cr-pick': () => crPick(+id),
     'cr-nextchat': () => { const a = CR && crAfter(); crClose(); if (a && a.kind === 'chat') chatOpen(a.key); },
     'cr-nextchap': () => { const a = CR && crAfter(); crClose(); if (a) readNext(a.sid, a.ci); },
@@ -5605,6 +5607,68 @@ function passTab() {
   return `${msLevel(st)}<p class="helper" style="margin:6px 2px 10px">${t('Premios de ejemplo: se cambian por los definitivos y se entregan cuando exista la tienda.')}</p>
   <div class="lv-head"><span></span><b>${t('Gratis')}</b><b>${t('Pase')}</b></div>
   <div class="lv-list">${Array.from({ length: 20 }, (_, i) => i + 1).map(n => `<div class="lv ${st.level >= n ? 'reached' : ''}"><span class="lv-n">${n}<small>${lvXp(n)} XP</small></span><div class="lv-c">${PASS_FREE[n] ? esc(t(PASS_FREE[n])) : '<i>—</i>'}</div><div class="lv-c paid ${st.owned ? '' : 'lock'}">${paid[n] ? esc(t(paid[n])) : '<i>—</i>'}</div></div>`).join('')}</div>`;
+}
+
+/* ---------- Novela visual · pantalla de la autoría (por ahora solo la Owner) ----------
+   La autoría marca su libro como compatible y crea sus personajes con un sprite por emoción.
+   Todo vive en las tablas vn_* (SQL 40); la IA se conecta después. */
+const vnOn = () => !!S.user && !isGuest() && isOwner() && cloud() && !!sbSes();
+let VN = { sid: '', ok: false, busy: false, vn: false, chars: [], emos: [], err: '' };
+const VN_EMO = { neutral: 'Neutral', feliz: 'Happy', triste: 'Sad', sonrojado: 'Blushing', asustado: 'Scared', enojado: 'Angry' };
+async function vnLoad(sid) {
+  if (VN.busy) return; VN.busy = true; const u = sUuid(sid);
+  try {
+    const [a, b, c] = await Promise.all([sbApi('/rest/v1/vn_emotions?select=*&order=sort'), sbApi('/rest/v1/vn_characters?select=*&story_id=eq.' + u + '&order=pos,created_at'), sbApi('/rest/v1/stories?select=vn,owner&id=eq.' + u)]);
+    if (!a.ok || !b.ok || !c.ok) { VN.err = /vn_/.test(JSON.stringify([a.data, b.data, c.data])) || /vn/.test(JSON.stringify(c.data || '')) ? t('Falta correr el SQL 40 en Supabase.') : t('No se pudo cargar. Revisa tu conexión.'); VN.ok = true; }
+    else { VN.emos = a.data; VN.chars = b.data; VN.vn = !!(c.data[0] && c.data[0].vn); VN.err = ''; VN.ok = true; }
+  } catch (e) { VN.err = t('No se pudo cargar. Revisa tu conexión.'); VN.ok = true; }
+  VN.busy = false; if ((location.hash || '').startsWith('#/vn/' + sid)) { KEEP = true; render(); }
+}
+function vnView(sid) {
+  const s = S.stories.find(x => x.id === sid);
+  if (!vnOn() || !s) return `<main class="page">${empty('Aquí pronto habrá algo nuevo', 'Esta función todavía no está abierta.')}</main>`;
+  if (VN.sid !== sid) VN = { sid, ok: false, busy: false, vn: false, chars: [], emos: [], err: '' };
+  if (!VN.ok) { vnLoad(sid); return `<main class="page"><p class="helper">${t('Cargando…')}</p></main>`; }
+  const free = VN.emos.length;
+  return `<main class="page vn"><div class="section-head"><div><a class="back" href="#/write" data-dir="back">‹ ${t('Volver')}</a><h1>${t('Novela visual')}</h1><p>${esc(s.title || t('Sin título'))}</p></div></div>
+  ${VN.err ? `<p class="notice">${esc(VN.err)}</p>` : `<section class="panel"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>${t('Libro compatible con novela visual')}</strong><div class="helper">${t('Las personas podrán leerlo con personajes, fondos y reacciones.')}</div></div><button type="button" class="switch ${VN.vn ? 'on' : ''}" role="switch" aria-checked="${VN.vn}" aria-label="${esc(t('Libro compatible con novela visual'))}" data-act="vn-toggle"></button></div></section>
+  <div class="section-head"><div><h2>${t('Personajes')}</h2><p>${tn(VN.chars.length, '{n} de 10 personaje', '{n} de 10 personajes')}</p></div>${VN.chars.length < 10 ? `<button type="button" class="button sm" data-act="vn-add">${t('Añadir personaje')}</button>` : ''}</div>
+  <div class="vn-list">${VN.chars.map(c => { const n = Object.keys(c.sprites || {}).length, first = (c.sprites || {}).neutral || Object.values(c.sprites || {})[0];
+    return `<button type="button" class="panel vn-char" data-act="vn-edit" data-id="${esc(c.id)}"><span class="vn-av">${first ? `<img src="${esc(first)}" alt="" loading="lazy">` : ''}</span><span class="vn-info"><b>${esc(c.name)}</b><small>${n}/${free} ${t('emociones')}${c.adult ? '' : ' · ' + t('menor de edad')}</small></span></button>`; }).join('') || `<p class="helper">${t('Aún no hay personajes. Añade el primero y sube un sprite por emoción.')}</p>`}</div>`}</main>`;
+}
+async function vnToggle() {
+  const v = !VN.vn, r = await sbApi('/rest/v1/stories?id=eq.' + sUuid(VN.sid), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { vn: v } });
+  if (!r.ok) return toast(t('No se pudo guardar.')); VN.vn = v; KEEP = true; render();
+}
+function spriteFit(file, cb) {                           // sprite: máximo 640 px de alto, se conserva la transparencia
+  if (!file || !file.type.startsWith('image/')) return toast(t('Elige un archivo de imagen.'));
+  const r = new FileReader(); r.onload = () => { const img = new Image(); img.onload = () => { const k = Math.min(1, 640 / img.height, 640 / img.width), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k)); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); cb(c.toDataURL('image/png')); }; img.onerror = () => toast(t('Elige un archivo de imagen.')); img.src = r.result; }; r.readAsDataURL(file);
+}
+function vnEdit(id) {
+  const cur = id ? VN.chars.find(c => c.id === id) : null, sp = { ...(cur ? cur.sprites || {} : {}) }, m = document.createElement('div'); m.className = 'modal sheet';
+  const cells = () => VN.emos.map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : ''}</div><b>${esc(t(e.name))}</b><label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}</div>`).join('');
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${cur ? t('Editar personaje') : t('Nuevo personaje')}</h2>
+  <label class="field vnf"><span>${t('Nombre')}</span><input id="vn-name" maxlength="40" value="${esc(cur ? cur.name : '')}"></label>
+  <label class="check"><input type="checkbox" id="vn-adult" ${!cur || cur.adult ? 'checked' : ''}> ${t('Es mayor de edad')}</label><p class="helper">${t('Si es menor de edad, no se generará nada sugerente con este personaje.')}</p>
+  <p class="helper">${t('Sube un PNG con fondo transparente por cada emoción. La neutral es la que se usa si no se detecta otra.')}</p>
+  <div class="vn-cells">${cells()}</div><p class="err" data-err></p>
+  <div class="row-btns" style="margin-top:12px"><button type="button" class="button" data-ok>${t('Guardar')}</button><button type="button" class="button ghost" data-no>${t('Cancelar')}</button>${cur ? `<button type="button" class="button danger" data-del>${t('Eliminar')}</button>` : ''}</div></div>`;
+  document.body.appendChild(m); const err = m.querySelector('[data-err]'), redraw = () => { m.querySelector('.vn-cells').innerHTML = cells(); };
+  m.addEventListener('change', e => { const inp = e.target.closest('input[data-emo]'); if (!inp || !inp.files[0]) return; const k = inp.dataset.emo; err.textContent = t('Subiendo…');
+    spriteFit(inp.files[0], async d => { const u = await sbUpImg(d); err.textContent = ''; if (!u) return (err.textContent = t('No se pudo subir la imagen. Inténtalo otra vez.')); sp[k] = u; redraw(); }); });
+  m.addEventListener('click', async e => {
+    if (e.target.closest('[data-no]') || e.target === m) return m.remove();
+    const rm = e.target.closest('[data-rm]'); if (rm) { delete sp[rm.dataset.rm]; return redraw(); }
+    if (e.target.closest('[data-del]')) { if (!confirm(t('¿Eliminar este personaje?'))) return; const r = await sbApi('/rest/v1/vn_characters?id=eq.' + cur.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); if (!r.ok) return (err.textContent = t('No se pudo guardar.')); VN.chars = VN.chars.filter(c => c.id !== cur.id); m.remove(); KEEP = true; return render(); }
+    if (e.target.closest('[data-ok]')) {
+      const name = m.querySelector('#vn-name').value.trim(); if (!name) return (err.textContent = t('Ponle un nombre al personaje.'));
+      const body = { name, adult: m.querySelector('#vn-adult').checked, sprites: sp };
+      const r = cur ? await sbApi('/rest/v1/vn_characters?id=eq.' + cur.id, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body })
+        : await sbApi('/rest/v1/vn_characters', { method: 'POST', headers: { Prefer: 'return=representation' }, body: { ...body, story_id: sUuid(VN.sid), pos: VN.chars.length } });
+      if (!r.ok || !Array.isArray(r.data) || !r.data[0]) return (err.textContent = /Máximo/.test(JSON.stringify(r.data || '')) ? t('Máximo 10 personajes por libro.') : t('No se pudo guardar.'));
+      VN.chars = cur ? VN.chars.map(c => c.id === cur.id ? r.data[0] : c) : [...VN.chars, r.data[0]]; m.remove(); KEEP = true; render();
+    }
+  });
 }
 
 /* ARRANQUE */
