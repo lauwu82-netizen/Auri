@@ -2130,4 +2130,6 @@ window.I18N = { en: {
   "Arriba van los reportes de cuentas con más antigüedad y actividad.": "Reports from older, more active accounts come first.",
   "Peso: {n}": "Weight: {n}",
   "Primero las que tienen reportes abiertos de cuentas con más peso. Abre una para ver las razones y decidir.": "Accounts with open reports from higher-weight accounts come first. Open one to see the reasons and decide.",
+  "Retro 2000 (por misión)": "Retro 2000 (by mission)",
+  "Insignia final de temporada": "Season final badge",
 } };
