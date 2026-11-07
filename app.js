@@ -2898,7 +2898,7 @@ function chapterView(cid) {
   ${st === 'rejected' && ch.reason ? `<p class="notice">${t('Rechazado: {reason}', { reason: esc(ch.reason) })}</p>` : ''}${ch.live ? `<p class="notice">${t('Mientras se revisa esta edición, los lectores siguen viendo la versión aprobada anterior.')}</p>` : ''}
   ${chCoverBox(ch)}
   <input id="w-ch-title" class="wf-title" data-cid="${ch.id}" value="${esc(ch.title)}" placeholder="${esc(t('Título del capítulo'))}">
-  <textarea id="w-ch-text" class="wf-text" data-cid="${ch.id}" placeholder="${esc(W.mode === 'chat' ? t('Toca 💬 Chat para añadir una conversación.') : t('Érase una vez…'))}">${esc(chToView(ch.text))}</textarea>${chatCards(ch)}
+  <textarea id="w-ch-text" class="wf-text" autocomplete="off" autocapitalize="sentences" data-cid="${ch.id}" placeholder="${esc(W.mode === 'chat' ? t('Toca 💬 Chat para añadir una conversación.') : t('Érase una vez…'))}">${esc(chToView(ch.text))}</textarea>${chatCards(ch)}
   <div class="fmt-bar" role="toolbar" aria-label="${esc(t('Formato del texto'))}"><button type="button" class="fmt-b" data-act="fmt" data-id="plain" aria-label="${esc(t('Texto normal'))}"><span>A</span></button><button type="button" class="fmt-b" data-act="fmt" data-id="bold" aria-label="${esc(t('Negrita'))}"><span style="font-weight:800">A</span></button><button type="button" class="fmt-b" data-act="fmt" data-id="italic" aria-label="${esc(t('Cursiva'))}"><span style="font-style:italic">A</span></button><span class="fmt-sep" aria-hidden="true"></span><button type="button" class="fmt-b fmt-al" data-act="scene-sep" aria-label="${esc(t('Separador de escena'))}" title="${esc(t('Separador de escena'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h6M15 12h6"/><path d="M12 8.5l3.5 3.5-3.5 3.5-3.5-3.5z"/></svg></button><button type="button" class="fmt-b fmt-chat" data-act="chat-add" aria-label="${esc(t('Añadir un chat'))}" title="${esc(t('Añadir un chat'))}">💬 <span>${t('Chat')}</span></button><span class="fmt-sep" aria-hidden="true"></span>${[['left', 'Alinear a la izquierda', '<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>'], ['c', 'Centrar', '<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>'], ['r', 'Alinear a la derecha', '<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>'], ['j', 'Justificar', '<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>']].map(a => `<button type="button" class="fmt-b fmt-al" data-act="align" data-id="${a[0]}" aria-label="${esc(t(a[1]))}" title="${esc(t(a[1]))}"><svg viewBox="0 0 24 24" aria-hidden="true">${a[2]}</svg></button>`).join('')}<span class="helper fmt-hint">${t('Selecciona texto o escribe para aplicar el formato')}</span></div>
   <footer class="wf-bottom"><details class="wf-music" ${ch.music ? 'open' : ''}><summary class="helper" style="cursor:pointer">🎵 ${t('Canción del capítulo (opcional)')}</summary><input id="w-ch-music" class="field" style="margin-top:8px" value="${esc(ch.music || '')}" placeholder="${esc(t('Enlace de YouTube, Spotify o un .mp3'))}"><span class="helper">${t('Quien lee decide si la reproduce. Se revisa junto con el capítulo.')} ${t('Cada capítulo tiene su propio enlace: la música se detiene al pasar al siguiente capítulo.')}</span></details>
   <div class="wf-actions"><span class="helper" id="w-count">${wc(ch.text)}</span><span class="wf-btns">${before ? `<button type="button" class="button ghost sm" data-act="ch-go" data-cid="${before.id}">‹ ${t('Cap. {n}', { n: i })}</button>` : ''}<button class="button secondary sm" data-act="save-draft">💾 ${t('Guardar borrador')}</button>${after ? `<button type="button" class="button sm" data-act="ch-go" data-cid="${after.id}">${t('Cap. {n}', { n: i + 2 })} ›</button>` : `<button type="button" class="button sm" data-act="ch-add">＋ ${t('Cap. {n}', { n: n + 1 })}</button>`}</span></div></footer></div>`;
@@ -4851,18 +4851,20 @@ function followCaret() {
     const ta = $('#w-ch-text'); if (!ta || document.activeElement !== ta) return;
     const vv = window.visualViewport, vt = vv ? vv.offsetTop : 0, vh = vv ? vv.height : window.innerHeight;
     const lh = parseFloat(getComputedStyle(ta).lineHeight) || 32, y = ta.getBoundingClientRect().top + caretBottom(ta);
-    const bottom = vt + vh - lh * 1.5, top = vt + 64 + lh;
+    const bar = $('.wf .fmt-bar'), bh = bar && bar.closest('.typing') ? bar.offsetHeight : 0, bottom = vt + vh - bh - lh * 1.5, top = vt + 64 + lh;
     if (y > bottom) window.scrollBy(0, y - bottom); else if (y < top) window.scrollBy(0, y - top);
   });
 }
 let TYPEOFF = 0;
 function setTyping(on) {
   const w = document.querySelector('.wf'); if (!w) return; clearTimeout(TYPEOFF);
-  if (on) { w.classList.add('typing'); kbVar(); } else TYPEOFF = setTimeout(() => { w.classList.remove('typing'); w.style.removeProperty('--kb'); }, 280);
+  if (on) { w.classList.add('typing'); kbVar(); } else TYPEOFF = setTimeout(() => { w.classList.remove('typing'); w.style.removeProperty('--kb'); w.style.removeProperty('--bt'); }, 280);
 }
 function kbVar() {
   const w = document.querySelector('.wf'), vv = window.visualViewport; if (!w) return;
   w.style.setProperty('--kb', (vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0) + 'px');
+  const bar = w.querySelector('.fmt-bar'), bh = bar ? bar.offsetHeight || 54 : 54;   // la barra se coloca justo encima del teclado, midiendo la parte visible real
+  w.style.setProperty('--bt', Math.max(0, (vv ? vv.offsetTop + vv.height : window.innerHeight) - bh) + 'px'); w.style.setProperty('--bh', bh + 'px');
 }
 document.addEventListener('focusin', e => { if (e.target.id === 'w-ch-text') { setTyping(true); setTimeout(followCaret, 120); setTimeout(followCaret, 420); setTimeout(followCaret, 800); } });
 document.addEventListener('focusout', e => { if (e.target.id === 'w-ch-text') setTyping(false); });
@@ -5704,29 +5706,55 @@ const VN_KW = {
   feliz: /\b(sonri[óo]|sonri[eé]|sonr[ií]e|r[ií]o|rieron|rio|reír|risa|feliz|felices|alegr\w*|content[ao]s?|abraz\w*|emocionad\w*|carcajad\w*)/i,
   triste: /\b(llor\w*|l[aá]grim\w*|trist\w*|sollo\w*|dolor\w*|apenad\w*|suspir\w*|melanc\w*|extra[ñn]\w*)/i,
   sonrojado: /\b(sonroj\w*|rubor\w*|mejillas|colorad[ao]s?|avergonz\w*|nervios\w*|tartamude\w*)/i,
-  asustado: /\b(miedo|asust\w*|temblar\w*|tembl\w*|p[aá]nico|grit[óo]|aterrad\w*|terror\w*|horror\w*|escalofr\w*)/i,
-  enojado: /\b(enoj\w*|furios\w*|rabia|ira|gru[ñn][ióo]\w*|apret[óo] los (pu[ñn]os|dientes)|furia|molest\w*|maldit\w*)/i
+  asustado: /\b(preocupad\w*|angusti\w*|miedo|asust\w*|temblar\w*|tembl\w*|p[aá]nico|grit[óo]|aterrad\w*|terror\w*|horror\w*|escalofr\w*)/i,
+  enojado: /\b(enoj\w*|enfad\w*|irritad\w*|furios\w*|rabia|ira|gru[ñn][ióo]\w*|apret[óo] los (pu[ñn]os|dientes)|furia|molest\w*|maldit\w*)/i
 };
 const vnEsc = n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function vnSentences(p) { return p.replace(/\s+/g, ' ').trim().split(/(?<=[.!?…»”"])\s+(?=[—«“"¿¡A-ZÁÉÍÓÚÑ])/).filter(x => x.trim()); }
-/** Guion de prueba: lista de tramos {text, who, emo, stage}. who = quién habla ('' si es narración) */
+const VN_TAGV = /\b(dij\w*|pregunt\w*|respond\w*|susurr\w*|grit\w*|murmur\w*|exclam\w*|contest\w*|a[ñn]adi\w*|replic\w*|musit\w*|coment\w*|explic\w*|sugiri\w*|insist\w*|admiti\w*|confes\w*|balbuce\w*|solt\w*|ironiz\w*|decl\w*|pens\w*|suspir\w*|sonri\w*|ri[óo]|asinti\w*)\b/i;
+const VN_EXIT = /\b(se fue|se march[óo]|sali[óo]|se alej[óo]|se retir[óo]|huy[óo]|se despidi[óo]|desapareci[óo]|se fueron|salieron)\b/i;
+/** Guion de prueba: lista de tramos {text, who, emo, stage}. who = quién habla ('' si es narración).
+    Los guiones largos (—Hola —dijo Ana—. ¿Todo bien?) se separan: lo hablado es diálogo y lo que va entre guiones es narración
+    (quién habla y cómo se siente); "Nombre: texto" también cuenta como diálogo. */
 function vnMock(text, names, rawParas) {
-  const out = [], rx = names.map(n => [n, new RegExp('(^|[^\\p{L}])' + vnEsc(n) + '(?![\\p{L}])', 'iu')]);
-  let last = '', stage = [];
+  const out = [], rx = names.map(n => [n, new RegExp('(^|[^\\p{L}])' + vnEsc(n) + '(?![\\p{L}])', 'iu')]), has = x => rx.filter(([, r]) => r.test(x)).map(([n]) => n);
+  let last = '', lastTalk = '', prevTalk = false, stage = [];
+  const emoOf = x => { for (const k of Object.keys(VN_KW)) if (VN_KW[k].test(x)) return k; return 'neutral'; };
+  const enter = n => { if (n) stage = [n, ...stage.filter(x => x !== n)].slice(0, 3); };
+  const push = (txt, who, emo, focus) => out.push({ text: txt, who, emo, stage: stage.slice(), focus: focus || who });
+  const pick = (tagNames, inSpeech) => {                // quién habla cuando no lo dice nadie claramente
+    if (tagNames[0]) return tagNames[0];
+    const cand = stage.filter(n => !inSpeech.includes(n));
+    if (prevTalk && lastTalk) return cand.find(n => n !== lastTalk) || stage.find(n => n !== lastTalk) || lastTalk;
+    if (last && !inSpeech.includes(last)) return last;
+    return cand[0] || last || '';
+  };
   String(text || '').split(/\n\s*\n/).forEach((p0, pi) => {
     let p = p0.trim(); if (!p) return;
-    if (/^::sep$/.test(p)) { out.push({ sep: true }); stage = []; return; }
+    if (/^::sep$/.test(p)) { out.push({ sep: true }); stage = []; prevTalk = false; return; }
     if (/^::chat /.test(p)) { const raw = rawParas && rawParas[pi], cht = raw && /^\s*::chat /.test(raw) ? chatParse(raw) : null; if (cht) out.push({ chat: true, pi, cht }); return; }
     p = p.replace(/^::[crj] /, '');
+    let prefix = ''; for (const [n] of rx) { const m = new RegExp('^' + vnEsc(n) + '\\s*:\\s*(.+)$', 'is').exec(p); if (m) { prefix = n; p = m[1]; break; } }
+    const dash = /^\s*[—–]/.test(p) || /^-\s/.test(p);
+    if (prefix || dash) {
+      const parts = prefix ? [p] : p.replace(/^\s*[—–-]\s*/, '').split(/\s*[—–]\s*|\s+-\s+/), segs = [];
+      parts.forEach((sg, k) => { sg = sg.trim(); if (!sg) return; const asSpeech = prefix || k % 2 === 0 || /^[¿¡A-ZÁÉÍÓÚÑ«“"]/.test(sg); segs.push({ sg: asSpeech ? sg.replace(/^[.,;:]\s*/, '') : sg, speech: !!asSpeech }); });
+      const tags = segs.filter(x => !x.speech).map(x => x.sg), tagNames = has(tags.join(' ')), inSpeech = has(segs.filter(x => x.speech).map(x => x.sg).join(' '));
+      const who = prefix || pick(tagNames, inSpeech), tagEmo = emoOf(tags.join(' '));
+      if (who) enter(who);
+      segs.forEach(x => {
+        if (x.speech) vnSentences(x.sg).forEach(sn => push(sn, who, tagEmo !== 'neutral' ? tagEmo : emoOf(sn), who));
+        else if (!(VN_TAGV.test(x.sg) && /^[a-záéíóúñ]/.test(x.sg))) vnSentences(x.sg).forEach(sn => push(sn, '', emoOf(sn), has(sn)[0] || who));   // narración suelta entre guiones
+      });
+      // el que habla entra a escena (se muestra al hablar); a quien solo nombran no
+      if (who) { last = who; lastTalk = who; } prevTalk = true; return;
+    }
     vnSentences(p).forEach(sn => {
-      const present = rx.filter(([, r]) => r.test(sn)).map(([n]) => n), talk = /^\s*[—«“"-]/.test(sn);
-      let who = '';
-      if (talk) who = present[0] || last || ''; else if (present.length) who = '';
-      if (talk && who) last = who;
-      else if (!talk && present.length) last = present[0];
-      [...present, ...(who ? [who] : [])].forEach(n => { stage = [n, ...stage.filter(x => x !== n)].slice(0, 3); });
-      let emo = 'neutral'; for (const k of Object.keys(VN_KW)) if (VN_KW[k].test(sn)) { emo = k; break; }
-      out.push({ text: sn, who, emo, stage: stage.slice(), focus: who || (present[0] || '') });
+      const present = has(sn), talk = /^\s*[«“"]/.test(sn);
+      if (talk) { const who = pick([], present); if (who) { enter(who); last = who; lastTalk = who; } prevTalk = true; push(sn, who, emoOf(sn), who); return; }
+      present.forEach(enter); if (present.length) last = present[0]; prevTalk = false;
+      push(sn, '', emoOf(sn), present[0] || '');
+      if (VN_EXIT.test(sn)) stage = stage.filter(n => !present.includes(n));
     });
   });
   return out;

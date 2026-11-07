@@ -985,7 +985,7 @@ a.icon-btn.bell{position:relative}
 
 /* 33. ESCRIBIR CON TECLADO, COMENTARIO RESALTADO Y BOTÓN "CONTINUAR MI PROGRESO" */
 .wf-done{display:none}
-.wf.typing{padding-bottom:calc(var(--kb,0px) + 96px)}
+.wf.typing{padding-bottom:calc(var(--kb,0px) + var(--bh,54px) + 90px)}
 .wf.typing .wf-bottom{display:none}
 .wf.typing [data-act="preview"]{display:none}
 .wf.typing .wf-done{display:inline-flex}
@@ -1583,7 +1583,7 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .font-opt{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;border:1.5px solid hsl(var(--border));background:transparent;color:inherit;text-align:left;font-size:13px}
 .font-opt b{font-size:24px;font-weight:600;line-height:1}.font-opt.on{border-color:hsl(var(--primary));background:hsl(var(--primary)/.1)}
 
-.wf.typing .fmt-bar{position:fixed;left:0;right:0;bottom:var(--kb,0px);z-index:45;padding:8px 16px calc(8px + env(safe-area-inset-bottom,0px));background:hsl(var(--background)/.98);border-top:1px solid hsl(var(--border));box-shadow:0 -6px 18px rgba(0,0,0,.08)}
+.wf.typing .fmt-bar{position:fixed;left:0;right:0;top:0;bottom:auto;transform:translateY(var(--bt,calc(100dvh - 60px)));z-index:45;padding:8px 16px;background:hsl(var(--background)/.98);border-top:1px solid hsl(var(--border));box-shadow:0 -6px 18px rgba(0,0,0,.08)}
 .wf.typing .fmt-hint{display:none}
 .wf:not(.typing) .fmt-bar{margin:6px 0 4px}
 
