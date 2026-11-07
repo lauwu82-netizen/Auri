@@ -5582,7 +5582,7 @@ function chtCheck() {
   sbApi('/rest/v1/rpc/mission_read', { method: 'POST', body: { p_story: su, p_pos: +m[2] - 1, p_secs: Math.round((Date.now() - CHT.t) / 1000) } }).then(() => { if (passOn()) msAll(true); });
 }
 /* Premios de ejemplo de cada pase (se cambian por los definitivos cuando estén los diseños) */
-const PASS_FREE = { 4: 'Insignia de temporada', 8: 'Insignia de temporada', 10: 'Retro 2000 (por misión)', 14: 'Insignia de temporada', 20: 'Insignia final de temporada' };
+const PASS_FREE = { 4: 'Insignia de temporada', 8: 'Insignia de temporada', 10: 'Gemas moradas ×5', 14: 'Retro 2000 (por misión)', 20: 'Insignia final de temporada' };
 const PASS_PAID = {
   reader: { 1: 'Halo de bienvenida', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador de San Valentín', 4: 'AuriGems ×10', 5: 'Decoración de perfil 1', 7: 'AuriGems ×10', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'AuriGems ×15', 11: 'Decoración de perfil 2', 13: 'AuriGems ×15', 14: 'Chat San Valentín · lila', 16: 'AuriGems ×20', 17: 'Mascota de San Valentín', 19: 'AuriGems ×20', 20: 'Título llamativo' },
   writer: { 1: 'Título de creador', 2: 'AuriCoins ×50', 3: 'Stickers del chat', 4: 'AuriGems ×10', 5: 'Marco de portada 1', 6: 'AuriCoins ×50', 8: 'Efectos del chat', 9: 'AuriGems ×10', 10: 'Cosmético de perfil de creador', 11: 'Impulso a destacados ×1', 12: 'AuriCoins ×75', 13: 'Marco de portada 2', 15: 'AuriGems ×15', 16: 'Portada de San Valentín', 17: 'AuriCoins ×75', 18: 'Ambiente por capítulo', 19: 'AuriGems ×15', 20: 'Portada de San Valentín 2 · AuriCoins ×100' }
