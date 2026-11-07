@@ -2178,4 +2178,11 @@ window.I18N = { en: {
   "CG en la siguiente escena": "CG in the next scene",
   "Preparando la ilustración…": "Preparing the illustration…",
   "Ilustración no disponible todavía": "Illustration not available yet",
+  "Quitar permiso de colaboración": "Remove collaboration permission",
+  "Hacer colaboradora": "Make collaborator",
+  "Cuenta marcada como colaboradora.": "Account marked as collaborator.",
+  "Permiso de colaboración retirado.": "Collaboration permission removed.",
+  "Cambió el permiso de colaboración": "Changed collaboration permission",
+  "Ahora eres colaboradora de Auri: puedes subir tus propias imágenes en el modo novela visual.": "You are now an Auri collaborator: you can upload your own images in visual novel mode.",
+  "Se retiró tu permiso de colaboración.": "Your collaboration permission was removed.",
 } };
