@@ -5,6 +5,7 @@
 //   { action: "script", chapter_id }            → analiza el capítulo con un modelo de texto y devuelve el guion
 //                                                (quién habla, emoción, quién está en escena, lugar) + fondos por lugar.
 //   { action: "cg", chapter_id, slot, desc, ref? } → genera una ilustración especial (CG) de esa escena.
+//   { action: "sprite", story_id, name, emo, desc?, ref? } → sprite de torso hacia arriba, postura natural, con foto de referencia opcional.
 //
 // MODO DE PRUEBA: mientras no exista el secreto REPLICATE_API_TOKEN, la función no llama a ninguna IA ni gasta nada.
 // Responde { mock: true } y la app usa su guion de prueba y una tarjeta en lugar del CG.
@@ -15,6 +16,7 @@
 //   VN_TEXT_MODELS  (por defecto "meta/meta-llama-3.1-405b-instruct")   modelos de texto que analizan, separados por coma: si el primero se niega, prueba el siguiente
 //   VN_BG_MODEL     (por defecto "stability-ai/sdxl")                  modelo de fondos
 //   VN_CG_MODEL     (por defecto "black-forest-labs/flux-kontext-pro") modelo de CG (admite imagen de referencia)
+//   VN_SPRITE_MODEL (sprites; por defecto el de CG) · VN_RMBG_MODEL (modelo que quita el fondo, vacío = no se usa; se elige en la prueba)
 //   VN_COST_TEXT / VN_COST_BG / VN_COST_CG   costo estimado en dólares por llamada (0.01 / 0.004 / 0.04)
 // Antes de cada generación se consulta vn_budget_ok (tope del mes y por cuenta) y después se anota en vn_usage.
 // =====================================================================
@@ -76,6 +78,30 @@ function parseScript(raw: string, cast: string[], emos: string[]): Array<Record<
   return out.length ? out : null;
 }
 
+/** Descripción de la cara de cada emoción para los sprites */
+const EMO_EN: Record<string, string> = { neutral: 'calm neutral expression', feliz: 'happy, gentle smile', triste: 'sad, watery eyes', sonrojado: 'blushing, shy', asustado: 'scared, wide eyes', enojado: 'angry, frowning', avergonzado: 'embarrassed, blushing' };
+
+/** Sprite de un personaje: de torso hacia arriba, postura natural, con foto de referencia opcional (solo la autoría del libro) */
+async function sprite(body: { story_id?: string; name?: string; emo?: string; desc?: string; ref?: string }, uid: string, URL_: string, H: Record<string, string>,
+  rpc: (fn: string, a: Record<string, unknown>) => Promise<any>, env: Env, TOKEN: string): Promise<Response> { // deno-lint-ignore no-explicit-any
+  const sid = String(body.story_id || ''); if (!/^[0-9a-f-]{36}$/i.test(sid)) return json({ error: 'story_id' }, 400);
+  const sr = await fetch(`${URL_}/rest/v1/stories?id=eq.${sid}&select=owner`, { headers: H }), st = sr.ok ? (await sr.json())[0] : null;
+  if (!st || st.owner !== uid) return json({ error: 'forbidden' }, 403);                    // solo la autoría genera sprites de sus personajes
+  const b = await rpc('vn_budget_ok', { p_uid: uid }); if (!(b && b.ok)) return json({ error: 'budget', reason: b ? b.reason : 'unknown' }, 429);
+  const emo = EMO_EN[String(body.emo || 'neutral')] || EMO_EN.neutral, ref = /^https:\/\//.test(String(body.ref || '')) ? String(body.ref) : '';
+  const prompt = 'Visual novel character sprite, bust-up shot from the torso up, natural relaxed posture, facing the viewer, arms relaxed, ' + emo +
+    ', plain solid light gray background, nothing else in the image, no text, single character, clean anime style. ' + String(body.desc || '').slice(0, 300) +
+    (ref ? ' Keep exactly the same character as in the reference image: same face, hair, eye color, outfit and colors.' : '');
+  const input: Record<string, unknown> = { prompt }; if (ref) input.input_image = ref;
+  try {
+    let url = firstUrl(await replicate(env.VN_SPRITE_MODEL || env.VN_CG_MODEL || 'black-forest-labs/flux-kontext-pro', input, TOKEN)); if (!url) throw new Error('sin imagen');
+    await rpc('vn_usage_add', { p_uid: uid, p_kind: 'cg', p_cost: Number(env.VN_COST_CG) > 0 ? Number(env.VN_COST_CG) : 0.04, p_detail: 'sprite ' + String(body.name || '').slice(0, 40) });
+    let transparent = false;                                                                  // quitar el fondo (si se configuró un modelo para eso) para que el sprite no lleve rectángulo
+    if (env.VN_RMBG_MODEL) { try { const u2 = firstUrl(await replicate(env.VN_RMBG_MODEL, { image: url }, TOKEN)); if (u2) { url = u2; transparent = true; await rpc('vn_usage_add', { p_uid: uid, p_kind: 'other', p_cost: 0.01, p_detail: 'quitar fondo' }); } } catch (e) { console.error('rmbg', e); } }
+    return json({ url, transparent });
+  } catch (e) { console.error('sprite', e); await rpc('vn_usage_add', { p_uid: uid, p_kind: 'retry', p_cost: 0.002, p_detail: 'sprite falló' }); return json({ failed: true }); }
+}
+
 export async function handle(req: Request, env: Env): Promise<Response> {
   try { return await run(req, env); }
   catch (e) { console.error('vn-generate', e); return json({ error: 'exception', detail: String((e as Error).message || e) }, 500); }
@@ -90,13 +116,13 @@ async function run(req: Request, env: Env): Promise<Response> {
   const ur = await fetch(URL_ + '/auth/v1/user', { headers: { apikey: ANON, Authorization: auth } });
   if (!ur.ok) return json({ error: 'auth' }, 401);
   const user = await ur.json();
-  let body: { action?: string; chapter_id?: string; slot?: number; desc?: string; ref?: string } = {}; try { body = await req.json(); } catch { /* vacío */ }
-  const cid = String(body.chapter_id || ''); if (!/^[0-9a-f-]{36}$/i.test(cid)) return json({ error: 'chapter_id' }, 400);
-  if (body.action !== 'script' && body.action !== 'cg') return json({ error: 'action' }, 400);
+  let body: { action?: string; chapter_id?: string; story_id?: string; name?: string; emo?: string; slot?: number; desc?: string; ref?: string } = {}; try { body = await req.json(); } catch { /* vacío */ }
+  if (body.action !== 'script' && body.action !== 'cg' && body.action !== 'sprite') return json({ error: 'action' }, 400);
   if (!TOKEN) return json({ mock: true });                                            // sin llave: no se hace ni se gasta nada
-
   const H = { apikey: SVC, Authorization: 'Bearer ' + SVC, 'Content-Type': 'application/json' };
   const rpc = async (fn: string, args: Record<string, unknown>) => { const r = await fetch(`${URL_}/rest/v1/rpc/${fn}`, { method: 'POST', headers: H, body: JSON.stringify(args) }); return r.ok ? await r.json().catch(() => null) : null; };
+  if (body.action === 'sprite') return await sprite(body, user.id, URL_, H, rpc, env, TOKEN);
+  const cid = String(body.chapter_id || ''); if (!/^[0-9a-f-]{36}$/i.test(cid)) return json({ error: 'chapter_id' }, 400);
   const cr = await fetch(`${URL_}/rest/v1/chapters?id=eq.${cid}&select=id,story_id,title,text,status,stories(owner,mature)`, { headers: H });
   const ch = cr.ok ? (await cr.json())[0] : null; if (!ch) return json({ error: 'not_found' }, 404);
   if (ch.status !== 'approved' && ch.stories?.owner !== user.id) return json({ error: 'forbidden' }, 403);      // solo capítulos publicados (o los tuyos)
