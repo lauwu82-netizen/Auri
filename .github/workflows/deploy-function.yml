@@ -18,3 +18,6 @@ jobs:
       - run: supabase functions deploy moderate-image --project-ref gnhhxvqjtvchjmtizzua --use-api --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      - run: supabase functions deploy vn-generate --project-ref gnhhxvqjtvchjmtizzua --use-api --yes
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

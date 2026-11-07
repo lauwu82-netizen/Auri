@@ -2744,3 +2744,9 @@ html.lite .amb{display:none}
 
 /* 113. Botón para pasar del texto a la novela visual */
 .vnr-switch{display:flex;width:max-content;margin:0 0 14px auto}
+
+/* 114. CG (ilustración especial) en el lector */
+.vnr-cgimg{position:absolute;inset:0 0 0 0;background:center/contain no-repeat;animation:vnrIn .6s ease both}
+.vnr-cgimg.ph{display:grid;place-items:center;padding:24px;text-align:center;color:rgba(255,255,255,.7);font-size:14px;background:radial-gradient(circle at 50% 40%,rgba(199,125,255,.22),transparent 65%)}
+@keyframes vnrIn{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.vnr-cgimg{animation:none}}

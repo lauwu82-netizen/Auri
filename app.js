@@ -2264,6 +2264,14 @@ const pcKey = (sid, ci, pi) => sid + '|' + ci + '|' + pi;
 const pcAll = () => G.get('pcom', {});
 const pcPara = (sid, ci, pi) => { const s = findStory(sid), ch = s && s.chapters.find(c => c.idx === ci); return ch ? paraSplit(ch.text)[pi] : undefined; };
 const pcList = (sid, ci, pi, all = pcAll()) => { const t = pcPara(sid, ci, pi); return t === undefined ? [] : (all[pcKey(sid, ci, pi)] || []).filter(c => c.q === pQ(t)); };
+/** Marca un momento de CG (ilustración especial) con su descripción: ::cg descripción. Máximo 3 por capítulo */
+function insertCg() {
+  const ta = $('#w-ch-text'); if (!ta) return;
+  if ((ta.value.match(/^::cg /gm) || []).length >= 3) return toast(t('Máximo 3 CG por capítulo.'));
+  const a0 = ta.selectionEnd; insertBlock('::cg ');
+  const i = ta.value.indexOf('::cg ', a0); if (i >= 0) ta.setSelectionRange(i + 5, i + 5);
+  toast(t('Escribe en esa línea qué pasa en la escena (quién, dónde y qué hacen).'));
+}
 function insertSep() { insertBlock('::sep'); }                 // inserta un separador de escena como párrafo propio
 function applyAlign(kind) {                            // alinea el párrafo (o los párrafos seleccionados): se guarda como ::c  ::r  ::j al inicio
   const ta = $('#w-ch-text'); if (!ta) return; ta.focus();
@@ -2733,6 +2741,7 @@ function readerText(text, on, pc) {
   return `<div class="reader-text">${(on ? fillHE(fillTN(text, name), S.character) : text).split(/\n\s*\n/).map((p, i) => {
     const n = all && cfg('pcom') === 'dots' ? (all[pcKey(pc.sid, pc.ci, i)] || []).filter(c => c.q === pQ(raw[i])).length : 0;
     if (/^\s*::sep\s*$/.test(p)) return sepHTML('scene-sep');
+    if (/^\s*::cg( |$)/.test(p)) return '';             // los CG solo se ven en la novela visual
     const cht = /^\s*::chat /.test(raw[i] || '') ? chatParse(raw[i]) : null; if (cht) return chatCard(cht, on, pc, i);
     if (!p.trim()) return '';                        // párrafos vacíos (líneas en blanco de más): no dibujan nada
     const am = /^::([crj]) /.exec(p); let h = fmtText(esc(am ? p.slice(4) : p)); if (first) { first = false; h = dcap(h); }
@@ -2899,7 +2908,7 @@ function chapterView(cid) {
   ${chCoverBox(ch)}
   <input id="w-ch-title" class="wf-title" data-cid="${ch.id}" value="${esc(ch.title)}" placeholder="${esc(t('Título del capítulo'))}">
   <textarea id="w-ch-text" class="wf-text" autocomplete="off" autocapitalize="sentences" data-cid="${ch.id}" placeholder="${esc(W.mode === 'chat' ? t('Toca 💬 Chat para añadir una conversación.') : t('Érase una vez…'))}">${esc(chToView(ch.text))}</textarea>${chatCards(ch)}
-  <div class="fmt-bar" role="toolbar" aria-label="${esc(t('Formato del texto'))}"><button type="button" class="fmt-b" data-act="fmt" data-id="plain" aria-label="${esc(t('Texto normal'))}"><span>A</span></button><button type="button" class="fmt-b" data-act="fmt" data-id="bold" aria-label="${esc(t('Negrita'))}"><span style="font-weight:800">A</span></button><button type="button" class="fmt-b" data-act="fmt" data-id="italic" aria-label="${esc(t('Cursiva'))}"><span style="font-style:italic">A</span></button><span class="fmt-sep" aria-hidden="true"></span><button type="button" class="fmt-b fmt-al" data-act="scene-sep" aria-label="${esc(t('Separador de escena'))}" title="${esc(t('Separador de escena'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h6M15 12h6"/><path d="M12 8.5l3.5 3.5-3.5 3.5-3.5-3.5z"/></svg></button><button type="button" class="fmt-b fmt-chat" data-act="chat-add" aria-label="${esc(t('Añadir un chat'))}" title="${esc(t('Añadir un chat'))}">💬 <span>${t('Chat')}</span></button><span class="fmt-sep" aria-hidden="true"></span>${[['left', 'Alinear a la izquierda', '<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>'], ['c', 'Centrar', '<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>'], ['r', 'Alinear a la derecha', '<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>'], ['j', 'Justificar', '<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>']].map(a => `<button type="button" class="fmt-b fmt-al" data-act="align" data-id="${a[0]}" aria-label="${esc(t(a[1]))}" title="${esc(t(a[1]))}"><svg viewBox="0 0 24 24" aria-hidden="true">${a[2]}</svg></button>`).join('')}<span class="helper fmt-hint">${t('Selecciona texto o escribe para aplicar el formato')}</span></div>
+  <div class="fmt-bar" role="toolbar" aria-label="${esc(t('Formato del texto'))}"><button type="button" class="fmt-b" data-act="fmt" data-id="plain" aria-label="${esc(t('Texto normal'))}"><span>A</span></button><button type="button" class="fmt-b" data-act="fmt" data-id="bold" aria-label="${esc(t('Negrita'))}"><span style="font-weight:800">A</span></button><button type="button" class="fmt-b" data-act="fmt" data-id="italic" aria-label="${esc(t('Cursiva'))}"><span style="font-style:italic">A</span></button><span class="fmt-sep" aria-hidden="true"></span><button type="button" class="fmt-b fmt-al" data-act="scene-sep" aria-label="${esc(t('Separador de escena'))}" title="${esc(t('Separador de escena'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h6M15 12h6"/><path d="M12 8.5l3.5 3.5-3.5 3.5-3.5-3.5z"/></svg></button><button type="button" class="fmt-b fmt-chat" data-act="chat-add" aria-label="${esc(t('Añadir un chat'))}" title="${esc(t('Añadir un chat'))}">💬 <span>${t('Chat')}</span></button>${vnOn() && W.mode !== 'chat' ? `<button type="button" class="fmt-b fmt-chat" data-act="cg-add" aria-label="${esc(t('Añadir un CG (ilustración especial)'))}" title="${esc(t('Añadir un CG (ilustración especial)'))}">🎬 <span>CG</span></button>` : ''}<span class="fmt-sep" aria-hidden="true"></span>${[['left', 'Alinear a la izquierda', '<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>'], ['c', 'Centrar', '<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>'], ['r', 'Alinear a la derecha', '<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>'], ['j', 'Justificar', '<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>']].map(a => `<button type="button" class="fmt-b fmt-al" data-act="align" data-id="${a[0]}" aria-label="${esc(t(a[1]))}" title="${esc(t(a[1]))}"><svg viewBox="0 0 24 24" aria-hidden="true">${a[2]}</svg></button>`).join('')}<span class="helper fmt-hint">${t('Selecciona texto o escribe para aplicar el formato')}</span></div>
   <footer class="wf-bottom"><details class="wf-music" ${ch.music ? 'open' : ''}><summary class="helper" style="cursor:pointer">🎵 ${t('Canción del capítulo (opcional)')}</summary><input id="w-ch-music" class="field" style="margin-top:8px" value="${esc(ch.music || '')}" placeholder="${esc(t('Enlace de YouTube, Spotify o un .mp3'))}"><span class="helper">${t('Quien lee decide si la reproduce. Se revisa junto con el capítulo.')} ${t('Cada capítulo tiene su propio enlace: la música se detiene al pasar al siguiente capítulo.')}</span></details>
   <div class="wf-actions"><span class="helper" id="w-count">${wc(ch.text)}</span><span class="wf-btns">${before ? `<button type="button" class="button ghost sm" data-act="ch-go" data-cid="${before.id}">‹ ${t('Cap. {n}', { n: i })}</button>` : ''}<button class="button secondary sm" data-act="save-draft">💾 ${t('Guardar borrador')}</button>${after ? `<button type="button" class="button sm" data-act="ch-go" data-cid="${after.id}">${t('Cap. {n}', { n: i + 2 })} ›</button>` : `<button type="button" class="button sm" data-act="ch-add">＋ ${t('Cap. {n}', { n: n + 1 })}</button>`}</span></div></footer></div>`;
 }
@@ -5311,7 +5320,7 @@ document.addEventListener('click', e => {
     'fmt': () => applyFmt(id),
     'align': () => applyAlign(id),
     'scene-sep': () => insertSep(),
-    'chat-add': () => chatPick(), 'chat-edit': () => ceOpen(id), 'chat-open': () => chatOpen(el.dataset.key),
+    'chat-add': () => chatPick(), 'cg-add': () => insertCg(), 'chat-edit': () => ceOpen(id), 'chat-open': () => chatOpen(el.dataset.key),
     'ce-close': () => ceClose(), 'ce-done': () => ceDone(), 'ce-send': () => ceSend(),
     'ce-who': () => { if (!CE) return; CE.who = +id; document.querySelectorAll('.ce-chip').forEach(b => { const on = +b.dataset.id === CE.who; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); const tb = $('#ce-tplbox'); if (tb) tb.innerHTML = ceTpl(); const ta = $('#ce-txt'); if (ta) { ta.placeholder = CE.who === -3 ? t('Escribe la narración…') : t('Escribe un mensaje…'); ta.focus(); } },
     'ce-padd': () => { if (!CE || CE.c.p.length >= 12) return; CE.c.p.push({ n: '', av: '' }); ceRender(); const l = document.querySelectorAll('.ce-pn'); if (l.length) l[l.length - 1].focus(); },
@@ -5718,7 +5727,7 @@ const VN_EXIT = /\b(se fue|se march[óo]|sali[óo]|se alej[óo]|se retir[óo]|hu
     (quién habla y cómo se siente); "Nombre: texto" también cuenta como diálogo. */
 function vnMock(text, names, rawParas) {
   const out = [], rx = names.map(n => [n, new RegExp('(^|[^\\p{L}])' + vnEsc(n) + '(?![\\p{L}])', 'iu')]), has = x => rx.filter(([, r]) => r.test(x)).map(([n]) => n);
-  let last = '', lastTalk = '', prevTalk = false, stage = [];
+  let last = '', lastTalk = '', prevTalk = false, stage = [], cgN = 0;
   const emoOf = x => { for (const k of Object.keys(VN_KW)) if (VN_KW[k].test(x)) return k; return 'neutral'; };
   const enter = n => { if (n) stage = [n, ...stage.filter(x => x !== n)].slice(0, 3); };
   const push = (txt, who, emo, focus) => out.push({ text: txt, who, emo, stage: stage.slice(), focus: focus || who });
@@ -5733,6 +5742,7 @@ function vnMock(text, names, rawParas) {
     let p = p0.trim(); if (!p) return;
     if (/^::sep$/.test(p)) { out.push({ sep: true }); stage = []; prevTalk = false; return; }
     if (/^::chat /.test(p)) { const raw = rawParas && rawParas[pi], cht = raw && /^\s*::chat /.test(raw) ? chatParse(raw) : null; if (cht) out.push({ chat: true, pi, cht }); return; }
+    if (/^::cg( |$)/.test(p)) { if (++cgN <= 3) out.push({ cg: true, slot: cgN, desc: p.replace(/^::cg\s*/, '').trim() }); return; }
     p = p.replace(/^::[crj] /, '');
     let prefix = ''; for (const [n] of rx) { const m = new RegExp('^' + vnEsc(n) + '\\s*:\\s*(.+)$', 'is').exec(p); if (m) { prefix = n; p = m[1]; break; } }
     const dash = /^\s*[—–]/.test(p) || /^-\s/.test(p);
@@ -5779,12 +5789,13 @@ function vnrPaginate(el) {
   const lines = x => { meas.textContent = x; return Math.round(meas.scrollHeight / lh); }, pages = [];
   VNR.script.forEach((sg, si) => {
     if (sg.sep) return pages.push({ sep: true, si, off: 0 });
+    if (sg.cg) { pages.push({ cg: 'intro', slot: sg.slot, desc: sg.desc, si, off: 0 }); return pages.push({ cg: 'show', slot: sg.slot, desc: sg.desc, si, off: 0 }); }
     if (sg.chat) { const key = chatKeyOf(VNR, sg); return pages.push({ chat: true, key, title: chatTitle(CHC.get(key) || sg.cht), si, off: 0 }); }
     let cur = '', off = 0, words = 0; const flush = () => { if (cur) pages.push({ ...sg, text: cur, si, off }); cur = ''; };
     sg.text.split(' ').forEach(w => { const tr = cur ? cur + ' ' + w : w; if (cur && lines(tr) > 5) { flush(); cur = w; off = words; } else cur = tr; words++; });
     flush();
   });
-  const merged = []; pages.forEach(p => { const q = merged[merged.length - 1]; if (q && !p.sep && !q.sep && !p.chat && !q.chat && q.who === p.who && q.emo === p.emo && q.focus === p.focus && lines(q.text + ' ' + p.text) <= 5) { q.text += ' ' + p.text; q.stage = p.stage; } else merged.push(p); });
+  const merged = []; pages.forEach(p => { const q = merged[merged.length - 1]; if (q && !p.sep && !q.sep && !p.chat && !q.chat && !p.cg && !q.cg && q.who === p.who && q.emo === p.emo && q.focus === p.focus && lines(q.text + ' ' + p.text) <= 5) { q.text += ' ' + p.text; q.stage = p.stage; } else merged.push(p); });
   return merged;
 }
 async function vnrBoot(sid, n) {
@@ -5794,7 +5805,7 @@ async function vnrBoot(sid, n) {
   const oc = s.useReaderCharacter ? S.character : null, ocName = oc && oc.name ? oc.name : '';
   const text = s.useReaderCharacter ? fillHE(fillTN(ch.text, ocName || t('Lectora')), S.character) : ch.text, rawParas = paraSplit(ch.text);
   const cast = {}; rows.forEach(c => { cast[c.name] = c; }); if (ocName && !cast[ocName]) cast[ocName] = { name: ocName, sprites: (oc && oc.sprites) || {}, adult: true, me: true };
-  VNR = { sid, n: +n, ch, s, cast, script: vnMock(text, Object.keys(cast), rawParas), pages: [], i: 0, order: [], next: s.chapters.find(c => c.idx === ch.idx + 1), adj: (vnLocalAdj()[sid] || {}) };
+  VNR = { sid, n: +n, ch, s, cast, script: vnMock(text, Object.keys(cast), rawParas), cgs: {}, pages: [], i: 0, order: [], next: s.chapters.find(c => c.idx === ch.idx + 1), adj: (vnLocalAdj()[sid] || {}) };
   VNR.pages = vnrPaginate(el);
   try { if (localStorage.getItem('auri.vnHint') === '1') el.querySelector('.vnr-hint').hidden = true; } catch (e) { /* ignorar */ }
   el.querySelector('.vnr-tap').addEventListener('click', ev => { if (ev.target.closest('[data-vnchat]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.key) chatOpen(pg.key); return; } const r = el.getBoundingClientRect(), left = ev.clientX - r.left < r.width * 0.28; vnrGo(left ? -1 : 1); try { localStorage.setItem('auri.vnHint', '1'); } catch (e) { /* ignorar */ } el.querySelector('.vnr-hint').hidden = true; });
@@ -5810,6 +5821,14 @@ function vnrGo(d) {
   if (j < 0) return; if (j >= VNR.pages.length) { if (VNR.next) { goReplace('/vnr/' + VNR.sid + '/' + (VNR.n + 1)); } else go('/story/' + VNR.sid + '/fin'); return; }
   VNR.i = j; vnrDraw(); const pg = VNR.pages[j]; if (d > 0 && pg && pg.chat && pg.key) chatOpen(pg.key);
 }
+/** Pide el CG al servidor la primera vez que se llega a él (sin llave de IA responde "mock" y no se gasta nada) */
+async function vnrCgLoad(slot, desc) {
+  if (!VNR) return; const c = VNR.cgs[slot] = VNR.cgs[slot] || {}; if (c.state) return; c.state = 'loading';
+  const cu = cUuid(VNR.sid, VNR.ch.id); let r = null;
+  const oc = VNR.cast[(S.character && S.character.name) || ''], ref = oc && oc.sprites && Object.values(oc.sprites).find(u => /^https:\/\//.test(u));
+  try { if (cu) r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'cg', chapter_id: cu, slot, desc, ...(ref ? { ref } : {}) } }); } catch (e) { r = null; }
+  const d = r && r.ok && r.data || {}; c.url = d.url || ''; c.state = c.url ? 'ok' : 'none'; if (c.wait) c.wait();
+}
 function vnrSprite(c, emo) { const sp = (c && c.sprites) || {}; return sp[emo] || sp.neutral || Object.values(sp)[0] || ''; }
 const vnrAdjOf = n => vnAdjOk(VNR.adj[n] || (VNR.cast[n] && VNR.cast[n].adj && Object.keys(VNR.cast[n].adj).length ? VNR.cast[n].adj : null));
 const vnrXs = k => k <= 1 ? [50] : k === 2 ? [31, 69] : [19, 50, 81];
@@ -5819,6 +5838,14 @@ function vnrDraw() {
   const stage = el.querySelector('.vnr-stage'), who = el.querySelector('.vnr-who'), tx = el.querySelector('.vnr-box .vnr-text');
   if (pg.sep) { VNR.order = []; stage.innerHTML = ''; who.textContent = ''; tx.textContent = '· · ·'; return; }
   if (pg.chat) { stage.classList.add('dim'); who.hidden = false; who.textContent = t('Mensajes'); tx.innerHTML = `${esc(pg.title || '')}<br><button type="button" class="button ghost sm vnr-openchat" data-vnchat>${t('Abrir chat')}</button>`; return; }
+  if (pg.cg) {
+    VNR.order = []; stage.innerHTML = ''; stage.classList.remove('dim'); who.hidden = false; who.textContent = '🎬 CG';
+    if (pg.cg === 'intro') { tx.textContent = t('CG en la siguiente escena'); vnrCgLoad(pg.slot, pg.desc); return; }
+    const c = VNR.cgs[pg.slot] || {}, d = document.createElement('div'); d.className = 'vnr-cgimg' + (c.url ? '' : ' ph');
+    if (c.url) d.style.backgroundImage = `url("${String(c.url).replace(/["\\\n]/g, '')}")`; else d.textContent = c.state === 'loading' ? t('Preparando la ilustración…') : t('Ilustración no disponible todavía');
+    stage.appendChild(d); tx.textContent = pg.desc || ''; if (!c.url && c.state === 'loading') c.wait = () => { if (VNR && VNR.pages[VNR.i] === pg) vnrDraw(); }; return;
+  }
+  stage.querySelectorAll('.vnr-cgimg').forEach(x => x.remove());
   stage.classList.remove('dim');
   const on = (pg.stage || []).slice(); VNR.order = VNR.order.filter(n => on.includes(n)); on.forEach(n => { if (!VNR.order.includes(n)) VNR.order.push(n); });
   const xs = vnrXs(VNR.order.length), have = new Map([...stage.children].map(c => [c.dataset.n, c]));

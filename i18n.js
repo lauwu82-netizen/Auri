@@ -2172,4 +2172,10 @@ window.I18N = { en: {
   "Gemas moradas ×5": "Purple gems ×5",
   "Gemas moradas ×3": "Purple gems ×3",
   "Abrir chat": "Open chat",
+  "Añadir un CG (ilustración especial)": "Add a CG (special illustration)",
+  "Máximo 3 CG por capítulo.": "Maximum 3 CGs per chapter.",
+  "Escribe en esa línea qué pasa en la escena (quién, dónde y qué hacen).": "On that line, write what happens in the scene (who, where and what they do).",
+  "CG en la siguiente escena": "CG in the next scene",
+  "Preparando la ilustración…": "Preparing the illustration…",
+  "Ilustración no disponible todavía": "Illustration not available yet",
 } };
