@@ -2686,3 +2686,24 @@ html.lite .amb{display:none}
 
 .cf-vn{margin:10px 0;padding:10px 12px;border-radius:14px;border:1px solid color-mix(in srgb,hsl(var(--primary)) 18%,transparent)}
 .cf-vn summary{cursor:pointer;font-weight:700}
+
+/* 111 · Novela visual · lector */
+.vnr{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;background:#120d1f;color:#fff;overflow:hidden}
+.vnr-bg{position:absolute;inset:0;background:linear-gradient(160deg,#3a2a66,#1b1233 60%,#0e0a1a) center/cover;filter:blur(18px) saturate(.9);transform:scale(1.15);opacity:.55}
+.vnr-shade{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(10,6,20,.25),rgba(10,6,20,.55) 55%,rgba(10,6,20,.9))}
+.vnr-top{position:relative;z-index:2;display:flex;justify-content:space-between;gap:8px;padding:max(10px,env(safe-area-inset-top)) 12px 6px}
+.vnr-top .button{color:#fff;border-color:rgba(255,255,255,.3)}
+.vnr-prog{position:relative;z-index:2;height:3px;margin:0 12px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden}
+.vnr-prog i{display:block;height:100%;width:0;background:rgba(255,255,255,.75);transition:width .3s ease}
+.vnr-tap{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;justify-content:flex-end;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.vnr-stage{flex:1;display:flex;align-items:flex-end;justify-content:center;gap:8px;padding:0 10px;min-height:0}
+.vnr-ch{flex:1 1 0;max-width:34%;height:100%;display:flex;align-items:flex-end;justify-content:center;opacity:.5;filter:saturate(.7) brightness(.85);transition:opacity .35s ease,filter .35s ease}
+.vnr-ch.on{opacity:1;filter:none}
+.vnr-ch img{max-width:100%;max-height:100%;object-fit:contain;object-position:bottom}
+.vnr-ini{display:grid;place-items:center;width:84px;height:84px;margin-bottom:12px;border-radius:50%;background:rgba(255,255,255,.14);font:700 34px/1 var(--font-title,serif)}
+.vnr-box{margin:8px 12px max(14px,env(safe-area-inset-bottom));padding:14px 16px 16px;border-radius:20px;background:rgba(18,12,32,.82);border:1px solid rgba(255,255,255,.12);min-height:150px;position:relative}
+.vnr-who{display:block;margin-bottom:6px;font-size:13px;letter-spacing:.04em;color:#d9c9ff}
+.vnr-text{margin:0;font-size:17px;line-height:1.5;white-space:pre-wrap}
+.vnr-hint{position:absolute;right:14px;bottom:6px;font-size:11px;opacity:.5}
+.vnr-meas{position:absolute;left:12px;right:12px;visibility:hidden;pointer-events:none;padding:0 16px;margin:0;top:0;z-index:-1}
+@media (prefers-reduced-motion:reduce){.vnr-ch,.vnr-prog i{transition:none}}

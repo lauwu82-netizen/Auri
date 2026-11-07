@@ -2161,4 +2161,6 @@ window.I18N = { en: {
   "Sprites para novela visual": "Visual novel sprites",
   "Personajes con sprites, fondos y reacciones para quien lea en este modo.": "Characters with sprites, backgrounds and reactions for people reading in this mode.",
   "Configurar": "Set up",
+  "Leer en novela visual": "Read as a visual novel",
+  "Leer como texto": "Read as text",
 } };

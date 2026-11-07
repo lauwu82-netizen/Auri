@@ -744,7 +744,7 @@ const PHASES = ['ongoing', 'paused', 'finished'], CH_ST = ['draft', 'pending', '
 const infoSig = l => hsh(JSON.stringify([l.title || '', l.synopsis || '', l.genre || '', l.fandom || '', l.tags || [], l.cover || '', !!l.mature, l.phase || 'ongoing', l.prev || '', l.useReaderCharacter !== false, !!l.private, ...(l.mode === 'chat' ? ['chat'] : [])]));
 const contSig = c => hsh([c.title || '', c.text || '', c.cover || '', c.music || ''].join('\u0001'));
 const sameCont = (c, r) => (c.title || '') === (r.title || '') && (c.text || '') === (r.text || '') && (c.cover || '') === (r.cover || '') && (c.music || '') === (r.music || '');
-const infoFromRow = r => ({ title: r.title, synopsis: r.synopsis || '', genre: r.genre || '', fandom: r.fandom || '', tags: r.tags || [], warns: Array.isArray(r.warnings) ? r.warnings : [], cover: r.cover || '', mature: !!r.mature, phase: r.phase || 'ongoing', prev: r.prev ? sBack(r.prev) : '', useReaderCharacter: r.use_reader_character !== false, private: !!r.private, mode: r.mode === 'chat' ? 'chat' : 'trad', views: r.views | 0 });
+const infoFromRow = r => ({ title: r.title, synopsis: r.synopsis || '', genre: r.genre || '', fandom: r.fandom || '', tags: r.tags || [], warns: Array.isArray(r.warnings) ? r.warnings : [], cover: r.cover || '', mature: !!r.mature, phase: r.phase || 'ongoing', prev: r.prev ? sBack(r.prev) : '', useReaderCharacter: r.use_reader_character !== false, private: !!r.private, mode: r.mode === 'chat' ? 'chat' : 'trad', vn: !!r.vn, views: r.views | 0 });
 const day = v => String(v || '').slice(0, 10);
 let SB_BUSY = false, SB_ST, SB_QUIET = false, SB_Q = { all: false, st: false, soc: new Set() };
 function sbStoriesSoon() { if (!cloud() || !sbSes() || SB_QUIET) return; SB_Q.st = true; clearTimeout(SB_ST); SB_ST = setTimeout(() => sbRefresh({ st: true }), 1500); }
@@ -3114,6 +3114,7 @@ function storyDetail(s, mine) {
   ${staffBar(s, mine)}
   ${mine && statusNote(ownOf(s)) ? `<p class="notice">${esc(statusNote(ownOf(s)))}</p>` : ''}
   <a class="button" data-replace data-dir="next" ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} style="width:100%;max-width:420px" href="#/story/${esc(s.id)}/${next.idx + 1}">${!read.length && !at ? t('Empezar a leer') : all ? t('Leer otra vez') : t('Continuar: cap. {n}', { n: next.idx + 1 })}</a>
+  ${vnReadBtn(s, next)}
   <div class="row-btns"><button type="button" class="ic-btn like-btn ${likes(s.id).includes(S.user) ? 'on' : ''}" data-act="like" data-id="${esc(s.id)}" aria-pressed="${likes(s.id).includes(S.user)}" aria-label="${esc(likes(s.id).includes(S.user) ? t('Quitar me gusta') : t('Me gusta'))}" title="${esc(t('Me gusta'))}">${HEART}</button><button type="button" class="ic-btn fav-btn ${fav ? 'on' : ''}" data-act="fav" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(fav ? t('En favoritos') : t('Favorito'))}" title="${esc(t('Favorito'))}"><svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.85 5.78 6.38.93-4.62 4.5 1.09 6.35L12 17.36l-5.7 3 1.09-6.35-4.62-4.5 6.38-.93L12 2.8z"/></svg></button><button class="button secondary" data-act="lib-toggle" data-id="${esc(s.id)}">${S.lib.includes(s.id) ? '✓ ' + t('En tu biblioteca') : '📚 ' + t('Guardar en biblioteca')}</button>${mine ? `<a class="ic-btn edit-btn" href="#/write/${esc(s.id)}" aria-label="${esc(t('Editar'))}" title="${esc(t('Editar'))}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19l-4 1z"/><path d="m14.5 6.5 3 3"/></svg></a>` : `<button class="button ghost" data-act="report-story" data-id="${esc(s.id)}">${t('Reportar')}</button>${imgrOk(s.cover) ? `<button class="button ghost" data-act="report-img" data-id="${esc(s.id)}">${t('Reportar portada')}</button>` : ''}`}</div>${imgrPanel(s)}
   <details class="ch-index"><summary>${t('Capítulos ({n})', { n: s.chapters.length })}</summary>${s.chapters.map(c => `<a data-replace ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} href="#/story/${esc(s.id)}/${c.idx + 1}"><b>${read.includes(c.idx) ? '✓' : c.idx + 1}</b><span>${esc(c.title || t('Capítulo {n}', { n: c.idx + 1 }))}${mine && c.status !== 'approved' ? ` (${t(CH_STATUS[c.status]).toLowerCase()})` : ''}</span></a>`).join('')}</details>
   </section></main>`;
@@ -3309,7 +3310,7 @@ const isleOps = () => ISLE_OPS.filter(o => !o.who || (o.who === 'user' && !isGue
 const isleSaved = () => { const v = LS.get(ISLE_K, null); return v && (v.side === 'l' || v.side === 'r') ? v : { side: 'r', y: 6 }; };
 const isleHidden = () => {
   const p = location.hash.slice(1) || '/', [, a, b, c] = p.split('/');
-  return !S.user || ['welcome', 'start', 'login', 'register', 'signup'].includes(a) || (S.user && activeBan(S.user)) || (a === 'story' && /^\d+$|^fin$/.test(c || '')) || (a === 'write' && c === 'ch') || (a === 'messages' && !!b) || !!document.querySelector('.modal');
+  return !S.user || ['welcome', 'start', 'login', 'register', 'signup'].includes(a) || (S.user && activeBan(S.user)) || (a === 'story' && /^\d+$|^fin$/.test(c || '')) || (a === 'write' && c === 'ch') || a === 'vnr' || (a === 'messages' && !!b) || !!document.querySelector('.modal');
 };
 function isleBuild() {
   if (ISLE) return ISLE;
@@ -4961,6 +4962,7 @@ function render() {
   else if (a === 'login' || a === 'register') app.innerHTML = authView(a);
   else if (isGuest() && ['write', 'stats', 'moderation', 'strike', 'messages', 'gift'].includes(a)) app.innerHTML = shell(a === 'write' ? '/write' : '', guestWall(a === 'write' ? 'escribir historias' : a === 'stats' ? 'ver estadísticas' : a === 'messages' ? 'enviar mensajes' : 'entrar aquí'));
   else if (a === 'signup') app.innerHTML = signupView();
+  else if (a === 'vnr') app.innerHTML = vnrView(b, c);
   else if (a === 'vn') app.innerHTML = shell('/write', vnView(b));
   else if (a === 'write') { const v = writeRoute(b, c, d); app.innerHTML = c === 'ch' && W ? v : shell('/write', v); }   // escribir un capítulo = pantalla completa
   else if (a === 'story') { const v = safeView(() => storyView(b, c), b); app.innerHTML = c ? v : shell('', v); }   // leer un capítulo = pantalla completa
@@ -4993,6 +4995,7 @@ function render() {
   imgGuard(app); chatAuto(); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); flowInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
   if (nav && a === 'story' && c && c !== 'fin') { pcHintOnce(); readingPing(b); viewPing(b); chtStart(b, c); }
+  if (nav && a === 'vnr') vnrBoot(b, c);
   if (passOn()) msAll();
   if (S.user) { showModOverlay(); showGiftOverlay(); }                                      // moderador/a sin marco puesto: el aviso reaparece hasta que se lo ponga
   if (nav) { const m = from.match(/^\/story\/([^/]+)\/\d+$/); if (m && !(path + '/').startsWith('/story/' + m[1] + '/')) askSaveLib(decodeURIComponent(m[1])); }   // saliste de un capítulo por otro camino (p. ej. "atrás")
@@ -5633,7 +5636,7 @@ async function vnLoad(sid) {
   try {
     const [a, b, c] = await Promise.all([sbApi('/rest/v1/vn_emotions?select=*&order=sort'), sbApi('/rest/v1/vn_characters?select=*&story_id=eq.' + u + '&order=pos,created_at'), sbApi('/rest/v1/stories?select=vn,owner&id=eq.' + u)]);
     if (!a.ok || !b.ok || !c.ok) { VN.err = /vn_/.test(JSON.stringify([a.data, b.data, c.data])) || /vn/.test(JSON.stringify(c.data || '')) ? t('Falta correr el SQL 40 en Supabase.') : t('No se pudo cargar. Revisa tu conexión.'); VN.ok = true; }
-    else { VN.emos = a.data; VN.chars = b.data; VN.vn = !!(c.data[0] && c.data[0].vn); VN.err = ''; VN.ok = true; }
+    else { VN.emos = a.data; VN.chars = b.data; VN.vn = !!(c.data[0] && c.data[0].vn); VNF[sid] = VN.vn; VN.err = ''; VN.ok = true; }
   } catch (e) { VN.err = t('No se pudo cargar. Revisa tu conexión.'); VN.ok = true; }
   VN.busy = false; if ((location.hash || '').startsWith('#/vn/' + sid)) { KEEP = true; render(); }
 }
@@ -5651,7 +5654,7 @@ function vnView(sid) {
 }
 async function vnToggle() {
   const v = !VN.vn, r = await sbApi('/rest/v1/stories?id=eq.' + sUuid(VN.sid), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { vn: v } });
-  if (!r.ok) return toast(t('No se pudo guardar.')); VN.vn = v; KEEP = true; render();
+  if (!r.ok) return toast(t('No se pudo guardar.')); VN.vn = v; VNF[VN.sid] = v; KEEP = true; render();
 }
 function spriteFit(file, cb) {                           // sprite: máximo 640 px de alto, se conserva la transparencia
   if (!file || !file.type.startsWith('image/')) return toast(t('Elige un archivo de imagen.'));
@@ -5682,6 +5685,90 @@ function vnEdit(id) {
       VN.chars = cur ? VN.chars.map(c => c.id === cur.id ? r.data[0] : c) : [...VN.chars, r.data[0]]; m.remove(); KEEP = true; render();
     }
   });
+}
+
+/* ---------- Novela visual · lector (por ahora solo la Owner) ----------
+   Muestra el capítulo como escena: fondo, personajes arriba con la emoción del momento y el texto abajo en tramos
+   de máximo 5 líneas. Mientras no estén las IAs, el guion lo arma vnMock() con palabras clave; cuando existan, el
+   servidor devuelve el mismo formato (tramos con quién habla, emoción y quién está en escena). */
+const VNF = {};                                          // libros marcados como compatibles (para los que aún no traen vn del servidor)
+const vnReadBtn = (s, next) => vnOn() && s.mode !== 'chat' && (s.vn || VNF[s.id]) ? `<a class="button secondary" data-dir="next" style="width:100%;max-width:420px;margin-top:8px" href="#/vnr/${esc(s.id)}/${next.idx + 1}">${t('Leer en novela visual')}</a>` : '';
+const VN_KW = {
+  feliz: /\b(sonri[óo]|sonri[eé]|sonr[ií]e|r[ií]o|rieron|rio|reír|risa|feliz|felices|alegr\w*|content[ao]s?|abraz\w*|emocionad\w*|carcajad\w*)/i,
+  triste: /\b(llor\w*|l[aá]grim\w*|trist\w*|sollo\w*|dolor\w*|apenad\w*|suspir\w*|melanc\w*|extra[ñn]\w*)/i,
+  sonrojado: /\b(sonroj\w*|rubor\w*|mejillas|colorad[ao]s?|avergonz\w*|nervios\w*|tartamude\w*)/i,
+  asustado: /\b(miedo|asust\w*|temblar\w*|tembl\w*|p[aá]nico|grit[óo]|aterrad\w*|terror\w*|horror\w*|escalofr\w*)/i,
+  enojado: /\b(enoj\w*|furios\w*|rabia|ira|gru[ñn][ióo]\w*|apret[óo] los (pu[ñn]os|dientes)|furia|molest\w*|maldit\w*)/i
+};
+const vnEsc = n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function vnSentences(p) { return p.replace(/\s+/g, ' ').trim().split(/(?<=[.!?…»”"])\s+(?=[—«“"¿¡A-ZÁÉÍÓÚÑ])/).filter(x => x.trim()); }
+/** Guion de prueba: lista de tramos {text, who, emo, stage}. who = quién habla ('' si es narración) */
+function vnMock(text, names) {
+  const out = [], rx = names.map(n => [n, new RegExp('(^|[^\\p{L}])' + vnEsc(n) + '(?![\\p{L}])', 'iu')]);
+  let last = '', stage = [];
+  String(text || '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).forEach(p => {
+    if (/^::sep$/.test(p)) { out.push({ sep: true }); stage = []; return; }
+    if (/^::chat /.test(p)) return;
+    p = p.replace(/^::[crj] /, '');
+    vnSentences(p).forEach(sn => {
+      const present = rx.filter(([, r]) => r.test(sn)).map(([n]) => n), talk = /^\s*[—«“"-]/.test(sn);
+      let who = '';
+      if (talk) who = present[0] || last || ''; else if (present.length) who = '';
+      if (talk && who) last = who;
+      else if (!talk && present.length) last = present[0];
+      [...present, ...(who ? [who] : [])].forEach(n => { stage = [n, ...stage.filter(x => x !== n)].slice(0, 3); });
+      let emo = 'neutral'; for (const k of Object.keys(VN_KW)) if (VN_KW[k].test(sn)) { emo = k; break; }
+      out.push({ text: sn, who, emo, stage: stage.slice(), focus: who || (present[0] || '') });
+    });
+  });
+  return out;
+}
+let VNR = null;
+function vnrView(sid, n) {
+  const s = findStory(sid);
+  if (!vnOn() || !s) return `<main class="page">${empty('Aquí pronto habrá algo nuevo', 'Esta función todavía no está abierta.')}</main>`;
+  return `<div class="vnr" data-sid="${esc(sid)}" data-n="${esc(n)}"><div class="vnr-bg" style="${s.cover ? `background-image:url('${esc(s.cover)}')` : ''}"></div><div class="vnr-shade"></div>
+  <header class="vnr-top"><a class="button ghost sm" href="#/story/${esc(sid)}" data-dir="back">✕ ${t('Salir')}</a><a class="button ghost sm" data-replace href="#/story/${esc(sid)}/${esc(n)}">${t('Leer como texto')}</a></header>
+  <div class="vnr-prog"><i></i></div><div class="vnr-tap"><div class="vnr-stage"></div><div class="vnr-box"><b class="vnr-who"></b><p class="vnr-text"></p><small class="vnr-hint">${t('Toca para continuar')}</small></div></div>
+  <p class="vnr-meas vnr-text" aria-hidden="true"></p></div>`;
+}
+async function vnrBoot(sid, n) {
+  const el = document.querySelector('.vnr'); if (!el || el.dataset.boot) return; el.dataset.boot = '1';
+  const s = findStory(sid), ch = s && s.chapters.find(c => c.idx === +n - 1) || (s && s.chapters[+n - 1]); if (!ch) return;
+  let rows = []; try { const r = await sbApi('/rest/v1/vn_characters?select=*&story_id=eq.' + sUuid(sid) + '&order=pos,created_at'); if (r.ok && Array.isArray(r.data)) rows = r.data; } catch (e) { /* sin personajes */ }
+  const oc = s.useReaderCharacter ? S.character : null, ocName = oc && oc.name ? oc.name : '';
+  const text = s.useReaderCharacter ? fillHE(fillTN(ch.text, ocName || t('Lectora')), S.character) : ch.text;
+  const cast = {}; rows.forEach(c => { cast[c.name] = c; }); if (ocName && !cast[ocName]) cast[ocName] = { name: ocName, sprites: (oc && oc.sprites) || {}, adult: true, me: true };
+  const script = vnMock(text, Object.keys(cast)), meas = el.querySelector('.vnr-meas'), box = el.querySelector('.vnr-text');
+  const lh = parseFloat(getComputedStyle(box).lineHeight) || 24, lines = x => { meas.textContent = x; return Math.round(meas.scrollHeight / lh); };
+  const pages = [];
+  script.forEach(sg => {
+    if (sg.sep) return pages.push({ sep: true });
+    let cur = ''; const flush = () => { if (cur) pages.push({ ...sg, text: cur }); cur = ''; };
+    (sg.text.split(' ')).forEach(w => { const tr = cur ? cur + ' ' + w : w; if (cur && lines(tr) > 5) { flush(); cur = w; } else cur = tr; });
+    flush();
+  });
+  // varias frases cortas seguidas con el mismo emisor y emoción comparten tramo mientras quepan en 5 líneas
+  const merged = []; pages.forEach(p => { const q = merged[merged.length - 1]; if (q && !p.sep && !q.sep && q.who === p.who && q.emo === p.emo && q.focus === p.focus && lines(q.text + ' ' + p.text) <= 5) { q.text += ' ' + p.text; q.stage = p.stage; } else merged.push(p); });
+  VNR = { sid, n: +n, ch, s, cast, pages: merged, i: 0, next: s.chapters.find(c => c.idx === ch.idx + 1) };
+  const hintDone = (() => { try { return localStorage.getItem('auri.vnHint') === '1'; } catch (e) { return false; } })(); if (hintDone) el.querySelector('.vnr-hint').hidden = true;
+  el.querySelector('.vnr-tap').addEventListener('click', ev => { const r = el.getBoundingClientRect(), left = ev.clientX - r.left < r.width * 0.28; vnrGo(left ? -1 : 1); try { localStorage.setItem('auri.vnHint', '1'); } catch (e) { /* ignorar */ } el.querySelector('.vnr-hint').hidden = true; });
+  vnrDraw();
+}
+function vnrGo(d) {
+  if (!VNR) return; const j = VNR.i + d;
+  if (j < 0) return; if (j >= VNR.pages.length) { if (VNR.next) { goReplace('/vnr/' + VNR.sid + '/' + (VNR.n + 1)); } else go('/story/' + VNR.sid + '/fin'); return; }
+  VNR.i = j; vnrDraw();
+}
+function vnrSprite(c, emo) { const sp = (c && c.sprites) || {}; return sp[emo] || sp.neutral || Object.values(sp)[0] || ''; }
+function vnrDraw() {
+  const el = document.querySelector('.vnr'); if (!el || !VNR) return; const pg = VNR.pages[VNR.i]; if (!pg) return;
+  el.querySelector('.vnr-prog i').style.width = Math.round((VNR.i + 1) / VNR.pages.length * 100) + '%';
+  const stage = el.querySelector('.vnr-stage'), who = el.querySelector('.vnr-who'), tx = el.querySelector('.vnr-box .vnr-text');
+  if (pg.sep) { stage.innerHTML = ''; who.textContent = ''; tx.textContent = '· · ·'; return; }
+  stage.innerHTML = (pg.stage || []).map(n => { const c = VNR.cast[n], src = vnrSprite(c, n === pg.focus ? pg.emo : 'neutral'), on = n === pg.focus;
+    return `<div class="vnr-ch ${on ? 'on' : ''}">${src ? `<img src="${esc(src)}" alt="${esc(n)}">` : `<span class="vnr-ini">${esc([...n][0].toUpperCase())}</span>`}</div>`; }).join('');
+  who.textContent = pg.who || ''; who.hidden = !pg.who; tx.textContent = pg.text;
 }
 
 /* ARRANQUE */
