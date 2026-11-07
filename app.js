@@ -5701,7 +5701,7 @@ function vnEdit(id) {
    de máximo 5 líneas. Mientras no estén las IAs, el guion lo arma vnMock() con palabras clave; cuando existan, el
    servidor devuelve el mismo formato (tramos con quién habla, emoción y quién está en escena). */
 const VNF = {};                                          // libros marcados como compatibles (para los que aún no traen vn del servidor)
-const vnReadBtn = (s, next) => vnOn() && s.mode !== 'chat' && (s.vn || VNF[s.id]) ? `<a class="button secondary" data-dir="next" style="width:100%;max-width:420px;margin-top:8px" href="#/vnr/${esc(s.id)}/${next.idx + 1}">${t('Leer en novela visual')}</a>` : '';
+const vnReadBtn = (s, next) => vnOn() && s.mode !== 'chat' ? `<a class="button secondary" data-dir="next" style="width:100%;max-width:420px;margin-top:8px" href="#/vnr/${esc(s.id)}/${next.idx + 1}">${t('Leer en novela visual')}</a>` : '';
 const VN_KW = {
   feliz: /\b(sonri[óo]|sonri[eé]|sonr[ií]e|r[ií]o|rieron|rio|reír|risa|feliz|felices|alegr\w*|content[ao]s?|abraz\w*|emocionad\w*|carcajad\w*)/i,
   triste: /\b(llor\w*|l[aá]grim\w*|trist\w*|sollo\w*|dolor\w*|apenad\w*|suspir\w*|melanc\w*|extra[ñn]\w*)/i,
