@@ -2741,3 +2741,6 @@ html.lite .amb{display:none}
 .vnr-stage.dim{opacity:.25;transition:opacity .4s ease}
 .vnr-stage{transition:opacity .4s ease}
 .vnr-openchat{margin-top:10px;color:#fff;border-color:rgba(255,255,255,.35)}
+
+/* 113. Botón para pasar del texto a la novela visual */
+.vnr-switch{display:flex;width:max-content;margin:0 0 14px auto}
