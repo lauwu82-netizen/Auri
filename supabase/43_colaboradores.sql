@@ -1,8 +1,8 @@
 -- 43 · Cuentas colaboradoras (eventos de colaboración con creadores).
 -- La Owner activa o quita el permiso desde el menú de Administración del perfil de cada cuenta.
--- Una cuenta colaboradora puede, en el modo novela visual: subir sus personajes oficiales (aunque sean canon),
--- subir sus propios CGs y fondos, tener sus imágenes sin la revisión automática de IA y no cobrar gemas a quienes leen su novela.
--- (Cada uno de esos permisos se va activando conforme existe la función; la marca de colaboradora ya queda guardada.)
+-- Una cuenta colaboradora puede, en el modo novela visual: subir sus personajes oficiales (aunque sean canon) y otras imágenes
+-- propias (sprites, fondos) sin la revisión automática de IA. Su novela SÍ cobra gemas a quienes la leen y los CGs SIEMPRE los hace la IA
+-- (llevan al OC de quien lee). (Cada permiso se activa conforme existe la función; la marca ya queda guardada.)
 
 alter table public.profiles add column if not exists collab boolean not null default false;
 

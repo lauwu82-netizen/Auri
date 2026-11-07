@@ -92,7 +92,7 @@ async function sprite(body: { story_id?: string; name?: string; emo?: string; de
   const prompt = 'Visual novel character sprite, bust-up shot from the torso up, natural relaxed posture, facing the viewer, arms relaxed, ' + emo +
     ', plain solid light gray background, nothing else in the image, no text, single character, clean anime style. ' + String(body.desc || '').slice(0, 300) +
     (ref ? ' Keep exactly the same character as in the reference image: same face, hair, eye color, outfit and colors.' : '');
-  const input: Record<string, unknown> = { prompt }; if (ref) input.input_image = ref;
+  const input: Record<string, unknown> = { prompt, output_format: 'png' }; if (ref) input.input_image = ref;     // PNG (el fondo transparente se logra con VN_RMBG_MODEL)
   try {
     let url = firstUrl(await replicate(env.VN_SPRITE_MODEL || env.VN_CG_MODEL || 'black-forest-labs/flux-kontext-pro', input, TOKEN)); if (!url) throw new Error('sin imagen');
     await rpc('vn_usage_add', { p_uid: uid, p_kind: 'cg', p_cost: Number(env.VN_COST_CG) > 0 ? Number(env.VN_COST_CG) : 0.04, p_detail: 'sprite ' + String(body.name || '').slice(0, 40) });
