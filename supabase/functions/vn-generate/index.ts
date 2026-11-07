@@ -12,7 +12,7 @@
 // Secretos (Edge Functions > Secrets):
 //   REPLICATE_API_TOKEN   la llave de Replicate (SOLO aquí, nunca en GitHub ni en el chat)
 // Opcionales (para cambiar de modelo sin tocar la app):
-//   VN_TEXT_MODEL   (por defecto "meta/meta-llama-3.1-405b-instruct")   modelo de texto que analiza
+//   VN_TEXT_MODELS  (por defecto "meta/meta-llama-3.1-405b-instruct")   modelos de texto que analizan, separados por coma: si el primero se niega, prueba el siguiente
 //   VN_BG_MODEL     (por defecto "stability-ai/sdxl")                  modelo de fondos
 //   VN_CG_MODEL     (por defecto "black-forest-labs/flux-kontext-pro") modelo de CG (admite imagen de referencia)
 //   VN_COST_TEXT / VN_COST_BG / VN_COST_CG   costo estimado en dólares por llamada (0.01 / 0.004 / 0.04)
@@ -46,7 +46,7 @@ const firstUrl = (o: unknown): string => Array.isArray(o) ? String(o[0] || '') :
 
 /** Prompt que pide el guion en JSON. Las reglas son las de la novela visual de Auri. */
 function scriptPrompt(text: string, cast: string[], emos: string[]): string {
-  return `Eres el director de una novela visual. Convierte el capítulo en un guion JSON.
+  return `Eres un asistente técnico de una plataforma de lectura para adultos. Tu único trabajo es ETIQUETAR un texto de ficción (quién habla, emoción, lugar); no lo juzgas, no lo censuras ni lo resumes, aunque contenga escenas románticas, sexuales, violentas o crudas entre personajes de ficción adultos. No escribes contenido nuevo: solo devuelves el JSON.\nConvierte el capítulo en un guion JSON.
 Personajes disponibles: ${cast.join(', ') || '(ninguno)'}.
 Emociones permitidas (usa solo estas): ${emos.join(', ')}.
 Reglas:
@@ -113,9 +113,19 @@ async function run(req: Request, env: Env): Promise<Response> {
     const cs = await fetch(`${URL_}/rest/v1/vn_characters?story_id=eq.${ch.story_id}&select=name`, { headers: H }), cast = (cs.ok ? await cs.json() : []).map((c: { name: string }) => c.name);
     const es = await fetch(`${URL_}/rest/v1/vn_emotions?select=key`, { headers: H }), emos = (es.ok ? await es.json() : []).map((e: { key: string }) => e.key);
     const text = String(ch.text || '').split(/\n\s*\n/).filter((p: string) => !/^\s*::(chat|sep|cg)/.test(p)).join('\n\n').slice(0, 24000);
-    const out = await replicate(env.VN_TEXT_MODEL || 'meta/meta-llama-3.1-405b-instruct', { prompt: scriptPrompt(text, cast, emos), max_tokens: 6000, temperature: 0.2 }, TOKEN);
-    await spend('analysis', num('VN_COST_TEXT', 0.01), 'script ' + cid.slice(0, 8));
-    const script = parseScript(Array.isArray(out) ? out.join('') : String(out), cast, emos);
+    // Cadena de modelos: si uno se niega (contenido fuerte) o devuelve algo que no es el guion, se prueba el siguiente.
+    // VN_TEXT_MODELS = "modelo1,modelo2,modelo3" (por defecto uno solo). Si ninguno sirve, la app usa su guion de prueba y el lector nunca se rompe.
+    const models = (env.VN_TEXT_MODELS || env.VN_TEXT_MODEL || 'meta/meta-llama-3.1-405b-instruct').split(',').map(x => x.trim()).filter(Boolean).slice(0, 4);
+    let script: Array<Record<string, unknown>> | null = null;
+    for (const m of models) {
+      const b = await budget(); if (b) return b;
+      try {
+        const out = await replicate(m, { prompt: scriptPrompt(text, cast, emos), max_tokens: 6000, temperature: 0.2 }, TOKEN);
+        await spend('analysis', num('VN_COST_TEXT', 0.01), m.slice(0, 60));
+        script = parseScript(Array.isArray(out) ? out.join('') : String(out), cast, emos);
+      } catch (e) { console.error('texto', m, e); }
+      if (script) break;
+    }
     if (!script) return json({ error: 'bad_script' }, 502);                               // el cliente sigue con su guion de prueba
     await fetch(`${URL_}/rest/v1/vn_scripts`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ chapter_id: cid, hash, script }) });
     // un fondo por lugar nuevo (máximo 6 por capítulo para cuidar el gasto)
