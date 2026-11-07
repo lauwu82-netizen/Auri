@@ -121,9 +121,9 @@ async function run(req: Request, env: Env): Promise<Response> {
       const b = await budget(); if (b) return b;
       try {
         const out = await replicate(m, { prompt: scriptPrompt(text, cast, emos), max_tokens: 6000, temperature: 0.2 }, TOKEN);
-        await spend('analysis', num('VN_COST_TEXT', 0.01), m.slice(0, 60));
         script = parseScript(Array.isArray(out) ? out.join('') : String(out), cast, emos);
-      } catch (e) { console.error('texto', m, e); }
+        await spend('analysis', num('VN_COST_TEXT', 0.01), (script ? 'LEYÓ · ' : 'NO SIRVIÓ (se negó o respondió mal) · ') + m.slice(0, 120));   // así se ve en vn_usage qué modelo sí leyó
+      } catch (e) { console.error('texto', m, e); await spend('retry', 0.002, 'ERROR · ' + m.slice(0, 120)); }
       if (script) break;
     }
     if (!script) return json({ error: 'bad_script' }, 502);                               // el cliente sigue con su guion de prueba
