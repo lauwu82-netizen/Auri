@@ -4715,7 +4715,7 @@ function charsSection() {
 }
 /** Hoja inferior para crear / editar un personaje: nombre + foto opcional. after(id) se llama al guardar un personaje NUEVO */
 function openCharForm(id, after) {
-  const cur = id ? S.chars.find(c => c.id === id) : null; let photo = cur ? cur.photo || '' : '';
+  const cur = id ? S.chars.find(c => c.id === id) : null; let photo = cur ? cur.photo || '' : ''; const sp = { ...(cur && cur.sprites || {}) };
   if (!cur && S.chars.length >= MAX_CHARS) return toast(t('Puedes guardar hasta {n} personajes.', { n: MAX_CHARS }));
   const m = document.createElement('div'); m.className = 'modal sheet';
   m.innerHTML = `<div class="modal-box char-form" role="dialog" aria-modal="true" aria-label="${cur ? t('Editar personaje') : t('Crear personaje')}"><button class="icon-btn close-x" data-x aria-label="${esc(t('Cerrar'))}">✕</button><h2>${cur ? t('Editar personaje') : t('Nuevo personaje')}</h2>
@@ -4723,16 +4723,23 @@ function openCharForm(id, after) {
   <div class="form-group"><label>${t('Nombre del personaje')}</label><input class="field" data-name maxlength="30" placeholder="${esc(t('Ej: Aiko'))}" value="${esc(cur ? cur.name : '')}"></div>
   <div class="cf-two"><div class="form-group"><label>${t('Color de cabello')}</label><input class="field" data-hair maxlength="40" placeholder="${esc(t('Ej: castaño oscuro'))}" value="${esc(cur ? cur.hair || '' : '')}"></div><div class="form-group"><label>${t('Color de ojos')}</label><input class="field" data-eyes maxlength="40" placeholder="${esc(t('Ej: verdes'))}" value="${esc(cur ? cur.eyes || '' : '')}"></div></div>
   <p class="helper">${t('En las historias que lo permiten, T/P (cabello) y T/O (ojos) se reemplazan con estos datos.')}</p>
+  ${vnOn() ? `<details class="cf-vn"><summary>${t('Sprites para novela visual')}</summary><p class="helper">${t('Sube un PNG con fondo transparente por cada emoción. Se usan cuando lees una novela visual como este personaje.')}</p><div class="vn-cells" data-vncells></div></details>` : ''}
   <p class="error" data-err></p><div class="cf-btns"><button class="button ghost" data-cancel>${t('Cancelar')}</button><button class="button" data-save>${t('Guardar')}</button></div></div>`;
   const q = sel => m.querySelector(sel), close = () => m.remove(), setPrev = () => { q('[data-prev]').innerHTML = photo ? `<img src="${esc(photo)}" alt="">` : '🐱'; q('[data-nophoto]').hidden = !photo; };
+  const vnDraw = () => { const box = q('[data-vncells]'); if (!box) return; box.innerHTML = vnEmoList().map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : ''}</div><b>${esc(t(e.name))}</b><label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}</div>`).join(''); };
+  if (q('[data-vncells]')) { vnDraw(); vnEmosLoad().then(vnDraw);
+    const box = q('[data-vncells]');
+    box.addEventListener('change', ev => { const inp = ev.target.closest('input[data-emo]'); if (!inp || !inp.files[0]) return; const k = inp.dataset.emo; q('[data-err]').textContent = t('Subiendo…');
+      spriteFit(inp.files[0], async d => { const u = await sbUpImg(d); q('[data-err]').textContent = ''; if (!u) return (q('[data-err]').textContent = t('No se pudo subir la imagen. Inténtalo otra vez.')); sp[k] = u; vnDraw(); }); });
+    box.addEventListener('click', ev => { const rm = ev.target.closest('[data-rm]'); if (rm) { delete sp[rm.dataset.rm]; vnDraw(); } }); }
   q('[data-x]').onclick = close; q('[data-cancel]').onclick = close; m.onclick = ev => { if (ev.target === m) close(); };
   q('[data-file]').onchange = () => fitPhoto(q('[data-file]').files[0], 600, 800, d => { photo = d; setPrev(); });
   q('[data-nophoto]').onclick = () => { photo = ''; setPrev(); };
   q('[data-save]').onclick = () => {
     const name = q('[data-name]').value.trim(), hair = q('[data-hair]').value.trim(), eyes = q('[data-eyes]').value.trim(); if (!name) { q('[data-err]').textContent = t('Escribe un nombre para tu personaje.'); return; }
-    if (cur) { S.chars = S.chars.map(c => c.id === cur.id ? { ...c, name, photo, hair, eyes } : c); if (cur.id === S.activeId) setActive(cur.id); saveChars(); close(); toast('Personaje actualizado'); return render(); }
+    if (cur) { S.chars = S.chars.map(c => c.id === cur.id ? { ...c, name, photo, hair, eyes, sprites: sp } : c); if (cur.id === S.activeId) setActive(cur.id); saveChars(); close(); toast('Personaje actualizado'); return render(); }
     let nid; do { nid = chapId(); } while (S.chars.some(c => c.id === nid));
-    S.chars = [...S.chars, { id: nid, ...emptyChar(), name, photo, hair, eyes }];
+    S.chars = [...S.chars, { id: nid, ...emptyChar(), name, photo, hair, eyes, sprites: sp }];
     if (S.chars.length === 1) setActive(nid); else saveChars();                 // el primero queda en uso automáticamente
     close(); toast('Personaje creado ✨'); if (after) after(nid); else { KEEP = true; render(); }
   };
@@ -5613,6 +5620,10 @@ function passTab() {
    La autoría marca su libro como compatible y crea sus personajes con un sprite por emoción.
    Todo vive en las tablas vn_* (SQL 40); la IA se conecta después. */
 const vnOn = () => !!S.user && !isGuest() && isOwner() && cloud() && !!sbSes();
+const VN_KEYS = [['neutral', 'Neutral'], ['feliz', 'Feliz'], ['triste', 'Triste'], ['sonrojado', 'Sonrojado'], ['asustado', 'Asustado'], ['enojado', 'Enojado']];
+let VN_EM = null;                                        // emociones de la nube (si ya cargaron); si no, la lista por defecto
+const vnEmoList = () => VN_EM && VN_EM.length ? VN_EM : VN_KEYS.map(([key, name]) => ({ key, name }));
+async function vnEmosLoad() { if (VN_EM) return; try { const r = await sbApi('/rest/v1/vn_emotions?select=*&order=sort'); if (r.ok && Array.isArray(r.data) && r.data.length) VN_EM = r.data; } catch (e) { /* se usa la lista por defecto */ } }
 let VN = { sid: '', ok: false, busy: false, vn: false, chars: [], emos: [], err: '' };
 const VN_EMO = { neutral: 'Neutral', feliz: 'Happy', triste: 'Sad', sonrojado: 'Blushing', asustado: 'Scared', enojado: 'Angry' };
 async function vnLoad(sid) {

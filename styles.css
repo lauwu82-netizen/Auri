@@ -2683,3 +2683,6 @@ html.lite .amb{display:none}
 .modal-box:has(.vn-cells){max-height:88vh;overflow:auto}
 .vnf{display:flex;flex-direction:column;gap:6px;margin:8px 0}
 .modal-box .check{display:flex;align-items:center;gap:8px;margin:10px 0 2px}
+
+.cf-vn{margin:10px 0;padding:10px 12px;border-radius:14px;border:1px solid color-mix(in srgb,hsl(var(--primary)) 18%,transparent)}
+.cf-vn summary{cursor:pointer;font-weight:700}
