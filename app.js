@@ -5661,24 +5661,31 @@ function spriteFit(file, cb) {                           // sprite: máximo 640 
   const r = new FileReader(); r.onload = () => { const img = new Image(); img.onload = () => { const k = Math.min(1, 640 / img.height, 640 / img.width), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k)); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); cb(c.toDataURL('image/png')); }; img.onerror = () => toast(t('Elige un archivo de imagen.')); img.src = r.result; }; r.readAsDataURL(file);
 }
 function vnEdit(id) {
-  const cur = id ? VN.chars.find(c => c.id === id) : null, sp = { ...(cur ? cur.sprites || {} : {}) }, m = document.createElement('div'); m.className = 'modal sheet';
+  const cur = id ? VN.chars.find(c => c.id === id) : null, sp = { ...(cur ? cur.sprites || {} : {}) }, m = document.createElement('div'); m.className = 'modal sheet'; let adj = vnAdjOk(cur && cur.adj && Object.keys(cur.adj).length ? cur.adj : null);
   const cells = () => VN.emos.map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : ''}</div><b>${esc(t(e.name))}</b><label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}</div>`).join('');
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${cur ? t('Editar personaje') : t('Nuevo personaje')}</h2>
   <label class="field vnf"><span>${t('Nombre')}</span><input id="vn-name" maxlength="40" value="${esc(cur ? cur.name : '')}"></label>
   <label class="check"><input type="checkbox" id="vn-adult" ${!cur || cur.adult ? 'checked' : ''}> ${t('Es mayor de edad')}</label><p class="helper">${t('Si es menor de edad, no se generará nada sugerente con este personaje.')}</p>
   <p class="helper">${t('Sube un PNG con fondo transparente por cada emoción. La neutral es la que se usa si no se detecta otra.')}</p>
-  <div class="vn-cells">${cells()}</div><p class="err" data-err></p>
+  <div class="vn-cells">${cells()}</div>
+  <h3 class="vn-h3">${t('Posición en pantalla')}</h3><p class="helper">${t('Así se verá en la novela visual: el cuadro de abajo es el texto. Las personas pueden ajustarlo a su gusto.')}</p>
+  <div class="vn-prev" data-prev><div class="vnr-ch on" style="left:50%"><div class="vnr-fig" data-fig></div></div><div class="vn-prev-box"></div></div>
+  <div class="vn-sl"><label>${t('Izquierda / derecha')}<input type="range" min="-40" max="40" step="1" data-k="x"></label><label>${t('Altura')}<input type="range" min="-10" max="70" step="1" data-k="y"></label><label>${t('Tamaño')}<input type="range" min="50" max="200" step="2" data-k="s"></label><button type="button" class="link-btn" data-adjreset>${t('Restablecer')}</button></div>
+  <p class="err" data-err></p>
   <div class="row-btns" style="margin-top:12px"><button type="button" class="button" data-ok>${t('Guardar')}</button><button type="button" class="button ghost" data-no>${t('Cancelar')}</button>${cur ? `<button type="button" class="button danger" data-del>${t('Eliminar')}</button>` : ''}</div></div>`;
-  document.body.appendChild(m); const err = m.querySelector('[data-err]'), redraw = () => { m.querySelector('.vn-cells').innerHTML = cells(); };
+  document.body.appendChild(m); const err = m.querySelector('[data-err]'), prevDraw = () => { const fig = m.querySelector('[data-fig]'), src = sp.neutral || Object.values(sp)[0] || ''; fig.parentNode.style.left = (50 + adj.x) + '%'; fig.style.transform = `translateY(${adj.y}%) scale(${adj.s})`; fig.innerHTML = src ? `<img src="${esc(src)}" alt="" draggable="false">` : ''; m.querySelectorAll('.vn-sl input').forEach(i => { i.value = i.dataset.k === 's' ? Math.round(adj.s * 100) : adj[i.dataset.k]; }); },
+    redraw = () => { m.querySelector('.vn-cells').innerHTML = cells(); prevDraw(); }; prevDraw();
+  m.addEventListener('input', e => { const r = e.target.closest('.vn-sl input'); if (!r) return; adj = vnAdjOk({ ...adj, [r.dataset.k]: r.dataset.k === 's' ? r.value / 100 : +r.value }); prevDraw(); });
   m.addEventListener('change', e => { const inp = e.target.closest('input[data-emo]'); if (!inp || !inp.files[0]) return; const k = inp.dataset.emo; err.textContent = t('Subiendo…');
     spriteFit(inp.files[0], async d => { const u = await sbUpImg(d); err.textContent = ''; if (!u) return (err.textContent = t('No se pudo subir la imagen. Inténtalo otra vez.')); sp[k] = u; redraw(); }); });
   m.addEventListener('click', async e => {
     if (e.target.closest('[data-no]') || e.target === m) return m.remove();
     const rm = e.target.closest('[data-rm]'); if (rm) { delete sp[rm.dataset.rm]; return redraw(); }
+    if (e.target.closest('[data-adjreset]')) { adj = vnAdjOk(null); return prevDraw(); }
     if (e.target.closest('[data-del]')) { if (!confirm(t('¿Eliminar este personaje?'))) return; const r = await sbApi('/rest/v1/vn_characters?id=eq.' + cur.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); if (!r.ok) return (err.textContent = t('No se pudo guardar.')); VN.chars = VN.chars.filter(c => c.id !== cur.id); m.remove(); KEEP = true; return render(); }
     if (e.target.closest('[data-ok]')) {
       const name = m.querySelector('#vn-name').value.trim(); if (!name) return (err.textContent = t('Ponle un nombre al personaje.'));
-      const body = { name, adult: m.querySelector('#vn-adult').checked, sprites: sp };
+      const body = { name, adult: m.querySelector('#vn-adult').checked, sprites: sp, adj };
       const r = cur ? await sbApi('/rest/v1/vn_characters?id=eq.' + cur.id, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body })
         : await sbApi('/rest/v1/vn_characters', { method: 'POST', headers: { Prefer: 'return=representation' }, body: { ...body, story_id: sUuid(VN.sid), pos: VN.chars.length } });
       if (!r.ok || !Array.isArray(r.data) || !r.data[0]) return (err.textContent = /Máximo/.test(JSON.stringify(r.data || '')) ? t('Máximo 10 personajes por libro.') : t('No se pudo guardar.'));
@@ -5724,35 +5731,46 @@ function vnMock(text, names) {
   return out;
 }
 let VNR = null;
+const VN_ADJ0 = { x: 0, y: 18, s: 1 };
+const vnAdjOk = a => { const f = (v, lo, hi, d) => Number.isFinite(+v) && v !== null && v !== '' ? Math.min(hi, Math.max(lo, +v)) : d; a = a || {}; return { x: f(a.x, -40, 40, VN_ADJ0.x), y: f(a.y, -10, 70, VN_ADJ0.y), s: f(a.s, .5, 2, VN_ADJ0.s) }; };
+const vnLocalAdj = () => LS.get(uk('vnadj'), {});
 function vnrView(sid, n) {
   const s = findStory(sid);
   if (!vnOn() || !s) return `<main class="page">${empty('Aquí pronto habrá algo nuevo', 'Esta función todavía no está abierta.')}</main>`;
   return `<div class="vnr" data-sid="${esc(sid)}" data-n="${esc(n)}"><div class="vnr-bg" style="${s.cover ? `background-image:url('${esc(s.cover)}')` : ''}"></div><div class="vnr-shade"></div>
-  <header class="vnr-top"><a class="button ghost sm" href="#/story/${esc(sid)}" data-dir="back">✕ ${t('Salir')}</a><a class="button ghost sm" data-replace href="#/story/${esc(sid)}/${esc(n)}">${t('Leer como texto')}</a></header>
-  <div class="vnr-prog"><i></i></div><div class="vnr-tap"><div class="vnr-stage"></div><div class="vnr-box"><b class="vnr-who"></b><p class="vnr-text"></p><small class="vnr-hint">${t('Toca para continuar')}</small></div></div>
-  <p class="vnr-meas vnr-text" aria-hidden="true"></p></div>`;
+  <div class="vnr-stage"></div>
+  <header class="vnr-top"><a class="button ghost sm" href="#/story/${esc(sid)}" data-dir="back">✕ ${t('Salir')}</a><span class="vnr-top-r"><button type="button" class="button ghost sm" data-vnadj>${t('Ajustar')}</button><a class="button ghost sm" data-replace href="#/story/${esc(sid)}/${esc(n)}">${t('Leer como texto')}</a></span></header>
+  <div class="vnr-prog"><i></i></div><div class="vnr-tap"><div class="vnr-box"><b class="vnr-who"></b><p class="vnr-text"></p><small class="vnr-hint">${t('Toca para continuar')}</small></div></div>
+  <div class="vnr-adj" hidden></div><p class="vnr-meas vnr-text" aria-hidden="true"></p></div>`;
+}
+/** Parte el guion en tramos de máximo 5 líneas con el ancho actual de la pantalla */
+function vnrPaginate(el) {
+  const meas = el.querySelector('.vnr-meas'), box = el.querySelector('.vnr-box .vnr-text'), cs = getComputedStyle(box), lh = parseFloat(cs.lineHeight) || 24;
+  meas.style.width = box.getBoundingClientRect().width + 'px'; meas.style.fontSize = cs.fontSize; meas.style.lineHeight = cs.lineHeight;
+  const lines = x => { meas.textContent = x; return Math.round(meas.scrollHeight / lh); }, pages = [];
+  VNR.script.forEach((sg, si) => {
+    if (sg.sep) return pages.push({ sep: true, si, off: 0 });
+    let cur = '', off = 0, words = 0; const flush = () => { if (cur) pages.push({ ...sg, text: cur, si, off }); cur = ''; };
+    sg.text.split(' ').forEach(w => { const tr = cur ? cur + ' ' + w : w; if (cur && lines(tr) > 5) { flush(); cur = w; off = words; } else cur = tr; words++; });
+    flush();
+  });
+  const merged = []; pages.forEach(p => { const q = merged[merged.length - 1]; if (q && !p.sep && !q.sep && q.who === p.who && q.emo === p.emo && q.focus === p.focus && lines(q.text + ' ' + p.text) <= 5) { q.text += ' ' + p.text; q.stage = p.stage; } else merged.push(p); });
+  return merged;
 }
 async function vnrBoot(sid, n) {
   const el = document.querySelector('.vnr'); if (!el || el.dataset.boot) return; el.dataset.boot = '1';
-  const s = findStory(sid), ch = s && s.chapters.find(c => c.idx === +n - 1) || (s && s.chapters[+n - 1]); if (!ch) return;
+  const s = findStory(sid), ch = s && (s.chapters.find(c => c.idx === +n - 1) || s.chapters[+n - 1]); if (!ch) return;
   let rows = []; try { const r = await sbApi('/rest/v1/vn_characters?select=*&story_id=eq.' + sUuid(sid) + '&order=pos,created_at'); if (r.ok && Array.isArray(r.data)) rows = r.data; } catch (e) { /* sin personajes */ }
   const oc = s.useReaderCharacter ? S.character : null, ocName = oc && oc.name ? oc.name : '';
   const text = s.useReaderCharacter ? fillHE(fillTN(ch.text, ocName || t('Lectora')), S.character) : ch.text;
   const cast = {}; rows.forEach(c => { cast[c.name] = c; }); if (ocName && !cast[ocName]) cast[ocName] = { name: ocName, sprites: (oc && oc.sprites) || {}, adult: true, me: true };
-  const script = vnMock(text, Object.keys(cast)), meas = el.querySelector('.vnr-meas'), box = el.querySelector('.vnr-text');
-  const lh = parseFloat(getComputedStyle(box).lineHeight) || 24, lines = x => { meas.textContent = x; return Math.round(meas.scrollHeight / lh); };
-  const pages = [];
-  script.forEach(sg => {
-    if (sg.sep) return pages.push({ sep: true });
-    let cur = ''; const flush = () => { if (cur) pages.push({ ...sg, text: cur }); cur = ''; };
-    (sg.text.split(' ')).forEach(w => { const tr = cur ? cur + ' ' + w : w; if (cur && lines(tr) > 5) { flush(); cur = w; } else cur = tr; });
-    flush();
-  });
-  // varias frases cortas seguidas con el mismo emisor y emoción comparten tramo mientras quepan en 5 líneas
-  const merged = []; pages.forEach(p => { const q = merged[merged.length - 1]; if (q && !p.sep && !q.sep && q.who === p.who && q.emo === p.emo && q.focus === p.focus && lines(q.text + ' ' + p.text) <= 5) { q.text += ' ' + p.text; q.stage = p.stage; } else merged.push(p); });
-  VNR = { sid, n: +n, ch, s, cast, pages: merged, i: 0, next: s.chapters.find(c => c.idx === ch.idx + 1) };
-  const hintDone = (() => { try { return localStorage.getItem('auri.vnHint') === '1'; } catch (e) { return false; } })(); if (hintDone) el.querySelector('.vnr-hint').hidden = true;
+  VNR = { sid, n: +n, ch, s, cast, script: vnMock(text, Object.keys(cast)), pages: [], i: 0, order: [], next: s.chapters.find(c => c.idx === ch.idx + 1), adj: (vnLocalAdj()[sid] || {}) };
+  VNR.pages = vnrPaginate(el);
+  try { if (localStorage.getItem('auri.vnHint') === '1') el.querySelector('.vnr-hint').hidden = true; } catch (e) { /* ignorar */ }
   el.querySelector('.vnr-tap').addEventListener('click', ev => { const r = el.getBoundingClientRect(), left = ev.clientX - r.left < r.width * 0.28; vnrGo(left ? -1 : 1); try { localStorage.setItem('auri.vnHint', '1'); } catch (e) { /* ignorar */ } el.querySelector('.vnr-hint').hidden = true; });
+  el.querySelector('[data-vnadj]').onclick = () => vnrAdjust(el);
+  let rt = 0; const re = () => { clearTimeout(rt); rt = setTimeout(() => { if (!document.body.contains(el) || !VNR || VNR.sid !== sid) return window.removeEventListener('resize', re); const cur = VNR.pages[VNR.i] || { si: 0, off: 0 }; VNR.pages = vnrPaginate(el); let j = 0; VNR.pages.forEach((p, k) => { if (p.si < cur.si || (p.si === cur.si && p.off <= cur.off)) j = k; }); VNR.i = j; vnrDraw(); }, 200); };
+  window.addEventListener('resize', re);
   vnrDraw();
 }
 function vnrGo(d) {
@@ -5761,15 +5779,42 @@ function vnrGo(d) {
   VNR.i = j; vnrDraw();
 }
 function vnrSprite(c, emo) { const sp = (c && c.sprites) || {}; return sp[emo] || sp.neutral || Object.values(sp)[0] || ''; }
+const vnrAdjOf = n => vnAdjOk(VNR.adj[n] || (VNR.cast[n] && VNR.cast[n].adj && Object.keys(VNR.cast[n].adj).length ? VNR.cast[n].adj : null));
+const vnrXs = k => k <= 1 ? [50] : k === 2 ? [31, 69] : [19, 50, 81];
 function vnrDraw() {
   const el = document.querySelector('.vnr'); if (!el || !VNR) return; const pg = VNR.pages[VNR.i]; if (!pg) return;
   el.querySelector('.vnr-prog i').style.width = Math.round((VNR.i + 1) / VNR.pages.length * 100) + '%';
   const stage = el.querySelector('.vnr-stage'), who = el.querySelector('.vnr-who'), tx = el.querySelector('.vnr-box .vnr-text');
-  if (pg.sep) { stage.innerHTML = ''; who.textContent = ''; tx.textContent = '· · ·'; return; }
-  stage.innerHTML = (pg.stage || []).map(n => { const c = VNR.cast[n], src = vnrSprite(c, n === pg.focus ? pg.emo : 'neutral'), on = n === pg.focus;
-    return `<div class="vnr-ch ${on ? 'on' : ''}">${src ? `<img src="${esc(src)}" alt="${esc(n)}">` : `<span class="vnr-ini">${esc([...n][0].toUpperCase())}</span>`}</div>`; }).join('');
+  if (pg.sep) { VNR.order = []; stage.innerHTML = ''; who.textContent = ''; tx.textContent = '· · ·'; return; }
+  const on = (pg.stage || []).slice(); VNR.order = VNR.order.filter(n => on.includes(n)); on.forEach(n => { if (!VNR.order.includes(n)) VNR.order.push(n); });
+  const xs = vnrXs(VNR.order.length), have = new Map([...stage.children].map(c => [c.dataset.n, c]));
+  have.forEach((c, n) => { if (!VNR.order.includes(n)) c.remove(); });
+  VNR.order.forEach((n, k) => {
+    let c = have.get(n); const a = vnrAdjOf(n), src = vnrSprite(VNR.cast[n], n === pg.focus ? pg.emo : 'neutral');
+    if (!c) { c = document.createElement('div'); c.className = 'vnr-ch'; c.dataset.n = n; c.innerHTML = '<div class="vnr-fig"></div>'; stage.appendChild(c); }
+    c.classList.toggle('on', n === pg.focus); c.style.left = (xs[k] + a.x) + '%';
+    const fig = c.firstChild; fig.style.transform = `translateY(${a.y}%) scale(${a.s})`;
+    const cur = fig.dataset.src || ''; if (cur !== src) { fig.dataset.src = src; fig.innerHTML = src ? `<img src="${esc(src)}" alt="${esc(n)}" draggable="false">` : `<span class="vnr-ini">${esc([...n][0].toUpperCase())}</span>`; }
+  });
   who.textContent = pg.who || ''; who.hidden = !pg.who; tx.textContent = pg.text;
 }
+/** Ajustar a mano (lectora): posición, bajada y tamaño de cada personaje; se guarda solo en este dispositivo */
+function vnrAdjust(el) {
+  const p = el.querySelector('.vnr-adj'); if (!p.hidden) { p.hidden = true; return; }
+  const names = VNR.order.length ? VNR.order : Object.keys(VNR.cast); if (!names.length) return toast(t('Este libro no tiene personajes.'));
+  let cur = (VNR.pages[VNR.i] || {}).focus; if (!names.includes(cur)) cur = names[0];
+  const draw = () => { const a = vnrAdjOf(cur);
+    p.innerHTML = `<div class="vnr-adj-in"><div class="vnr-adj-chips">${names.map(n => `<button type="button" class="chip ${n === cur ? 'active' : ''}" data-c="${esc(n)}">${esc(n)}</button>`).join('')}</div>
+    <label>${t('Izquierda / derecha')}<input type="range" min="-40" max="40" step="1" value="${a.x}" data-k="x"></label>
+    <label>${t('Altura')}<input type="range" min="-10" max="70" step="1" value="${a.y}" data-k="y"></label>
+    <label>${t('Tamaño')}<input type="range" min="50" max="200" step="2" value="${Math.round(a.s * 100)}" data-k="s"></label>
+    <div class="row-btns"><button type="button" class="button ghost sm" data-reset>${t('Restablecer')}</button><button type="button" class="button sm" data-done>${t('Listo')}</button></div></div>`; };
+  const save = () => { const all = vnrAll(); all[VNR.sid] = VNR.adj; LS.set(uk('vnadj'), all); };
+  p.hidden = false; draw();
+  p.oninput = ev => { const r = ev.target.closest('input[data-k]'); if (!r) return; const a = vnrAdjOf(cur), v = r.dataset.k === 's' ? r.value / 100 : +r.value; VNR.adj[cur] = vnAdjOk({ ...a, [r.dataset.k]: v }); save(); vnrDraw(); };
+  p.onclick = ev => { const c = ev.target.closest('[data-c]'); if (c) { cur = c.dataset.c; draw(); } if (ev.target.closest('[data-reset]')) { delete VNR.adj[cur]; save(); draw(); vnrDraw(); } if (ev.target.closest('[data-done]')) p.hidden = true; };
+}
+const vnrAll = () => vnLocalAdj();
 
 /* ARRANQUE */
 applyTheme(); applyReading();

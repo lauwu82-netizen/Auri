@@ -2163,4 +2163,10 @@ window.I18N = { en: {
   "Configurar": "Set up",
   "Leer en novela visual": "Read as a visual novel",
   "Leer como texto": "Read as text",
+  "Este libro no tiene personajes.": "This book has no characters.",
+  "Izquierda / derecha": "Left / right",
+  "Altura": "Height",
+  "Listo": "Done",
+  "Posición en pantalla": "Position on screen",
+  "Así se verá en la novela visual: el cuadro de abajo es el texto. Las personas pueden ajustarlo a su gusto.": "This is how it will look in visual novel mode: the box at the bottom is the text. People can adjust it to their liking.",
 } };
