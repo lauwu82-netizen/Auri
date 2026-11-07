@@ -2159,4 +2159,6 @@ window.I18N = { en: {
   "Enojado": "Angry",
   "Sube un PNG con fondo transparente por cada emoción. Se usan cuando lees una novela visual como este personaje.": "Upload a transparent-background PNG for each emotion. They are used when you read a visual novel as this character.",
   "Sprites para novela visual": "Visual novel sprites",
+  "Personajes con sprites, fondos y reacciones para quien lea en este modo.": "Characters with sprites, backgrounds and reactions for people reading in this mode.",
+  "Configurar": "Set up",
 } };

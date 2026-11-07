@@ -2521,7 +2521,7 @@ function readNext(id, n) {                           // marca el capítulo como 
 function openStoryMenu(id) {
   const s = S.stories.find(x => x.id === id); if (!s) return;
   const m = document.createElement('div'); m.className = 'modal sheet';
-  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${esc(s.title || t('Sin título'))}</h2><div class="sm-list"><a class="sm-i" href="#/write/${esc(s.id)}">✎ ${t('Editar libro')}</a>${vnOn() ? `<a class="sm-i" href="#/vn/${esc(s.id)}">${t('Novela visual')}</a>` : ''}<button type="button" class="sm-i danger" data-del>🗑 ${t('Eliminar historia')}</button></div><button type="button" class="button ghost" data-no style="width:100%;margin-top:10px">${t('Cancelar')}</button></div>`;
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${esc(s.title || t('Sin título'))}</h2><div class="sm-list"><a class="sm-i" href="#/write/${esc(s.id)}">✎ ${t('Editar libro')}</a><button type="button" class="sm-i danger" data-del>🗑 ${t('Eliminar historia')}</button></div><button type="button" class="button ghost" data-no style="width:100%;margin-top:10px">${t('Cancelar')}</button></div>`;
   m.querySelector('[data-no]').onclick = () => m.remove(); m.querySelectorAll('a').forEach(x => { x.onclick = () => m.remove(); });
   m.querySelector('[data-del]').onclick = () => { m.remove(); askDelStory(id); };
   document.body.appendChild(m);
@@ -2777,6 +2777,8 @@ const submitBlock = () => W.private ? `<div class="panel" style="margin-top:16px
 /** Botón de acceso a los capítulos (debajo de los datos del libro) */
 const chaptersEntry = () => { const n = W.chapters.length, pend = W.chapters.filter(c => c.status === 'pending').length;
   return `<section class="panel ch-entry"><div><strong>${t('Capítulos')}</strong><div class="helper">${tn(n, '{n} capítulo', '{n} capítulos')}${pend ? ' · ' + t('{n} en revisión', { n: pend }) : ''}. ${t('Cada uno se edita en su propia pantalla.')}</div></div><button class="button secondary" data-act="ch-list">${t('Editar capítulos')}</button></section>`; };
+/** Acceso a la novela visual, dentro del editor del libro (por ahora solo la Owner) */
+const vnEntry = () => vnOn() && W.mode !== 'chat' ? `<section class="panel ch-entry"><div><strong>${t('Novela visual')}</strong><div class="helper">${t('Personajes con sprites, fondos y reacciones para quien lea en este modo.')}</div></div><a class="button secondary" href="#/vn/${esc(W.id)}" data-dir="next">${t('Configurar')}</a></section>` : '';
 /* Paso 1: datos de la historia */
 function infoView(existing) {
   const g0 = W.genre || 'Fantasy';
@@ -2816,7 +2818,7 @@ function infoView(existing) {
   ${isMinor(getUsers()[S.user]) ? '' : `<div class="toggle-line"><div><strong>${t('Historia +18')}</strong><div class="helper">${t('Actívalo si tiene contenido sugerente o temas para mayores de edad. Una vez publicada, quitar la marca +18 necesita aprobación de moderación.')}</div></div>
   <button type="button" role="switch" class="switch" aria-checked="${W.mature}" data-act="toggle-18" aria-label="${esc(t('Historia +18'))}"></button></div>`}
   </section>
-  <div class="nb-go">${existing ? '<button class="button" data-act="info-save">' + t('Guardar cambios') + '</button>' : '<button class="button" data-act="save-next">' + t('Guardar y siguiente ›') + '</button>'}</div>${existing ? chaptersEntry() : ''}</main>`;
+  <div class="nb-go">${existing ? '<button class="button" data-act="info-save">' + t('Guardar cambios') + '</button>' : '<button class="button" data-act="save-next">' + t('Guardar y siguiente ›') + '</button>'}</div>${existing ? chaptersEntry() + vnEntry() : ''}</main>`;
 }
 
 /* Lista de capítulos de la historia */
@@ -5641,7 +5643,7 @@ function vnView(sid) {
   if (VN.sid !== sid) VN = { sid, ok: false, busy: false, vn: false, chars: [], emos: [], err: '' };
   if (!VN.ok) { vnLoad(sid); return `<main class="page"><p class="helper">${t('Cargando…')}</p></main>`; }
   const free = VN.emos.length;
-  return `<main class="page vn"><div class="section-head"><div><a class="back" href="#/write" data-dir="back">‹ ${t('Volver')}</a><h1>${t('Novela visual')}</h1><p>${esc(s.title || t('Sin título'))}</p></div></div>
+  return `<main class="page vn"><div class="section-head"><div><a class="back" href="#/write/${esc(sid)}" data-dir="back">‹ ${t('Volver')}</a><h1>${t('Novela visual')}</h1><p>${esc(s.title || t('Sin título'))}</p></div></div>
   ${VN.err ? `<p class="notice">${esc(VN.err)}</p>` : `<section class="panel"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>${t('Libro compatible con novela visual')}</strong><div class="helper">${t('Las personas podrán leerlo con personajes, fondos y reacciones.')}</div></div><button type="button" class="switch ${VN.vn ? 'on' : ''}" role="switch" aria-checked="${VN.vn}" aria-label="${esc(t('Libro compatible con novela visual'))}" data-act="vn-toggle"></button></div></section>
   <div class="section-head"><div><h2>${t('Personajes')}</h2><p>${tn(VN.chars.length, '{n} de 10 personaje', '{n} de 10 personajes')}</p></div>${VN.chars.length < 10 ? `<button type="button" class="button sm" data-act="vn-add">${t('Añadir personaje')}</button>` : ''}</div>
   <div class="vn-list">${VN.chars.map(c => { const n = Object.keys(c.sprites || {}).length, first = (c.sprites || {}).neutral || Object.values(c.sprites || {})[0];
