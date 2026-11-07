@@ -2737,3 +2737,7 @@ html.lite .amb{display:none}
 .vn-prev-box{position:absolute;left:6%;right:6%;bottom:4%;height:20%;border-radius:10px;background:rgba(18,12,32,.6);border:1px solid rgba(255,255,255,.14)}
 .vn-sl{display:flex;flex-direction:column;gap:6px;margin-top:6px}
 .vnr-tap{flex-direction:row}
+
+.vnr-stage.dim{opacity:.25;transition:opacity .4s ease}
+.vnr-stage{transition:opacity .4s ease}
+.vnr-openchat{margin-top:10px;color:#fff;border-color:rgba(255,255,255,.35)}

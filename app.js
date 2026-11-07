@@ -5710,12 +5710,13 @@ const VN_KW = {
 const vnEsc = n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function vnSentences(p) { return p.replace(/\s+/g, ' ').trim().split(/(?<=[.!?…»”"])\s+(?=[—«“"¿¡A-ZÁÉÍÓÚÑ])/).filter(x => x.trim()); }
 /** Guion de prueba: lista de tramos {text, who, emo, stage}. who = quién habla ('' si es narración) */
-function vnMock(text, names) {
+function vnMock(text, names, rawParas) {
   const out = [], rx = names.map(n => [n, new RegExp('(^|[^\\p{L}])' + vnEsc(n) + '(?![\\p{L}])', 'iu')]);
   let last = '', stage = [];
-  String(text || '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).forEach(p => {
+  String(text || '').split(/\n\s*\n/).forEach((p0, pi) => {
+    let p = p0.trim(); if (!p) return;
     if (/^::sep$/.test(p)) { out.push({ sep: true }); stage = []; return; }
-    if (/^::chat /.test(p)) return;
+    if (/^::chat /.test(p)) { const raw = rawParas && rawParas[pi], cht = raw && /^\s*::chat /.test(raw) ? chatParse(raw) : null; if (cht) out.push({ chat: true, pi, cht }); return; }
     p = p.replace(/^::[crj] /, '');
     vnSentences(p).forEach(sn => {
       const present = rx.filter(([, r]) => r.test(sn)).map(([n]) => n), talk = /^\s*[—«“"-]/.test(sn);
@@ -5750,11 +5751,12 @@ function vnrPaginate(el) {
   const lines = x => { meas.textContent = x; return Math.round(meas.scrollHeight / lh); }, pages = [];
   VNR.script.forEach((sg, si) => {
     if (sg.sep) return pages.push({ sep: true, si, off: 0 });
+    if (sg.chat) { const key = chatKeyOf(VNR, sg); return pages.push({ chat: true, key, title: chatTitle(CHC.get(key) || sg.cht), si, off: 0 }); }
     let cur = '', off = 0, words = 0; const flush = () => { if (cur) pages.push({ ...sg, text: cur, si, off }); cur = ''; };
     sg.text.split(' ').forEach(w => { const tr = cur ? cur + ' ' + w : w; if (cur && lines(tr) > 5) { flush(); cur = w; off = words; } else cur = tr; words++; });
     flush();
   });
-  const merged = []; pages.forEach(p => { const q = merged[merged.length - 1]; if (q && !p.sep && !q.sep && q.who === p.who && q.emo === p.emo && q.focus === p.focus && lines(q.text + ' ' + p.text) <= 5) { q.text += ' ' + p.text; q.stage = p.stage; } else merged.push(p); });
+  const merged = []; pages.forEach(p => { const q = merged[merged.length - 1]; if (q && !p.sep && !q.sep && !p.chat && !q.chat && q.who === p.who && q.emo === p.emo && q.focus === p.focus && lines(q.text + ' ' + p.text) <= 5) { q.text += ' ' + p.text; q.stage = p.stage; } else merged.push(p); });
   return merged;
 }
 async function vnrBoot(sid, n) {
@@ -5762,21 +5764,23 @@ async function vnrBoot(sid, n) {
   const s = findStory(sid), ch = s && (s.chapters.find(c => c.idx === +n - 1) || s.chapters[+n - 1]); if (!ch) return;
   let rows = []; try { const r = await sbApi('/rest/v1/vn_characters?select=*&story_id=eq.' + sUuid(sid) + '&order=pos,created_at'); if (r.ok && Array.isArray(r.data)) rows = r.data; } catch (e) { /* sin personajes */ }
   const oc = s.useReaderCharacter ? S.character : null, ocName = oc && oc.name ? oc.name : '';
-  const text = s.useReaderCharacter ? fillHE(fillTN(ch.text, ocName || t('Lectora')), S.character) : ch.text;
+  const text = s.useReaderCharacter ? fillHE(fillTN(ch.text, ocName || t('Lectora')), S.character) : ch.text, rawParas = paraSplit(ch.text);
   const cast = {}; rows.forEach(c => { cast[c.name] = c; }); if (ocName && !cast[ocName]) cast[ocName] = { name: ocName, sprites: (oc && oc.sprites) || {}, adult: true, me: true };
-  VNR = { sid, n: +n, ch, s, cast, script: vnMock(text, Object.keys(cast)), pages: [], i: 0, order: [], next: s.chapters.find(c => c.idx === ch.idx + 1), adj: (vnLocalAdj()[sid] || {}) };
+  VNR = { sid, n: +n, ch, s, cast, script: vnMock(text, Object.keys(cast), rawParas), pages: [], i: 0, order: [], next: s.chapters.find(c => c.idx === ch.idx + 1), adj: (vnLocalAdj()[sid] || {}) };
   VNR.pages = vnrPaginate(el);
   try { if (localStorage.getItem('auri.vnHint') === '1') el.querySelector('.vnr-hint').hidden = true; } catch (e) { /* ignorar */ }
-  el.querySelector('.vnr-tap').addEventListener('click', ev => { const r = el.getBoundingClientRect(), left = ev.clientX - r.left < r.width * 0.28; vnrGo(left ? -1 : 1); try { localStorage.setItem('auri.vnHint', '1'); } catch (e) { /* ignorar */ } el.querySelector('.vnr-hint').hidden = true; });
+  el.querySelector('.vnr-tap').addEventListener('click', ev => { if (ev.target.closest('[data-vnchat]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.key) chatOpen(pg.key); return; } const r = el.getBoundingClientRect(), left = ev.clientX - r.left < r.width * 0.28; vnrGo(left ? -1 : 1); try { localStorage.setItem('auri.vnHint', '1'); } catch (e) { /* ignorar */ } el.querySelector('.vnr-hint').hidden = true; });
   el.querySelector('[data-vnadj]').onclick = () => vnrAdjust(el);
   let rt = 0; const re = () => { clearTimeout(rt); rt = setTimeout(() => { if (!document.body.contains(el) || !VNR || VNR.sid !== sid) return window.removeEventListener('resize', re); const cur = VNR.pages[VNR.i] || { si: 0, off: 0 }; VNR.pages = vnrPaginate(el); let j = 0; VNR.pages.forEach((p, k) => { if (p.si < cur.si || (p.si === cur.si && p.off <= cur.off)) j = k; }); VNR.i = j; vnrDraw(); }, 200); };
   window.addEventListener('resize', re);
   vnrDraw();
 }
+/** Registra el chat del capítulo (igual que en la lectura normal) y devuelve su clave para abrirlo */
+function chatKeyOf(v, sg) { const html = chatCard(sg.cht, !!v.s.useReaderCharacter, { sid: v.sid, ci: v.ch.idx }, sg.pi), m = /data-key="([^"]+)"/.exec(html); return m ? m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>') : ''; }
 function vnrGo(d) {
   if (!VNR) return; const j = VNR.i + d;
   if (j < 0) return; if (j >= VNR.pages.length) { if (VNR.next) { goReplace('/vnr/' + VNR.sid + '/' + (VNR.n + 1)); } else go('/story/' + VNR.sid + '/fin'); return; }
-  VNR.i = j; vnrDraw();
+  VNR.i = j; vnrDraw(); const pg = VNR.pages[j]; if (d > 0 && pg && pg.chat && pg.key) chatOpen(pg.key);
 }
 function vnrSprite(c, emo) { const sp = (c && c.sprites) || {}; return sp[emo] || sp.neutral || Object.values(sp)[0] || ''; }
 const vnrAdjOf = n => vnAdjOk(VNR.adj[n] || (VNR.cast[n] && VNR.cast[n].adj && Object.keys(VNR.cast[n].adj).length ? VNR.cast[n].adj : null));
@@ -5786,6 +5790,8 @@ function vnrDraw() {
   el.querySelector('.vnr-prog i').style.width = Math.round((VNR.i + 1) / VNR.pages.length * 100) + '%';
   const stage = el.querySelector('.vnr-stage'), who = el.querySelector('.vnr-who'), tx = el.querySelector('.vnr-box .vnr-text');
   if (pg.sep) { VNR.order = []; stage.innerHTML = ''; who.textContent = ''; tx.textContent = '· · ·'; return; }
+  if (pg.chat) { stage.classList.add('dim'); who.hidden = false; who.textContent = t('Mensajes'); tx.innerHTML = `${esc(pg.title || '')}<br><button type="button" class="button ghost sm vnr-openchat" data-vnchat>${t('Abrir chat')}</button>`; return; }
+  stage.classList.remove('dim');
   const on = (pg.stage || []).slice(); VNR.order = VNR.order.filter(n => on.includes(n)); on.forEach(n => { if (!VNR.order.includes(n)) VNR.order.push(n); });
   const xs = vnrXs(VNR.order.length), have = new Map([...stage.children].map(c => [c.dataset.n, c]));
   have.forEach((c, n) => { if (!VNR.order.includes(n)) c.remove(); });

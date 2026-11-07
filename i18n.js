@@ -2171,4 +2171,5 @@ window.I18N = { en: {
   "Así se verá en la novela visual: el cuadro de abajo es el texto. Las personas pueden ajustarlo a su gusto.": "This is how it will look in visual novel mode: the box at the bottom is the text. People can adjust it to their liking.",
   "Gemas moradas ×5": "Purple gems ×5",
   "Gemas moradas ×3": "Purple gems ×3",
+  "Abrir chat": "Open chat",
 } };
