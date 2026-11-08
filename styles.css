@@ -10,7 +10,7 @@
   --primary:269 62% 56%; --accent:272 62% 93%; --accent-foreground:267 52% 37%;
   --muted-foreground:258 12% 52%; --border:267 25% 89%;
   --title:#3d2b50; --soft:#756b7d; --brand:#56357f;
-  --btn:linear-gradient(115deg,#9e72d9,#7147ac);
+  --btn:linear-gradient(115deg,#7b50c9 0%,#a063dc 55%,#c872d6 100%);   /* morado → rosado morado */
   --hero:linear-gradient(112deg,#fff 2%,#f7f1ff 49%,#e4d1fb 100%);
   --shadow:0 16px 44px rgba(72,47,110,.09);
   --serif:'Fraunces',Georgia,serif; --sans:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -2750,3 +2750,37 @@ html.lite .amb{display:none}
 .vnr-cgimg.ph{display:grid;place-items:center;padding:24px;text-align:center;color:rgba(255,255,255,.7);font-size:14px;background:radial-gradient(circle at 50% 40%,rgba(199,125,255,.22),transparent 65%)}
 @keyframes vnrIn{from{opacity:0}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){.vnr-cgimg{animation:none}}
+
+/* 115. Botones con degradado según el tema de color, y ficha del libro con la acción de leer a primera vista */
+:root[data-accent=azul]{--btn:linear-gradient(115deg,#3b74d6 0%,#2f9fcf 55%,#26b5a6 100%)}        /* azul → cian verdoso */
+:root[data-accent=rosa]{--btn:linear-gradient(115deg,#e0558f 0%,#d36bb5 55%,#b783e6 100%)}        /* rosa → morado claro */
+:root[data-accent=naranja]{--btn:linear-gradient(115deg,#ec6a2a 0%,#f4902f 55%,#f6b93b 100%)}      /* naranja → amarillo */
+.button{text-shadow:0 1px 2px rgba(40,10,60,.22)}
+.button.secondary,.button.ghost,.button.danger{text-shadow:none}
+
+.bk-hero{display:grid;grid-template-columns:minmax(0,37%) minmax(0,1fr);gap:16px;align-items:center;width:100%;max-width:520px;text-align:left;margin-top:2px}
+.bk-cover{min-width:0}
+.bk-hero .detail-cover{width:100%;margin-top:0;border-radius:14px}
+.bk-info{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0}
+.bk-info h1{font-size:clamp(22px,6.4vw,32px);line-height:1.14;margin:0;overflow-wrap:anywhere}
+.bk-info .detail-by{font-size:14px}
+.bk-info .detail-date{margin:0;text-align:left;font-size:12.5px}
+.bk-info .detail-likes{display:flex;flex-wrap:wrap;align-items:center;gap:3px 12px;font-size:14px}
+.bk-info .detail-views{margin-left:0;font-size:13px}
+.bk-info .chat-pill{margin:2px 0 0}
+.bk-hero.saga{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;max-width:none}
+.bk-hero.saga .bk-cover{width:100%}
+.bk-hero.saga .bk-info{align-items:center}
+.bk-hero.saga .detail-date{text-align:center}
+.bk-cta{width:100%;max-width:440px;display:flex;flex-direction:column;align-items:stretch;gap:10px;margin:6px 0 4px}
+.bk-cta .vnr-btn,.bk-cta > .button.secondary{margin-top:0 !important;max-width:none !important;width:100% !important}
+.bk-cta .book-state{display:flex;justify-content:center}
+.bk-cta .row-btns{justify-content:center}
+.bk-report{opacity:.85;margin-top:8px}
+.story-layout .button.read-cta{width:100%;max-width:none;padding:16px 20px;font-size:17px;letter-spacing:.01em;box-shadow:0 14px 30px hsl(var(--primary)/.42),0 4px 10px hsl(var(--primary)/.28)}
+.dark .story-layout .button.read-cta{box-shadow:0 0 0 1px hsl(var(--primary)/.5),0 0 18px hsl(var(--primary)/.5),0 0 44px hsl(var(--primary)/.28)}
+@media (min-width:700px){.bk-hero{max-width:640px;grid-template-columns:minmax(0,34%) minmax(0,1fr);gap:24px}.bk-info h1{font-size:34px}}
+.bk-cta .row-btns{flex-wrap:nowrap;align-items:center}
+.bk-cta .row-btns .ic-btn{flex:none}
+.bk-cta .row-btns > .button{flex:1;min-width:0;padding-left:12px;padding-right:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;text-align:center}
+.bk-cta .row-btns > .button{font-size:12.5px;padding-left:10px;padding-right:10px}
