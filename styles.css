@@ -2796,3 +2796,14 @@ html.lite .amb{display:none}
 :root:not(.dark) .isle-ms{color:var(--title);border-top-color:hsl(var(--primary)/.18)}
 :root:not(.dark) .isle-ms .ms-bar{background:hsl(var(--primary)/.16)}
 @media (hover:hover){:root:not(.dark) .isle-op:hover{background:hsl(var(--primary)/.1)}}
+
+/* 117. Fondo de la app: casi blanco / casi negro con un toque del tema y un degradado suave desde abajo con el color del tema
+   (para volver al fondo anterior basta con borrar esta sección completa) */
+:root{--background:270 30% 99%}
+.dark{--background:262 32% 7%}
+:root[data-accent=rosa]{--background:340 45% 99%}      :root[data-accent=rosa].dark{--background:335 28% 7%}
+:root[data-accent=azul]{--background:212 55% 99%}      :root[data-accent=azul].dark{--background:214 32% 7%}
+:root[data-accent=naranja]{--background:28 60% 99%}    :root[data-accent=naranja].dark{--background:22 30% 7%}
+.shell,:root[data-accent=rosa] .shell,:root[data-accent=azul] .shell,:root[data-accent=naranja] .shell{background:hsl(var(--background));isolation:isolate}
+.shell::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,transparent 0%,transparent 50%,hsl(var(--primary)/.08) 76%,hsl(var(--primary)/.2) 100%)}
+.dark .shell::before{background:linear-gradient(180deg,transparent 0%,transparent 45%,hsl(var(--primary)/.1) 72%,hsl(var(--primary)/.26) 100%)}
