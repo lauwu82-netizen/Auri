@@ -173,8 +173,10 @@ async function run(req: Request, env: Env): Promise<Response> {
   const had = prev.ok ? (await prev.json())[0] : null; if (had) return json({ url: had.url, cached: true });
   const desc = String(body.desc || '').slice(0, 400); if (!desc) return json({ error: 'desc' }, 400);
   const ref = /^https:\/\//.test(String(body.ref || '')) ? String(body.ref) : '';       // imagen de referencia del OC (solo enlaces https)
-  // escalera de intentos: la escena tal cual → si falla o se bloquea, versión más suave (por ejemplo con pijama) → si falla, no se cobra nada
-  const tries = [desc, desc + '. Safe for work, fully clothed, wearing pajamas, no nudity'];
+  // escalera de intentos: escena no explícita → si falla o se bloquea, versión más suave (por ejemplo con pijama) → si falla, no se cobra nada
+  // PROTEGE LA CUENTA de Replicate: nunca se pide nada explícito. El primer intento ya es "no explícito, sin desnudez" y el segundo es todavía más suave.
+  const adults = ch.stories?.mature ? ' All characters are adults.' : '';
+  const tries = [desc + '. Tasteful, non-explicit, no nudity, no sexual content.' + adults, desc + '. Safe for work, fully clothed, wearing pajamas, calm cozy mood, no nudity.' + adults];
   for (let i = 0; i < tries.length; i++) {
     const stop = await budget(); if (stop) return stop;
     try {
