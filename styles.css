@@ -2836,3 +2836,6 @@ html.lite .amb{display:none}
 .ht-find svg{width:21px;height:21px}
 .ht-logo{height:58px;max-width:40%}
 .home-top{margin-top:22px}
+/* regalo de Recompensas centrado igual que los demás íconos de la isla (caja de 27 px) */
+.isle-ic{width:27px;min-height:27px;height:27px}
+.gift-ic{margin:.5px 0 0;transform:translateX(.5px)}
