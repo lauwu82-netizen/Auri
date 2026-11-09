@@ -327,7 +327,7 @@ const COS_IMG = {
   'cq:flores': 'https://i.postimg.cc/C1V6LfmX/Photoroom-20261105-171117.png', 'cq:mariposas': 'https://i.postimg.cc/Zn5HCP3F/Photoroom-20261105-171218.png', 'cq:joya': 'https://i.postimg.cc/SsT81B2z/Photoroom-20261105-171311.png',
   'cq:corazones': 'https://i.postimg.cc/9F3t3jgR/Photoroom-20261105-171355.png', 'cq:vichy': 'https://i.postimg.cc/PrtJv3CG/Photoroom-20261105-171440.png', 'cq:perlas': 'https://i.postimg.cc/3NfsRxyh/Photoroom-20261105-171507.png'
 };
-const AURI_LOGO = 'https://i.postimg.cc/QxZvxXBC/Photoroom-20261029-075902.png';
+const AURI_LOGO = 'https://i.postimg.cc/PxD8ksW5/Photoroom-20261108-192124.png';
 const cosOne = (k, c = '') => COS_IMG[k] ? `<img${c ? ` class="${c}"` : ''} src="${esc(COS_IMG[k])}" alt="" referrerpolicy="no-referrer" decoding="async">` : '';
 const cosImg = k => k === 'top' ? cosOne('top', 'v-l') + cosOne('top:dark', 'v-d') : cosOne(k);   // Top 50: una versión clara y otra oscura, según el tema
 const svgBot = cosImg, svgTop = cosImg;
@@ -2187,7 +2187,7 @@ setTimeout(() => { if (modCloud()) stLoad(true); }, 4000);
 function discoverView() {
   const gens = ['All', ...new Set(publishedStories().filter(storyVisible).map(s => s.genre))];
   const modeRow = `<div class="filter-row mode-row" role="group" aria-label="${esc(t('Qué buscar'))}"><button class="chip ${SM === 'books' ? 'active' : ''}" data-act="sm" data-id="books" aria-pressed="${SM === 'books'}">${t('Libros')}</button><button class="chip ${SM === 'users' ? 'active' : ''}" data-act="sm" data-id="users" aria-pressed="${SM === 'users'}">${t('Usuarios')}</button></div>`;
-  return `<main class="page">${AURI_LOGO ? `<div class="feed-logo"><img src="${esc(AURI_LOGO)}" alt="Auri" referrerpolicy="no-referrer" decoding="async"></div>` : ''}${carouselHTML() || `<section class="hero"><span class="eyebrow">${t('✦ Un pequeño hogar para grandes emociones')}</span>
+  return `<main class="page"><header class="home-top">${AURI_LOGO ? `<img class="ht-logo" src="${esc(AURI_LOGO)}" alt="Auri" referrerpolicy="no-referrer" decoding="async">` : `<b class="ht-logo-t">Auri</b>`}<span class="ht-sep" aria-hidden="true"></span><p class="ht-tag">${t('Lee, crea y descubre nuevos mundos.')}</p><button type="button" class="ht-find" data-act="home-find" aria-label="${esc(t('Explorar'))}" aria-expanded="${SEARCH_OPEN ? 'true' : 'false'}">${ICON.search}</button></header>${carouselHTML() || `<section class="hero"><span class="eyebrow">${t('✦ Un pequeño hogar para grandes emociones')}</span>
   <h1>${t('Encuentra tu próxima emoción favorita.')}</h1><p>${t('Historias para leer a gusto, personajes que te acompañan y un rincón para crear algo propio.')}</p>
   <a class="button secondary" href="#/library">${t('Ir a mi biblioteca')}</a>${mascot('mascot')}</section>`}
   ${msCard()}${stRow()}${modeRow}
@@ -3313,7 +3313,7 @@ const ISLE_HEAD = `<svg viewBox="0 0 64 56" aria-hidden="true"><defs>
 const ISLE_OPS = [
   { k: 'msg', ic: () => ICON.mail, l: 'Mensajes', n: () => dmUnread(), who: 'user' },
   { k: 'noti', ic: () => ICON.bell, l: 'Notificaciones', n: () => unread(), who: 'user' },
-  { k: 'find', ic: () => ICON.search, l: 'Buscar', n: () => 0 },
+  { k: 'rewards', ic: () => '<span class="gift-ic" aria-hidden="true"><i class="g-lid"></i><i class="g-box"></i><i class="g-rib"></i><i class="g-bow"></i></span>', l: 'Recompensas', n: () => 0 },
   { k: 'set', ic: () => ICON.gear, l: 'Ajustes', n: () => 0 },
   { k: 'mod', ic: () => IC('<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>'), l: 'Moderación', n: () => modCounts().total, who: 'staff' },
 ];
@@ -3378,7 +3378,7 @@ function isleTest(what) {
 const isleTop = () => 4;
 const isleBottom = () => innerHeight - 140;
 function isleGo(k) {
-  if (k === 'missions') go('/shop/misiones'); else if (k === 'msg') go('/messages'); else if (k === 'noti') go('/notifications'); else if (k === 'set') go('/settings'); else if (k === 'mod') go('/moderation');
+  if (k === 'rewards') toast(t('Recompensas') + ': ' + t('Próximamente')); else if (k === 'missions') go('/shop/misiones'); else if (k === 'msg') go('/messages'); else if (k === 'noti') go('/notifications'); else if (k === 'set') go('/settings'); else if (k === 'mod') go('/moderation');
   else if (k === 'find') { go('/'); setTimeout(() => { SEARCH_OPEN = true; syncSearch(); focusSearch(); const b = $('[data-act=search-toggle]'); if (b) b.setAttribute('aria-expanded', 'true'); }, 60); }
 }
 function isleFill() {
@@ -5305,6 +5305,7 @@ document.addEventListener('click', e => {
     'qz-exit': () => { PENDING = null; QZ = null; go('/login'); },
     'int-set': () => { const u = getUsers(), me = u[S.user], v = el.dataset.v, cur = me.interests || [], next = cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v];
       if (!next.length) return toast('Deja al menos un tema.'); me.interests = next; G.set('users', u); KEEP = true; render(); },
+    'home-find': () => { SEARCH_OPEN = !SEARCH_OPEN; syncSearch(); el.setAttribute('aria-expanded', SEARCH_OPEN); if (SEARCH_OPEN) { focusSearch(); const sb = $('.search-bar'); if (sb && sb.scrollIntoView) sb.scrollIntoView({ block: 'center', behavior: 'smooth' }); } else clearSearch(); },
     'search-toggle': () => { SEARCH_OPEN = !SEARCH_OPEN; syncSearch(); el.setAttribute('aria-expanded', SEARCH_OPEN); if (SEARCH_OPEN) focusSearch(); else clearSearch(); },
     'search-close': () => { SEARCH_OPEN = false; syncSearch(); clearSearch(); },
     'notif-toggle': () => { NOTIF_OPEN = !NOTIF_OPEN; KEEP = true; render(); },

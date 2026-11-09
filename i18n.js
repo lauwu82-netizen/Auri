@@ -2185,4 +2185,6 @@ window.I18N = { en: {
   "Cambió el permiso de colaboración": "Changed collaboration permission",
   "Ahora eres colaboradora de Auri: puedes subir tus propias imágenes en el modo novela visual.": "You are now an Auri collaborator: you can upload your own images in visual novel mode.",
   "Se retiró tu permiso de colaboración.": "Your collaboration permission was removed.",
+  "Recompensas": "Rewards",
+  "Lee, crea y descubre nuevos mundos.": "Read, create and discover new worlds.",
 } };

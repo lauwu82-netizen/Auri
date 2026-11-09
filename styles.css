@@ -2811,3 +2811,28 @@ html.lite .amb{display:none}
 /* 118. Degradado rosa más claro y pastel (sin tono morado) */
 :root[data-accent=rosa]{--btn:linear-gradient(115deg,#ec7aa9 0%,#f294b8 52%,#f8b4cb 100%)}
 :root[data-accent=rosa] .button:not(.secondary):not(.ghost):not(.danger){text-shadow:0 1px 2px rgba(150,40,90,.42)}
+
+/* 119. Inicio: logo a la izquierda, frase y botón Explorar; regalo en CSS para Recompensas */
+.home-top{display:flex;align-items:center;gap:12px;margin:-6px 0 14px;min-width:0}
+.ht-logo{height:60px;width:auto;max-width:42%;object-fit:contain;flex:none}
+.ht-logo-t{font:700 30px var(--serif);color:var(--title)}
+.ht-sep{width:1px;align-self:stretch;margin:10px 0;background:hsl(var(--border))}
+.ht-tag{flex:1 1 0;min-width:0;margin:0;font-size:13px;line-height:1.35;color:var(--soft)}
+.ht-find{flex:none;display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:99px;border:1.5px solid hsl(var(--primary)/.35);background:hsl(var(--card)/.7);color:hsl(var(--accent-foreground));font:700 13px var(--sans);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s ease,background-color .2s ease}
+.ht-find svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ht-find:active{transform:scale(.96)}
+@media (max-width:360px){.ht-tag{display:none}.ht-sep{display:none}.ht-find{margin-left:auto}}
+.gift-ic{position:relative;display:block;width:26px;height:26px}
+.gift-ic i{position:absolute;display:block;box-sizing:border-box}
+.gift-ic .g-lid{left:1px;top:9px;width:24px;height:6px;border:1.8px solid currentColor;border-radius:2px}
+.gift-ic .g-box{left:3px;top:14px;width:20px;height:11px;border:1.8px solid currentColor;border-top:0;border-radius:0 0 3px 3px}
+.gift-ic .g-rib{left:12.1px;top:9px;width:1.8px;height:16px;background:currentColor}
+.gift-ic .g-bow{left:0;top:0;width:26px;height:9px}
+.gift-ic .g-bow::before,.gift-ic .g-bow::after{content:"";position:absolute;top:1.5px;width:8px;height:6.5px;box-sizing:border-box;border:1.8px solid currentColor}
+.gift-ic .g-bow::before{left:4px;border-radius:6px 6px 1px 6px;transform:rotate(-14deg)}
+.gift-ic .g-bow::after{right:4px;border-radius:6px 6px 6px 1px;transform:rotate(14deg)}
+
+.ht-find{width:44px;height:44px;padding:0;justify-content:center;gap:0;box-shadow:0 6px 16px hsl(var(--primary)/.18)}
+.ht-find svg{width:21px;height:21px}
+.ht-logo{height:58px;max-width:40%}
+.home-top{margin-top:22px}
