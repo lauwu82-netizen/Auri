@@ -180,7 +180,10 @@ async function run(req: Request, env: Env): Promise<Response> {
   for (let i = 0; i < tries.length; i++) {
     const stop = await budget(); if (stop) return stop;
     try {
-      const input: Record<string, unknown> = { prompt: 'anime visual novel CG illustration, ' + tries[i] };
+      // Kontext EDITA la imagen de referencia: si no se le dice lo contrario, conserva fondo, objetos y pose. Aquí solo se usa para recordar cómo es el personaje.
+      const input: Record<string, unknown> = { prompt: ref
+        ? 'Create a brand new anime visual novel CG illustration. Use the reference image ONLY to keep the main character identity (face, hair, eye color, outfit and colors). Completely replace the background, objects and pose; do NOT keep anything else from the reference image. Scene: ' + tries[i]
+        : 'anime visual novel CG illustration, ' + tries[i] };
       if (ref) input.input_image = ref;
       const o = await replicate(env.VN_CG_MODEL || 'black-forest-labs/flux-kontext-pro', input, TOKEN), u = firstUrl(o);
       if (!u) throw new Error('sin imagen');
