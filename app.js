@@ -5936,3 +5936,14 @@ setInterval(() => document.querySelectorAll('.rel-t[data-ts]').forEach(t => { co
 })();
 shapeDefs();
 document.addEventListener('mousedown', e => { if (e.target.closest && e.target.closest('.fmt-bar')) e.preventDefault(); });   // no pierde el foco ni la selección del texto
+
+/* Auto-actualización: si salió una versión nueva de la app, la recarga sola (una vez) para que nadie se quede con la vieja guardada en el celular */
+(function () {
+  try {
+    const me = (document.querySelector('script[src*="app.js"]') || {}).src || '', cur = (me.match(/[?&]v=([\w.-]+)/) || [])[1]; if (!cur) return;
+    fetch(location.pathname + '?nocache=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(h => {
+      const nw = (h.match(/app\.js\?v=([\w.-]+)/) || [])[1];
+      if (nw && nw !== cur && sessionStorage.getItem('auri.upd') !== nw) { sessionStorage.setItem('auri.upd', nw); location.reload(); }
+    }).catch(() => {});
+  } catch (e) { /* sin conexión: se queda como está */ }
+})();
