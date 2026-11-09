@@ -36,7 +36,12 @@ async function replicate(model: string, input: Record<string, unknown>, token: s
     method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Prefer: 'wait=60' }, body: JSON.stringify({ input }),
   });
   let p = await r.json();
-  if (!r.ok) throw new Error('replicate ' + r.status + ' ' + JSON.stringify(p).slice(0, 200));
+  if (r.status === 404) {                                   // modelos de la comunidad (no oficiales): se usa su última versión
+    const m = await fetch(`https://api.replicate.com/v1/models/${model}`, { headers: { Authorization: 'Bearer ' + token } }), mj = m.ok ? await m.json() : null, ver = mj && mj.latest_version && mj.latest_version.id;
+    if (!ver) throw new Error('replicate 404 modelo sin versión: ' + model);
+    const r2 = await fetch('https://api.replicate.com/v1/predictions', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Prefer: 'wait=60' }, body: JSON.stringify({ version: ver, input }) });
+    p = await r2.json(); if (!r2.ok) throw new Error('replicate ' + r2.status + ' ' + JSON.stringify(p).slice(0, 200));
+  } else if (!r.ok) throw new Error('replicate ' + r.status + ' ' + JSON.stringify(p).slice(0, 200));
   for (let i = 0; i < 20 && p && (p.status === 'starting' || p.status === 'processing'); i++) {       // si no terminó, se consulta con calma
     await new Promise(res => setTimeout(res, 3000));
     const g = await fetch(p.urls.get, { headers: { Authorization: 'Bearer ' + token } }); p = await g.json();
@@ -44,6 +49,16 @@ async function replicate(model: string, input: Record<string, unknown>, token: s
   if (!p || p.status !== 'succeeded') throw new Error('replicate ' + (p && p.status) + ' ' + String(p && p.error || '').slice(0, 160));
   return p.output;
 }
+/** Un modelo que MIRA una imagen y escribe cómo se ve el personaje (una vez por sprite; se guarda en vn_characters.look). */
+async function describeLook(url: string, env: Env, TOKEN: string): Promise<string> {
+  const o = await replicate(env.VN_VISION_MODEL || 'lucataco/ollama-llama3.2-vision-11b', {
+    image: url,
+    prompt: 'Describe ONLY the main character in this image for an illustrator who must draw the same character again. One paragraph in English, maximum 60 words: apparent species or type, hair (color, length, style), eyes, skin, clothing, accessories, distinctive features and main colors, and the art style. Ignore the background and objects. Do not mention nudity or anything sexual.',
+  }, TOKEN);
+  const txt = (Array.isArray(o) ? o.join('') : typeof o === 'string' ? o : '').replace(/\s+/g, ' ').trim();
+  return txt.slice(0, 500);
+}
+const nameIn = (name: string, text: string) => name.trim().length > 1 && new RegExp('(^|[^\\p{L}\\p{N}])' + name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}\\p{N}])', 'iu').test(text);
 const firstUrl = (o: unknown): string => Array.isArray(o) ? String(o[0] || '') : typeof o === 'string' ? o : '';
 
 /** Prompt que pide el guion en JSON. Las reglas son las de la novela visual de Auri. */
@@ -116,7 +131,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   const ur = await fetch(URL_ + '/auth/v1/user', { headers: { apikey: ANON, Authorization: auth } });
   if (!ur.ok) return json({ error: 'auth' }, 401);
   const user = await ur.json();
-  let body: { action?: string; chapter_id?: string; story_id?: string; name?: string; emo?: string; slot?: number; desc?: string; ref?: string } = {}; try { body = await req.json(); } catch { /* vacío */ }
+  let body: { action?: string; chapter_id?: string; story_id?: string; name?: string; emo?: string; slot?: number; desc?: string; ref?: string; me?: string } = {}; try { body = await req.json(); } catch { /* vacío */ }
   if (body.action !== 'script' && body.action !== 'cg' && body.action !== 'sprite') return json({ error: 'action' }, 400);
   if (!TOKEN) return json({ mock: true });                                            // sin llave: no se hace ni se gasta nada
   const H = { apikey: SVC, Authorization: 'Bearer ' + SVC, 'Content-Type': 'application/json' };
@@ -172,11 +187,29 @@ async function run(req: Request, env: Env): Promise<Response> {
   const prev = await fetch(`${URL_}/rest/v1/vn_cgs?uid=eq.${user.id}&chapter_id=eq.${cid}&hash=eq.${hash}&slot=eq.${slot}&select=url`, { headers: H });
   const had = prev.ok ? (await prev.json())[0] : null; if (had) return json({ url: had.url, cached: true });
   const desc = String(body.desc || '').slice(0, 400); if (!desc) return json({ error: 'desc' }, 400);
-  const ref = /^https:\/\//.test(String(body.ref || '')) ? String(body.ref) : '';       // imagen de referencia del OC (solo enlaces https)
+  // Personajes que la escena nombra: sus descripciones (hechas mirando su imagen) y UNA imagen de referencia (la del lector si la nombra; si no, la del primero).
+  const csr = await fetch(`${URL_}/rest/v1/vn_characters?story_id=eq.${ch.story_id}&select=id,name,sprites,look,look_src&order=pos`, { headers: H });
+  // deno-lint-ignore no-explicit-any
+  const named = ((csr.ok ? await csr.json() : []) as any[]).filter(c => nameIn(String(c.name || ''), desc)).slice(0, 3);
+  const me = String(body.me || '').toLowerCase().trim();
+  const spriteOf = (c: { sprites?: Record<string, string> }) => { const v = c.sprites || {}; return [v.neutral, ...Object.values(v)].find(u => /^https:\/\//.test(String(u || ''))) || ''; };
+  for (const c of named) {
+    const src = spriteOf(c); if (!src || (c.look && c.look_src === src)) continue;
+    try {
+      if (await budget()) break;
+      const look = await describeLook(src, env, TOKEN); if (!look) continue;
+      await spend('other', num('VN_COST_VISION', 0.004), 'describir ' + String(c.name).slice(0, 30));
+      c.look = look; c.look_src = src;
+      await fetch(`${URL_}/rest/v1/vn_characters?id=eq.${c.id}`, { method: 'PATCH', headers: { ...H, Prefer: 'return=minimal' }, body: JSON.stringify({ look, look_src: src }) });
+    } catch (e) { console.error('describir', c.name, e); await spend('retry', 0.002, 'describir falló ' + String(c.name).slice(0, 30)); }
+  }
+  const refC = named.find(c => String(c.name).toLowerCase().trim() === me && spriteOf(c)) || named.find(c => spriteOf(c)), ref = refC ? spriteOf(refC) : '';
+  const looks = named.filter(c => c.look).map(c => `${c.name}: ${String(c.look).replace(/[.\s]+$/, '')}`).join('; ');
   // escalera de intentos: escena no explícita → si falla o se bloquea, versión más suave (por ejemplo con pijama) → si falla, no se cobra nada
   // PROTEGE LA CUENTA de Replicate: nunca se pide nada explícito. El primer intento ya es "no explícito, sin desnudez" y el segundo es todavía más suave.
   const adults = ch.stories?.mature ? ' All characters are adults.' : '';
-  const tries = [desc + '. Tasteful, non-explicit, no nudity, no sexual content.' + adults, desc + '. Safe for work, fully clothed, wearing pajamas, calm cozy mood, no nudity.' + adults];
+  const withLooks = (d: string) => d + (looks ? ' Characters appearance: ' + looks + '.' : '');
+  const tries = [withLooks(desc) + '. Tasteful, non-explicit, no nudity, no sexual content.' + adults, withLooks(desc) + '. Safe for work, fully clothed, wearing pajamas, calm cozy mood, no nudity.' + adults];
   for (let i = 0; i < tries.length; i++) {
     const stop = await budget(); if (stop) return stop;
     try {
