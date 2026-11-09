@@ -5869,7 +5869,7 @@ async function vnrCgLoad(slot, desc) {
   const cu = cUuid(VNR.sid, VNR.ch.id); let r = null;
   const ocn = (S.character && S.character.name) || '', oc = VNR.cast[ocn];
   // la foto de referencia solo se usa si la escena nombra a ese personaje; si no, la IA la copia entera (ej.: un sprite raro aparecía en toda CG)
-  const ref = oc && ocn.length > 1 && String(desc).toLowerCase().includes(ocn.toLowerCase()) && oc.sprites && Object.values(oc.sprites).find(u => /^https:\/\//.test(u));
+  const ref = oc && ocn.length > 1 && new RegExp('(^|[^\\p{L}\\p{N}])' + ocn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}\\p{N}])', 'iu').test(String(desc)) && oc.sprites && Object.values(oc.sprites).find(u => /^https:\/\//.test(u));
   try { if (cu) r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'cg', chapter_id: cu, slot, desc, ...(ref ? { ref } : {}) } }); } catch (e) { r = null; }
   const d = r && r.ok && r.data || {}; c.url = d.url || ''; c.state = c.url ? 'ok' : 'none'; if (c.wait) c.wait();
 }
