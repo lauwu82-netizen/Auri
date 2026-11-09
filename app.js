@@ -4870,17 +4870,17 @@ function restoreReadPos(sid, idx) {
   if (p && p.mk && p.mk.idx === idx) { setTimeout(() => { const w = bmApply(true); if (!w) { const de = document.documentElement; if (p.idx === idx && p.pct > 0.02) window.scrollTo(0, p.pct * Math.max(1, (de.scrollHeight || 0) - (window.innerHeight || 0))); } }, 60); return; }
   if (p && p.idx === idx && p.pct > 0.02) setTimeout(() => { const de = document.documentElement; window.scrollTo(0, p.pct * Math.max(1, (de.scrollHeight || 0) - (window.innerHeight || 0))); }, 40);
 }
-function autoGrow() {                                  // el cuadro crece con el texto; se conserva el scroll para que la pantalla no salte
-  const t = $('#w-ch-text'); if (!t || !t.style || !t.scrollHeight) return;
-  const y = window.scrollY || 0; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px';
-  if ((window.scrollY || 0) !== y) window.scrollTo(0, y);
+function autoGrow() {                                  // el cuadro crece con el texto SIN encogerse a "auto" (eso hacía saltar la pantalla en cada letra)
+  const t = $('#w-ch-text'); if (!t || !t.style) return;
+  const cs = getComputedStyle(t), h = Math.ceil(caretBottom(t, t.value) + (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.borderBottomWidth) || 0) + 10), cur = t.offsetHeight;
+  if (h > 0 && Math.abs(h - cur) > 1) t.style.height = h + 'px';
 }
 /** Altura (px, desde el borde de arriba del cuadro) a la que está el borde de abajo de la línea del cursor: se mide con una copia invisible del texto */
-function caretBottom(ta) {
+function caretBottom(ta, full) {
   const cs = getComputedStyle(ta), m = document.createElement('div');
   ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight', 'wordSpacing', 'textIndent', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'boxSizing', 'tabSize'].forEach(k => { m.style[k] = cs[k]; });
   m.style.position = 'absolute'; m.style.visibility = 'hidden'; m.style.left = '-9999px'; m.style.top = '0'; m.style.whiteSpace = 'pre-wrap'; m.style.overflowWrap = 'break-word'; m.style.width = ta.getBoundingClientRect().width + 'px';
-  m.textContent = ta.value.slice(0, ta.selectionStart || 0); const sp = document.createElement('span'); sp.textContent = '​'; m.appendChild(sp); document.body.appendChild(m);
+  m.textContent = full != null ? full : ta.value.slice(0, ta.selectionStart || 0); const sp = document.createElement('span'); sp.textContent = '​'; m.appendChild(sp); document.body.appendChild(m);
   const y = sp.offsetTop + sp.offsetHeight; m.remove(); return y;
 }
 /** La pantalla sigue al cursor: si queda tapado por el teclado (o pegado arriba), se desliza lo justo para verlo con un poco de aire */
