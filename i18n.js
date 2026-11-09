@@ -2187,4 +2187,13 @@ window.I18N = { en: {
   "Se retiró tu permiso de colaboración.": "Your collaboration permission was removed.",
   "Recompensas": "Rewards",
   "Lee, crea y descubre nuevos mundos.": "Read, create and discover new worlds.",
+  "Escribe tu nombre para mostrar.": "Enter your display name.",
+  "El usuario debe tener de 3 a 20 caracteres: letras sin tildes, números, _ o .": "Username must be 3 to 20 characters: letters without accents, numbers, _ or .",
+  "Nombre para mostrar": "Display name",
+  "Es el nombre que verán los demás. Puede repetirse.": "This is the name others will see. It can be repeated.",
+  "ejemplo: luna_23": "example: luna_23",
+  "Es único y no se puede repetir. Letras sin tildes, números, _ o .": "It's unique and can't be repeated. Letters without accents, numbers, _ or .",
+  "Correo o nombre de usuario": "Email or username",
+  "Correo o @usuario": "Email or @username",
+  "Usuario o contraseña incorrectos.": "Incorrect username or password.",
 } };

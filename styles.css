@@ -2839,3 +2839,6 @@ html.lite .amb{display:none}
 /* regalo de Recompensas centrado igual que los demás íconos de la isla (caja de 27 px) */
 .isle-ic{width:27px;min-height:27px;height:27px}
 .gift-ic{margin:.5px 0 0;transform:translateX(.5px)}
+
+/* @usuario: pequeño y opaco debajo del nombre para mostrar */
+.pf-un{display:block;font-size:12.5px;line-height:1.2;margin:2px 0 0;opacity:.55;color:var(--muted,inherit);letter-spacing:.2px;overflow-wrap:anywhere}

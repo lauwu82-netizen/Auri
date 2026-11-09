@@ -633,7 +633,7 @@ async function sbMirror() {
   const pr = p.ok && Array.isArray(p.data) && p.data[0]; if (!pr) return false;
   const pv = (q.ok && Array.isArray(q.data) && q.data[0]) || {};
   const email = String(s.email || pv.email || '').toLowerCase(), us = LS.get('auri.users', {}), old = us[email] || {};
-  us[email] = { ...old, uid: s.uid, cloud: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || old.bio || '', avatar: pr.avatar || old.avatar || '', banner: pr.banner || old.banner || '',
+  us[email] = { ...old, uid: s.uid, cloud: true, name: pr.name, username: pr.username || old.username || '', community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || old.bio || '', avatar: pr.avatar || old.avatar || '', banner: pr.banner || old.banner || '',
     role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], collab: !!pr.collab, showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
     birth: pv.birth || old.birth || '', gender: pv.gender || old.gender || '', interests: pv.interests || old.interests || [], onboarded: true,
     termsAccepted: pr.terms_accepted || old.termsAccepted, created: String(pr.created_at || '').slice(0, 10) || old.created, strikes: old.strikes || [] };
@@ -707,8 +707,8 @@ async function cloudLogin(email, pass) {
   return '';
 }
 async function cloudSignup() {
-  const { name, email, pass } = PENDING;
-  const r = await sbFetch('/auth/v1/signup', { method: 'POST', body: { email, password: pass, data: { name, community: QZ.comm === 'en' ? 'en' : 'es', birth: QZ.birth, gender: QZ.gender, interests: QZ.interests } } });
+  const { name, username, email, pass } = PENDING;
+  const r = await sbFetch('/auth/v1/signup', { method: 'POST', body: { email, password: pass, data: { name, username, community: QZ.comm === 'en' ? 'en' : 'es', birth: QZ.birth, gender: QZ.gender, interests: QZ.interests } } });
   if (r.net) return { err: t('No hay conexión con el servidor. Inténtalo de nuevo.') };
   if (!r.ok) {
     const c = sbCode(r.data), m = sbMsg(r.data);
@@ -920,7 +920,7 @@ async function sbPullPublic() {                           // trae las obras de o
   const prevOwners = LS.get('auri.cloudowners', []);
   for (const o of owners) {
     const pr = prof.find(x => x.id === o); if (!pr) continue; const key = remoteKey(o), old = us[key] || {};
-    us[key] = { ...old, uid: o, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
+    us[key] = { ...old, uid: o, cloud: true, remote: true, name: pr.name, username: pr.username || '', community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
       frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], collab: !!pr.collab, showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
     const list = [];
     for (const r of stories.filter(x => x.owner === o)) {
@@ -1092,7 +1092,7 @@ async function sbSyncSocial(only) {
 }
 function sbPseudo(pr, old) {                                   // copia local de la cuenta de otra persona (sin datos privados)
   old = old || {};
-  return { ...old, uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
+  return { ...old, uid: pr.id, cloud: true, remote: true, name: pr.name, username: pr.username || '', community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
     frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], collab: !!pr.collab, showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
 }
 const SOC_G = { 'auri.likes': ['likes'], 'auri.follows': ['follows'], 'auri.comments': ['comments', 'comment_likes'], 'auri.pcom': ['pcom', 'pcom_likes'], 'auri.subs': ['subscriptions'] };
@@ -1508,17 +1508,20 @@ async function sbImgLocal(key) {                               // sube las fotos
   const [nv, ch] = imgReplace(LS.get(key, null), map); if (ch) LS.set(key, nv); return ch;
 }
 let PENDING = null, QZ = null;                         // registro en curso: la cuenta SOLO se crea al terminar el cuestionario
-async function register({ name, email, pass, pass2 }) {      // paso 0: correo y contraseña
-  email = email.trim().toLowerCase(); name = name.trim();
+const unKey = v => String(v || '').trim().toLowerCase().replace(/^@/, '');
+const unOk = v => /^[a-z0-9_.]{3,20}$/.test(v);
+async function register({ name, username, email, pass, pass2 }) {      // paso 0: correo y contraseña
+  email = email.trim().toLowerCase(); name = name.trim(); username = unKey(username);
   const users = LS.get('auri.users', {});
-  if (!name) return t('Escribe tu nombre de usuario.');
+  if (!name) return t('Escribe tu nombre para mostrar.');
+  if (!unOk(username)) return t('El usuario debe tener de 3 a 20 caracteres: letras sin tildes, números, _ o .');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return t('Ingresa un correo válido.');
   if (pass.length < 8) return t('La contraseña debe tener al menos 8 caracteres.');
   if (pass !== pass2) return t('Las contraseñas no coinciden.');
-  if (await nameTaken(name)) return t('Ese nombre de usuario ya está en uso.');
+  if (await usernameTaken(username)) return t('Ese nombre de usuario ya está en uso.');
   if (!cloud() && users[email]) return t('Ese correo ya tiene una cuenta.');
   const salt = Math.random().toString(36).slice(2);
-  PENDING = { name, email, salt, hash: cloud() ? '' : await sha(salt + pass), pass: cloud() ? pass : '' }; QZ = { step: 1, comm: detectComm(), birth: '', gender: '', interests: [], mature: false, blocked: false, terms: false };
+  PENDING = { name, username, email, salt, hash: cloud() ? '' : await sha(salt + pass), pass: cloud() ? pass : '' }; QZ = { step: 1, comm: detectComm(), birth: '', gender: '', interests: [], mature: false, blocked: false, terms: false };
   go('/signup'); return '';
 }
 let CREATING = false;
@@ -1534,9 +1537,9 @@ async function createAccount() {                       // último paso: se crea 
       PENDING = null; QZ = null; uiReset(); startSession(email); return toast(kept ? t('¡Listo! Cuenta creada y progreso conservado ✨') : t('¡Listo! Tu cuenta está creada ✨'));
     } finally { CREATING = false; }
   }
-  const { name, email, salt, hash } = PENDING, users = LS.get('auri.users', {});
+  const { name, username, email, salt, hash } = PENDING, users = LS.get('auri.users', {});
   if (users[email]) { PENDING = null; QZ = null; go('/register'); return toast(t('Ese correo ya tiene una cuenta.')); }
-  users[email] = { name, salt, hash, community: QZ.comm === 'en' ? 'en' : 'es', birth: QZ.birth, gender: QZ.gender, interests: QZ.interests, onboarded: true, termsAccepted: today(), created: today(), role: email === OWNER_EMAIL ? 'OWNER' : 'USER', strikes: [] };
+  users[email] = { name, username, salt, hash, community: QZ.comm === 'en' ? 'en' : 'es', birth: QZ.birth, gender: QZ.gender, interests: QZ.interests, onboarded: true, termsAccepted: today(), created: today(), role: email === OWNER_EMAIL ? 'OWNER' : 'USER', strikes: [] };
   LS.set('auri.users', users);
   const kept = isGuest() ? adoptGuest(email) : false;
   LS.set('auri.u.' + email + '.cfg', { ...(kept ? LS.get('auri.u.' + email + '.cfg', {}) : {}), showMature: ageOf(QZ.birth) >= 18 && QZ.mature });   // la opción +18 del cuestionario enciende "Mostrar contenido +18"
@@ -1544,6 +1547,25 @@ async function createAccount() {                       // último paso: se crea 
 }
 async function login({ email, pass }) {
   email = email.trim().toLowerCase();
+  if (email && !email.includes('@')) {                  // entra con su nombre de usuario
+    const un = unKey(email);
+    if (cloud()) {
+      const r = await sbFetch('/functions/v1/login-username', { method: 'POST', body: { username: un, password: pass } });
+      if (r.net) return t('No hay conexión con el servidor. Inténtalo de nuevo.');
+      if (!r.ok || !r.data || !r.data.access_token) {
+        const c = sbCode(r.data), m = sbMsg(r.data);
+        if (c === 'email_not_confirmed' || m.includes('not confirmed')) return t('Confirma tu correo: te enviamos un enlace.');
+        if (r.status === 429) return t('Demasiados intentos. Espera un momento.');
+        return t('Usuario o contraseña incorrectos.');
+      }
+      sbSave(r.data); const em = await sbMirror();
+      if (!em) { localStorage.removeItem('auri.sb'); return t('No se pudo cargar tu perfil. Inténtalo de nuevo.'); }
+      if (isGuest()) wipeGuest(); startSession(em); return '';
+    }
+    const hit = Object.entries(LS.get('auri.users', {})).find(([e, u]) => e !== GUEST && unKey(u.username) === un);
+    if (!hit) return t('Usuario o contraseña incorrectos.');
+    email = hit[0];
+  }
   if (cloud()) { const er = await cloudLogin(email, pass); if (er) return er; if (isGuest()) wipeGuest(); startSession(email); return ''; }
   const u = LS.get('auri.users', {})[email];
   if (!u || u.hash !== await sha(u.salt + pass)) return t('Correo o contraseña incorrectos.');
@@ -1653,8 +1675,9 @@ function authView(mode) {
   <h1>${reg ? t('Crea tu cuenta') : t('Inicia sesión')}</h1>
   <p class="helper" style="text-align:center;margin-bottom:18px">${reg ? t('Guarda tus historias y tu personaje lector.') : t('Inicia sesión para seguir leyendo y escribiendo.')}</p>
   <form class="panel" data-form="${mode}" novalidate><div class="form-grid" style="grid-template-columns:1fr">
-    ${reg ? `<div class="form-group"><label for="a-name">${t('Nombre de usuario')}</label><input id="a-name" class="field" autocomplete="nickname" maxlength="30" value="${PENDING ? esc(PENDING.name) : ''}"></div>` : ''}
-    <div class="form-group"><label for="a-email">${t('Correo')}</label><input id="a-email" type="email" class="field" autocomplete="email" placeholder="${esc(t('tucorreo@ejemplo.com'))}" value="${reg && PENDING ? esc(PENDING.email) : ''}"></div>
+    ${reg ? `<div class="form-group"><label for="a-name">${t('Nombre para mostrar')}</label><input id="a-name" class="field" autocomplete="nickname" maxlength="30" value="${PENDING ? esc(PENDING.name) : ''}"><p class="helper" style="margin:4px 0 0">${t('Es el nombre que verán los demás. Puede repetirse.')}</p></div>
+    <div class="form-group"><label for="a-un">${t('Nombre de usuario')}</label><input id="a-un" class="field" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" placeholder="${esc(t('ejemplo: luna_23'))}" value="${PENDING ? esc(PENDING.username || '') : ''}"><p class="helper" style="margin:4px 0 0">${t('Es único y no se puede repetir. Letras sin tildes, números, _ o .')}</p></div>` : ''}
+    <div class="form-group"><label for="a-email">${reg ? t('Correo') : t('Correo o nombre de usuario')}</label><input id="a-email" ${reg ? 'type="email"' : 'type="text" autocapitalize="none" spellcheck="false"'} class="field" autocomplete="${reg ? 'email' : 'username'}" placeholder="${esc(reg ? t('tucorreo@ejemplo.com') : t('Correo o @usuario'))}" value="${reg && PENDING ? esc(PENDING.email) : ''}"></div>
     <div class="form-group"><label for="a-pass">${t('Contraseña')}</label><input id="a-pass" type="password" class="field" autocomplete="${reg ? 'new-password' : 'current-password'}" placeholder="${esc(t('Mínimo 8 caracteres'))}"></div>
     ${reg ? `<div class="form-group"><label for="a-pass2">${t('Repite la contraseña')}</label><input id="a-pass2" type="password" class="field" autocomplete="new-password"></div>
     <p class="helper" style="margin:2px 0 0">${t('Después te haremos 3 preguntas rápidas: tu cumpleaños, tu género y los temas que te gustan.')}</p>` : ''}
@@ -1861,7 +1884,13 @@ function storyCard(s, i) {                       // portada limpia; título + fa
   <div class="mini-row"><a class="mini-title" href="#/story/${esc(s.id)}">${esc(s.title)}</a><button class="mini-fav" data-act="fav" data-id="${esc(s.id)}" aria-label="${esc(t('Favorito'))}" aria-pressed="${fav}">${fav ? '♥' : '♡'}</button></div>
   <div class="mini-meta">${s.owner ? `<a href="#/user/${encodeURIComponent(s.owner)}">${esc(s.author)}</a>` : `<span>${esc(userName())}</span>`}${s.chapters && s.chapters.some(c => c.status === 'approved') ? viewsTag(s) : ''}</div>${b ? `<div class="mini-pill">${esc(b)}</div>` : ''}</article>`;
 }
-/* --- Nombres de usuario únicos --- */
+/* --- Nombre de usuario único (@usuario); el nombre para mostrar puede repetirse --- */
+async function usernameTaken(un, except) {
+  const k = unKey(un); if (!k) return false;
+  if (cloud()) { const r = await sbFetch('/rest/v1/rpc/username_taken', { method: 'POST', token: await sbToken(), body: { u: k } }); if (r.ok && typeof r.data === 'boolean') return r.data; }
+  return Object.entries(getUsers()).some(([e, u]) => e !== except && e !== GUEST && unKey(u.username) === k);
+}
+const unTag = e => { const u = (getUsers()[e] || {}).username; return u ? `<span class="pf-un">@${esc(u)}</span>` : ''; };
 const nameKey = n => String(n || '').replace(/\s+/g, ' ').trim().toLowerCase();
 async function nameTaken(name, except) {                 // ¿ya hay otra persona con ese usuario? (sin importar mayúsculas)
   const k = nameKey(name); if (!k) return false;
@@ -1884,7 +1913,7 @@ async function sbSearchUsers() {                         // trae de Supabase a l
   const r = await sbApi('/rest/v1/profiles?select=*&name=ilike.' + encodeURIComponent('*' + qs.replace(/[*%_,()]/g, '') + '*') + '&limit=40'); if (!r.ok || !Array.isArray(r.data)) return;
   const us = LS.get('auri.users', {}), me = sbSes() && sbSes().uid; let ch = false;
   r.data.filter(p => p.id !== me).forEach(pr => { const key = remoteKey(pr.id), old = us[key];
-    const n = { ...(old || {}), uid: pr.id, cloud: true, remote: true, name: pr.name, community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
+    const n = { ...(old || {}), uid: pr.id, cloud: true, remote: true, name: pr.name, username: pr.username || '', community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
       frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], collab: !!pr.collab, showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
     if (JSON.stringify(old) !== JSON.stringify(n)) { us[key] = n; ch = true; } });
   if (ch) { LS.set('auri.users', us); const l = $('#list'); if (l && SM === 'users') l.innerHTML = usersList(); }
@@ -3873,7 +3902,6 @@ async function saveAccountCloud() {
   const users = getUsers(), u = users[S.user]; if (!u) return;
   const name = $('#ac-name').value.trim(), email = $('#ac-email').value.trim().toLowerCase(), pass = $('#ac-pass').value;
   if (!name) return toast('Escribe un nombre de usuario.');
-  if (nameKey(name) !== nameKey(u.name) && await nameTaken(name, S.user)) return toast(t('Ese nombre de usuario ya está en uso.'));
   if (email !== S.user) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('Ingresa un correo válido.');
     if (!pass) return toast('Escribe tu contraseña actual para cambiar el correo.');
@@ -3891,7 +3919,6 @@ async function saveAccount() {
   const users = getUsers(), u = users[S.user]; if (!u) return;
   const name = $('#ac-name').value.trim(), email = $('#ac-email').value.trim().toLowerCase(), pass = $('#ac-pass').value;
   if (!name) return toast('Escribe un nombre de usuario.');
-  if (nameKey(name) !== nameKey(u.name) && await nameTaken(name, S.user)) return toast(t('Ese nombre de usuario ya está en uso.'));
   if (email !== S.user) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('Ingresa un correo válido.');
     if (users[email]) return toast(t('Ese correo ya tiene una cuenta.'));
@@ -3967,7 +3994,7 @@ function settingsView(secId) {
       <div class="set-btns"><button class="button secondary" data-act="export-file">${t('⬇ Exportar mis datos (archivo)')}</button><button class="button secondary" data-act="export-copy">${t('📋 Copiar mis datos')}</button>
       <label class="button secondary" style="cursor:pointer">${t('⬆ Importar desde archivo')}<input id="import-file" type="file" accept="application/json,.json" hidden></label>
       <button class="button danger" data-act="wipe-device">${t('🗑 Borrar datos de este dispositivo')}</button></div></section>` },
-    cuenta: { ico: '👤', c: '#5b6ee1', t: 'Cuenta', sub: isGuest() ? t('Invitado · crear cuenta o iniciar sesión') : S.user, body: () => isGuest() ? guestCard() : `<section class="panel set-sec">${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}${sw('hideLists', !!u.hideLists, 'Ocultar mis listas', 'Nadie más ve quién te sigue ni a quién sigues. Los números siguen visibles.')}<div class="form-grid" style="grid-template-columns:1fr"><div class="form-group"><label for="ac-name">${t('Nombre de usuario')}</label><input id="ac-name" class="field" maxlength="30" value="${esc(u.name || '')}"></div>
+    cuenta: { ico: '👤', c: '#5b6ee1', t: 'Cuenta', sub: isGuest() ? t('Invitado · crear cuenta o iniciar sesión') : S.user, body: () => isGuest() ? guestCard() : `<section class="panel set-sec">${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}${sw('hideLists', !!u.hideLists, 'Ocultar mis listas', 'Nadie más ve quién te sigue ni a quién sigues. Los números siguen visibles.')}<div class="form-grid" style="grid-template-columns:1fr"><div class="form-group"><label for="ac-name">${t('Nombre para mostrar')}</label><input id="ac-name" class="field" maxlength="30" value="${esc(u.name || '')}"></div>
       <div class="form-group"><label for="ac-email">${t('Correo')}</label><input id="ac-email" type="email" class="field" value="${esc(S.user)}"></div>
       <div class="form-group"><label for="ac-pass">${t('Contraseña actual')}</label><input id="ac-pass" type="password" class="field" autocomplete="current-password" placeholder="${esc(t('Solo para cambiar el correo'))}"></div></div>
       <button class="button" style="margin-top:12px;width:100%" data-act="acct-save">${t('Guardar cambios de cuenta')}</button></section>
@@ -4110,7 +4137,7 @@ function profileHero(e, own, acts = '', corner = '') {
     ${sk.length && !cfg('hideStrikeBtn') ? `<button type="button" class="pf-warn" data-act="strike-info" aria-label="${esc(t('Aviso de strikes'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5"/><circle cx="12" cy="16.6" r=".6" fill="currentColor"/></svg></button>` : ''}
     ${rdPill(e)}<div class="pf-fade"></div></div>
   ${corner}<div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}${stProfBubble(e)}</div>
-    <div class="pf-info"><div class="pf-namerow"><h1 class="pf-name serif ${nmCls(e)}">${esc(u.name || t('Mi perfil'))}${onlineDot(e)}</h1>${petHTML(e)}</div>${role || mbtiOf(e) ? `<div class="pf-tags">${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}${mbtiBadge(e)}</div>` : ''}
+    <div class="pf-info"><div class="pf-namerow"><h1 class="pf-name serif ${nmCls(e)}">${esc(u.name || t('Mi perfil'))}${onlineDot(e)}</h1>${petHTML(e)}</div>${unTag(e)}${role || mbtiOf(e) ? `<div class="pf-tags">${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}${mbtiBadge(e)}</div>` : ''}
 </div>
     ${acts ? `<div class="pf-acts">${acts}</div>` : ''}</div>
   <div class="pf-stats-row">${stat(followers(e).length, t('Seguidores'), 'pf-list', 'followers')}${stat(following(e).length, t('Seguidos'), 'pf-list', 'following')}${stat(pubs.length, t('Libros publicados'), 'pf-works')}${stat(likesReceived(e), t('Likes'))}</div>
@@ -4263,7 +4290,8 @@ function editProfileView() {
     <div class="ep-av">${frWrap(S.user, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}<label class="ep-cam sm" style="cursor:pointer" aria-label="${esc(t('Cambiar foto'))}">${EPI.cam}<input id="av-file" type="file" accept="image/*" hidden></label></div>
     <div class="ep-av-acts"><label class="ep-chip" style="cursor:pointer">${u.avatar ? t('Cambiar foto de perfil') : t('Añadir foto de perfil')}<input id="av-file2" type="file" accept="image/*" hidden></label>${u.avatar ? `<button type="button" class="ep-chip" data-act="av-adjust">${t('Ajustar')}</button><button type="button" class="ep-chip" data-act="av-clear">${t('Quitar')}</button>` : ''}</div></section>
   <form id="ep-form" data-form="myprofile" class="ep-form">
-    <div class="ep-card"><label for="pf-name"><span class="ep-ico">${EPI.user}</span>${t('Usuario')}</label><input id="pf-name" class="ep-input" maxlength="30" value="${esc(EPD ? EPD.name : u.name)}"></div>
+    <div class="ep-card"><label for="pf-name"><span class="ep-ico">${EPI.user}</span>${t('Nombre para mostrar')}</label><input id="pf-name" class="ep-input" maxlength="30" value="${esc(EPD ? EPD.name : u.name)}"></div>
+    <div class="ep-card"><label for="pf-un"><span class="ep-ico">${EPI.user}</span>${t('Nombre de usuario')}</label><input id="pf-un" class="ep-input" maxlength="20" autocapitalize="none" spellcheck="false" value="${esc(u.username || '')}" placeholder="${esc(t('ejemplo: luna_23'))}"></div>
     <div class="ep-card"><label for="pf-bio"><span class="ep-ico">${EPI.feather}</span>${t('Biografía')}<small id="pf-cnt">${bio.length}/500</small></label><textarea id="pf-bio" class="ep-input" maxlength="500" rows="5" placeholder="${esc(t('Cuéntales algo sobre ti…'))}">${esc(bio)}</textarea></div>
     ${look}
     <button type="button" class="ep-row" data-act="mbti"><span><b>MBTI</b><small>${mbtiOf(S.user) ? `${mbtiOf(S.user)} · ${t(mbtiGroup(mbtiOf(S.user))[1])}` : t('Elige tu tipo de personalidad')}</small></span><i aria-hidden="true">›</i></button>
@@ -5452,8 +5480,14 @@ document.addEventListener('submit', async e => {
   if (kind === 'dm') { const to = form.dataset.to, inp = $('#dm-text'), er = $('#dm-err'), tx0 = ((inp || {}).value || '').trim(); if (!tx0) return;
     const m0 = dmMode(S.user, to), r = dmSend(to, { text: tx0.slice(0, m0 === 'new' ? REQ_MAX : 500) }); if (er) er.textContent = r; if (r) return; inp.value = ''; if (m0 === 'new') { toast(t('Solicitud enviada')); KEEP = true; render(); return; } paintDm(to, true); return; }
   if (kind === 'myprofile') {
-    const name = $('#pf-name').value.trim(); if (!name) return toast('El usuario no puede estar vacío.');
-    if (nameKey(name) !== nameKey((getUsers()[S.user] || {}).name) && await nameTaken(name, S.user)) return toast(t('Ese nombre de usuario ya está en uso.'));
+    const name = $('#pf-name').value.trim(); if (!name) return toast(t('Escribe tu nombre para mostrar.'));
+    const un = unKey($('#pf-un') ? $('#pf-un').value : (getUsers()[S.user] || {}).username), un0 = unKey((getUsers()[S.user] || {}).username);
+    if (un !== un0) {
+      if (!unOk(un)) return toast(t('El usuario debe tener de 3 a 20 caracteres: letras sin tildes, números, _ o .'));
+      if (await usernameTaken(un, S.user)) return toast(t('Ese nombre de usuario ya está en uso.'));
+      if (cloud() && sbSes()) { const pr = await sbApi('/rest/v1/profiles?id=eq.' + sbSes().uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { username: un } }); if (!pr.ok) return toast(pr.net ? t('No hay conexión con el servidor. Inténtalo de nuevo.') : t('Ese nombre de usuario ya está en uso.')); }
+      { const u2 = getUsers(); u2[S.user].username = un; G.set('users', u2); }
+    }
     const u = getUsers(); u[S.user].name = name; u[S.user].bio = $('#pf-bio').value.replace(/\r/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, 500); G.set('users', u); EPD = null; toast('Perfil guardado'); NAVDIR = 'prev'; return go('/profile');
   }
   if (kind === 'pcreply') {
@@ -5504,7 +5538,7 @@ document.addEventListener('submit', async e => {
     if (NBID) G.set('newsdrafts', ndAll().filter(x => x.id !== NBID));
     nbReset(); toast(isMod() ? t('Enviado a revisión: lo verá Administración u Owner') : t('Anuncio publicado')); return render();
   }
-  const data = { name: v('#a-name'), email: v('#a-email'), pass: v('#a-pass'), pass2: v('#a-pass2') };
+  const data = { name: v('#a-name'), username: v('#a-un'), email: v('#a-email'), pass: v('#a-pass'), pass2: v('#a-pass2') };
   const sb = form.querySelector('button[type=submit]'); if (sb) { sb.classList.add('loading'); sb.dataset.t = sb.textContent; sb.innerHTML = LOADER('sm'); }
   const err = kind === 'register' ? await register(data) : await login(data);
   if (sb && sb.isConnected) { sb.classList.remove('loading'); sb.textContent = sb.dataset.t; }

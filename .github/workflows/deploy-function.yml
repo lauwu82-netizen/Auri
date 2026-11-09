@@ -21,3 +21,6 @@ jobs:
       - run: supabase functions deploy vn-generate --project-ref gnhhxvqjtvchjmtizzua --use-api --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      - run: supabase functions deploy login-username --project-ref gnhhxvqjtvchjmtizzua --use-api --no-verify-jwt --yes
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
