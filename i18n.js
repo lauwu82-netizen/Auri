@@ -2196,4 +2196,5 @@ window.I18N = { en: {
   "Correo o nombre de usuario": "Email or username",
   "Correo o @usuario": "Email or @username",
   "Usuario o contraseña incorrectos.": "Incorrect username or password.",
+  "Ilustración especial": "Special illustration",
 } };

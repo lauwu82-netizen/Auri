@@ -5867,7 +5867,9 @@ function vnrGo(d) {
 async function vnrCgLoad(slot, desc) {
   if (!VNR) return; const c = VNR.cgs[slot] = VNR.cgs[slot] || {}; if (c.state) return; c.state = 'loading';
   const cu = cUuid(VNR.sid, VNR.ch.id); let r = null;
-  const oc = VNR.cast[(S.character && S.character.name) || ''], ref = oc && oc.sprites && Object.values(oc.sprites).find(u => /^https:\/\//.test(u));
+  const ocn = (S.character && S.character.name) || '', oc = VNR.cast[ocn];
+  // la foto de referencia solo se usa si la escena nombra a ese personaje; si no, la IA la copia entera (ej.: un sprite raro aparecía en toda CG)
+  const ref = oc && ocn.length > 1 && String(desc).toLowerCase().includes(ocn.toLowerCase()) && oc.sprites && Object.values(oc.sprites).find(u => /^https:\/\//.test(u));
   try { if (cu) r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'cg', chapter_id: cu, slot, desc, ...(ref ? { ref } : {}) } }); } catch (e) { r = null; }
   const d = r && r.ok && r.data || {}; c.url = d.url || ''; c.state = c.url ? 'ok' : 'none'; if (c.wait) c.wait();
 }
@@ -5885,7 +5887,7 @@ function vnrDraw() {
     if (pg.cg === 'intro') { tx.textContent = t('CG en la siguiente escena'); vnrCgLoad(pg.slot, pg.desc); return; }
     const c = VNR.cgs[pg.slot] || {}, d = document.createElement('div'); d.className = 'vnr-cgimg' + (c.url ? '' : ' ph');
     if (c.url) d.style.backgroundImage = `url("${String(c.url).replace(/["\\\n]/g, '')}")`; else d.textContent = c.state === 'loading' ? t('Preparando la ilustración…') : t('Ilustración no disponible todavía');
-    stage.appendChild(d); tx.textContent = pg.desc || ''; if (!c.url && c.state === 'loading') c.wait = () => { if (VNR && VNR.pages[VNR.i] === pg) vnrDraw(); }; return;
+    stage.appendChild(d); tx.textContent = c.url ? t('Ilustración especial') : ''; if (!c.url && c.state === 'loading') c.wait = () => { if (VNR && VNR.pages[VNR.i] === pg) vnrDraw(); }; return;
   }
   stage.querySelectorAll('.vnr-cgimg').forEach(x => x.remove());
   stage.classList.remove('dim');
