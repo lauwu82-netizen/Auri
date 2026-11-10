@@ -2864,3 +2864,5 @@ html.lite .amb{display:none}
 .vnr-bg.scene{filter:none;transform:scale(1.02);opacity:.9}
 .vnr-bg.fade{opacity:0}
 @media (prefers-reduced-motion:reduce){.vnr-bg{transition:none}}
+
+.vn-ref{display:flex;align-items:center;gap:10px;margin:10px 0 2px}.vn-refshow{display:flex;align-items:center;gap:8px}.vn-refshow img{width:44px;height:58px;object-fit:cover;border-radius:8px}

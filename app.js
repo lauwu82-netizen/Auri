@@ -5776,7 +5776,7 @@ function spriteFit(file, cb) {                           // sprite: máximo 640 
   const r = new FileReader(); r.onload = () => { const img = new Image(); img.onload = () => { const k = Math.min(1, 640 / img.height, 640 / img.width), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k)); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); cb(c.toDataURL('image/png')); }; img.onerror = () => toast(t('Elige un archivo de imagen.')); img.src = r.result; }; r.readAsDataURL(file);
 }
 function vnEdit(id) {
-  const cur = id ? VN.chars.find(c => c.id === id) : null, sp = { ...(cur ? cur.sprites || {} : {}) }, m = document.createElement('div'); m.className = 'modal sheet'; let adj = vnAdjOk(cur && cur.adj && Object.keys(cur.adj).length ? cur.adj : null);
+  const cur = id ? VN.chars.find(c => c.id === id) : null, sp = { ...(cur ? cur.sprites || {} : {}) }, m = document.createElement('div'); let refImg = ''; m.className = 'modal sheet'; let adj = vnAdjOk(cur && cur.adj && Object.keys(cur.adj).length ? cur.adj : null);
   const cells = () => VN.emos.map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : ''}</div><b>${esc(t(e.name))}</b><label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}<button type="button" class="link-btn" data-gen="${esc(e.key)}">✦ ${t('Crear con IA')}</button></div>`).join('');
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${cur ? t('Editar personaje') : t('Nuevo personaje')}</h2>
   <label class="field vnf"><span>${t('Nombre')}</span><input id="vn-name" maxlength="40" value="${esc(cur ? cur.name : '')}"></label>
@@ -5784,6 +5784,8 @@ function vnEdit(id) {
   <label class="field vnf"><span>${t('Cómo se ve')}</span><textarea id="vn-look" rows="3" maxlength="500" placeholder="${esc(t('Ej.: chico de pelo blanco largo con puntas moradas, ojos rosados, suéter negro y chaleco morado'))}">${esc(cur && cur.look || '')}</textarea></label>
   <p class="helper">${t('La IA usa esto para dibujarlo igual en los CG y para crear sus sprites. Si lo dejas vacío, lo describe sola mirando su imagen.')}</p>
   <p class="helper">${t('Sube un PNG con fondo transparente por cada emoción. La neutral es la que se usa si no se detecta otra.')}</p>
+  <div class="vn-ref"><label class="button ghost sm vn-up">${t('Subir imagen de referencia')}<input type="file" accept="image/*" data-refimg hidden></label><span class="vn-refshow" data-refshow></span></div>
+  <p class="helper">${t('Opcional: con una imagen de referencia, "Crear con IA" dibuja al personaje igual que en esa imagen.')}</p>
   <div class="vn-cells">${cells()}</div>
   <h3 class="vn-h3">${t('Posición en pantalla')}</h3><p class="helper">${t('Así se verá en la novela visual: el cuadro de abajo es el texto. Las personas pueden ajustarlo a su gusto.')}</p>
   <div class="vn-prev" data-prev><div class="vnr-ch on" style="left:50%"><div class="vnr-fig" data-fig></div></div><div class="vn-prev-box"></div></div>
@@ -5793,16 +5795,19 @@ function vnEdit(id) {
   document.body.appendChild(m); const err = m.querySelector('[data-err]'), prevDraw = () => { const fig = m.querySelector('[data-fig]'), src = sp.neutral || Object.values(sp)[0] || ''; fig.parentNode.style.left = (50 + adj.x) + '%'; fig.style.transform = `translateY(${adj.y}%) scale(${adj.s})`; fig.innerHTML = src ? `<img src="${esc(src)}" alt="" draggable="false">` : ''; m.querySelectorAll('.vn-sl input').forEach(i => { i.value = i.dataset.k === 's' ? Math.round(adj.s * 100) : adj[i.dataset.k]; }); },
     redraw = () => { m.querySelector('.vn-cells').innerHTML = cells(); prevDraw(); }; prevDraw();
   m.addEventListener('input', e => { const r = e.target.closest('.vn-sl input'); if (!r) return; adj = vnAdjOk({ ...adj, [r.dataset.k]: r.dataset.k === 's' ? r.value / 100 : +r.value }); prevDraw(); });
+  m.addEventListener('change', e => { const ri = e.target.closest('input[data-refimg]'); if (!ri || !ri.files[0]) return; err.textContent = t('Subiendo…');
+    spriteFit(ri.files[0], async d => { const u = await sbUpImg(d); err.textContent = ''; if (!u) return (err.textContent = t('No se pudo subir la imagen. Inténtalo otra vez.')); refImg = u; m.querySelector('[data-refshow]').innerHTML = `<img src="${esc(u)}" alt=""><button type="button" class="link-btn" data-refrm>${t('Quitar')}</button>`; }); });
   m.addEventListener('change', e => { const inp = e.target.closest('input[data-emo]'); if (!inp || !inp.files[0]) return; const k = inp.dataset.emo; err.textContent = t('Subiendo…');
     spriteFit(inp.files[0], async d => { const u = await sbUpImg(d); err.textContent = ''; if (!u) return (err.textContent = t('No se pudo subir la imagen. Inténtalo otra vez.')); sp[k] = u; redraw(); }); });
   m.addEventListener('click', async e => {
     if (e.target.closest('[data-no]') || e.target === m) return m.remove();
     const rm = e.target.closest('[data-rm]'); if (rm) { delete sp[rm.dataset.rm]; return redraw(); }
+    if (e.target.closest('[data-refrm]')) { refImg = ''; m.querySelector('[data-refshow]').innerHTML = ''; return; }
     if (e.target.closest('[data-adjreset]')) { adj = vnAdjOk(null); return prevDraw(); }
     const gen = e.target.closest('[data-gen]');
     if (gen) {
-      const k = gen.dataset.gen, desc = m.querySelector('#vn-look').value.trim(), ref = k === 'neutral' ? '' : sp.neutral || '';
-      if (k === 'neutral' && !desc) return (err.textContent = t('Escribe cómo se ve para crear el sprite.'));
+      const k = gen.dataset.gen, desc = m.querySelector('#vn-look').value.trim(), ref = k === 'neutral' ? refImg : sp.neutral || refImg;
+      if (!desc && !ref) return (err.textContent = t('Escribe cómo se ve o sube una imagen de referencia para crear el sprite.'));
       if (k !== 'neutral' && !ref) return (err.textContent = t('Primero crea o sube el sprite Neutral.'));
       if (m.dataset.busy) return; m.dataset.busy = '1'; err.textContent = t('Creando sprite…');
       let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'sprite', story_id: sUuid(VN.sid), name: m.querySelector('#vn-name').value.trim(), emo: k, desc, ref } }); } catch (x) { r = null; }

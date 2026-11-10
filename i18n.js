@@ -2244,4 +2244,7 @@ window.I18N = { en: {
   "Primero crea o sube el sprite Neutral.": "First create or upload the Neutral sprite.",
   "Creando sprite…": "Creating sprite…",
   "No se pudo crear. No se cobró nada; inténtalo otra vez.": "Could not create it. You were not charged; try again.",
+  "Subir imagen de referencia": "Upload reference image",
+  "Opcional: con una imagen de referencia, \"Crear con IA\" dibuja al personaje igual que en esa imagen.": "Optional: with a reference image, \"Create with AI\" draws the character like in that image.",
+  "Escribe cómo se ve o sube una imagen de referencia para crear el sprite.": "Describe how they look or upload a reference image to create the sprite.",
 } };
