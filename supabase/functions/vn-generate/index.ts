@@ -216,11 +216,12 @@ async function run(req: Request, env: Env): Promise<Response> {
 
   // ---- CG ----
   const slot = Number(body.slot); if (!(slot >= 1 && slot <= 3)) return json({ error: 'slot' }, 400);
-  const prev = await fetch(`${URL_}/rest/v1/vn_cgs?uid=eq.${user.id}&chapter_id=eq.${cid}&hash=eq.${hash}&slot=eq.${slot}&select=url`, { headers: H });
+  const desc = String(body.desc || '').slice(0, 400); if (!desc) return json({ error: 'desc' }, 400);
+  const chash = await sha256Hex(hash + '\n' + desc);                                   // la descripción también cuenta: si la cambias, se genera una ilustración nueva
+  const prev = await fetch(`${URL_}/rest/v1/vn_cgs?uid=eq.${user.id}&chapter_id=eq.${cid}&hash=eq.${chash}&slot=eq.${slot}&select=url`, { headers: H });
   const had = prev.ok ? (await prev.json())[0] : null; if (had) return json({ url: had.url, cached: true });
   const gref = 'cg:' + cid + ':' + hash + ':' + slot + ':' + Date.now();
   { const no = await charge('cg', gref, true, 24); if (no) return no; }                // los CG se pagan solo con gemas cian
-  const desc = String(body.desc || '').slice(0, 400); if (!desc) return json({ error: 'desc' }, 400);
   // Personajes que la escena nombra: sus descripciones (hechas mirando su imagen) y UNA imagen de referencia (la del lector si la nombra; si no, la del primero).
   const csr = await fetch(`${URL_}/rest/v1/vn_characters?story_id=eq.${ch.story_id}&select=id,name,sprites,look,look_src&order=pos`, { headers: H });
   // deno-lint-ignore no-explicit-any
@@ -259,7 +260,7 @@ async function run(req: Request, env: Env): Promise<Response> {
       const o = await replicate(env.VN_CG_MODEL || 'black-forest-labs/flux-kontext-pro', input, TOKEN), u = firstUrl(o);
       if (!u) throw new Error('sin imagen');
       await spend(i ? 'retry' : 'cg', num('VN_COST_CG', 0.04), 'cg ' + slot);
-      await fetch(`${URL_}/rest/v1/vn_cgs`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ uid: user.id, chapter_id: cid, hash, slot, url: u }) });
+      await fetch(`${URL_}/rest/v1/vn_cgs`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ uid: user.id, chapter_id: cid, hash: chash, slot, url: u }) });
       return json({ url: u, softened: i > 0 });
     } catch (e) { console.error('cg intento', i, e); await spend('retry', 0.002, ('cg falló ' + slot + ': ' + (e && (e as Error).message || e)).slice(0, 240)); }
   }
