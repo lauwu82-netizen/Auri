@@ -248,7 +248,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   }
   // Con varios personajes, UNA sola imagen de referencia hace que Kontext copie esa cara a todos. Si ya hay descripción de cada uno, se genera solo con texto (cada personaje con su aspecto);
   // si falta alguna, se usa la imagen del lector/primero y se avisa que los demás son personas distintas.
-  const allLooked = named.length > 1 && named.every(c => c.look);
+  const allLooked = named.length > 1;        // con 2+ personajes nunca se usa una sola imagen: Kontext la copiaría a todos (o inventaría al otro)
   const refC = allLooked ? undefined : (named.find(c => String(c.name).toLowerCase().trim() === me && spriteOf(c)) || named.find(c => spriteOf(c))), ref = refC ? spriteOf(refC) : '';
   const others = refC ? named.filter(c => c !== refC).map(c => c.name) : [];
   const looks = named.filter(c => c.look).map(c => `${c.name}: ${String(c.look).replace(/[.\s]+$/, '')}`).join('; ');
