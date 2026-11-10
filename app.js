@@ -766,6 +766,7 @@ async function sbRefresh(only) {                          // sube lo tuyo, trae 
     }
   } catch (e) { console.warn('sync', e); }
   finally { SB_BUSY = false; }
+  walletLoad();
 }
 async function sbSyncOwn() {
   const ses = sbSes(), me = ses && String(ses.email || '').toLowerCase(); if (!ses || !S.user || S.user !== me) return false;
@@ -3342,7 +3343,7 @@ const ISLE_HEAD = `<svg viewBox="0 0 64 56" aria-hidden="true"><defs>
 const ISLE_OPS = [
   { k: 'msg', ic: () => ICON.mail, l: 'Mensajes', n: () => dmUnread(), who: 'user' },
   { k: 'noti', ic: () => ICON.bell, l: 'Notificaciones', n: () => unread(), who: 'user' },
-  { k: 'rewards', ic: () => '<span class="gift-ic" aria-hidden="true"><i class="g-lid"></i><i class="g-box"></i><i class="g-rib"></i><i class="g-bow"></i></span>', l: 'Recompensas', n: () => 0 },
+  { k: 'rewards', ic: () => '<span class="gift-ic" aria-hidden="true"><i class="g-lid"></i><i class="g-box"></i><i class="g-rib"></i><i class="g-bow"></i></span>', l: 'Recompensas', n: () => (WALLET && WALLET.pending) || 0, who: 'user' },
   { k: 'set', ic: () => ICON.gear, l: 'Ajustes', n: () => 0 },
   { k: 'mod', ic: () => IC('<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>'), l: 'Moderación', n: () => modCounts().total, who: 'staff' },
 ];
@@ -3407,7 +3408,7 @@ function isleTest(what) {
 const isleTop = () => 4;
 const isleBottom = () => innerHeight - 140;
 function isleGo(k) {
-  if (k === 'rewards') toast(t('Recompensas') + ': ' + t('Próximamente')); else if (k === 'missions') go('/shop/misiones'); else if (k === 'msg') go('/messages'); else if (k === 'noti') go('/notifications'); else if (k === 'set') go('/settings'); else if (k === 'mod') go('/moderation');
+  if (k === 'rewards') go('/rewards'); else if (k === 'missions') go('/shop/misiones'); else if (k === 'msg') go('/messages'); else if (k === 'noti') go('/notifications'); else if (k === 'set') go('/settings'); else if (k === 'mod') go('/moderation');
   else if (k === 'find') { go('/'); setTimeout(() => { SEARCH_OPEN = true; syncSearch(); focusSearch(); const b = $('[data-act=search-toggle]'); if (b) b.setAttribute('aria-expanded', 'true'); }, 60); }
 }
 function isleFill() {
@@ -4745,6 +4746,54 @@ function notifView() {                                   // (pantalla completa, 
   return html;
 }
 
+/* --- Recompensas y billetera de AuriGems (cian = se compran y se donan; moradas = anuncios, no se donan) --- */
+let WALLET = null, RWS = null, RW_TAB = 'pending', PRICES = { chapter: 24, cg: 24, sprite: 16 };      // precios en cuartos de gema (los reales vienen de vn_prices)
+const qFmt = q => { q = Math.max(0, Math.round(+q || 0)); const w = Math.floor(q / 4), f = ['', '¼', '½', '¾'][q % 4]; return (w || !f ? String(w) : '') + f; };   // cuartos de gema → "6", "1½", "¼"
+const gemI = (c = '') => `<i class="gem ${c}" aria-hidden="true"></i>`;      // la gema es solo CSS por ahora; luego se cambia por tu diseño
+const rwOn = () => !!S.user && !isGuest() && cloud() && !!sbSes();
+const rpcMsg = r => r && r.net ? t('No hay conexión con el servidor. Inténtalo de nuevo.') : (r && r.data && (r.data.message || r.data.msg)) || t('No se pudo completar. Inténtalo de nuevo.');
+async function walletLoad() {
+  if (!rwOn()) return;
+  const [r, pq] = await Promise.all([sbApi('/rest/v1/rpc/my_wallet', { method: 'POST', body: {} }), sbApi('/rest/v1/vn_prices?select=item,q')]);
+  if (pq.ok && Array.isArray(pq.data)) pq.data.forEach(x => { if (x.q > 0) PRICES[x.item] = x.q; });
+  if (r.ok && r.data && typeof r.data === 'object' && !Array.isArray(r.data)) { WALLET = r.data; if (typeof ISLE !== 'undefined' && ISLE && ISLE_ST.open) isleFill(); }
+}
+async function rwLoad() {
+  if (!rwOn() || RWS === 'loading') return; RWS = 'loading';
+  const [a, b] = await Promise.all([sbApi('/rest/v1/rpc/my_wallet', { method: 'POST', body: {} }), sbApi('/rest/v1/rpc/my_rewards', { method: 'POST', body: {} })]);
+  if (a.ok && a.data && !Array.isArray(a.data)) WALLET = a.data;
+  RWS = b.ok && Array.isArray(b.data) ? b.data : [];
+  if (/^#\/rewards/.test(location.hash)) { KEEP = true; render(); }
+}
+const rwLeft = ts => { const m = Math.max(0, Math.round((new Date(ts) - Date.now()) / 60000)), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60); return d ? d + ' d ' + h + ' h' : h ? h + ' h ' + (m % 60) + ' min' : m + ' min'; };
+function rewardCard(x) {
+  const who = x.source === 'owner' ? t('Regalo de Auri') : x.source === 'donation' ? (x.dir === 'in' ? t('Donación de') + ' ' + esc(x.other_name || '') + (x.other_username ? ' <span class="pf-un" style="display:inline">@' + esc(x.other_username) + '</span>' : '') : '') : x.source === 'code' ? t('Código canjeado') : x.source === 'purchase' ? t('Tu compra') : t('Recompensa');
+  const toMe = x.dir === 'in', title = toMe ? who : t('Enviaste a') + ' ' + esc(x.other_name || '') + (x.other_username ? ' <span class="pf-un" style="display:inline">@' + esc(x.other_username) + '</span>' : '');
+  const st = x.status, stTxt = st === 'claimed' ? t('Reclamada') : st === 'returned' ? (toMe ? t('Venció') : t('Venció y volvió a tu saldo')) : st === 'expired' ? t('Venció') : toMe ? '' : t('Esperando a que la reclamen');
+  const exp = st === 'pending' && x.expires ? `<span class="rw-exp">${t('Vence en')} ${esc(rwLeft(x.expires))}</span>` : '';
+  const act = toMe && st === 'pending' ? `<button type="button" class="button sm" data-act="rw-claim" data-id="${esc(x.id)}">${t('Reclamar')}</button>` : '';
+  return `<article class="rw-card ${st}"><div class="rw-amt">${gemI()}<b>${toMe ? '+' : '−'}${qFmt(x.amount)}</b></div><div class="rw-main"><strong>${title}</strong>${x.note ? `<p>${esc(x.note)}</p>` : ''}<span class="rw-sub">${esc(stTxt)}${stTxt && exp ? ' · ' : ''}${exp}</span></div>${act}</article>`;
+}
+function rewardsView() {
+  if (!rwOn()) return `<main class="page">${empty('Aquí pronto habrá algo nuevo', 'Inicia sesión para ver tus recompensas.')}</main>`;
+  if (RWS === null) rwLoad();
+  const w = WALLET || { cyan: 0, purple: 0, pending: 0 }, list = Array.isArray(RWS) ? RWS : [], loading = RWS === null || RWS === 'loading';
+  const pend = list.filter(x => x.dir === 'in' && x.status === 'pending'), hist = list.filter(x => !(x.dir === 'in' && x.status === 'pending'));
+  const owner = isOwner(), body = RW_TAB === 'hist'
+    ? (hist.length ? hist.map(rewardCard).join('') : `<p class="helper">${t('Aquí saldrá el registro de lo que recibas y envíes.')}</p>`)
+    : (pend.length ? (pend.length > 1 ? `<button type="button" class="button" style="width:100%;margin-bottom:10px" data-act="rw-claim-all">${t('Reclamar todo')}</button>` : '') + pend.map(rewardCard).join('') : `<p class="helper">${loading ? t('Cargando…') : t('No tienes nada por reclamar.')}</p>`);
+  return `<main class="page rw-page"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('Recompensas')}</span><h2 style="margin-top:8px">${t('Tus gemas y regalos')}</h2></div></div>
+  <section class="panel rw-wallet"><div class="rw-bal">${gemI()}<div><b>${qFmt(w.cyan)}</b><span>${t('Gemas cian')}</span></div></div>
+  ${w.purple > 0 ? `<div class="rw-bal">${gemI('p')}<div><b>${qFmt(w.purple)}</b><span>${t('Gemas moradas')}</span></div></div>` : ''}</section>
+  <div class="tabs" role="tablist"><button class="tab ${RW_TAB === 'pending' ? 'active' : ''}" data-act="rw-tab" data-v="pending">${t('Por reclamar')}${pend.length ? ' (' + pend.length + ')' : ''}</button><button class="tab ${RW_TAB === 'hist' ? 'active' : ''}" data-act="rw-tab" data-v="hist">${t('Historial')}</button></div>
+  ${body}
+  <section class="panel rw-send"><h3 style="margin:0 0 4px">${t('Donar gemas cian')}</h3><p class="helper" style="margin:0 0 12px">${owner ? t('Como Owner no gastas tu saldo: puedes regalar las que quieras.') : t('Se descuentan de tus gemas cian. Si la persona no las reclama a tiempo, vuelven a ti. Solo entre cuentas del mismo rango de edad.')}</p>
+  <div class="form-group"><label for="rw-user">${t('Nombre de usuario')}</label><input id="rw-user" class="field" autocapitalize="none" spellcheck="false" maxlength="21" placeholder="@usuario"></div>
+  <div class="form-group"><label for="rw-amt">${t('Cantidad de gemas')}</label><input id="rw-amt" class="field" inputmode="decimal" placeholder="1"></div>
+  <div class="form-group"><label for="rw-note">${t('Mensaje (opcional)')}</label><input id="rw-note" class="field" maxlength="140"></div>
+  <button type="button" class="button" style="width:100%" data-act="rw-send">${t('Enviar gemas')}</button></section></main>`;
+}
+
 /* --- Mis Personajes: reemplazan [TN] en las historias que lo permiten --- */
 function charsSection() {
   const act = S.chars.find(c => c.id === S.activeId);
@@ -5025,6 +5074,7 @@ function render() {
   else if (a === 'news') app.innerHTML = shell('/news', newsView(b));
   else if (a === 'settings') app.innerHTML = shell('', settingsView(b));
   else if (a === 'notifications') app.innerHTML = shell('', notifView());
+  else if (a === 'rewards') app.innerHTML = shell('', rewardsView());
   else app.innerHTML = shell('/', discoverView());
   if (a !== 'write') { W = null; WPREVIEW = false; }
   if (a !== 'story') EDITC = null;
@@ -5333,6 +5383,18 @@ document.addEventListener('click', e => {
     'qz-exit': () => { PENDING = null; QZ = null; go('/login'); },
     'int-set': () => { const u = getUsers(), me = u[S.user], v = el.dataset.v, cur = me.interests || [], next = cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v];
       if (!next.length) return toast('Deja al menos un tema.'); me.interests = next; G.set('users', u); KEEP = true; render(); },
+    'rw-tab': () => { RW_TAB = el.dataset.v === 'hist' ? 'hist' : 'pending'; KEEP = true; render(); },
+    'rw-claim': async () => { el.disabled = true; const r = await sbApi('/rest/v1/rpc/reward_claim', { method: 'POST', body: { p_id: el.dataset.id } });
+      if (r.ok && r.data) toast(t('Recibiste') + ' ' + qFmt(r.data.amount) + ' ' + t('gemas cian')); else toast(rpcMsg(r)); RWS = null; await walletLoad(); KEEP = true; render(); },
+    'rw-claim-all': async () => { el.disabled = true; const r = await sbApi('/rest/v1/rpc/reward_claim_all', { method: 'POST', body: {} });
+      if (r.ok && r.data) toast(t('Recibiste') + ' ' + qFmt(r.data.amount) + ' ' + t('gemas cian')); else toast(rpcMsg(r)); RWS = null; await walletLoad(); KEEP = true; render(); },
+    'rw-send': async () => {
+      const u = ($('#rw-user') || {}).value || '', g = parseFloat(String(($('#rw-amt') || {}).value || '').replace(',', '.')), note = (($('#rw-note') || {}).value || '').trim();
+      if (!u.trim()) return toast(t('Escribe el @usuario de quien las recibe.'));
+      if (!(g > 0) || g * 4 !== Math.round(g * 4)) return toast(t('Pon una cantidad válida (sirven cuartos: 0.25, 0.5, 1…).'));
+      el.disabled = true; const r = await sbApi('/rest/v1/rpc/reward_send', { method: 'POST', body: { p_username: u.trim(), p_gems: g, p_note: note } }); el.disabled = false;
+      if (!r.ok) return toast(rpcMsg(r));
+      toast(t('Enviado.')); RWS = null; await walletLoad(); KEEP = true; render(); },
     'home-find': () => { SEARCH_OPEN = !SEARCH_OPEN; syncSearch(); el.setAttribute('aria-expanded', SEARCH_OPEN); if (SEARCH_OPEN) { focusSearch(); const sb = $('.search-bar'); if (sb && sb.scrollIntoView) sb.scrollIntoView({ block: 'center', behavior: 'smooth' }); } else clearSearch(); },
     'search-toggle': () => { SEARCH_OPEN = !SEARCH_OPEN; syncSearch(); el.setAttribute('aria-expanded', SEARCH_OPEN); if (SEARCH_OPEN) focusSearch(); else clearSearch(); },
     'search-close': () => { SEARCH_OPEN = false; syncSearch(); clearSearch(); },
@@ -5677,7 +5739,7 @@ function passTab() {
    La autoría marca su libro como compatible y crea sus personajes con un sprite por emoción.
    Todo vive en las tablas vn_* (SQL 40); la IA se conecta después. */
 const isCollab = e => !!(getUsers()[e == null ? S.user : e] || {}).collab && roleOf(e == null ? S.user : e) !== 'OWNER';   // cuentas colaboradoras (las activa la Owner)
-const vnOn = () => !!S.user && !isGuest() && (isOwner() || isCollab()) && cloud() && !!sbSes();
+const vnOn = () => !!S.user && !isGuest() && cloud() && !!sbSes();          // abierto a todas las cuentas con sesión: la Owner lo usa gratis, las demás con AuriGems
 const VN_KEYS = [['neutral', 'Neutral'], ['feliz', 'Feliz'], ['triste', 'Triste'], ['sonrojado', 'Sonrojado'], ['asustado', 'Asustado'], ['enojado', 'Enojado']];
 let VN_EM = null;                                        // emociones de la nube (si ya cargaron); si no, la lista por defecto
 const vnEmoList = () => VN_EM && VN_EM.length ? VN_EM : VN_KEYS.map(([key, name]) => ({ key, name }));
@@ -5850,7 +5912,7 @@ async function vnrBoot(sid, n) {
   VNR = { sid, n: +n, ch, s, cast, script: vnMock(text, Object.keys(cast), rawParas), cgs: {}, pages: [], i: 0, order: [], next: s.chapters.find(c => c.idx === ch.idx + 1), adj: (vnLocalAdj()[sid] || {}) };
   VNR.pages = vnrPaginate(el);
   try { if (localStorage.getItem('auri.vnHint') === '1') el.querySelector('.vnr-hint').hidden = true; } catch (e) { /* ignorar */ }
-  el.querySelector('.vnr-tap').addEventListener('click', ev => { if (ev.target.closest('[data-vnchat]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.key) chatOpen(pg.key); return; } const r = el.getBoundingClientRect(), left = ev.clientX - r.left < r.width * 0.28; vnrGo(left ? -1 : 1); try { localStorage.setItem('auri.vnHint', '1'); } catch (e) { /* ignorar */ } el.querySelector('.vnr-hint').hidden = true; });
+  el.querySelector('.vnr-tap').addEventListener('click', ev => { if (ev.target.closest('[data-vnchat]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.key) chatOpen(pg.key); return; } if (ev.target.closest('[data-vncg]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.cg === 'intro') vnrCgBuy(pg); return; } const r = el.getBoundingClientRect(), left = ev.clientX - r.left < r.width * 0.28; vnrGo(left ? -1 : 1); try { localStorage.setItem('auri.vnHint', '1'); } catch (e) { /* ignorar */ } el.querySelector('.vnr-hint').hidden = true; });
   el.querySelector('[data-vnadj]').onclick = () => vnrAdjust(el);
   let rt = 0; const re = () => { clearTimeout(rt); rt = setTimeout(() => { if (!document.body.contains(el) || !VNR || VNR.sid !== sid) return window.removeEventListener('resize', re); const cur = VNR.pages[VNR.i] || { si: 0, off: 0 }; VNR.pages = vnrPaginate(el); let j = 0; VNR.pages.forEach((p, k) => { if (p.si < cur.si || (p.si === cur.si && p.off <= cur.off)) j = k; }); VNR.i = j; vnrDraw(); }, 200); };
   window.addEventListener('resize', re);
@@ -5863,13 +5925,20 @@ function vnrGo(d) {
   if (j < 0) return; if (j >= VNR.pages.length) { if (VNR.next) { goReplace('/vnr/' + VNR.sid + '/' + (VNR.n + 1)); } else go('/story/' + VNR.sid + '/fin'); return; }
   VNR.i = j; vnrDraw(); const pg = VNR.pages[j]; if (d > 0 && pg && pg.chat && pg.key) chatOpen(pg.key);
 }
+/** Una persona que no es Owner aceptó gastar gemas en este CG */
+function vnrCgBuy(pg) {
+  if (WALLET && WALLET.cyan < PRICES.cg) return toast(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.'));
+  vnrCgLoad(pg.slot, pg.desc); vnrGo(1);
+}
 /** Pide el CG al servidor la primera vez que se llega a él (sin llave de IA responde "mock" y no se gasta nada) */
 async function vnrCgLoad(slot, desc) {
   if (!VNR) return; const c = VNR.cgs[slot] = VNR.cgs[slot] || {}; if (c.state) return; c.state = 'loading';
   const cu = cUuid(VNR.sid, VNR.ch.id); let r = null;
   const me = (S.character && S.character.name) || '';        // el servidor decide qué personajes nombra la escena y qué imagen de referencia usar
   try { if (cu) r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'cg', chapter_id: cu, slot, desc, me } }); } catch (e) { r = null; }
-  const d = r && r.ok && r.data || {}; c.url = d.url || ''; c.state = c.url ? 'ok' : 'none'; if (c.wait) c.wait();
+  const d = r && r.ok && r.data || {}; c.url = d.url || ''; c.state = c.url ? 'ok' : 'none';
+  if (r && r.status === 402) { c.err = 'gems'; toast(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.')); }
+  walletLoad(); if (c.wait) c.wait();
 }
 function vnrSprite(c, emo) { const sp = (c && c.sprites) || {}; return sp[emo] || sp.neutral || Object.values(sp)[0] || ''; }
 const vnrAdjOf = n => vnAdjOk(VNR.adj[n] || (VNR.cast[n] && VNR.cast[n].adj && Object.keys(VNR.cast[n].adj).length ? VNR.cast[n].adj : null));
@@ -5882,9 +5951,13 @@ function vnrDraw() {
   if (pg.chat) { stage.classList.add('dim'); who.hidden = false; who.textContent = t('Mensajes'); tx.innerHTML = `${esc(pg.title || '')}<br><button type="button" class="button ghost sm vnr-openchat" data-vnchat>${t('Abrir chat')}</button>`; return; }
   if (pg.cg) {
     VNR.order = []; stage.innerHTML = ''; stage.classList.remove('dim'); who.hidden = false; who.textContent = '🎬 CG';
-    if (pg.cg === 'intro') { tx.textContent = t('CG en la siguiente escena'); vnrCgLoad(pg.slot, pg.desc); return; }
+    if (pg.cg === 'intro') {
+      if (isOwner() || (VNR.cgs[pg.slot] || {}).state) { tx.textContent = t('CG en la siguiente escena'); vnrCgLoad(pg.slot, pg.desc); return; }
+      // las demás cuentas deciden si gastan gemas antes de generar (así nadie las gasta sin querer)
+      tx.innerHTML = `${esc(t('Ilustración especial con IA'))}: <b>${qFmt(PRICES.cg)}</b> ${gemI()} · ${esc(t('Tienes'))} <b>${qFmt(WALLET ? WALLET.cyan : 0)}</b> ${gemI()}<br><button type="button" class="button sm vnr-cgbtn" data-vncg="1">${esc(t('Generar'))}</button> <small>${esc(t('o toca para seguir leyendo'))}</small>`; return;
+    }
     const c = VNR.cgs[pg.slot] || {}, d = document.createElement('div'); d.className = 'vnr-cgimg' + (c.url ? '' : ' ph');
-    if (c.url) d.style.backgroundImage = `url("${String(c.url).replace(/["\\\n]/g, '')}")`; else d.textContent = c.state === 'loading' ? t('Preparando la ilustración…') : t('Ilustración no disponible todavía');
+    if (c.url) d.style.backgroundImage = `url("${String(c.url).replace(/["\\\n]/g, '')}")`; else d.textContent = c.state === 'loading' ? t('Preparando la ilustración…') : c.err === 'gems' ? t('Te faltan gemas cian para esta ilustración') : !c.state && !isOwner() ? t('Ilustración omitida') : t('Ilustración no disponible todavía');
     stage.appendChild(d); tx.textContent = c.url ? t('Ilustración especial') : ''; if (!c.url && c.state === 'loading') c.wait = () => { if (VNR && VNR.pages[VNR.i] === pg) vnrDraw(); }; return;
   }
   stage.querySelectorAll('.vnr-cgimg').forEach(x => x.remove());

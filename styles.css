@@ -2842,3 +2842,20 @@ html.lite .amb{display:none}
 
 /* @usuario: pequeño y opaco debajo del nombre para mostrar */
 .pf-un{display:block;font-size:12.5px;line-height:1.2;margin:2px 0 0;opacity:.55;color:var(--muted,inherit);letter-spacing:.2px;overflow-wrap:anywhere}
+
+/* ---- Gemas y Recompensas (la gema es solo CSS por ahora; luego se cambia por el diseño propio) ---- */
+.gem{display:inline-block;position:relative;width:1.15em;height:1.15em;vertical-align:-.2em;flex:none;clip-path:polygon(22% 0,78% 0,100% 34%,50% 100%,0 34%);background:linear-gradient(140deg,#e4fcff 0%,#69e6f2 34%,#19b5d8 68%,#0b7ea8 100%)}
+.gem::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.55) 0,rgba(255,255,255,.55) 34%,transparent 34%),linear-gradient(90deg,transparent 49%,rgba(255,255,255,.35) 50%,transparent 51%);clip-path:polygon(22% 0,78% 0,100% 34%,0 34%)}
+.gem::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 38%,rgba(255,255,255,.5) 47%,transparent 56%)}
+.gem.p{background:linear-gradient(140deg,#f3e6ff 0%,#c79bf5 34%,#8a52d8 68%,#5a2e9e 100%)}
+.rw-page .tabs{margin-top:16px}
+.rw-wallet{display:flex;flex-wrap:wrap;gap:22px}
+.rw-bal{display:flex;align-items:center;gap:12px}.rw-bal .gem{width:34px;height:34px}
+.rw-bal b{display:block;font:700 26px/1.1 var(--serif);color:var(--title)}.rw-bal span{font-size:13px;color:var(--soft)}
+.rw-card{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:10px;border:1px solid hsl(var(--border));border-radius:18px;background:hsl(var(--card))}
+.rw-card.claimed,.rw-card.returned,.rw-card.expired{opacity:.7}
+.rw-amt{display:flex;align-items:center;gap:7px;min-width:68px}.rw-amt b{font:700 18px var(--serif);color:var(--title)}
+.rw-main{flex:1;min-width:0}.rw-main strong{display:block;font-size:14px;color:var(--title);overflow-wrap:anywhere}.rw-main p{margin:3px 0 0;font-size:13px;color:var(--soft);overflow-wrap:anywhere}
+.rw-sub{display:block;margin-top:3px;font-size:12px;color:var(--soft)}.rw-exp{color:#b0760f;font-weight:600}
+.rw-send{margin-top:22px}
+.vnr-cgbtn{margin:8px 8px 0 0}

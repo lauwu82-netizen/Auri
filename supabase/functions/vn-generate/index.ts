@@ -136,7 +136,25 @@ async function run(req: Request, env: Env): Promise<Response> {
   if (!TOKEN) return json({ mock: true });                                            // sin llave: no se hace ni se gasta nada
   const H = { apikey: SVC, Authorization: 'Bearer ' + SVC, 'Content-Type': 'application/json' };
   const rpc = async (fn: string, args: Record<string, unknown>) => { const r = await fetch(`${URL_}/rest/v1/rpc/${fn}`, { method: 'POST', headers: H, body: JSON.stringify(args) }); return r.ok ? await r.json().catch(() => null) : null; };
-  if (body.action === 'sprite') return await sprite(body, user.id, URL_, H, rpc, env, TOKEN);
+  // ---- AuriGems: la Owner usa todo gratis; el resto paga (y se le devuelve si la generación falla) ----
+  const pr = await fetch(`${URL_}/rest/v1/profiles?id=eq.${user.id}&select=role`, { headers: H }), role = pr.ok ? ((await pr.json())[0] || {}).role : '', free = role === 'OWNER';
+  const charge = async (item: string, ref: string, cyanOnly: boolean, dflt: number): Promise<Response | null> => {
+    if (free) return null;
+    const pq = await fetch(`${URL_}/rest/v1/vn_prices?item=eq.${item}&select=q`, { headers: H }), row = pq.ok ? (await pq.json())[0] : null, q = row && row.q > 0 ? row.q : dflt;
+    const r = await rpc('gems_spend', { p_uid: user.id, p_q: q, p_reason: item, p_ref: ref, p_cyan_only: cyanOnly });
+    if (!r) return json({ error: 'wallet' }, 503);                                    // sin billetera no se genera nada
+    return r.ok ? null : json({ error: 'gems', need: r.need, have: r.have }, 402);
+  };
+  const refund = async (ref: string) => { if (!free) await rpc('gems_refund', { p_uid: user.id, p_ref: ref }); };
+  if (body.action === 'sprite') {
+    const sref = 'sprite:' + String(body.story_id || '') + ':' + String(body.name || '').slice(0, 30) + ':' + String(body.emo || '') + ':' + Date.now();
+    const sst = await fetch(`${URL_}/rest/v1/stories?id=eq.${String(body.story_id || '')}&select=owner`, { headers: H }), so = sst.ok ? (await sst.json())[0] : null;
+    if (!so || so.owner !== user.id) return json({ error: 'forbidden' }, 403);
+    const no = await charge('sprite', sref, false, 16); if (no) return no;
+    const rs = await sprite(body, user.id, URL_, H, rpc, env, TOKEN);
+    if (rs.status !== 200) await refund(sref); else { const cl = rs.clone(); if ((await cl.json().catch(() => ({}))).failed) await refund(sref); }
+    return rs;
+  }
   const cid = String(body.chapter_id || ''); if (!/^[0-9a-f-]{36}$/i.test(cid)) return json({ error: 'chapter_id' }, 400);
   const cr = await fetch(`${URL_}/rest/v1/chapters?id=eq.${cid}&select=id,story_id,title,text,status,stories(owner,mature)`, { headers: H });
   const ch = cr.ok ? (await cr.json())[0] : null; if (!ch) return json({ error: 'not_found' }, 404);
@@ -148,9 +166,11 @@ async function run(req: Request, env: Env): Promise<Response> {
   async function spend(kind: string, usd: number, detail: string) { await rpc('vn_usage_add', { p_uid: user.id, p_kind: kind, p_cost: usd, p_detail: detail }); }
 
   if (body.action === 'script') {
+    const cref = 'chapter:' + cid + ':' + hash;
+    { const no = await charge('chapter', cref, false, 24); if (no) return no; }          // todas las personas pagan el capítulo una vez (aunque el guion ya esté preparado)
     const got = await fetch(`${URL_}/rest/v1/vn_scripts?chapter_id=eq.${cid}&hash=eq.${hash}&select=script`, { headers: H });
     const have = got.ok ? (await got.json())[0] : null; if (have) return json({ script: have.script, cached: true });     // ya preparado por la primera persona que lo leyó
-    const stop = await budget(); if (stop) return stop;
+    const stop = await budget(); if (stop) { await refund(cref); return stop; }
     const cs = await fetch(`${URL_}/rest/v1/vn_characters?story_id=eq.${ch.story_id}&select=name`, { headers: H }), cast = (cs.ok ? await cs.json() : []).map((c: { name: string }) => c.name);
     const es = await fetch(`${URL_}/rest/v1/vn_emotions?select=key`, { headers: H }), emos = (es.ok ? await es.json() : []).map((e: { key: string }) => e.key);
     const text = String(ch.text || '').split(/\n\s*\n/).filter((p: string) => !/^\s*::(chat|sep|cg)/.test(p)).join('\n\n').slice(0, 24000);
@@ -159,7 +179,7 @@ async function run(req: Request, env: Env): Promise<Response> {
     const models = (env.VN_TEXT_MODELS || env.VN_TEXT_MODEL || 'meta/meta-llama-3.1-405b-instruct').split(',').map(x => x.trim()).filter(Boolean).slice(0, 4);
     let script: Array<Record<string, unknown>> | null = null;
     for (const m of models) {
-      const b = await budget(); if (b) return b;
+      const b = await budget(); if (b) { await refund(cref); return b; }
       try {
         const out = await replicate(m, { prompt: scriptPrompt(text, cast, emos), max_tokens: 6000, temperature: 0.2 }, TOKEN);
         script = parseScript(Array.isArray(out) ? out.join('') : String(out), cast, emos);
@@ -167,7 +187,7 @@ async function run(req: Request, env: Env): Promise<Response> {
       } catch (e) { console.error('texto', m, e); await spend('retry', 0.002, 'ERROR · ' + m.slice(0, 120)); }
       if (script) break;
     }
-    if (!script) return json({ error: 'bad_script' }, 502);                               // el cliente sigue con su guion de prueba
+    if (!script) { await refund(cref); return json({ error: 'bad_script' }, 502); }                              // el cliente sigue con su guion de prueba
     await fetch(`${URL_}/rest/v1/vn_scripts`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ chapter_id: cid, hash, script }) });
     // un fondo por lugar nuevo (máximo 6 por capítulo para cuidar el gasto)
     const places = [...new Set(script.map(s => String(s.place)).filter(Boolean))].slice(0, 6), assets: Record<string, string> = {};
@@ -186,6 +206,8 @@ async function run(req: Request, env: Env): Promise<Response> {
   const slot = Number(body.slot); if (!(slot >= 1 && slot <= 3)) return json({ error: 'slot' }, 400);
   const prev = await fetch(`${URL_}/rest/v1/vn_cgs?uid=eq.${user.id}&chapter_id=eq.${cid}&hash=eq.${hash}&slot=eq.${slot}&select=url`, { headers: H });
   const had = prev.ok ? (await prev.json())[0] : null; if (had) return json({ url: had.url, cached: true });
+  const gref = 'cg:' + cid + ':' + hash + ':' + slot + ':' + Date.now();
+  { const no = await charge('cg', gref, true, 24); if (no) return no; }                // los CG se pagan solo con gemas cian
   const desc = String(body.desc || '').slice(0, 400); if (!desc) return json({ error: 'desc' }, 400);
   // Personajes que la escena nombra: sus descripciones (hechas mirando su imagen) y UNA imagen de referencia (la del lector si la nombra; si no, la del primero).
   const csr = await fetch(`${URL_}/rest/v1/vn_characters?story_id=eq.${ch.story_id}&select=id,name,sprites,look,look_src&order=pos`, { headers: H });
@@ -211,7 +233,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   const withLooks = (d: string) => d + (looks ? ' Characters appearance: ' + looks + '.' : '');
   const tries = [withLooks(desc) + '. Tasteful, non-explicit, no nudity, no sexual content.' + adults, withLooks(desc) + '. Safe for work, fully clothed, wearing pajamas, calm cozy mood, no nudity.' + adults];
   for (let i = 0; i < tries.length; i++) {
-    const stop = await budget(); if (stop) return stop;
+    const stop = await budget(); if (stop) { await refund(gref); return stop; }
     try {
       // Kontext EDITA la imagen de referencia: si no se le dice lo contrario, conserva fondo, objetos y pose. Aquí solo se usa para recordar cómo es el personaje.
       const input: Record<string, unknown> = { prompt: ref
@@ -225,7 +247,8 @@ async function run(req: Request, env: Env): Promise<Response> {
       return json({ url: u, softened: i > 0 });
     } catch (e) { console.error('cg intento', i, e); await spend('retry', 0.002, 'cg falló ' + slot); }
   }
-  return json({ failed: true });                                                         // la app sigue sin cobrar y muestra la tarjeta
+  await refund(gref);
+  return json({ failed: true });                                                         // se devuelven las gemas y la app muestra la tarjeta
 }
 
 // deno-lint-ignore no-explicit-any
