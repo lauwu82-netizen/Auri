@@ -143,7 +143,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   const ur = await fetch(URL_ + '/auth/v1/user', { headers: { apikey: ANON, Authorization: auth } });
   if (!ur.ok) return json({ error: 'auth' }, 401);
   const user = await ur.json();
-  let body: { action?: string; chapter_id?: string; story_id?: string; name?: string; emo?: string; slot?: number; desc?: string; ref?: string; me?: string } = {}; try { body = await req.json(); } catch { /* vacío */ }
+  let body: { action?: string; chapter_id?: string; story_id?: string; name?: string; emo?: string; slot?: number; desc?: string; ref?: string; me?: string; oc?: { name?: string; img?: string; hair?: string; eyes?: string } } = {}; try { body = await req.json(); } catch { /* vacío */ }
   if (body.action !== 'script' && body.action !== 'cg' && body.action !== 'sprite') return json({ error: 'action' }, 400);
   if (!TOKEN) return json({ mock: true });                                            // sin llave: no se hace ni se gasta nada
   const H = { apikey: SVC, Authorization: 'Bearer ' + SVC, 'Content-Type': 'application/json' };
@@ -225,7 +225,15 @@ async function run(req: Request, env: Env): Promise<Response> {
   // Personajes que la escena nombra: sus descripciones (hechas mirando su imagen) y UNA imagen de referencia (la del lector si la nombra; si no, la del primero).
   const csr = await fetch(`${URL_}/rest/v1/vn_characters?story_id=eq.${ch.story_id}&select=id,name,sprites,look,look_src&order=pos`, { headers: H });
   // deno-lint-ignore no-explicit-any
-  const named = ((csr.ok ? await csr.json() : []) as any[]).filter(c => nameIn(String(c.name || ''), desc)).slice(0, 3);
+  // El OC de quien lee (por ejemplo TN → Aoi) no está en vn_characters: la app manda su nombre, su foto/sprite (si es un enlace https) y cabello/ojos.
+  const oc = body.oc && typeof body.oc === 'object' ? body.oc : null, ocName = String(oc && oc.name || '').slice(0, 40), ocImg = /^https:\/\//.test(String(oc && oc.img || '')) ? String(oc!.img) : '';
+  // deno-lint-ignore no-explicit-any
+  const named = ((csr.ok ? await csr.json() : []) as any[]).filter(c => nameIn(String(c.name || ''), desc)) as any[];
+  if (ocName && nameIn(ocName, desc) && !named.some(c => String(c.name).toLowerCase().trim() === ocName.toLowerCase().trim())) {
+    const hw = [oc!.hair ? String(oc!.hair).slice(0, 60) + ' hair' : '', oc!.eyes ? String(oc!.eyes).slice(0, 60) + ' eyes' : ''].filter(Boolean).join(', ');
+    named.unshift({ id: '', name: ocName, sprites: ocImg ? { neutral: ocImg } : {}, look: ocImg ? '' : hw, look_src: '', oc: true });
+  }
+  named.splice(3);
   const me = String(body.me || '').toLowerCase().trim();
   const spriteOf = (c: { sprites?: Record<string, string> }) => { const v = c.sprites || {}; return [v.neutral, ...Object.values(v)].find(u => /^https:\/\//.test(String(u || ''))) || ''; };
   for (const c of named) {
@@ -235,7 +243,7 @@ async function run(req: Request, env: Env): Promise<Response> {
       const look = await describeLook(src, env, TOKEN); if (!look) continue;
       await spend('other', num('VN_COST_VISION', 0.004), 'describir ' + String(c.name).slice(0, 30));
       c.look = look; c.look_src = src;
-      await fetch(`${URL_}/rest/v1/vn_characters?id=eq.${c.id}`, { method: 'PATCH', headers: { ...H, Prefer: 'return=minimal' }, body: JSON.stringify({ look, look_src: src }) });
+      if (c.id) await fetch(`${URL_}/rest/v1/vn_characters?id=eq.${c.id}`, { method: 'PATCH', headers: { ...H, Prefer: 'return=minimal' }, body: JSON.stringify({ look, look_src: src }) });
     } catch (e) { console.error('describir', c.name, e); await spend('retry', 0.002, ('describir falló ' + String(c.name).slice(0, 30) + ': ' + (e && (e as Error).message || e)).slice(0, 240)); }
   }
   // Con varios personajes, UNA sola imagen de referencia hace que Kontext copie esa cara a todos. Si ya hay descripción de cada uno, se genera solo con texto (cada personaje con su aspecto);

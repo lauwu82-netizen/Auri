@@ -5931,11 +5931,16 @@ function vnrCgBuy(pg) {
   vnrCgLoad(pg.slot, pg.desc); vnrGo(1);
 }
 /** Pide el CG al servidor la primera vez que se llega a él (sin llave de IA responde "mock" y no se gasta nada) */
+/** Datos del OC de quien lee (nombre, foto o sprite con enlace https, cabello y ojos) para que el CG lo dibuje como es. */
+function vnrOc() {
+  const c = S.character || {}, sp = c.sprites || {}, img = [sp.neutral, c.photo, ...Object.values(sp)].find(u => /^https:\/\//.test(String(u || ''))) || '';
+  return c.name ? { name: c.name, img, hair: c.hair || '', eyes: c.eyes || '' } : null;
+}
 async function vnrCgLoad(slot, desc) {
   if (!VNR) return; const c = VNR.cgs[slot] = VNR.cgs[slot] || {}; if (c.state) return; c.state = 'loading';
   const cu = cUuid(VNR.sid, VNR.ch.id); let r = null;
   const me = (S.character && S.character.name) || '';        // el servidor decide qué personajes nombra la escena y qué imagen de referencia usar
-  try { if (cu) r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'cg', chapter_id: cu, slot, desc, me } }); } catch (e) { r = null; }
+  try { if (cu) r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'cg', chapter_id: cu, slot, desc, me, oc: vnrOc() } }); } catch (e) { r = null; }
   const d = r && r.ok && r.data || {}; c.url = d.url || ''; c.state = c.url ? 'ok' : 'none';
   if (r && r.status === 402) { c.err = 'gems'; toast(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.')); }
   walletLoad(); if (c.wait) c.wait();
