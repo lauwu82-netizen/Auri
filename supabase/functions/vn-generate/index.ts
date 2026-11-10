@@ -262,8 +262,8 @@ async function run(req: Request, env: Env): Promise<Response> {
     try {
       // Kontext EDITA la imagen de referencia: si no se le dice lo contrario, conserva fondo, objetos y pose. Aquí solo se usa para recordar cómo es el personaje.
       const input: Record<string, unknown> = { prompt: ref
-        ? 'Create a brand new anime visual novel CG illustration. Use the reference image ONLY for ' + (refC ? refC.name : 'the main character') + ' (keep face, hair, eye color, outfit and colors).' + (others.length ? ' ' + others.join(' and ') + (others.length > 1 ? ' are' : ' is') + ' a DIFFERENT person: must NOT look like the reference; draw them with the hair, eyes and outfit given in Characters appearance.' : '') + ' Completely replace the background, objects and pose; do NOT keep anything else from the reference image. Scene: ' + tries[i]
-        : 'anime visual novel CG illustration, ' + tries[i] };
+        ? 'Create a brand new anime visual novel CG illustration. Use the reference image ONLY for ' + (refC ? refC.name : 'the main character') + ' (keep face, hair, eye color, outfit and colors).' + (others.length ? ' ' + others.join(' and ') + (others.length > 1 ? ' are' : ' is') + ' a DIFFERENT person: must NOT look like the reference; draw them with the hair, eyes and outfit given in Characters appearance.' : '') + ' Completely replace the background, objects and pose; do NOT keep anything else from the reference image. Do not add people not mentioned, and draw animals as real animals, not humans with animal ears. Scene: ' + tries[i]
+        : 'Anime visual novel CG illustration. Draw exactly what the scene describes and nothing more: do not add people or characters that are not mentioned, and if it mentions an animal, draw the real animal (not a human girl or boy with animal ears). Scene: ' + tries[i] };
       if (ref) input.input_image = ref;
       const o = await replicate(env.VN_CG_MODEL || 'black-forest-labs/flux-kontext-pro', input, TOKEN), u = firstUrl(o);
       if (!u) throw new Error('sin imagen');
