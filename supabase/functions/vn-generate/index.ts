@@ -183,7 +183,7 @@ async function run(req: Request, env: Env): Promise<Response> {
     const got = await fetch(`${URL_}/rest/v1/vn_scripts?chapter_id=eq.${cid}&hash=eq.${hash}&select=script`, { headers: H });
     const have = got.ok ? (await got.json())[0] : null; if (have) return json({ script: have.script, cached: true });     // ya preparado por la primera persona que lo leyó
     const stop = await budget(); if (stop) { await refund(cref); return stop; }
-    const cs = await fetch(`${URL_}/rest/v1/vn_characters?story_id=eq.${ch.story_id}&select=name`, { headers: H }), cast = (cs.ok ? await cs.json() : []).map((c: { name: string }) => c.name);
+    const cs = await fetch(`${URL_}/rest/v1/vn_characters?story_id=eq.${ch.story_id}&select=name`, { headers: H }), cast = (cs.ok ? await cs.json() : []).map((c: { name: string }) => c.name); if (!cast.includes('TN')) cast.push('TN');   // TN = la persona que lee (la app lo cambia por el nombre de su OC)
     const es = await fetch(`${URL_}/rest/v1/vn_emotions?select=key`, { headers: H }), emos = (es.ok ? await es.json() : []).map((e: { key: string }) => e.key);
     const text = String(ch.text || '').split(/\n\s*\n/).filter((p: string) => !/^\s*::(chat|sep|cg)/.test(p)).join('\n\n').slice(0, 24000);
     // Cadena de modelos: si uno se niega (contenido fuerte) o devuelve algo que no es el guion, se prueba el siguiente.

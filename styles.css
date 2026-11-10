@@ -2859,3 +2859,8 @@ html.lite .amb{display:none}
 .rw-sub{display:block;margin-top:3px;font-size:12px;color:var(--soft)}.rw-exp{color:#b0760f;font-weight:600}
 .rw-send{margin-top:22px}
 .vnr-cgbtn{margin:8px 8px 0 0}
+
+.vnr-bg{transition:opacity .7s ease,filter .7s ease}
+.vnr-bg.scene{filter:none;transform:scale(1.02);opacity:.9}
+.vnr-bg.fade{opacity:0}
+@media (prefers-reduced-motion:reduce){.vnr-bg{transition:none}}

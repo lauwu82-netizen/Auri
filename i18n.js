@@ -2235,4 +2235,5 @@ window.I18N = { en: {
   "o toca para seguir leyendo": "or tap to keep reading",
   "Te faltan gemas cian para esta ilustración": "You need more cyan gems for this illustration",
   "Ilustración omitida": "Illustration skipped",
+  "Preparando la lectura…": "Preparing your reading…",
 } };

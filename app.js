@@ -5902,6 +5902,22 @@ function vnrPaginate(el) {
   const merged = []; pages.forEach(p => { const q = merged[merged.length - 1]; if (q && !p.sep && !q.sep && !p.chat && !q.chat && !p.cg && !q.cg && q.who === p.who && q.emo === p.emo && q.focus === p.focus && lines(q.text + ' ' + p.text) <= 5) { q.text += ' ' + p.text; q.stage = p.stage; } else merged.push(p); });
   return merged;
 }
+/** Pide al servidor el guion de la IA y los fondos; lo junta con los chats, separadores y CG del guion local. Devuelve {} si no se pudo (se usa el local) o {pay:true} si faltan gemas. */
+async function vnrServer(cu, local, ocName, useOc, ch) {
+  let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'script', chapter_id: cu } }); } catch (e) { r = null; }
+  if (r && r.status === 402) return { pay: true };
+  const d = r && r.ok && r.data || {}; if (!Array.isArray(d.script) || !d.script.length) return {};
+  const nm = n => n === 'TN' ? (useOc ? ocName : '') : n || '';
+  let place = '';
+  const texts = d.script.map(x => {
+    const st = (x.stage || []).map(nm).filter(Boolean), who = nm(x.who); if (x.place) place = x.place;
+    return { text: useOc ? fillHE(fillTN(String(x.t), ocName || t('Lectora')), ch) : String(x.t), who, emo: x.emo || 'neutral', stage: st, focus: who || st[0] || '', place };
+  });
+  const lt = local.filter(b => !b.sep && !b.chat && !b.cg).length, out = []; let seen = 0, ti = 0;
+  local.forEach(b => { if (b.sep || b.chat || b.cg) { const upto = lt ? Math.round(seen / lt * texts.length) : texts.length; while (ti < upto) out.push(texts[ti++]); out.push(b); } else seen++; });
+  while (ti < texts.length) out.push(texts[ti++]);
+  return { script: out, assets: d.assets && typeof d.assets === 'object' ? d.assets : {} };
+}
 async function vnrBoot(sid, n) {
   const el = document.querySelector('.vnr'); if (!el || el.dataset.boot) return; el.dataset.boot = '1';
   const s = findStory(sid), ch = s && (s.chapters.find(c => c.idx === +n - 1) || s.chapters[+n - 1]); if (!ch) return;
@@ -5909,7 +5925,16 @@ async function vnrBoot(sid, n) {
   const oc = s.useReaderCharacter ? S.character : null, ocName = oc && oc.name ? oc.name : '';
   const text = s.useReaderCharacter ? fillHE(fillTN(ch.text, ocName || t('Lectora')), S.character) : ch.text, rawParas = paraSplit(ch.text);
   const cast = {}; rows.forEach(c => { cast[c.name] = c; }); if (ocName && !cast[ocName]) cast[ocName] = { name: ocName, sprites: (oc && oc.sprites) || {}, adult: true, me: true };
-  VNR = { sid, n: +n, ch, s, cast, script: vnMock(text, Object.keys(cast), rawParas), cgs: {}, pages: [], i: 0, order: [], next: s.chapters.find(c => c.idx === ch.idx + 1), adj: (vnLocalAdj()[sid] || {}) };
+  let script = vnMock(text, Object.keys(cast), rawParas), bgs = {};
+  const cu = cUuid(sid, ch.id);
+  if (vnOn() && cu) {                                           // guion preparado por la IA (con lugar de cada escena) y fondos; si algo falla se lee con el guion local
+    const tx0 = el.querySelector('.vnr-box .vnr-text'); if (tx0) tx0.textContent = t('Preparando la lectura…');
+    const sv = await vnrServer(cu, script, ocName, !!s.useReaderCharacter, S.character);
+    if (!document.body.contains(el)) return;
+    if (sv.pay) { toast(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.')); return go('/story/' + sid); }
+    if (sv.script) { script = sv.script; bgs = sv.assets; }
+  }
+  VNR = { sid, n: +n, ch, s, cast, script, bgs, cgs: {}, pages: [], i: 0, order: [], next: s.chapters.find(c => c.idx === ch.idx + 1), adj: (vnLocalAdj()[sid] || {}) };
   VNR.pages = vnrPaginate(el);
   try { if (localStorage.getItem('auri.vnHint') === '1') el.querySelector('.vnr-hint').hidden = true; } catch (e) { /* ignorar */ }
   el.querySelector('.vnr-tap').addEventListener('click', ev => { if (ev.target.closest('[data-vnchat]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.key) chatOpen(pg.key); return; } if (ev.target.closest('[data-vncg]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.cg === 'intro') vnrCgBuy(pg); return; } const r = el.getBoundingClientRect(), left = ev.clientX - r.left < r.width * 0.28; vnrGo(left ? -1 : 1); try { localStorage.setItem('auri.vnHint', '1'); } catch (e) { /* ignorar */ } el.querySelector('.vnr-hint').hidden = true; });
@@ -5967,6 +5992,8 @@ function vnrDraw() {
   }
   stage.querySelectorAll('.vnr-cgimg').forEach(x => x.remove());
   stage.classList.remove('dim');
+  { const bg = el.querySelector('.vnr-bg'), u = pg.place && VNR.bgs && VNR.bgs[pg.place], cur = bg.dataset.u || '';
+    if (u && u !== cur) { bg.dataset.u = u; bg.classList.add('fade'); setTimeout(() => { bg.style.backgroundImage = `url("${String(u).replace(/["\\\n]/g, '')}")`; bg.classList.add('scene'); bg.classList.remove('fade'); }, 350); } }
   const on = (pg.stage || []).slice(); VNR.order = VNR.order.filter(n => on.includes(n)); on.forEach(n => { if (!VNR.order.includes(n)) VNR.order.push(n); });
   const xs = vnrXs(VNR.order.length), have = new Map([...stage.children].map(c => [c.dataset.n, c]));
   have.forEach((c, n) => { if (!VNR.order.includes(n)) c.remove(); });
