@@ -33,13 +33,13 @@ async function sha256Hex(s: string): Promise<string> {
 /** Llama a un modelo de Replicate y espera el resultado (hasta ~60 s). Devuelve la salida o lanza un error. */
 /** Replicate limita a 6 peticiones/min (ráfaga de 1) mientras el saldo sea menor a $5: si responde 429 se espera lo que pida y se reintenta. */
 let lastRep = 0;                                           // con poco crédito Replicate deja 1 petición cada ~10 s: se espacian las llamadas de esta misma función
-async function replicate(model: string, input: Record<string, unknown>, token: string): Promise<unknown> {
+async function replicate(model: string, input: Record<string, unknown>, token: string, maxRetry = 4): Promise<unknown> {
   for (let n = 0; ; n++) {
     const gap = lastRep + 10500 - Date.now(); if (gap > 0) await new Promise(res => setTimeout(res, gap)); lastRep = Date.now();
     try { return await replicate1(model, input, token); }
     catch (e) {
       const m = String((e as Error).message || e);
-      if (n >= 4 || !/replicate 429/.test(m)) throw e;
+      if (n >= maxRetry || !/replicate 429/.test(m)) throw e;
       const ra = /"retry_after":\s*(\d+)/.exec(m);
       await new Promise(res => setTimeout(res, ((ra ? +ra[1] : 12) + 1) * 1000));
     }
@@ -68,7 +68,7 @@ async function describeLook(url: string, env: Env, TOKEN: string): Promise<strin
   const o = await replicate(env.VN_VISION_MODEL || 'lucataco/ollama-llama3.2-vision-11b', {
     image: url,
     prompt: 'Describe ONLY the main character in this image for an illustrator who must draw the same character again. One paragraph in English, maximum 60 words: apparent species or type, hair (color, length, style), eyes, skin, clothing, accessories, distinctive features and main colors, and the art style. Ignore the background and objects. Do not mention nudity or anything sexual.',
-  }, TOKEN);
+  }, TOKEN, 1);
   const txt = (Array.isArray(o) ? o.join('') : typeof o === 'string' ? o : '').replace(/\s+/g, ' ').trim();
   return txt.slice(0, 500);
 }
@@ -260,7 +260,9 @@ async function run(req: Request, env: Env): Promise<Response> {
   named.splice(3);
   const me = String(body.me || '').toLowerCase().trim();
   const spriteOf = (c: { sprites?: Record<string, string> }) => { const v = c.sprites || {}; return [v.neutral, ...Object.values(v)].find(u => /^https:\/\//.test(String(u || ''))) || ''; };
+  const T0 = Date.now();                                                   // la función tiene un tiempo máximo: el análisis nunca debe impedir que se dibuje la escena
   for (const c of named) {
+    if (Date.now() - T0 > 40000) break;
     const src = spriteOf(c); if (!src || (c.look && (c.look_src === src || c.look_src === 'manual'))) continue;   // 'manual' = la autoría escribió la descripción a mano
     try {
       if (await budget()) break;
@@ -282,6 +284,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   const withLooks = (d: string) => d + (looks ? ' Characters appearance: ' + looks + '.' : '');
   const tries = [withLooks(desc) + '. Tasteful, non-explicit, no nudity, no sexual content.' + adults, withLooks(desc) + '. Safe for work, fully clothed, wearing pajamas, calm cozy mood, no nudity.' + adults];
   for (let i = 0; i < tries.length; i++) {
+    if (i > 0 && Date.now() - T0 > 70000) break;                                  // sin tiempo para una segunda versión
     const stop = await budget(); if (stop) { await refund(gref); return stop; }
     try {
       // Kontext EDITA la imagen de referencia: si no se le dice lo contrario, conserva fondo, objetos y pose. Aquí solo se usa para recordar cómo es el personaje.
