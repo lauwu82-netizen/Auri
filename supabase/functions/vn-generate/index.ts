@@ -31,7 +31,19 @@ async function sha256Hex(s: string): Promise<string> {
 }
 
 /** Llama a un modelo de Replicate y espera el resultado (hasta ~60 s). Devuelve la salida o lanza un error. */
+/** Replicate limita a 6 peticiones/min (ráfaga de 1) mientras el saldo sea menor a $5: si responde 429 se espera lo que pida y se reintenta. */
 async function replicate(model: string, input: Record<string, unknown>, token: string): Promise<unknown> {
+  for (let n = 0; ; n++) {
+    try { return await replicate1(model, input, token); }
+    catch (e) {
+      const m = String((e as Error).message || e);
+      if (n >= 3 || !/replicate 429/.test(m)) throw e;
+      const ra = /"retry_after":\s*(\d+)/.exec(m);
+      await new Promise(res => setTimeout(res, ((ra ? +ra[1] : 10) + 1) * 1000));
+    }
+  }
+}
+async function replicate1(model: string, input: Record<string, unknown>, token: string): Promise<unknown> {
   const r = await fetch(`https://api.replicate.com/v1/models/${model}/predictions`, {
     method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Prefer: 'wait=60' }, body: JSON.stringify({ input }),
   });
