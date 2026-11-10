@@ -237,7 +237,11 @@ async function run(req: Request, env: Env): Promise<Response> {
       await fetch(`${URL_}/rest/v1/vn_characters?id=eq.${c.id}`, { method: 'PATCH', headers: { ...H, Prefer: 'return=minimal' }, body: JSON.stringify({ look, look_src: src }) });
     } catch (e) { console.error('describir', c.name, e); await spend('retry', 0.002, ('describir falló ' + String(c.name).slice(0, 30) + ': ' + (e && (e as Error).message || e)).slice(0, 240)); }
   }
-  const refC = named.find(c => String(c.name).toLowerCase().trim() === me && spriteOf(c)) || named.find(c => spriteOf(c)), ref = refC ? spriteOf(refC) : '';
+  // Con varios personajes, UNA sola imagen de referencia hace que Kontext copie esa cara a todos. Si ya hay descripción de cada uno, se genera solo con texto (cada personaje con su aspecto);
+  // si falta alguna, se usa la imagen del lector/primero y se avisa que los demás son personas distintas.
+  const allLooked = named.length > 1 && named.every(c => c.look);
+  const refC = allLooked ? undefined : (named.find(c => String(c.name).toLowerCase().trim() === me && spriteOf(c)) || named.find(c => spriteOf(c))), ref = refC ? spriteOf(refC) : '';
+  const others = refC ? named.filter(c => c !== refC).map(c => c.name) : [];
   const looks = named.filter(c => c.look).map(c => `${c.name}: ${String(c.look).replace(/[.\s]+$/, '')}`).join('; ');
   // escalera de intentos: escena no explícita → si falla o se bloquea, versión más suave (por ejemplo con pijama) → si falla, no se cobra nada
   // PROTEGE LA CUENTA de Replicate: nunca se pide nada explícito. El primer intento ya es "no explícito, sin desnudez" y el segundo es todavía más suave.
@@ -249,7 +253,7 @@ async function run(req: Request, env: Env): Promise<Response> {
     try {
       // Kontext EDITA la imagen de referencia: si no se le dice lo contrario, conserva fondo, objetos y pose. Aquí solo se usa para recordar cómo es el personaje.
       const input: Record<string, unknown> = { prompt: ref
-        ? 'Create a brand new anime visual novel CG illustration. Use the reference image ONLY to keep the main character identity (face, hair, eye color, outfit and colors). Completely replace the background, objects and pose; do NOT keep anything else from the reference image. Scene: ' + tries[i]
+        ? 'Create a brand new anime visual novel CG illustration. Use the reference image ONLY for ' + (refC ? refC.name : 'the main character') + ' (keep face, hair, eye color, outfit and colors).' + (others.length ? ' ' + others.join(' and ') + (others.length > 1 ? ' are' : ' is') + ' a DIFFERENT person: must NOT look like the reference; draw them with the hair, eyes and outfit given in Characters appearance.' : '') + ' Completely replace the background, objects and pose; do NOT keep anything else from the reference image. Scene: ' + tries[i]
         : 'anime visual novel CG illustration, ' + tries[i] };
       if (ref) input.input_image = ref;
       const o = await replicate(env.VN_CG_MODEL || 'black-forest-labs/flux-kontext-pro', input, TOKEN), u = firstUrl(o);
