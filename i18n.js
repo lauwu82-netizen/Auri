@@ -2247,4 +2247,7 @@ window.I18N = { en: {
   "Subir imagen de referencia": "Upload reference image",
   "Opcional: con una imagen de referencia, \"Crear con IA\" dibuja al personaje igual que en esa imagen.": "Optional: with a reference image, \"Create with AI\" draws the character like in that image.",
   "Escribe cómo se ve o sube una imagen de referencia para crear el sprite.": "Describe how they look or upload a reference image to create the sprite.",
+  "Creando… puede tardar un minuto": "Creating… may take a minute",
+  "La IA está ocupada o llegó al límite de gasto. Inténtalo en un momento.": "The AI is busy or hit the spending limit. Try again in a moment.",
+  "Sprite creado. Recuerda tocar Guardar.": "Sprite created. Remember to tap Save.",
 } };

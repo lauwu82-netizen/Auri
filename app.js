@@ -5776,8 +5776,8 @@ function spriteFit(file, cb) {                           // sprite: máximo 640 
   const r = new FileReader(); r.onload = () => { const img = new Image(); img.onload = () => { const k = Math.min(1, 640 / img.height, 640 / img.width), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k)); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); cb(c.toDataURL('image/png')); }; img.onerror = () => toast(t('Elige un archivo de imagen.')); img.src = r.result; }; r.readAsDataURL(file);
 }
 function vnEdit(id) {
-  const cur = id ? VN.chars.find(c => c.id === id) : null, sp = { ...(cur ? cur.sprites || {} : {}) }, m = document.createElement('div'); let refImg = ''; m.className = 'modal sheet'; let adj = vnAdjOk(cur && cur.adj && Object.keys(cur.adj).length ? cur.adj : null);
-  const cells = () => VN.emos.map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : ''}</div><b>${esc(t(e.name))}</b><label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}<button type="button" class="link-btn" data-gen="${esc(e.key)}">✦ ${t('Crear con IA')}</button></div>`).join('');
+  const cur = id ? VN.chars.find(c => c.id === id) : null, sp = { ...(cur ? cur.sprites || {} : {}) }, m = document.createElement('div'); let refImg = '', busyK = ''; m.className = 'modal sheet'; let adj = vnAdjOk(cur && cur.adj && Object.keys(cur.adj).length ? cur.adj : null);
+  const cells = () => VN.emos.map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : ''}</div><b>${esc(t(e.name))}</b><label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}<button type="button" class="link-btn" data-gen="${esc(e.key)}" ${busyK ? 'disabled' : ''}>${busyK === e.key ? t('Creando… puede tardar un minuto') : '✦ ' + t('Crear con IA')}</button></div>`).join('');
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${cur ? t('Editar personaje') : t('Nuevo personaje')}</h2>
   <label class="field vnf"><span>${t('Nombre')}</span><input id="vn-name" maxlength="40" value="${esc(cur ? cur.name : '')}"></label>
   <label class="check"><input type="checkbox" id="vn-adult" ${!cur || cur.adult ? 'checked' : ''}> ${t('Es mayor de edad')}</label><p class="helper">${t('Si es menor de edad, no se generará nada sugerente con este personaje.')}</p>
@@ -5806,15 +5806,16 @@ function vnEdit(id) {
     if (e.target.closest('[data-adjreset]')) { adj = vnAdjOk(null); return prevDraw(); }
     const gen = e.target.closest('[data-gen]');
     if (gen) {
-      const k = gen.dataset.gen, desc = m.querySelector('#vn-look').value.trim(), ref = k === 'neutral' ? refImg : sp.neutral || refImg;
-      if (!desc && !ref) return (err.textContent = t('Escribe cómo se ve o sube una imagen de referencia para crear el sprite.'));
-      if (k !== 'neutral' && !ref) return (err.textContent = t('Primero crea o sube el sprite Neutral.'));
-      if (m.dataset.busy) return; m.dataset.busy = '1'; err.textContent = t('Creando sprite…');
+      const k = gen.dataset.gen, desc = m.querySelector('#vn-look').value.trim(), ref = k === 'neutral' ? refImg : sp.neutral || refImg, bad = x => { err.textContent = x; toast(x); };
+      if (busyK) return;
+      if (!desc && !ref) return bad(t('Escribe cómo se ve o sube una imagen de referencia para crear el sprite.'));
+      if (k !== 'neutral' && !ref) return bad(t('Primero crea o sube el sprite Neutral.'));
+      busyK = k; err.textContent = ''; redraw(); toast(t('Creando sprite…'));
       let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'sprite', story_id: sUuid(VN.sid), name: m.querySelector('#vn-name').value.trim(), emo: k, desc, ref } }); } catch (x) { r = null; }
-      delete m.dataset.busy; walletLoad();
-      if (r && r.status === 402) return (err.textContent = t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.'));
-      const u = r && r.ok && r.data && r.data.url; if (!u) return (err.textContent = t('No se pudo crear. No se cobró nada; inténtalo otra vez.'));
-      sp[k] = u; err.textContent = ''; return redraw();
+      busyK = ''; walletLoad();
+      if (r && r.status === 402) { redraw(); return bad(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.')); }
+      const u = r && r.ok && r.data && r.data.url; if (!u) { redraw(); return bad(t(r && r.status === 429 ? 'La IA está ocupada o llegó al límite de gasto. Inténtalo en un momento.' : 'No se pudo crear. No se cobró nada; inténtalo otra vez.')); }
+      sp[k] = u; err.textContent = ''; redraw(); toast(t('Sprite creado. Recuerda tocar Guardar.')); return;
     }
     if (e.target.closest('[data-del]')) { if (!confirm(t('¿Eliminar este personaje?'))) return; const r = await sbApi('/rest/v1/vn_characters?id=eq.' + cur.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); if (!r.ok) return (err.textContent = t('No se pudo guardar.')); VN.chars = VN.chars.filter(c => c.id !== cur.id); m.remove(); KEEP = true; return render(); }
     if (e.target.closest('[data-ok]')) {
