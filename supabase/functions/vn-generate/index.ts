@@ -72,6 +72,16 @@ async function describeLook(url: string, env: Env, TOKEN: string): Promise<strin
   const txt = (Array.isArray(o) ? o.join('') : typeof o === 'string' ? o : '').replace(/\s+/g, ' ').trim();
   return txt.slice(0, 500);
 }
+/** Las imágenes que devuelve Replicate caducan (≈1 hora): se copian al almacenamiento de Auri y se devuelve el enlace permanente. Si algo falla, se deja el original. */
+async function persist(URL_: string, H: Record<string, string>, src: string, path: string): Promise<string> {
+  try {
+    const r = await fetch(src); if (!r.ok) return src;
+    const ct = (r.headers.get('content-type') || 'image/jpeg').split(';')[0], ext = ct === 'image/png' ? 'png' : ct === 'image/webp' ? 'webp' : 'jpg', buf = new Uint8Array(await r.arrayBuffer());
+    if (!buf.length || buf.length > 5 * 1024 * 1024) return src;
+    const p = path + '.' + ext, up = await fetch(`${URL_}/storage/v1/object/images/${p}`, { method: 'POST', headers: { ...H, 'Content-Type': ct === 'image/png' || ct === 'image/webp' ? ct : 'image/jpeg', 'x-upsert': 'true' }, body: buf });
+    return up.ok ? `${URL_}/storage/v1/object/public/images/${p}` : src;
+  } catch (e) { console.error('persist', e); return src; }
+}
 const nameIn = (name: string, text: string) => name.trim().length > 1 && new RegExp('(^|[^\\p{L}\\p{N}])' + name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}\\p{N}])', 'iu').test(text);
 const firstUrl = (o: unknown): string => Array.isArray(o) ? String(o[0] || '') : typeof o === 'string' ? o : '';
 
@@ -126,7 +136,9 @@ async function sprite(body: { story_id?: string; name?: string; emo?: string; de
     let url = firstUrl(await replicate(env.VN_SPRITE_MODEL || env.VN_CG_MODEL || 'black-forest-labs/flux-kontext-pro', input, TOKEN)); if (!url) throw new Error('sin imagen');
     await rpc('vn_usage_add', { p_uid: uid, p_kind: 'cg', p_cost: Number(env.VN_COST_CG) > 0 ? Number(env.VN_COST_CG) : 0.04, p_detail: 'sprite ' + String(body.name || '').slice(0, 40) });
     let transparent = false;                                                                  // quitar el fondo (si se configuró un modelo para eso) para que el sprite no lleve rectángulo
-    if (env.VN_RMBG_MODEL) { try { const u2 = firstUrl(await replicate(env.VN_RMBG_MODEL, { image: url }, TOKEN)); if (u2) { url = u2; transparent = true; await rpc('vn_usage_add', { p_uid: uid, p_kind: 'other', p_cost: 0.01, p_detail: 'quitar fondo' }); } } catch (e) { console.error('rmbg', e); } }
+    const rm = env.VN_RMBG_MODEL === 'off' ? '' : (env.VN_RMBG_MODEL || '851-labs/background-remover');   // por defecto se quita el fondo; 'off' lo desactiva
+    if (rm) { try { const u2 = firstUrl(await replicate(rm, { image: url }, TOKEN)); if (u2) { url = u2; transparent = true; await rpc('vn_usage_add', { p_uid: uid, p_kind: 'other', p_cost: 0.01, p_detail: 'quitar fondo' }); } } catch (e) { console.error('rmbg', e); } }
+    url = await persist(URL_, H, url, `ai/${uid}/sprite-${Date.now()}`);
     return json({ url, transparent });
   } catch (e) { console.error('sprite', e); await rpc('vn_usage_add', { p_uid: uid, p_kind: 'retry', p_cost: 0.002, p_detail: 'sprite falló' }); return json({ failed: true }); }
 }
@@ -193,8 +205,9 @@ async function run(req: Request, env: Env): Promise<Response> {
       const o = await replicate(env.VN_BG_MODEL || 'stability-ai/sdxl', { prompt: `anime visual novel background, ${pl.replace(/-/g, ' ')}, no people, soft light, detailed`, negative_prompt: 'people, characters, text, watermark', width: 1024, height: 576 }, TOKEN);
       const u = firstUrl(o); if (!u) return json({ failed: true });
       await spend('background', num('VN_COST_BG', 0.004), pl);
-      await fetch(`${URL_}/rest/v1/vn_assets`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ chapter_id: cid, hash, key: pl, url: u }) });
-      return json({ url: u });
+      const pu = await persist(URL_, H, u, `ai/bg/${String(cid).slice(0, 8)}-${hash.slice(0, 12)}-${pl}`);
+      await fetch(`${URL_}/rest/v1/vn_assets`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ chapter_id: cid, hash, key: pl, url: pu }) });
+      return json({ url: pu });
     } catch (e) { console.error('fondo', pl, e); await spend('retry', 0.002, ('fondo falló ' + pl + ': ' + (e && (e as Error).message || e)).slice(0, 240)); return json({ failed: true }); }
   }
 
@@ -248,7 +261,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   const me = String(body.me || '').toLowerCase().trim();
   const spriteOf = (c: { sprites?: Record<string, string> }) => { const v = c.sprites || {}; return [v.neutral, ...Object.values(v)].find(u => /^https:\/\//.test(String(u || ''))) || ''; };
   for (const c of named) {
-    const src = spriteOf(c); if (!src || (c.look && c.look_src === src)) continue;
+    const src = spriteOf(c); if (!src || (c.look && (c.look_src === src || c.look_src === 'manual'))) continue;   // 'manual' = la autoría escribió la descripción a mano
     try {
       if (await budget()) break;
       const look = await describeLook(src, env, TOKEN); if (!look) continue;
@@ -279,8 +292,9 @@ async function run(req: Request, env: Env): Promise<Response> {
       const o = await replicate(env.VN_CG_MODEL || 'black-forest-labs/flux-kontext-pro', input, TOKEN), u = firstUrl(o);
       if (!u) throw new Error('sin imagen');
       await spend(i ? 'retry' : 'cg', num('VN_COST_CG', 0.04), 'cg ' + slot);
-      await fetch(`${URL_}/rest/v1/vn_cgs`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ uid: user.id, chapter_id: cid, hash: chash, slot, url: u }) });
-      return json({ url: u, softened: i > 0 });
+      const pu = await persist(URL_, H, u, `ai/${user.id}/cg-${chash.slice(0, 24)}-${slot}`);
+      await fetch(`${URL_}/rest/v1/vn_cgs`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ uid: user.id, chapter_id: cid, hash: chash, slot, url: pu }) });
+      return json({ url: pu, softened: i > 0 });
     } catch (e) { console.error('cg intento', i, e); await spend('retry', 0.002, ('cg falló ' + slot + ': ' + (e && (e as Error).message || e)).slice(0, 240)); }
   }
   await refund(gref);

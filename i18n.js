@@ -2236,4 +2236,12 @@ window.I18N = { en: {
   "Te faltan gemas cian para esta ilustración": "You need more cyan gems for this illustration",
   "Ilustración omitida": "Illustration skipped",
   "Preparando la lectura…": "Preparing your reading…",
+  "Crear con IA": "Create with AI",
+  "Cómo se ve": "How they look",
+  "Ej.: chico de pelo blanco largo con puntas moradas, ojos rosados, suéter negro y chaleco morado": "E.g.: boy with long white hair with purple tips, pink eyes, black sweater and purple vest",
+  "La IA usa esto para dibujarlo igual en los CG y para crear sus sprites. Si lo dejas vacío, lo describe sola mirando su imagen.": "The AI uses this to draw them the same way in CGs and to create their sprites. If you leave it empty, it describes them by looking at their image.",
+  "Escribe cómo se ve para crear el sprite.": "Describe how they look to create the sprite.",
+  "Primero crea o sube el sprite Neutral.": "First create or upload the Neutral sprite.",
+  "Creando sprite…": "Creating sprite…",
+  "No se pudo crear. No se cobró nada; inténtalo otra vez.": "Could not create it. You were not charged; try again.",
 } };
