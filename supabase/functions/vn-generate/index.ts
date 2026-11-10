@@ -32,14 +32,16 @@ async function sha256Hex(s: string): Promise<string> {
 
 /** Llama a un modelo de Replicate y espera el resultado (hasta ~60 s). Devuelve la salida o lanza un error. */
 /** Replicate limita a 6 peticiones/min (ráfaga de 1) mientras el saldo sea menor a $5: si responde 429 se espera lo que pida y se reintenta. */
+let lastRep = 0;                                           // con poco crédito Replicate deja 1 petición cada ~10 s: se espacian las llamadas de esta misma función
 async function replicate(model: string, input: Record<string, unknown>, token: string): Promise<unknown> {
   for (let n = 0; ; n++) {
+    const gap = lastRep + 10500 - Date.now(); if (gap > 0) await new Promise(res => setTimeout(res, gap)); lastRep = Date.now();
     try { return await replicate1(model, input, token); }
     catch (e) {
       const m = String((e as Error).message || e);
-      if (n >= 3 || !/replicate 429/.test(m)) throw e;
+      if (n >= 4 || !/replicate 429/.test(m)) throw e;
       const ra = /"retry_after":\s*(\d+)/.exec(m);
-      await new Promise(res => setTimeout(res, ((ra ? +ra[1] : 10) + 1) * 1000));
+      await new Promise(res => setTimeout(res, ((ra ? +ra[1] : 12) + 1) * 1000));
     }
   }
 }
@@ -177,11 +179,30 @@ async function run(req: Request, env: Env): Promise<Response> {
   async function budget() { const b = await rpc('vn_budget_ok', { p_uid: user.id }); return b && b.ok ? null : json({ error: 'budget', reason: b ? b.reason : 'unknown' }, 429); }
   async function spend(kind: string, usd: number, detail: string) { await rpc('vn_usage_add', { p_uid: user.id, p_kind: kind, p_cost: usd, p_detail: detail }); }
 
+  const cachedAssets = async (): Promise<Record<string, string>> => {
+    const r = await fetch(`${URL_}/rest/v1/vn_assets?chapter_id=eq.${cid}&hash=eq.${hash}&select=key,url`, { headers: H }), o: Record<string, string> = {};
+    // deno-lint-ignore no-explicit-any
+    if (r.ok) for (const x of (await r.json()) as any[]) o[String(x.key)] = String(x.url); return o;
+  };
+  // ---- Fondo de un lugar (uno por llamada: Replicate limita las peticiones y así la lectura nunca espera) ----
+  if (body.action === 'bg') {
+    const pl = String(body.place || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').slice(0, 40); if (!pl) return json({ error: 'place' }, 400);
+    const have = (await cachedAssets())[pl]; if (have) return json({ url: have, cached: true });
+    const stop = await budget(); if (stop) return stop;
+    try {
+      const o = await replicate(env.VN_BG_MODEL || 'stability-ai/sdxl', { prompt: `anime visual novel background, ${pl.replace(/-/g, ' ')}, no people, soft light, detailed`, negative_prompt: 'people, characters, text, watermark', width: 1024, height: 576 }, TOKEN);
+      const u = firstUrl(o); if (!u) return json({ failed: true });
+      await spend('background', num('VN_COST_BG', 0.004), pl);
+      await fetch(`${URL_}/rest/v1/vn_assets`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ chapter_id: cid, hash, key: pl, url: u }) });
+      return json({ url: u });
+    } catch (e) { console.error('fondo', pl, e); await spend('retry', 0.002, ('fondo falló ' + pl + ': ' + (e && (e as Error).message || e)).slice(0, 240)); return json({ failed: true }); }
+  }
+
   if (body.action === 'script') {
     const cref = 'chapter:' + cid + ':' + hash;
     { const no = await charge('chapter', cref, false, 24); if (no) return no; }          // todas las personas pagan el capítulo una vez (aunque el guion ya esté preparado)
     const got = await fetch(`${URL_}/rest/v1/vn_scripts?chapter_id=eq.${cid}&hash=eq.${hash}&select=script`, { headers: H });
-    const have = got.ok ? (await got.json())[0] : null; if (have) return json({ script: have.script, cached: true });     // ya preparado por la primera persona que lo leyó
+    const have = got.ok ? (await got.json())[0] : null; if (have) return json({ script: have.script, assets: await cachedAssets(), cached: true });     // ya preparado por la primera persona que lo leyó
     const stop = await budget(); if (stop) { await refund(cref); return stop; }
     const cs = await fetch(`${URL_}/rest/v1/vn_characters?story_id=eq.${ch.story_id}&select=name`, { headers: H }), cast = (cs.ok ? await cs.json() : []).map((c: { name: string }) => c.name); if (!cast.includes('TN')) cast.push('TN');   // TN = la persona que lee (la app lo cambia por el nombre de su OC)
     const es = await fetch(`${URL_}/rest/v1/vn_emotions?select=key`, { headers: H }), emos = (es.ok ? await es.json() : []).map((e: { key: string }) => e.key);
@@ -201,17 +222,7 @@ async function run(req: Request, env: Env): Promise<Response> {
     }
     if (!script) { await refund(cref); return json({ error: 'bad_script' }, 502); }                              // el cliente sigue con su guion de prueba
     await fetch(`${URL_}/rest/v1/vn_scripts`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ chapter_id: cid, hash, script }) });
-    // un fondo por lugar nuevo (máximo 6 por capítulo para cuidar el gasto)
-    const places = [...new Set(script.map(s => String(s.place)).filter(Boolean))].slice(0, 6), assets: Record<string, string> = {};
-    for (const pl of places) {
-      const b = await budget(); if (b) break;
-      try {
-        const o = await replicate(env.VN_BG_MODEL || 'stability-ai/sdxl', { prompt: `anime visual novel background, ${pl.replace(/-/g, ' ')}, no people, soft light, detailed`, negative_prompt: 'people, characters, text, watermark', width: 1024, height: 576 }, TOKEN);
-        const u = firstUrl(o); if (u) { assets[pl] = u; await fetch(`${URL_}/rest/v1/vn_assets`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ chapter_id: cid, hash, key: pl, url: u }) }); }
-        await spend('background', num('VN_COST_BG', 0.004), pl);
-      } catch (e) { console.error('fondo', pl, e); await spend('retry', 0.002, 'fondo falló ' + pl); }
-    }
-    return json({ script, assets });
+    return json({ script, assets: {} });                                                                  // los fondos se piden aparte, uno por uno (action 'bg')
   }
 
   // ---- CG ----

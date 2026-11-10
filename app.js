@@ -5902,6 +5902,18 @@ function vnrPaginate(el) {
   const merged = []; pages.forEach(p => { const q = merged[merged.length - 1]; if (q && !p.sep && !q.sep && !p.chat && !q.chat && !p.cg && !q.cg && q.who === p.who && q.emo === p.emo && q.focus === p.focus && lines(q.text + ' ' + p.text) <= 5) { q.text += ' ' + p.text; q.stage = p.stage; } else merged.push(p); });
   return merged;
 }
+/** Pide los fondos de los lugares del capítulo de uno en uno y sin prisa (Replicate limita las peticiones); la lectura no espera. */
+async function vnrBgQueue(cu) {
+  if (!cu || !vnOn() || !VNR || !VNR.script) return; const v = VNR, places = [];
+  v.script.forEach(b => { if (b.place && !places.includes(b.place) && !(v.bgs || {})[b.place]) places.push(b.place); });
+  for (const pl of places.slice(0, 4)) {
+    if (VNR !== v) return;
+    let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'bg', chapter_id: cu, place: pl } }); } catch (e) { r = null; }
+    if (VNR !== v) return; const u = r && r.ok && r.data && r.data.url;
+    if (u) { v.bgs = v.bgs || {}; v.bgs[pl] = u; const pg = v.pages[v.i]; if (pg && pg.place === pl) vnrDraw(); }
+    if (!(r && r.data && r.data.cached)) await new Promise(res => setTimeout(res, 11000));
+  }
+}
 /** Pide al servidor el guion de la IA y los fondos; lo junta con los chats, separadores y CG del guion local. Devuelve {} si no se pudo (se usa el local) o {pay:true} si faltan gemas. */
 async function vnrServer(cu, local, ocName, useOc, ch) {
   let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'script', chapter_id: cu } }); } catch (e) { r = null; }
@@ -5936,6 +5948,7 @@ async function vnrBoot(sid, n) {
   }
   VNR = { sid, n: +n, ch, s, cast, script, bgs, cgs: {}, pages: [], i: 0, order: [], next: s.chapters.find(c => c.idx === ch.idx + 1), adj: (vnLocalAdj()[sid] || {}) };
   VNR.pages = vnrPaginate(el);
+  vnrBgQueue(cu);
   try { if (localStorage.getItem('auri.vnHint') === '1') el.querySelector('.vnr-hint').hidden = true; } catch (e) { /* ignorar */ }
   el.querySelector('.vnr-tap').addEventListener('click', ev => { if (ev.target.closest('[data-vnchat]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.key) chatOpen(pg.key); return; } if (ev.target.closest('[data-vncg]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.cg === 'intro') vnrCgBuy(pg); return; } const r = el.getBoundingClientRect(), left = ev.clientX - r.left < r.width * 0.28; vnrGo(left ? -1 : 1); try { localStorage.setItem('auri.vnHint', '1'); } catch (e) { /* ignorar */ } el.querySelector('.vnr-hint').hidden = true; });
   el.querySelector('[data-vnadj]').onclick = () => vnrAdjust(el);
