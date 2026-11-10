@@ -223,7 +223,7 @@ async function run(req: Request, env: Env): Promise<Response> {
       await spend('other', num('VN_COST_VISION', 0.004), 'describir ' + String(c.name).slice(0, 30));
       c.look = look; c.look_src = src;
       await fetch(`${URL_}/rest/v1/vn_characters?id=eq.${c.id}`, { method: 'PATCH', headers: { ...H, Prefer: 'return=minimal' }, body: JSON.stringify({ look, look_src: src }) });
-    } catch (e) { console.error('describir', c.name, e); await spend('retry', 0.002, 'describir falló ' + String(c.name).slice(0, 30)); }
+    } catch (e) { console.error('describir', c.name, e); await spend('retry', 0.002, ('describir falló ' + String(c.name).slice(0, 30) + ': ' + (e && (e as Error).message || e)).slice(0, 240)); }
   }
   const refC = named.find(c => String(c.name).toLowerCase().trim() === me && spriteOf(c)) || named.find(c => spriteOf(c)), ref = refC ? spriteOf(refC) : '';
   const looks = named.filter(c => c.look).map(c => `${c.name}: ${String(c.look).replace(/[.\s]+$/, '')}`).join('; ');
@@ -245,7 +245,7 @@ async function run(req: Request, env: Env): Promise<Response> {
       await spend(i ? 'retry' : 'cg', num('VN_COST_CG', 0.04), 'cg ' + slot);
       await fetch(`${URL_}/rest/v1/vn_cgs`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ uid: user.id, chapter_id: cid, hash, slot, url: u }) });
       return json({ url: u, softened: i > 0 });
-    } catch (e) { console.error('cg intento', i, e); await spend('retry', 0.002, 'cg falló ' + slot); }
+    } catch (e) { console.error('cg intento', i, e); await spend('retry', 0.002, ('cg falló ' + slot + ': ' + (e && (e as Error).message || e)).slice(0, 240)); }
   }
   await refund(gref);
   return json({ failed: true });                                                         // se devuelven las gemas y la app muestra la tarjeta
