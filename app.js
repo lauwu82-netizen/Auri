@@ -5035,6 +5035,7 @@ function render() {
   if (S.user) S.stories = freshStories();                       // siempre lo último guardado (p. ej. estados que cambió moderación)
   const path = location.hash.slice(1) || '/', [, a, b, c, d] = path.split('/'), app = $('#app');
   const nav = path !== LASTP, dir = nav ? NAVDIR : '', from = LASTP;
+  if (!nav && a === 'vnr' && document.querySelector('.vnr')) return;      // el lector de novela visual se arma una sola vez: volver a dibujarlo lo dejaría en blanco
   if (nav && a === 'story' && d && /^c-\d+$/.test(d)) { HLC = d.slice(2); { const c0 = comments(b).find(x => String(x.id) === HLC); if (c0) REPOPEN.add(c0.parent != null && c0.parent !== '' ? c0.parent : c0.id); } if (!VISIT || VISIT.sid !== b) VISIT = { sid: b, pos: (S.pos || {})[b] ? { ...S.pos[b] } : null }; }
   else if (nav && (a !== 'story' || (VISIT && VISIT.sid !== b))) VISIT = null;
   if (nav && from && from.startsWith('/moderation/book/') && !(a === 'moderation' && b === 'book' && c === from.split('/')[3])) releaseClaim(decodeURIComponent(from.split('/')[3] || ''));
@@ -5944,13 +5945,20 @@ async function vnrBgQueue(cu, onFirst) {
 async function vnrAsk(el, cu) {
   if (isOwner() || (LS.get(uk('vnpaid'), {}) || {})[cu]) return true;
   if (!WALLET) { try { await walletLoad(); } catch (e) { /* se muestra con lo que haya */ } }
-  const tx = el.querySelector('.vnr-box .vnr-text'), who = el.querySelector('.vnr-who'), hint = el.querySelector('.vnr-hint'); if (!tx) return true;
-  const have = WALLET ? WALLET.cyan : 0, price = PRICES.chapter, ok = have >= price; if (hint) hint.hidden = true; if (who) who.textContent = '';
-  tx.innerHTML = `${esc(t('Leer este capítulo en novela visual'))}: <b>${qFmt(price)}</b> ${gemI()} · ${esc(t('Tienes'))} <b>${qFmt(have)}</b> ${gemI()}<br>` +
-    (ok ? `<button type="button" class="button sm" data-vnok>${esc(t('Pagar y leer'))}</button> <small>${esc(t('Se paga una sola vez por capítulo.'))}</small>`
-        : `<small>${esc(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.'))}</small><br><a class="button sm" href="#/rewards">${esc(t('Ir a Recompensas'))}</a>`);
-  if (!ok) return false;
-  return new Promise(res => { const b = tx.querySelector('[data-vnok]'); if (b) b.addEventListener('click', ev => { ev.stopPropagation(); b.disabled = true; res(true); }); });
+  const have = WALLET ? WALLET.cyan : 0, price = PRICES.chapter, ok = have >= price;
+  const paint = () => {                                          // si la pantalla se vuelve a dibujar mientras decide, el aviso se vuelve a poner
+    const r = document.querySelector('.vnr'), tx = r && r.querySelector('.vnr-box .vnr-text'); if (!tx || tx.querySelector('[data-vnok],[href="#/rewards"]')) return;
+    const hint = r.querySelector('.vnr-hint'), who = r.querySelector('.vnr-who'); if (hint) hint.hidden = true; if (who) who.textContent = '';
+    tx.innerHTML = `${esc(t('Leer este capítulo en novela visual'))}: <b>${qFmt(price)}</b> ${gemI()} · ${esc(t('Tienes'))} <b>${qFmt(have)}</b> ${gemI()}<br>` +
+      (ok ? `<button type="button" class="button sm" data-vnok>${esc(t('Pagar y leer'))}</button> <small>${esc(t('Se paga una sola vez por capítulo.'))}</small>`
+          : `<small>${esc(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.'))}</small><br><a class="button sm" href="#/rewards">${esc(t('Ir a Recompensas'))}</a>`);
+  };
+  paint(); if (!ok) return false;
+  return new Promise(res => {
+    const iv = setInterval(() => { if (!document.querySelector('.vnr')) { clearInterval(iv); document.removeEventListener('click', on, true); } else paint(); }, 400);
+    const on = ev => { const b = ev.target.closest && ev.target.closest('[data-vnok]'); if (!b) return; ev.stopPropagation(); b.disabled = true; clearInterval(iv); document.removeEventListener('click', on, true); res(true); };
+    document.addEventListener('click', on, true);
+  });
 }
 /** Pide al servidor el guion de la IA y los fondos; lo junta con los chats, separadores y CG del guion local. Devuelve {} si no se pudo (se usa el local) o {pay:true} si faltan gemas. */
 async function vnrServer(cu, local, ocName, useOc, ch) {
@@ -5969,7 +5977,8 @@ async function vnrServer(cu, local, ocName, useOc, ch) {
   return { script: out, assets: d.assets && typeof d.assets === 'object' ? d.assets : {} };
 }
 async function vnrBoot(sid, n) {
-  const el = document.querySelector('.vnr'); if (!el || el.dataset.boot) return; el.dataset.boot = '1';
+  let el = document.querySelector('.vnr'); if (!el || el.dataset.boot) return; el.dataset.boot = '1';
+  const curEl = () => { const e = document.querySelector('.vnr[data-sid="' + sid.replace(/"/g, '') + '"]'); if (e) e.dataset.boot = '1'; return e; };   // si la pantalla se redibuja mientras carga, se sigue en la nueva
   const s = findStory(sid), ch = s && (s.chapters.find(c => c.idx === +n - 1) || s.chapters[+n - 1]); if (!ch) return;
   let rows = []; try { const r = await sbApi('/rest/v1/vn_characters?select=*&story_id=eq.' + sUuid(sid) + '&order=pos,created_at'); if (r.ok && Array.isArray(r.data)) rows = r.data; } catch (e) { /* sin personajes */ }
   const oc = s.useReaderCharacter ? S.character : null, ocName = oc && oc.name ? oc.name : '';
@@ -5979,9 +5988,10 @@ async function vnrBoot(sid, n) {
   const cu = cUuid(sid, ch.id);
   if (vnOn() && cu) {                                           // guion preparado por la IA (con lugar de cada escena) y fondos; si algo falla se lee con el guion local
     if (!(await vnrAsk(el, cu))) return;
+    el = curEl() || el;
     const tx0 = el.querySelector('.vnr-box .vnr-text'); if (tx0) tx0.textContent = t('Preparando la lectura…');
     const sv = await vnrServer(cu, script, ocName, !!s.useReaderCharacter, S.character);
-    if (!document.body.contains(el)) return;
+    el = curEl(); if (!el) return;
     if (sv.pay) { toast(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.')); return go('/story/' + sid); }
     if (sv.script) { script = sv.script; bgs = sv.assets; }
     if (sv.script && !isOwner()) { const pd = LS.get(uk('vnpaid'), {}); pd[cu] = 1; LS.set(uk('vnpaid'), pd); }
@@ -5989,7 +5999,7 @@ async function vnrBoot(sid, n) {
   VNR = { sid, n: +n, ch, s, cast, script, bgs, cgs: {}, pages: [], i: 0, order: [], next: s.chapters.find(c => c.idx === ch.idx + 1), adj: (vnLocalAdj()[sid] || {}) };
   VNR.pages = vnrPaginate(el);
   let firstRes = () => {}; const firstP = new Promise(r => { firstRes = r; }); vnrBgQueue(cu, firstRes);
-  if (script !== null && Object.keys(bgs).length === 0 && VNR.script.some(b => b.place)) { const tx1 = el.querySelector('.vnr-box .vnr-text'); if (tx1) tx1.textContent = t('Preparando los fondos…'); await Promise.race([firstP, new Promise(r => setTimeout(r, 30000))]); if (!document.body.contains(el) || VNR.sid !== sid) return; }
+  if (script !== null && Object.keys(bgs).length === 0 && VNR.script.some(b => b.place)) { const tx1 = el.querySelector('.vnr-box .vnr-text'); if (tx1) tx1.textContent = t('Preparando los fondos…'); await Promise.race([firstP, new Promise(r => setTimeout(r, 30000))]); el = curEl(); if (!el || !VNR || VNR.sid !== sid) return; }
   try { if (localStorage.getItem('auri.vnHint') === '1') el.querySelector('.vnr-hint').hidden = true; } catch (e) { /* ignorar */ }
   el.querySelector('.vnr-tap').addEventListener('click', ev => { if (ev.target.closest('[data-vnchat]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.key) chatOpen(pg.key); return; } if (ev.target.closest('[data-vncg]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.cg === 'intro') vnrCgBuy(pg); return; } const r = el.getBoundingClientRect(), left = ev.clientX - r.left < r.width * 0.28; vnrGo(left ? -1 : 1); try { localStorage.setItem('auri.vnHint', '1'); } catch (e) { /* ignorar */ } el.querySelector('.vnr-hint').hidden = true; });
   el.querySelector('[data-vnadj]').onclick = () => vnrAdjust(el);
