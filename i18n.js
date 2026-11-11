@@ -2256,4 +2256,5 @@ window.I18N = { en: {
   "Pagar y leer": "Pay and read",
   "Se paga una sola vez por capítulo.": "You only pay once per chapter.",
   "Ir a Recompensas": "Go to Rewards",
+  "Quitando el fondo…": "Removing the background…",
 } };

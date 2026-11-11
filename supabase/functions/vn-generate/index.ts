@@ -118,7 +118,7 @@ function parseScript(raw: string, cast: string[], emos: string[]): Array<Record<
 }
 
 /** Descripción de la cara de cada emoción para los sprites */
-const EMO_EN: Record<string, string> = { neutral: 'calm neutral expression', feliz: 'happy, gentle smile', triste: 'sad, watery eyes', sonrojado: 'blushing, shy', asustado: 'scared, wide eyes', enojado: 'angry, frowning', avergonzado: 'embarrassed, blushing' };
+const EMO_EN: Record<string, string> = { neutral: 'calm neutral expression', feliz: 'clearly HAPPY: bright smile, relaxed cheerful eyes', triste: 'clearly SAD: eyebrows tilted up in the middle, watery eyes, small downturned mouth', sonrojado: 'blushing, shy', asustado: 'scared, wide eyes', enojado: 'clearly ANGRY: eyebrows pulled down and furrowed, sharp intense glare, frowning tense mouth', avergonzado: 'embarrassed, blushing' };
 
 /** Sprite de un personaje: de torso hacia arriba, postura natural, con foto de referencia opcional (solo la autoría del libro) */
 async function sprite(body: { story_id?: string; name?: string; emo?: string; desc?: string; ref?: string }, uid: string, URL_: string, H: Record<string, string>,
@@ -128,16 +128,16 @@ async function sprite(body: { story_id?: string; name?: string; emo?: string; de
   if (!st || st.owner !== uid) return json({ error: 'forbidden' }, 403);                    // solo la autoría genera sprites de sus personajes
   const b = await rpc('vn_budget_ok', { p_uid: uid }); if (!(b && b.ok)) return json({ error: 'budget', reason: b ? b.reason : 'unknown' }, 429);
   const emo = EMO_EN[String(body.emo || 'neutral')] || EMO_EN.neutral, ref = /^https:\/\//.test(String(body.ref || '')) ? String(body.ref) : '';
-  const prompt = 'Visual novel character sprite, bust-up shot from the torso up, natural relaxed posture, facing the viewer, arms relaxed, ' + emo +
-    ', plain solid light gray background, nothing else in the image, no text, single character, clean anime style. ' + String(body.desc || '').slice(0, 300) +
-    (ref ? ' Keep exactly the same character as in the reference image: same face, hair, eye color, outfit and colors.' : '');
+  const prompt = ref
+    ? 'Edit this character image. Keep the exact same character: same face shape, hair, eye color, outfit, colors, pose and framing. Change ONLY the facial expression to: ' + emo + '. The expression must be clearly different from the reference. Plain solid light gray background, nothing else, no text. ' + String(body.desc || '').slice(0, 200)
+    : 'Visual novel character sprite, bust-up shot from the torso up, natural relaxed posture, facing the viewer, arms relaxed, ' + emo + ', plain solid light gray background, nothing else in the image, no text, single character, clean anime style. ' + String(body.desc || '').slice(0, 300);
   const input: Record<string, unknown> = { prompt, output_format: 'png' }; if (ref) input.input_image = ref;     // PNG (el fondo transparente se logra con VN_RMBG_MODEL)
   try {
     let url = firstUrl(await replicate(env.VN_SPRITE_MODEL || env.VN_CG_MODEL || 'black-forest-labs/flux-kontext-pro', input, TOKEN)); if (!url) throw new Error('sin imagen');
     await rpc('vn_usage_add', { p_uid: uid, p_kind: 'cg', p_cost: Number(env.VN_COST_CG) > 0 ? Number(env.VN_COST_CG) : 0.04, p_detail: 'sprite ' + String(body.name || '').slice(0, 40) });
     let transparent = false;                                                                  // quitar el fondo (si se configuró un modelo para eso) para que el sprite no lleve rectángulo
     const rm = env.VN_RMBG_MODEL === 'off' ? '' : (env.VN_RMBG_MODEL || '851-labs/background-remover');   // por defecto se quita el fondo; 'off' lo desactiva
-    if (rm) { try { const u2 = firstUrl(await replicate(rm, { image: url }, TOKEN)); if (u2) { url = u2; transparent = true; await rpc('vn_usage_add', { p_uid: uid, p_kind: 'other', p_cost: 0.01, p_detail: 'quitar fondo' }); } } catch (e) { console.error('rmbg', e); } }
+    if (rm) { try { const u2 = firstUrl(await replicate(rm, { image: url }, TOKEN)); if (u2) { url = u2; transparent = true; await rpc('vn_usage_add', { p_uid: uid, p_kind: 'other', p_cost: 0.01, p_detail: 'quitar fondo' }); } } catch (e) { console.error('rmbg', e); await rpc('vn_usage_add', { p_uid: uid, p_kind: 'retry', p_cost: 0.002, p_detail: ('quitar fondo falló: ' + String((e as Error).message || e)).slice(0, 240) }); } }
     url = await persist(URL_, H, url, `ai/${uid}/sprite-${Date.now()}`);
     return json({ url, transparent });
   } catch (e) { console.error('sprite', e); await rpc('vn_usage_add', { p_uid: uid, p_kind: 'retry', p_cost: 0.002, p_detail: 'sprite falló' }); return json({ failed: true }); }

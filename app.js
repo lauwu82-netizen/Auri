@@ -5816,7 +5816,9 @@ function vnEdit(id) {
       busyK = ''; walletLoad();
       if (r && r.status === 402) { redraw(); return bad(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.')); }
       const u = r && r.ok && r.data && r.data.url; if (!u) { redraw(); return bad(t(r && r.status === 429 ? 'La IA está ocupada o llegó al límite de gasto. Inténtalo en un momento.' : 'No se pudo crear. No se cobró nada; inténtalo otra vez.')); }
-      sp[k] = u; err.textContent = ''; redraw(); toast(t('Sprite creado. Recuerda tocar Guardar.')); return;
+      let fu = u;
+      if (!(r.data && r.data.transparent)) { err.textContent = t('Quitando el fondo…'); const cut = await vnCutBg(u); if (cut) { const up = await sbUpImg(cut); if (up) fu = up; } }       // si la IA no pudo quitarlo, se quita aquí
+      sp[k] = fu; err.textContent = ''; redraw(); toast(t('Sprite creado. Recuerda tocar Guardar.')); return;
     }
     if (e.target.closest('[data-del]')) { if (!confirm(t('¿Eliminar este personaje?'))) return; const r = await sbApi('/rest/v1/vn_characters?id=eq.' + cur.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); if (!r.ok) return (err.textContent = t('No se pudo guardar.')); VN.chars = VN.chars.filter(c => c.id !== cur.id); m.remove(); KEEP = true; return render(); }
     if (e.target.closest('[data-ok]')) {
@@ -6020,6 +6022,25 @@ function vnrCgBuy(pg) {
   vnrCgLoad(pg.slot, pg.desc); vnrGo(1);
 }
 /** Pide el CG al servidor la primera vez que se llega a él (sin llave de IA responde "mock" y no se gasta nada) */
+/** Quita el fondo liso de un sprite en el navegador (rellena desde los bordes con el color del fondo). Devuelve un PNG en base64, o '' si no se pudo. */
+function vnCutBg(url) {
+  return new Promise(res => {
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => { try {
+      const w = img.naturalWidth, h = img.naturalHeight, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.drawImage(img, 0, 0);
+      const id = x.getImageData(0, 0, w, h), d = id.data, px = (i) => [d[i], d[i + 1], d[i + 2]];
+      const corners = [0, (w - 1) * 4, (h - 1) * w * 4, ((h - 1) * w + w - 1) * 4].map(px), bg = [0, 1, 2].map(k => Math.round(corners.reduce((a, p) => a + p[k], 0) / 4));
+      const near = (i, tol) => Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]) <= tol;
+      if (!corners.every(p => Math.abs(p[0] - bg[0]) + Math.abs(p[1] - bg[1]) + Math.abs(p[2] - bg[2]) < 60)) return res('');   // el fondo no es liso: mejor no tocarlo
+      const seen = new Uint8Array(w * h), st = []; const push = (px0, py) => { if (px0 < 0 || py < 0 || px0 >= w || py >= h) return; const k = py * w + px0; if (seen[k] || !near(k * 4, 54)) return; seen[k] = 1; st.push(k); };
+      for (let i = 0; i < w; i++) { push(i, 0); push(i, h - 1); } for (let j = 0; j < h; j++) { push(0, j); push(w - 1, j); }
+      while (st.length) { const k = st.pop(), px0 = k % w, py = (k / w) | 0; d[k * 4 + 3] = 0; push(px0 + 1, py); push(px0 - 1, py); push(px0, py + 1); push(px0, py - 1); }
+      for (let k = 0; k < w * h; k++) if (!seen[k]) { const p = k % w, q = (k / w) | 0; if ((p > 0 && seen[k - 1]) || (p < w - 1 && seen[k + 1]) || (q > 0 && seen[k - w]) || (q < h - 1 && seen[k + w])) d[k * 4 + 3] = Math.min(d[k * 4 + 3], 140); }   // borde suave
+      x.putImageData(id, 0, 0); res(c.toDataURL('image/png'));
+    } catch (e) { res(''); } };
+    img.onerror = () => res(''); img.src = url;
+  });
+}
 /** Datos del OC de quien lee (nombre, foto o sprite con enlace https, cabello y ojos) para que el CG lo dibuje como es. */
 function vnrOc() {
   const c = S.character || {}, sp = c.sprites || {}, img = [sp.neutral, c.photo, ...Object.values(sp)].find(u => /^https:\/\//.test(String(u || ''))) || '';
