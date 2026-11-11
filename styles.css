@@ -2866,3 +2866,6 @@ html.lite .amb{display:none}
 @media (prefers-reduced-motion:reduce){.vnr-bg{transition:none}}
 
 .vn-ref{display:flex;align-items:center;gap:10px;margin:10px 0 2px}.vn-refshow{display:flex;align-items:center;gap:8px}.vn-refshow img{width:44px;height:58px;object-fit:cover;border-radius:8px}
+
+.vnr-bg.scene{background-size:cover!important;background-position:center!important;inset:0;width:100%;height:100%}
+.vn-decl{border:1px solid var(--line,#4b3a78);border-radius:14px;padding:10px 12px;margin:12px 0}.vn-decl legend{font-weight:700;padding:0 6px}

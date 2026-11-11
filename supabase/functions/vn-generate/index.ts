@@ -158,7 +158,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   if (!ur.ok) return json({ error: 'auth' }, 401);
   const user = await ur.json();
   let body: { action?: string; chapter_id?: string; story_id?: string; name?: string; emo?: string; slot?: number; desc?: string; ref?: string; me?: string; oc?: { name?: string; img?: string; hair?: string; eyes?: string } } = {}; try { body = await req.json(); } catch { /* vacío */ }
-  if (body.action !== 'script' && body.action !== 'cg' && body.action !== 'sprite') return json({ error: 'action' }, 400);
+  if (!['script', 'cg', 'sprite', 'bg'].includes(String(body.action))) return json({ error: 'action' }, 400);
   if (!TOKEN) return json({ mock: true });                                            // sin llave: no se hace ni se gasta nada
   const H = { apikey: SVC, Authorization: 'Bearer ' + SVC, 'Content-Type': 'application/json' };
   const rpc = async (fn: string, args: Record<string, unknown>) => { const r = await fetch(`${URL_}/rest/v1/rpc/${fn}`, { method: 'POST', headers: H, body: JSON.stringify(args) }); return r.ok ? await r.json().catch(() => null) : null; };

@@ -4774,6 +4774,21 @@ function rewardCard(x) {
   const act = toMe && st === 'pending' ? `<button type="button" class="button sm" data-act="rw-claim" data-id="${esc(x.id)}">${t('Reclamar')}</button>` : '';
   return `<article class="rw-card ${st}"><div class="rw-amt">${gemI()}<b>${toMe ? '+' : '−'}${qFmt(x.amount)}</b></div><div class="rw-main"><strong>${title}</strong>${x.note ? `<p>${esc(x.note)}</p>` : ''}<span class="rw-sub">${esc(stTxt)}${stTxt && exp ? ' · ' : ''}${exp}</span></div>${act}</article>`;
 }
+/** Normas de propiedad intelectual, reclamaciones de artistas y apelaciones. */
+function ipView() {
+  const sec = (h, p) => `<section class="panel"><h2>${t(h)}</h2><p>${t(p)}</p></section>`;
+  return `<main class="page"><a class="back" href="#/" data-back>‹ ${t('Volver')}</a><h1>${t('Propiedad intelectual y recursos')}</h1>
+  ${sec('Qué puedes subir', 'Solo imágenes, sprites y personajes que hiciste tú, que encargaste con permiso, que tienen una licencia que lo permite o que creaste con IA. No subas el trabajo de otra persona sin su permiso.')}
+  ${sec('Identifica el origen', 'Al subir sprites debes marcar su origen y, si puedes, poner el nombre del artista o un enlace. Así es más fácil resolver cualquier duda.')}
+  ${sec('Si eres artista y reconoces tu trabajo', 'Envíanos una reclamación con el enlace al libro o al personaje y un mensaje que explique por qué es tuyo. Revisamos cada caso. Si se comprueba, el recurso se retira.')}
+  ${sec('Retirada y apelación', 'Cuando retiramos un recurso se avisa a quien lo subió. Si crees que fue un error, puedes enviar una apelación con tus pruebas (permiso, licencia o archivo original). Revisamos la apelación y respondemos.')}
+  <section class="panel"><h2>${t('Enviar una reclamación o apelación')}</h2>
+    <label class="field"><span>${t('Tipo')}</span><select id="ip-kind"><option value="claim">${t('Soy artista: reclamo un recurso')}</option><option value="appeal">${t('Apelo una retirada')}</option></select></label>
+    <label class="field"><span>${t('Enlace al libro o personaje')}</span><input id="ip-link" maxlength="400" placeholder="https://"></label>
+    <label class="field"><span>${t('Mensaje')}</span><textarea id="ip-msg" rows="5" maxlength="2000"></textarea></label>
+    <p class="helper" id="ip-err" role="alert"></p><button type="button" class="button" data-act="ip-send">${t('Enviar')}</button>
+  </section></main>`;
+}
 function rewardsView() {
   if (!rwOn()) return `<main class="page">${empty('Aquí pronto habrá algo nuevo', 'Inicia sesión para ver tus recompensas.')}</main>`;
   if (RWS === null) rwLoad();
@@ -4815,7 +4830,11 @@ function openCharForm(id, after) {
   <div class="form-group"><label>${t('Nombre del personaje')}</label><input class="field" data-name maxlength="30" placeholder="${esc(t('Ej: Aiko'))}" value="${esc(cur ? cur.name : '')}"></div>
   <div class="cf-two"><div class="form-group"><label>${t('Color de cabello')}</label><input class="field" data-hair maxlength="40" placeholder="${esc(t('Ej: castaño oscuro'))}" value="${esc(cur ? cur.hair || '' : '')}"></div><div class="form-group"><label>${t('Color de ojos')}</label><input class="field" data-eyes maxlength="40" placeholder="${esc(t('Ej: verdes'))}" value="${esc(cur ? cur.eyes || '' : '')}"></div></div>
   <p class="helper">${t('En las historias que lo permiten, T/P (cabello) y T/O (ojos) se reemplazan con estos datos.')}</p>
-  ${vnOn() ? `<details class="cf-vn"><summary>${t('Sprites para novela visual')}</summary><p class="helper">${t('Sube un PNG con fondo transparente por cada emoción. Se usan cuando lees una novela visual como este personaje.')}</p><div class="vn-cells" data-vncells></div></details>` : ''}
+  ${vnOn() ? `<details class="cf-vn"><summary>${t('Sprites para novela visual')}</summary><p class="helper">${t('Sube un PNG con fondo transparente por cada emoción. Se usan cuando lees una novela visual como este personaje.')}</p><div class="vn-cells" data-vncells></div><fieldset class="vn-decl"><legend>🛡 ${t('Declaración de uso de recursos')}</legend><p class="helper">${t('Antes de importar imágenes a tu novela visual:')}</p>
+    <label class="check"><input type="checkbox" data-sdecl ${cur && cur.sprRights ? 'checked' : ''}> ${t('Tengo derecho o autorización para utilizar estas imágenes.')}</label>
+    <label class="check"><input type="checkbox" data-sdecl ${cur && cur.sprRights ? 'checked' : ''}> ${t('No estoy utilizando ilustraciones, sprites o personajes de terceros sin permiso.')}</label>
+    <label class="check"><input type="checkbox" data-sdecl ${cur && cur.sprRights ? 'checked' : ''}> ${t('Acepto que Auri pueda retirar recursos que infrinjan derechos de terceros tras su revisión.')}</label>
+    <p class="helper"><a href="#/ip">${t('Normas de propiedad intelectual')}</a> · <a href="#/ip">${t('Reclamaciones de artistas')}</a> · <a href="#/ip">${t('Retirada y apelación')}</a></p></fieldset></details>` : ''}
   <p class="error" data-err></p><div class="cf-btns"><button class="button ghost" data-cancel>${t('Cancelar')}</button><button class="button" data-save>${t('Guardar')}</button></div></div>`;
   const q = sel => m.querySelector(sel), close = () => m.remove(), setPrev = () => { q('[data-prev]').innerHTML = photo ? `<img src="${esc(photo)}" alt="">` : '🐱'; q('[data-nophoto]').hidden = !photo; };
   const vnDraw = () => { const box = q('[data-vncells]'); if (!box) return; box.innerHTML = vnEmoList().map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : ''}</div><b>${esc(t(e.name))}</b><label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}</div>`).join(''); };
@@ -4829,9 +4848,11 @@ function openCharForm(id, after) {
   q('[data-nophoto]').onclick = () => { photo = ''; setPrev(); };
   q('[data-save]').onclick = () => {
     const name = q('[data-name]').value.trim(), hair = q('[data-hair]').value.trim(), eyes = q('[data-eyes]').value.trim(); if (!name) { q('[data-err]').textContent = t('Escribe un nombre para tu personaje.'); return; }
-    if (cur) { S.chars = S.chars.map(c => c.id === cur.id ? { ...c, name, photo, hair, eyes, sprites: sp } : c); if (cur.id === S.activeId) setActive(cur.id); saveChars(); close(); toast('Personaje actualizado'); return render(); }
+    const sprRights = [...m.querySelectorAll('[data-sdecl]')].length > 0 && [...m.querySelectorAll('[data-sdecl]')].every(x => x.checked);
+    if (Object.keys(sp).length && !sprRights) { q('[data-err]').textContent = t('Para guardar sprites marca la declaración de uso de recursos.'); return; }
+    if (cur) { S.chars = S.chars.map(c => c.id === cur.id ? { ...c, name, photo, hair, eyes, sprites: sp, sprRights } : c); if (cur.id === S.activeId) setActive(cur.id); saveChars(); close(); toast('Personaje actualizado'); return render(); }
     let nid; do { nid = chapId(); } while (S.chars.some(c => c.id === nid));
-    S.chars = [...S.chars, { id: nid, ...emptyChar(), name, photo, hair, eyes, sprites: sp }];
+    S.chars = [...S.chars, { id: nid, ...emptyChar(), name, photo, hair, eyes, sprites: sp, sprRights }];
     if (S.chars.length === 1) setActive(nid); else saveChars();                 // el primero queda en uso automáticamente
     close(); toast('Personaje creado ✨'); if (after) after(nid); else { KEEP = true; render(); }
   };
@@ -5076,6 +5097,7 @@ function render() {
   else if (a === 'settings') app.innerHTML = shell('', settingsView(b));
   else if (a === 'notifications') app.innerHTML = shell('', notifView());
   else if (a === 'rewards') app.innerHTML = shell('', rewardsView());
+  else if (a === 'ip') app.innerHTML = shell('', ipView());
   else app.innerHTML = shell('/', discoverView());
   if (a !== 'write') { W = null; WPREVIEW = false; }
   if (a !== 'story') EDITC = null;
@@ -5384,6 +5406,13 @@ document.addEventListener('click', e => {
     'qz-exit': () => { PENDING = null; QZ = null; go('/login'); },
     'int-set': () => { const u = getUsers(), me = u[S.user], v = el.dataset.v, cur = me.interests || [], next = cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v];
       if (!next.length) return toast('Deja al menos un tema.'); me.interests = next; G.set('users', u); KEEP = true; render(); },
+    'ip-send': async () => {
+      const e = $('#ip-err'), msg = $('#ip-msg').value.trim(); if (!S.user) return (e.textContent = t('Inicia sesión para enviarla.'));
+      if (msg.length < 10) return (e.textContent = t('Escribe al menos 10 caracteres.'));
+      el.disabled = true; const r = await sbApi('/rest/v1/ip_claims', { method: 'POST', body: { by: sbSes().user.id, kind: $('#ip-kind').value, link: $('#ip-link').value.trim().slice(0, 400), message: msg } }); el.disabled = false;
+      if (!r.ok) return (e.textContent = /5 reclamaciones/.test(JSON.stringify(r.data || '')) ? t('Ya tienes 5 reclamaciones abiertas.') : t('No se pudo enviar. Inténtalo otra vez.'));
+      $('#ip-msg').value = ''; toast(t('Recibido. Lo revisaremos.'));
+    },
     'rw-tab': () => { RW_TAB = el.dataset.v === 'hist' ? 'hist' : 'pending'; KEEP = true; render(); },
     'rw-claim': async () => { el.disabled = true; const r = await sbApi('/rest/v1/rpc/reward_claim', { method: 'POST', body: { p_id: el.dataset.id } });
       if (r.ok && r.data) toast(t('Recibiste') + ' ' + qFmt(r.data.amount) + ' ' + t('gemas cian')); else toast(rpcMsg(r)); RWS = null; await walletLoad(); KEEP = true; render(); },
@@ -5789,6 +5818,14 @@ function vnEdit(id) {
   <p class="helper">${t('Sube un PNG con fondo transparente por cada emoción. La neutral es la que se usa si no se detecta otra.')}</p>
   ${VN_AI.sprite ? `<div class="vn-ref"><label class="button ghost sm vn-up">${t('Subir imagen de referencia')}<input type="file" accept="image/*" data-refimg hidden></label><span class="vn-refshow" data-refshow></span></div>
   <p class="helper">${t('Opcional: con una imagen de referencia, "Crear con IA" dibuja al personaje igual que en esa imagen.')}</p>` : ''}
+  <fieldset class="vn-decl"><legend>🛡 ${t('Declaración de uso de recursos')}</legend><p class="helper">${t('Antes de importar imágenes a tu novela visual:')}</p>
+    <label class="check"><input type="checkbox" data-decl ${cur && cur.rights_ok_at ? 'checked' : ''}> ${t('Tengo derecho o autorización para utilizar estas imágenes.')}</label>
+    <label class="check"><input type="checkbox" data-decl ${cur && cur.rights_ok_at ? 'checked' : ''}> ${t('No estoy utilizando ilustraciones, sprites o personajes de terceros sin permiso.')}</label>
+    <label class="check"><input type="checkbox" data-decl ${cur && cur.rights_ok_at ? 'checked' : ''}> ${t('Acepto que Auri pueda retirar recursos que infrinjan derechos de terceros tras su revisión.')}</label>
+    <label class="field vnf"><span>${t('Origen de los recursos')}</span><select id="vn-origin">${[['', 'Elige…'], ['own', 'Los hice yo'], ['commission', 'Encargo a un artista (con permiso)'], ['licensed', 'Banco libre o con licencia'], ['ai', 'Creados con IA'], ['other', 'Otro']].map(([k, l]) => `<option value="${k}" ${cur && cur.origin === k ? 'selected' : ''}>${esc(t(l))}</option>`).join('')}</select></label>
+    <label class="field vnf"><span>${t('Créditos (artista, enlace o fuente)')}</span><input id="vn-credit" maxlength="200" value="${esc(cur && cur.credit || '')}"></label>
+    <p class="helper"><a href="#/ip">${t('Normas de propiedad intelectual')}</a> · <a href="#/ip">${t('Reclamaciones de artistas')}</a> · <a href="#/ip">${t('Retirada y apelación')}</a></p>
+  </fieldset>
   <div class="vn-cells">${cells()}</div>
   <h3 class="vn-h3">${t('Posición en pantalla')}</h3><p class="helper">${t('Así se verá en la novela visual: el cuadro de abajo es el texto. Las personas pueden ajustarlo a su gusto.')}</p>
   <div class="vn-prev" data-prev><div class="vnr-ch on" style="left:50%"><div class="vnr-fig" data-fig></div></div><div class="vn-prev-box"></div></div>
@@ -5825,7 +5862,10 @@ function vnEdit(id) {
     if (e.target.closest('[data-del]')) { if (!confirm(t('¿Eliminar este personaje?'))) return; const r = await sbApi('/rest/v1/vn_characters?id=eq.' + cur.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); if (!r.ok) return (err.textContent = t('No se pudo guardar.')); VN.chars = VN.chars.filter(c => c.id !== cur.id); m.remove(); KEEP = true; return render(); }
     if (e.target.closest('[data-ok]')) {
       const name = m.querySelector('#vn-name').value.trim(); if (!name) return (err.textContent = t('Ponle un nombre al personaje.'));
-      const lkEl = m.querySelector('#vn-look'), lk = lkEl ? lkEl.value.trim().slice(0, 500) : '', prevLook = String(cur && cur.look || '').trim(), body = { name, adult: m.querySelector('#vn-adult').checked, sprites: sp, adj };
+      const decl = [...m.querySelectorAll('[data-decl]')].every(x => x.checked), origin = m.querySelector('#vn-origin').value;
+      if (Object.keys(sp).length && (!decl || !origin)) return (err.textContent = t('Para guardar sprites marca la declaración de uso de recursos y elige su origen.'));
+      const lkEl = m.querySelector('#vn-look'), lk = lkEl ? lkEl.value.trim().slice(0, 500) : '', prevLook = String(cur && cur.look || '').trim(), body = { name, adult: m.querySelector('#vn-adult').checked, sprites: sp, adj, origin, credit: m.querySelector('#vn-credit').value.trim().slice(0, 200) };
+      if (decl) body.rights_ok_at = new Date().toISOString();
       if (lkEl && lk !== prevLook) { body.look = lk || null; body.look_src = lk ? 'manual' : null; }        // escrita a mano: la IA ya no la reemplaza
       const r = cur ? await sbApi('/rest/v1/vn_characters?id=eq.' + cur.id, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body })
         : await sbApi('/rest/v1/vn_characters', { method: 'POST', headers: { Prefer: 'return=representation' }, body: { ...body, story_id: sUuid(VN.sid), pos: VN.chars.length } });
@@ -5939,11 +5979,12 @@ const VN_PLACES = [
   [/\b(club|bar|discoteca|escenario)\b/i, 'nightclub-stage'], [/\b(oficina)\b/i, 'office'], [/\b(jard[ií]n)\b/i, 'garden'], [/\b(cementerio)\b/i, 'cemetery'],
   [/\b(tren|estaci[oó]n)\b/i, 'train-station'], [/\b(castillo|mansi[oó]n)\b/i, 'mansion-interior'], [/\b(casa|hogar)\b/i, 'home-interior']
 ];
-function vnrPlaces(script) {
-  let cur = '';
+const VN_DEFAULT_BG = ['quiet-city-street-at-night', 'misty-forest-path', 'starry-night-sky-over-hills', 'cozy-room-with-warm-lamp', 'rainy-window-evening', 'sunset-over-city-rooftops'];
+function vnrPlaces(script, seed) {
+  let cur = '', def = VN_DEFAULT_BG[[...String(seed || '')].reduce((a, ch) => a + ch.charCodeAt(0), 0) % VN_DEFAULT_BG.length];     // si no se detecta ningún lugar, se usa un fondo ambiental fijo para ese capítulo
   script.forEach(b => {
     if (b.sep || b.chat || b.cg) return;
-    if (!b.place) { const m = VN_PLACES.find(([rx]) => rx.test(b.text || '')); if (m) cur = m[1]; if (cur) b.place = cur; } else cur = b.place;
+    if (!b.place) { const m = VN_PLACES.find(([rx]) => rx.test(b.text || '')); if (m) cur = m[1]; b.place = cur || def; } else cur = b.place;
   });
   return script;
 }
@@ -6019,7 +6060,7 @@ async function vnrBoot(sid, n) {
     if (sv.script) { script = sv.script; bgs = sv.assets; }
     if (sv.script && !isOwner()) { const pd = LS.get(uk('vnpaid'), {}); pd[cu] = 1; LS.set(uk('vnpaid'), pd); }
   }
-  script = vnrPlaces(script);
+  script = vnrPlaces(script, cu || sid + ':' + n);
   VNR = { sid, n: +n, ch, s, cast, script, bgs, cgs: {}, pages: [], i: 0, order: [], next: s.chapters.find(c => c.idx === ch.idx + 1), adj: (vnLocalAdj()[sid] || {}) };
   VNR.pages = vnrPaginate(el);
   let firstRes = () => {}; const firstP = new Promise(r => { firstRes = r; }); vnrBgQueue(cu, firstRes);
