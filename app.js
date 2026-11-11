@@ -5478,7 +5478,7 @@ document.addEventListener('click', e => {
     'ce-bgdel': () => { if (CE) { CE.c.bg = ''; ceRender(); } },
     'ce-edit': () => { if (!CE) return; const x = CE.c.m[+id]; if (!x || x.call || x.sk || x.rx) return; if (x.ch) return chmOpen(+id); CE.ed = +id; const ta = $('#ce-txt'); if (ta) { ta.value = x.t; ta.focus(); } const bt = $('.ce-send .button'); if (bt) bt.textContent = t('Guardar'); ceRefresh(); },
     'story-menu': () => openStoryMenu(id),
-    'vn-toggle': () => vnToggle(), 'vn-add': () => vnEdit(null), 'vn-edit': () => vnEdit(id),
+    'vn-toggle': () => vnToggle(), 'vn-seedbg': () => vnSeedBgs(document.querySelector('[data-act="vn-seedbg"]')), 'vn-add': () => vnEdit(null), 'vn-edit': () => vnEdit(id),
     'cr-close': () => crClose(), 'cr-all': () => crShowAll(), 'cr-pick': () => crPick(+id),
     'cr-nextchat': () => { const a = CR && crAfter(); crClose(); if (a && a.kind === 'chat') chatOpen(a.key); },
     'cr-nextchap': () => { const a = CR && crAfter(); crClose(); if (a) readNext(a.sid, a.ci); },
@@ -5794,6 +5794,7 @@ function vnView(sid) {
   if (!VN.ok) { vnLoad(sid); return `<main class="page"><p class="helper">${t('Cargando…')}</p></main>`; }
   const free = VN.emos.length;
   return `<main class="page vn"><div class="section-head"><div><a class="back" href="#/write/${esc(sid)}" data-dir="back">‹ ${t('Volver')}</a><h1>${t('Novela visual')}</h1><p>${esc(s.title || t('Sin título'))}</p></div></div>
+  ${isOwner() ? `<section class="panel"><button type="button" class="btn" data-act="vn-seedbg">${t('Crear biblioteca de fondos')}</button><p class="helper">${t('Solo Owner. Tarda unos minutos; deja esta pantalla abierta.')}</p></section>` : ''}
   ${VN.err ? `<p class="notice">${esc(VN.err)}</p>` : `<section class="panel"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>${t('Libro compatible con novela visual')}</strong><div class="helper">${t('Las personas podrán leerlo con personajes, fondos y reacciones.')}</div></div><button type="button" class="switch ${VN.vn ? 'on' : ''}" role="switch" aria-checked="${VN.vn}" aria-label="${esc(t('Libro compatible con novela visual'))}" data-act="vn-toggle"></button></div></section>
   <div class="section-head"><div><h2>${t('Personajes')}</h2><p>${tn(VN.chars.length, '{n} de 10 personaje', '{n} de 10 personajes')}</p></div>${VN.chars.length < 10 ? `<button type="button" class="button sm" data-act="vn-add">${t('Añadir personaje')}</button>` : ''}</div>
   <div class="vn-list">${VN.chars.map(c => { const n = Object.keys(c.sprites || {}).length, first = (c.sprites || {}).neutral || Object.values(c.sprites || {})[0];
@@ -5988,22 +5989,44 @@ function vnrPlaces(script, seed) {
   });
   return script;
 }
-/** Pide los fondos de los lugares del capítulo de uno en uno y sin prisa (Replicate limita las peticiones); la lectura no espera. */
+/** Los fondos salen de una biblioteca global ya creada: leer es instantáneo y nunca llama a Replicate. */
+let VN_LIB = null;
+async function vnLib(force) {
+  if (VN_LIB && !force) return VN_LIB;
+  try { const r = await sbApi('/rest/v1/vn_bg_library?select=key,url'); if (r && r.ok && Array.isArray(r.data)) { VN_LIB = {}; r.data.forEach(x => { VN_LIB[x.key] = x.url; }); } } catch (e) { /* sin biblioteca: fondo difuminado */ }
+  return VN_LIB || {};
+}
 async function vnrBgQueue(cu, onFirst) {
   const first = typeof onFirst === 'function' ? onFirst : () => {};
-  if (!cu || !vnOn() || !VNR || !VNR.script) return first(); const v = VNR, places = [];
-  v.script.forEach(b => { if (b.place && !places.includes(b.place) && !(v.bgs || {})[b.place]) places.push(b.place); });
-  if (!places.length) return first();
-  let n = 0;
-  for (const pl of places.slice(0, 4)) {
-    if (VNR !== v) return first();
-    let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'bg', chapter_id: cu, place: pl } }); } catch (e) { r = null; }
-    if (VNR !== v) return; const u = r && r.ok && r.data && r.data.url;
-    if (u) { v.bgs = v.bgs || {}; v.bgs[pl] = u; const pg = v.pages[v.i]; if (pg && pg.place === pl) vnrDraw(); }
-    if (!n++) first();
-    if (!(r && r.data && r.data.cached)) await new Promise(res => setTimeout(res, 11000));
-  }
+  if (!VNR || !VNR.script) return first(); const v = VNR, lib = await vnLib();
+  if (VNR !== v) return first();
+  v.bgs = v.bgs || {}; v.script.forEach(b => { if (b.place && lib[b.place]) v.bgs[b.place] = lib[b.place]; });
+  const pg = v.pages[v.i]; if (pg && pg.place && v.bgs[pg.place]) vnrDraw();
   first();
+}
+/** Solo la Owner: crea los fondos que faltan en la biblioteca, uno por uno y con pausa. */
+async function vnSeedBgs(btn) {
+  if (!isOwner() || !btn || btn.dataset.busy) return; btn.dataset.busy = '1';
+  const say = x => { btn.textContent = x; };
+  try {
+    const l = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'bglib', list: true } });
+    const keys = (l && l.ok && l.data && l.data.keys) || []; if (!keys.length) { say(t('No se pudo iniciar')); delete btn.dataset.busy; return; }
+    let lib = await vnLib(true), done = 0, fail = 0;
+    for (const k of keys) {
+      if (lib[k]) { done++; continue; }
+      say(t('Creando fondos…') + ' ' + done + '/' + keys.length);
+      let ok = false;
+      for (let i = 0; i < 3 && !ok; i++) {
+        let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'bglib', place: k } }); } catch (e) { r = null; }
+        if (r && r.ok && r.data && r.data.url) { ok = true; lib[k] = r.data.url; } else await new Promise(res => setTimeout(res, 20000));
+      }
+      if (ok) done++; else fail++;
+      await new Promise(res => setTimeout(res, 12000));
+    }
+    VN_LIB = lib; say(fail ? t('Faltan') + ' ' + fail + ' · ' + t('Reintentar') : t('Biblioteca lista'));
+    toast(fail ? t('Faltaron algunos fondos. Pulsa de nuevo para reintentar.') : t('Biblioteca de fondos lista'));
+  } catch (e) { say(t('No se pudo iniciar')); }
+  delete btn.dataset.busy;
 }
 /** Antes de leer: muestra cuántas gemas cuesta el capítulo y espera a que la persona acepte (la Owner y quien ya lo pagó entran directo). */
 async function vnrAsk(el, cu) {

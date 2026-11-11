@@ -157,8 +157,8 @@ async function run(req: Request, env: Env): Promise<Response> {
   const ur = await fetch(URL_ + '/auth/v1/user', { headers: { apikey: ANON, Authorization: auth } });
   if (!ur.ok) return json({ error: 'auth' }, 401);
   const user = await ur.json();
-  let body: { action?: string; chapter_id?: string; story_id?: string; name?: string; emo?: string; slot?: number; desc?: string; ref?: string; me?: string; oc?: { name?: string; img?: string; hair?: string; eyes?: string } } = {}; try { body = await req.json(); } catch { /* vacío */ }
-  if (!['script', 'cg', 'sprite', 'bg'].includes(String(body.action))) return json({ error: 'action' }, 400);
+  let body: { action?: string; place?: string; list?: boolean; chapter_id?: string; story_id?: string; name?: string; emo?: string; slot?: number; desc?: string; ref?: string; me?: string; oc?: { name?: string; img?: string; hair?: string; eyes?: string } } = {}; try { body = await req.json(); } catch { /* vacío */ }
+  if (!['script', 'cg', 'sprite', 'bg', 'bglib'].includes(String(body.action))) return json({ error: 'action' }, 400);
   if (!TOKEN) return json({ mock: true });                                            // sin llave: no se hace ni se gasta nada
   const H = { apikey: SVC, Authorization: 'Bearer ' + SVC, 'Content-Type': 'application/json' };
   const rpc = async (fn: string, args: Record<string, unknown>) => { const r = await fetch(`${URL_}/rest/v1/rpc/${fn}`, { method: 'POST', headers: H, body: JSON.stringify(args) }); return r.ok ? await r.json().catch(() => null) : null; };
@@ -172,6 +172,30 @@ async function run(req: Request, env: Env): Promise<Response> {
     return r.ok ? null : json({ error: 'gems', need: r.need, have: r.have }, 402);
   };
   const refund = async (ref: string) => { if (!free) await rpc('gems_refund', { p_uid: user.id, p_ref: ref }); };
+  // ---- Biblioteca global de fondos: solo la Owner los crea (una vez); el resto los lee de la tabla sin tocar Replicate ----
+  if (body.action === 'bglib') {
+    if (!free) return json({ error: 'forbidden' }, 403);
+    const BGP: Record<string, string> = {
+      'cozy-cafe': 'cozy cafe interior', 'library': 'quiet library with tall bookshelves', 'workshop': 'workshop with tools and warm light', 'school-hallway': 'school hallway',
+      'school-classroom': 'empty school classroom with desks and windows', 'university-campus': 'university campus with trees', 'bedroom': 'tidy bedroom with soft light', 'kitchen': 'homey kitchen',
+      'living-room': 'living room with sofa', 'park': 'city park with benches and trees', 'city-street-evening': 'city street in the evening', 'beach': 'beach with calm sea at sunset', 'forest': 'forest path with sunlight',
+      'gothic-church': 'gothic church interior', 'hospital-room': 'hospital room', 'rooftop': 'building rooftop at dusk', 'nightclub-stage': 'club stage with colorful lights', 'office': 'modern office',
+      'garden': 'flower garden', 'cemetery': 'quiet cemetery at dusk', 'train-station': 'train station platform', 'mansion-interior': 'grand mansion interior', 'home-interior': 'cozy home interior',
+      'quiet-city-street-at-night': 'quiet city street at night', 'misty-forest-path': 'misty forest path', 'starry-night-sky-over-hills': 'starry night sky over hills', 'cozy-room-with-warm-lamp': 'cozy room with warm lamp',
+      'rainy-window-evening': 'rainy window in the evening', 'sunset-over-city-rooftops': 'sunset over city rooftops'
+    };
+    if (body.list) return json({ keys: Object.keys(BGP) });
+    const k = String(body.place || ''); if (!BGP[k]) return json({ error: 'place' }, 400);
+    const ex = await fetch(`${URL_}/rest/v1/vn_bg_library?key=eq.${k}&select=url`, { headers: H }), eo = ex.ok ? (await ex.json())[0] : null; if (eo) return json({ url: eo.url, cached: true });
+    try {
+      const o = await replicate(env.VN_BG_MODEL || 'stability-ai/sdxl', { prompt: `anime visual novel background, ${BGP[k]}, no people, soft light, detailed, wide scene`, negative_prompt: 'people, characters, text, watermark', width: 1024, height: 576 }, TOKEN);
+      const u = firstUrl(o); if (!u) return json({ failed: true });
+      await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'background', p_cost: Number(env.VN_COST_BG) > 0 ? Number(env.VN_COST_BG) : 0.004, p_detail: 'biblioteca ' + k });
+      const pu = await persist(URL_, H, u, `ai/lib/${k}`);
+      await fetch(`${URL_}/rest/v1/vn_bg_library`, { method: 'POST', headers: { ...H, Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify({ key: k, url: pu }) });
+      return json({ url: pu });
+    } catch (e) { console.error('lib', k, e); await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'retry', p_cost: 0.002, p_detail: ('biblioteca falló ' + k + ': ' + (e && (e as Error).message || e)).slice(0, 240) }); return json({ failed: true }); }
+  }
   if (body.action === 'sprite') {
     if (env.VN_SPRITE_ON !== '1') return json({ off: true }, 503);                       // sprites con IA en pausa (VN_SPRITE_ON=1 los enciende)
     const sref = 'sprite:' + String(body.story_id || '') + ':' + String(body.name || '').slice(0, 30) + ':' + String(body.emo || '') + ':' + Date.now();

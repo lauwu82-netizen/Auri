@@ -2291,4 +2291,13 @@ window.I18N = { en: {
   "No se pudo enviar. Inténtalo otra vez.": "Could not send. Try again.",
   "Recibido. Lo revisaremos.": "Received. We will review it.",
   "Para guardar sprites marca la declaración de uso de recursos.": "To save sprites, tick the resource use declaration.",
+  "Crear biblioteca de fondos": "Create background library",
+  "Solo Owner. Tarda unos minutos; deja esta pantalla abierta.": "Owner only. It takes a few minutes; keep this screen open.",
+  "No se pudo iniciar": "Could not start",
+  "Creando fondos…": "Creating backgrounds…",
+  "Faltan": "Missing",
+  "Reintentar": "Retry",
+  "Biblioteca lista": "Library ready",
+  "Faltaron algunos fondos. Pulsa de nuevo para reintentar.": "Some backgrounds are missing. Tap again to retry.",
+  "Biblioteca de fondos lista": "Background library ready"
 } };
