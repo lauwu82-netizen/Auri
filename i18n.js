@@ -2251,4 +2251,9 @@ window.I18N = { en: {
   "La IA está ocupada o llegó al límite de gasto. Inténtalo en un momento.": "The AI is busy or hit the spending limit. Try again in a moment.",
   "Sprite creado. Recuerda tocar Guardar.": "Sprite created. Remember to tap Save.",
   "La IA marcó la escena como sensible. Reescribe la descripción del CG más suave y no se cobró nada.": "The AI flagged the scene as sensitive. Rewrite the CG description to be milder; you were not charged.",
+  "Preparando los fondos…": "Preparing backgrounds…",
+  "Leer este capítulo en novela visual": "Read this chapter as a visual novel",
+  "Pagar y leer": "Pay and read",
+  "Se paga una sola vez por capítulo.": "You only pay once per chapter.",
+  "Ir a Recompensas": "Go to Rewards",
 } };

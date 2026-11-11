@@ -5924,16 +5924,33 @@ function vnrPaginate(el) {
   return merged;
 }
 /** Pide los fondos de los lugares del capítulo de uno en uno y sin prisa (Replicate limita las peticiones); la lectura no espera. */
-async function vnrBgQueue(cu) {
-  if (!cu || !vnOn() || !VNR || !VNR.script) return; const v = VNR, places = [];
+async function vnrBgQueue(cu, onFirst) {
+  const first = typeof onFirst === 'function' ? onFirst : () => {};
+  if (!cu || !vnOn() || !VNR || !VNR.script) return first(); const v = VNR, places = [];
   v.script.forEach(b => { if (b.place && !places.includes(b.place) && !(v.bgs || {})[b.place]) places.push(b.place); });
+  if (!places.length) return first();
+  let n = 0;
   for (const pl of places.slice(0, 4)) {
-    if (VNR !== v) return;
+    if (VNR !== v) return first();
     let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'bg', chapter_id: cu, place: pl } }); } catch (e) { r = null; }
     if (VNR !== v) return; const u = r && r.ok && r.data && r.data.url;
     if (u) { v.bgs = v.bgs || {}; v.bgs[pl] = u; const pg = v.pages[v.i]; if (pg && pg.place === pl) vnrDraw(); }
+    if (!n++) first();
     if (!(r && r.data && r.data.cached)) await new Promise(res => setTimeout(res, 11000));
   }
+  first();
+}
+/** Antes de leer: muestra cuántas gemas cuesta el capítulo y espera a que la persona acepte (la Owner y quien ya lo pagó entran directo). */
+async function vnrAsk(el, cu) {
+  if (isOwner() || (LS.get(uk('vnpaid'), {}) || {})[cu]) return true;
+  if (!WALLET) { try { await walletLoad(); } catch (e) { /* se muestra con lo que haya */ } }
+  const tx = el.querySelector('.vnr-box .vnr-text'), who = el.querySelector('.vnr-who'), hint = el.querySelector('.vnr-hint'); if (!tx) return true;
+  const have = WALLET ? WALLET.cyan : 0, price = PRICES.chapter, ok = have >= price; if (hint) hint.hidden = true; if (who) who.textContent = '';
+  tx.innerHTML = `${esc(t('Leer este capítulo en novela visual'))}: <b>${qFmt(price)}</b> ${gemI()} · ${esc(t('Tienes'))} <b>${qFmt(have)}</b> ${gemI()}<br>` +
+    (ok ? `<button type="button" class="button sm" data-vnok>${esc(t('Pagar y leer'))}</button> <small>${esc(t('Se paga una sola vez por capítulo.'))}</small>`
+        : `<small>${esc(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.'))}</small><br><a class="button sm" href="#/rewards">${esc(t('Ir a Recompensas'))}</a>`);
+  if (!ok) return false;
+  return new Promise(res => { const b = tx.querySelector('[data-vnok]'); if (b) b.addEventListener('click', ev => { ev.stopPropagation(); b.disabled = true; res(true); }); });
 }
 /** Pide al servidor el guion de la IA y los fondos; lo junta con los chats, separadores y CG del guion local. Devuelve {} si no se pudo (se usa el local) o {pay:true} si faltan gemas. */
 async function vnrServer(cu, local, ocName, useOc, ch) {
@@ -5961,15 +5978,18 @@ async function vnrBoot(sid, n) {
   let script = vnMock(text, Object.keys(cast), rawParas), bgs = {};
   const cu = cUuid(sid, ch.id);
   if (vnOn() && cu) {                                           // guion preparado por la IA (con lugar de cada escena) y fondos; si algo falla se lee con el guion local
+    if (!(await vnrAsk(el, cu))) return;
     const tx0 = el.querySelector('.vnr-box .vnr-text'); if (tx0) tx0.textContent = t('Preparando la lectura…');
     const sv = await vnrServer(cu, script, ocName, !!s.useReaderCharacter, S.character);
     if (!document.body.contains(el)) return;
     if (sv.pay) { toast(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.')); return go('/story/' + sid); }
     if (sv.script) { script = sv.script; bgs = sv.assets; }
+    if (sv.script && !isOwner()) { const pd = LS.get(uk('vnpaid'), {}); pd[cu] = 1; LS.set(uk('vnpaid'), pd); }
   }
   VNR = { sid, n: +n, ch, s, cast, script, bgs, cgs: {}, pages: [], i: 0, order: [], next: s.chapters.find(c => c.idx === ch.idx + 1), adj: (vnLocalAdj()[sid] || {}) };
   VNR.pages = vnrPaginate(el);
-  vnrBgQueue(cu);
+  let firstRes = () => {}; const firstP = new Promise(r => { firstRes = r; }); vnrBgQueue(cu, firstRes);
+  if (script !== null && Object.keys(bgs).length === 0 && VNR.script.some(b => b.place)) { const tx1 = el.querySelector('.vnr-box .vnr-text'); if (tx1) tx1.textContent = t('Preparando los fondos…'); await Promise.race([firstP, new Promise(r => setTimeout(r, 30000))]); if (!document.body.contains(el) || VNR.sid !== sid) return; }
   try { if (localStorage.getItem('auri.vnHint') === '1') el.querySelector('.vnr-hint').hidden = true; } catch (e) { /* ignorar */ }
   el.querySelector('.vnr-tap').addEventListener('click', ev => { if (ev.target.closest('[data-vnchat]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.key) chatOpen(pg.key); return; } if (ev.target.closest('[data-vncg]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.cg === 'intro') vnrCgBuy(pg); return; } const r = el.getBoundingClientRect(), left = ev.clientX - r.left < r.width * 0.28; vnrGo(left ? -1 : 1); try { localStorage.setItem('auri.vnHint', '1'); } catch (e) { /* ignorar */ } el.querySelector('.vnr-hint').hidden = true; });
   el.querySelector('[data-vnadj]').onclick = () => vnrAdjust(el);
