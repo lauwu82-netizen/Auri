@@ -2250,4 +2250,5 @@ window.I18N = { en: {
   "Creando… puede tardar un minuto": "Creating… may take a minute",
   "La IA está ocupada o llegó al límite de gasto. Inténtalo en un momento.": "The AI is busy or hit the spending limit. Try again in a moment.",
   "Sprite creado. Recuerda tocar Guardar.": "Sprite created. Remember to tap Save.",
+  "La IA marcó la escena como sensible. Reescribe la descripción del CG más suave y no se cobró nada.": "The AI flagged the scene as sensitive. Rewrite the CG description to be milder; you were not charged.",
 } };

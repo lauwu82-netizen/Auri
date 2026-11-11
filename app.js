@@ -6000,7 +6000,7 @@ async function vnrCgLoad(slot, desc) {
   const cu = cUuid(VNR.sid, VNR.ch.id); let r = null;
   const me = (S.character && S.character.name) || '';        // el servidor decide qué personajes nombra la escena y qué imagen de referencia usar
   try { if (cu) r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'cg', chapter_id: cu, slot, desc, me, oc: vnrOc() } }); } catch (e) { r = null; }
-  const d = r && r.ok && r.data || {}; c.url = d.url || ''; c.state = c.url ? 'ok' : 'none';
+  const d = r && r.ok && r.data || {}; c.url = d.url || ''; c.state = c.url ? 'ok' : 'none'; if (!c.url && d.sensitive) c.err = 'sensitive';
   if (r && r.status === 402) { c.err = 'gems'; toast(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.')); }
   walletLoad(); if (c.wait) c.wait();
 }
@@ -6021,7 +6021,7 @@ function vnrDraw() {
       tx.innerHTML = `${esc(t('Ilustración especial con IA'))}: <b>${qFmt(PRICES.cg)}</b> ${gemI()} · ${esc(t('Tienes'))} <b>${qFmt(WALLET ? WALLET.cyan : 0)}</b> ${gemI()}<br><button type="button" class="button sm vnr-cgbtn" data-vncg="1">${esc(t('Generar'))}</button> <small>${esc(t('o toca para seguir leyendo'))}</small>`; return;
     }
     const c = VNR.cgs[pg.slot] || {}, d = document.createElement('div'); d.className = 'vnr-cgimg' + (c.url ? '' : ' ph');
-    if (c.url) d.style.backgroundImage = `url("${String(c.url).replace(/["\\\n]/g, '')}")`; else d.textContent = c.state === 'loading' ? t('Preparando la ilustración…') : c.err === 'gems' ? t('Te faltan gemas cian para esta ilustración') : !c.state && !isOwner() ? t('Ilustración omitida') : t('Ilustración no disponible todavía');
+    if (c.url) d.style.backgroundImage = `url("${String(c.url).replace(/["\\\n]/g, '')}")`; else d.textContent = c.state === 'loading' ? t('Preparando la ilustración…') : c.err === 'gems' ? t('Te faltan gemas cian para esta ilustración') : c.err === 'sensitive' ? t('La IA marcó la escena como sensible. Reescribe la descripción del CG más suave y no se cobró nada.') : !c.state && !isOwner() ? t('Ilustración omitida') : t('Ilustración no disponible todavía');
     stage.appendChild(d); tx.textContent = c.url ? t('Ilustración especial') : ''; if (!c.url && c.state === 'loading') c.wait = () => { if (VNR && VNR.pages[VNR.i] === pg) vnrDraw(); }; return;
   }
   stage.querySelectorAll('.vnr-cgimg').forEach(x => x.remove());

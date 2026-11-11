@@ -282,7 +282,10 @@ async function run(req: Request, env: Env): Promise<Response> {
   // PROTEGE LA CUENTA de Replicate: nunca se pide nada explícito. El primer intento ya es "no explícito, sin desnudez" y el segundo es todavía más suave.
   const adults = ch.stories?.mature ? ' All characters are adults.' : '';
   const withLooks = (d: string) => d + (looks ? ' Characters appearance: ' + looks + '.' : '');
-  const tries = [withLooks(desc) + '. Tasteful, non-explicit, no nudity, no sexual content.' + adults, withLooks(desc) + '. Safe for work, fully clothed, wearing pajamas, calm cozy mood, no nudity.' + adults];
+  // OJO: nombrar lo que NO queremos ("no nudity", "no sexual content") mete esas palabras en el prompt y el filtro de Replicate (E005) se activa por ellas. Se pide en positivo.
+  // 1.º intento: la escena tal cual, en tono sano. 2.º intento: versión tranquila (personajes de pie, sin contacto ni cercanía) y sin la descripción original de la acción.
+  const tries = [withLooks(desc) + '. Wholesome, family-friendly, fully dressed in everyday clothes.' + adults, (named.length ? named.map(c => c.name).join(' and ') + ' standing calmly in the scene, friendly relaxed mood. ' : 'A calm peaceful scene. ') + (looks ? 'Characters appearance: ' + looks + '. ' : '') + 'Wholesome, family-friendly, fully dressed in everyday clothes, soft lighting.' + adults];
+  let sensitive = false;
   for (let i = 0; i < tries.length; i++) {
     if (i > 0 && Date.now() - T0 > 70000) break;                                  // sin tiempo para una segunda versión
     const stop = await budget(); if (stop) { await refund(gref); return stop; }
@@ -298,10 +301,10 @@ async function run(req: Request, env: Env): Promise<Response> {
       const pu = await persist(URL_, H, u, `ai/${user.id}/cg-${chash.slice(0, 24)}-${slot}`);
       await fetch(`${URL_}/rest/v1/vn_cgs`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ uid: user.id, chapter_id: cid, hash: chash, slot, url: pu }) });
       return json({ url: pu, softened: i > 0 });
-    } catch (e) { console.error('cg intento', i, e); await spend('retry', 0.002, ('cg falló ' + slot + ': ' + (e && (e as Error).message || e)).slice(0, 240)); }
+    } catch (e) { console.error('cg intento', i, e); if (/E005|sensitive|sensible/i.test(String((e as Error).message || e))) sensitive = true; await spend('retry', 0.002, ('cg falló ' + slot + ': ' + (e && (e as Error).message || e)).slice(0, 240)); }
   }
   await refund(gref);
-  return json({ failed: true });                                                         // se devuelven las gemas y la app muestra la tarjeta
+  return json({ failed: true, sensitive });                                                         // se devuelven las gemas y la app muestra la tarjeta
 }
 
 // deno-lint-ignore no-explicit-any
