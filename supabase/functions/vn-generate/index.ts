@@ -173,6 +173,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   };
   const refund = async (ref: string) => { if (!free) await rpc('gems_refund', { p_uid: user.id, p_ref: ref }); };
   if (body.action === 'sprite') {
+    if (env.VN_SPRITE_ON !== '1') return json({ off: true }, 503);                       // sprites con IA en pausa (VN_SPRITE_ON=1 los enciende)
     const sref = 'sprite:' + String(body.story_id || '') + ':' + String(body.name || '').slice(0, 30) + ':' + String(body.emo || '') + ':' + Date.now();
     const sst = await fetch(`${URL_}/rest/v1/stories?id=eq.${String(body.story_id || '')}&select=owner`, { headers: H }), so = sst.ok ? (await sst.json())[0] : null;
     if (!so || so.owner !== user.id) return json({ error: 'forbidden' }, 403);
@@ -239,6 +240,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   }
 
   // ---- CG ----
+  if (env.VN_CG_ON !== '1') return json({ off: true, failed: true });                  // CG con IA en pausa (VN_CG_ON=1 los enciende)
   const slot = Number(body.slot); if (!(slot >= 1 && slot <= 3)) return json({ error: 'slot' }, 400);
   const desc = String(body.desc || '').slice(0, 400); if (!desc) return json({ error: 'desc' }, 400);
   const chash = await sha256Hex(hash + '\n' + desc);                                   // la descripción también cuenta: si la cambias, se genera una ilustración nueva

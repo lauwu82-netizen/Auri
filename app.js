@@ -5741,6 +5741,8 @@ function passTab() {
    Todo vive en las tablas vn_* (SQL 40); la IA se conecta después. */
 const isCollab = e => !!(getUsers()[e == null ? S.user : e] || {}).collab && roleOf(e == null ? S.user : e) !== 'OWNER';   // cuentas colaboradoras (las activa la Owner)
 const vnOn = () => !!S.user && !isGuest() && cloud() && !!sbSes();          // abierto a todas las cuentas con sesión: la Owner lo usa gratis, las demás con AuriGems
+/** Funciones de IA de imágenes en pausa (Replicate limita las peticiones y los resultados aún no son fiables). Solo los fondos siguen activos. Para volver a encenderlas: poner true. */
+const VN_AI = { cg: false, sprite: false };
 const VN_KEYS = [['neutral', 'Neutral'], ['feliz', 'Feliz'], ['triste', 'Triste'], ['sonrojado', 'Sonrojado'], ['asustado', 'Asustado'], ['enojado', 'Enojado']];
 let VN_EM = null;                                        // emociones de la nube (si ya cargaron); si no, la lista por defecto
 const vnEmoList = () => VN_EM && VN_EM.length ? VN_EM : VN_KEYS.map(([key, name]) => ({ key, name }));
@@ -5778,15 +5780,15 @@ function spriteFit(file, cb) {                           // sprite: máximo 640 
 }
 function vnEdit(id) {
   const cur = id ? VN.chars.find(c => c.id === id) : null, sp = { ...(cur ? cur.sprites || {} : {}) }, m = document.createElement('div'); let refImg = '', busyK = ''; m.className = 'modal sheet'; let adj = vnAdjOk(cur && cur.adj && Object.keys(cur.adj).length ? cur.adj : null);
-  const cells = () => VN.emos.map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : ''}</div><b>${esc(t(e.name))}</b><label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}<button type="button" class="link-btn" data-gen="${esc(e.key)}" ${busyK ? 'disabled' : ''}>${busyK === e.key ? t('Creando… puede tardar un minuto') : '✦ ' + t('Crear con IA')}</button></div>`).join('');
+  const cells = () => VN.emos.map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : ''}</div><b>${esc(t(e.name))}</b><label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}${VN_AI.sprite ? `<button type="button" class="link-btn" data-gen="${esc(e.key)}" ${busyK ? 'disabled' : ''}>${busyK === e.key ? t('Creando… puede tardar un minuto') : '✦ ' + t('Crear con IA')}</button>` : ''}</div>`).join('');
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${cur ? t('Editar personaje') : t('Nuevo personaje')}</h2>
   <label class="field vnf"><span>${t('Nombre')}</span><input id="vn-name" maxlength="40" value="${esc(cur ? cur.name : '')}"></label>
   <label class="check"><input type="checkbox" id="vn-adult" ${!cur || cur.adult ? 'checked' : ''}> ${t('Es mayor de edad')}</label><p class="helper">${t('Si es menor de edad, no se generará nada sugerente con este personaje.')}</p>
-  <label class="field vnf"><span>${t('Cómo se ve')}</span><textarea id="vn-look" rows="3" maxlength="500" placeholder="${esc(t('Ej.: chico de pelo blanco largo con puntas moradas, ojos rosados, suéter negro y chaleco morado'))}">${esc(cur && cur.look || '')}</textarea></label>
-  <p class="helper">${t('La IA usa esto para dibujarlo igual en los CG y para crear sus sprites. Si lo dejas vacío, lo describe sola mirando su imagen.')}</p>
+  ${VN_AI.cg || VN_AI.sprite ? `<label class="field vnf"><span>${t('Cómo se ve')}</span><textarea id="vn-look" rows="3" maxlength="500" placeholder="${esc(t('Ej.: chico de pelo blanco largo con puntas moradas, ojos rosados, suéter negro y chaleco morado'))}">${esc(cur && cur.look || '')}</textarea></label>
+  <p class="helper">${t('La IA usa esto para dibujarlo igual en los CG y para crear sus sprites. Si lo dejas vacío, lo describe sola mirando su imagen.')}</p>` : ''}
   <p class="helper">${t('Sube un PNG con fondo transparente por cada emoción. La neutral es la que se usa si no se detecta otra.')}</p>
-  <div class="vn-ref"><label class="button ghost sm vn-up">${t('Subir imagen de referencia')}<input type="file" accept="image/*" data-refimg hidden></label><span class="vn-refshow" data-refshow></span></div>
-  <p class="helper">${t('Opcional: con una imagen de referencia, "Crear con IA" dibuja al personaje igual que en esa imagen.')}</p>
+  ${VN_AI.sprite ? `<div class="vn-ref"><label class="button ghost sm vn-up">${t('Subir imagen de referencia')}<input type="file" accept="image/*" data-refimg hidden></label><span class="vn-refshow" data-refshow></span></div>
+  <p class="helper">${t('Opcional: con una imagen de referencia, "Crear con IA" dibuja al personaje igual que en esa imagen.')}</p>` : ''}
   <div class="vn-cells">${cells()}</div>
   <h3 class="vn-h3">${t('Posición en pantalla')}</h3><p class="helper">${t('Así se verá en la novela visual: el cuadro de abajo es el texto. Las personas pueden ajustarlo a su gusto.')}</p>
   <div class="vn-prev" data-prev><div class="vnr-ch on" style="left:50%"><div class="vnr-fig" data-fig></div></div><div class="vn-prev-box"></div></div>
@@ -5823,8 +5825,8 @@ function vnEdit(id) {
     if (e.target.closest('[data-del]')) { if (!confirm(t('¿Eliminar este personaje?'))) return; const r = await sbApi('/rest/v1/vn_characters?id=eq.' + cur.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); if (!r.ok) return (err.textContent = t('No se pudo guardar.')); VN.chars = VN.chars.filter(c => c.id !== cur.id); m.remove(); KEEP = true; return render(); }
     if (e.target.closest('[data-ok]')) {
       const name = m.querySelector('#vn-name').value.trim(); if (!name) return (err.textContent = t('Ponle un nombre al personaje.'));
-      const lk = m.querySelector('#vn-look').value.trim().slice(0, 500), prevLook = String(cur && cur.look || '').trim(), body = { name, adult: m.querySelector('#vn-adult').checked, sprites: sp, adj };
-      if (lk !== prevLook) { body.look = lk || null; body.look_src = lk ? 'manual' : null; }        // escrita a mano: la IA ya no la reemplaza
+      const lkEl = m.querySelector('#vn-look'), lk = lkEl ? lkEl.value.trim().slice(0, 500) : '', prevLook = String(cur && cur.look || '').trim(), body = { name, adult: m.querySelector('#vn-adult').checked, sprites: sp, adj };
+      if (lkEl && lk !== prevLook) { body.look = lk || null; body.look_src = lk ? 'manual' : null; }        // escrita a mano: la IA ya no la reemplaza
       const r = cur ? await sbApi('/rest/v1/vn_characters?id=eq.' + cur.id, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body })
         : await sbApi('/rest/v1/vn_characters', { method: 'POST', headers: { Prefer: 'return=representation' }, body: { ...body, story_id: sUuid(VN.sid), pos: VN.chars.length } });
       if (!r.ok || !Array.isArray(r.data) || !r.data[0]) return (err.textContent = /Máximo/.test(JSON.stringify(r.data || '')) ? t('Máximo 10 personajes por libro.') : t('No se pudo guardar.'));
@@ -5917,6 +5919,7 @@ function vnrPaginate(el) {
   const lines = x => { meas.textContent = x; return Math.round(meas.scrollHeight / lh); }, pages = [];
   VNR.script.forEach((sg, si) => {
     if (sg.sep) return pages.push({ sep: true, si, off: 0 });
+    if (sg.cg && !VN_AI.cg) return;                                  // CG con IA en pausa
     if (sg.cg) { pages.push({ cg: 'intro', slot: sg.slot, desc: sg.desc, si, off: 0 }); return pages.push({ cg: 'show', slot: sg.slot, desc: sg.desc, si, off: 0 }); }
     if (sg.chat) { const key = chatKeyOf(VNR, sg); return pages.push({ chat: true, key, title: chatTitle(CHC.get(key) || sg.cht), si, off: 0 }); }
     let cur = '', off = 0, words = 0; const flush = () => { if (cur) pages.push({ ...sg, text: cur, si, off }); cur = ''; };
@@ -5925,6 +5928,24 @@ function vnrPaginate(el) {
   });
   const merged = []; pages.forEach(p => { const q = merged[merged.length - 1]; if (q && !p.sep && !q.sep && !p.chat && !q.chat && !p.cg && !q.cg && q.who === p.who && q.emo === p.emo && q.focus === p.focus && lines(q.text + ' ' + p.text) <= 5) { q.text += ' ' + p.text; q.stage = p.stage; } else merged.push(p); });
   return merged;
+}
+/** Lugares que se detectan en el texto sin IA (por palabras): sirven de respaldo si el guion de la IA no llegó. */
+const VN_PLACES = [
+  [/\b(cafeter[ií]a|caf[eé])\b/i, 'cozy-cafe'], [/\b(biblioteca)\b/i, 'library'], [/\b(taller)\b/i, 'workshop'], [/\b(pasillo|corredor)\b/i, 'school-hallway'],
+  [/\b(aula|sal[oó]n de clases?|clase|escuela|colegio|instituto|academia)\b/i, 'school-classroom'], [/\b(universidad|campus)\b/i, 'university-campus'],
+  [/\b(habitaci[oó]n|cuarto|dormitorio|cama)\b/i, 'bedroom'], [/\b(cocina)\b/i, 'kitchen'], [/\b(sala de estar|sof[aá]|living)\b/i, 'living-room'],
+  [/\b(parque|banca)\b/i, 'park'], [/\b(calle|acera|avenida)\b/i, 'city-street-evening'], [/\b(playa|arena|mar)\b/i, 'beach'], [/\b(bosque|sendero)\b/i, 'forest'],
+  [/\b(iglesia|catedral|capilla)\b/i, 'gothic-church'], [/\b(hospital|enfermer[ií]a)\b/i, 'hospital-room'], [/\b(azotea|terraza|techo)\b/i, 'rooftop'],
+  [/\b(club|bar|discoteca|escenario)\b/i, 'nightclub-stage'], [/\b(oficina)\b/i, 'office'], [/\b(jard[ií]n)\b/i, 'garden'], [/\b(cementerio)\b/i, 'cemetery'],
+  [/\b(tren|estaci[oó]n)\b/i, 'train-station'], [/\b(castillo|mansi[oó]n)\b/i, 'mansion-interior'], [/\b(casa|hogar)\b/i, 'home-interior']
+];
+function vnrPlaces(script) {
+  let cur = '';
+  script.forEach(b => {
+    if (b.sep || b.chat || b.cg) return;
+    if (!b.place) { const m = VN_PLACES.find(([rx]) => rx.test(b.text || '')); if (m) cur = m[1]; if (cur) b.place = cur; } else cur = b.place;
+  });
+  return script;
 }
 /** Pide los fondos de los lugares del capítulo de uno en uno y sin prisa (Replicate limita las peticiones); la lectura no espera. */
 async function vnrBgQueue(cu, onFirst) {
@@ -5998,6 +6019,7 @@ async function vnrBoot(sid, n) {
     if (sv.script) { script = sv.script; bgs = sv.assets; }
     if (sv.script && !isOwner()) { const pd = LS.get(uk('vnpaid'), {}); pd[cu] = 1; LS.set(uk('vnpaid'), pd); }
   }
+  script = vnrPlaces(script);
   VNR = { sid, n: +n, ch, s, cast, script, bgs, cgs: {}, pages: [], i: 0, order: [], next: s.chapters.find(c => c.idx === ch.idx + 1), adj: (vnLocalAdj()[sid] || {}) };
   VNR.pages = vnrPaginate(el);
   let firstRes = () => {}; const firstP = new Promise(r => { firstRes = r; }); vnrBgQueue(cu, firstRes);
