@@ -4834,9 +4834,9 @@ function ipView() {
   ${sec('Si eres artista y reconoces tu trabajo', 'Envíanos una reclamación con el enlace al libro o al personaje y un mensaje que explique por qué es tuyo. Revisamos cada caso. Si se comprueba, el recurso se retira.')}
   ${sec('Retirada y apelación', 'Cuando retiramos un recurso se avisa a quien lo subió. Si crees que fue un error, puedes enviar una apelación con tus pruebas (permiso, licencia o archivo original). Revisamos la apelación y respondemos.')}
   <section class="panel"><h2>${t('Enviar una reclamación o apelación')}</h2>
-    <label class="field"><span>${t('Tipo')}</span><select id="ip-kind"><option value="claim">${t('Soy artista: reclamo un recurso')}</option><option value="appeal">${t('Apelo una retirada')}</option></select></label>
-    <label class="field"><span>${t('Enlace al libro o personaje')}</span><input id="ip-link" maxlength="400" placeholder="https://"></label>
-    <label class="field"><span>${t('Mensaje')}</span><textarea id="ip-msg" rows="5" maxlength="2000"></textarea></label>
+    <label class="vnf"><span>${t('Tipo')}</span><select class="field" id="ip-kind"><option value="claim">${t('Soy artista: reclamo un recurso')}</option><option value="appeal">${t('Apelo una retirada')}</option></select></label>
+    <label class="vnf"><span>${t('Enlace al libro o personaje')}</span><input class="field" id="ip-link" maxlength="400" placeholder="https://"></label>
+    <label class="vnf"><span>${t('Mensaje')}</span><textarea class="field" id="ip-msg" rows="5" maxlength="2000"></textarea></label>
     <p class="helper" id="ip-err" role="alert"></p><button type="button" class="button" data-act="ip-send">${t('Enviar')}</button>
   </section></main>`;
 }
@@ -5851,8 +5851,7 @@ function vnView(sid) {
   <div class="vn-list">${VN.chars.map(c => { const n = Object.keys(c.sprites || {}).length, first = (c.sprites || {}).neutral || Object.values(c.sprites || {})[0];
     return `<button type="button" class="vn-char" data-act="vn-edit" data-id="${esc(c.id)}"><span class="vn-av">${first ? `<img src="${esc(first)}" alt="" loading="lazy">` : VN_USER_IC}</span><span class="vn-info"><b>${esc(c.name)}</b><small>${n}/${free} ${t('emociones')}${c.adult ? '' : ' · ' + t('menor de edad')}</small></span></button>`; }).join('') || `<p class="helper">${t('Aún no hay personajes. Añade el primero y sube un sprite por emoción.')}</p>`}</div>
   ${VN.chars.length < 10 ? `<button type="button" class="vn-add" data-act="vn-add"><span class="vn-add-t">${VN_USERADD_IC}${t('Añadir personaje')}</span><small>${t('Crea un nuevo personaje para tu novela visual')}</small></button>` : ''}</section>
-  <div class="section-head"><div><h2>${t('Fondos')}</h2><p>${tn((VN.bgs || []).length, '{n} fondo', '{n} fondos')}</p></div><button type="button" class="button sm" data-act="vnbg-add">${t('Añadir fondo')}</button></div>
-  <div class="vb-grid">${(VN.bgs || []).map(b => `<button type="button" class="vb-th" data-act="vnbg-edit" data-id="${esc(b.id)}" style="background-image:url('${esc(String(b.url).replace(/'/g, ''))}');background-position:${b.pos_x}% ${b.pos_y}%"><small>${esc(b.place ? t(VN_PLACE_LABELS[b.place] || b.place) : t('Cualquier lugar'))}</small></button>`).join('') || `<p class="helper">${t('Sube tus fondos desde la galería y ajústalos. Sin fondos, la lectura usa la portada difuminada.')}</p>`}</div>`}</main>`;
+  <p class="helper" style="margin-top:14px">${t('Los fondos los crea la IA cuando alguien empieza a leer: no tienes que subirlos.')}</p>`}</main>`;
 }
 async function vnWho() {
   const m = document.getElementById('vn-whomsg'); if (!m) return; m.textContent = t('Probando…');
@@ -5871,9 +5870,9 @@ function vnEdit(id) {
   const cur = id ? VN.chars.find(c => c.id === id) : null, sp = { ...(cur ? cur.sprites || {} : {}) }, m = document.createElement('div'); let refImg = '', busyK = ''; m.className = 'modal sheet'; let adj = vnAdjOk(cur && cur.adj && Object.keys(cur.adj).length ? cur.adj : null);
   const cells = () => VN.emos.map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : ''}</div><b>${esc(t(e.name))}</b><label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}${VN_AI.sprite ? `<button type="button" class="link-btn" data-gen="${esc(e.key)}" ${busyK ? 'disabled' : ''}>${busyK === e.key ? t('Creando… puede tardar un minuto') : '✦ ' + t('Crear con IA')}</button>` : ''}</div>`).join('');
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${cur ? t('Editar personaje') : t('Nuevo personaje')}</h2>
-  <label class="field vnf"><span>${t('Nombre')}</span><input id="vn-name" maxlength="40" value="${esc(cur ? cur.name : '')}"></label>
+  <label class="vnf"><span>${t('Nombre')}</span><input class="field" id="vn-name" maxlength="40" value="${esc(cur ? cur.name : '')}"></label>
   <label class="check"><input type="checkbox" id="vn-adult" ${!cur || cur.adult ? 'checked' : ''}> ${t('Es mayor de edad')}</label><p class="helper">${t('Si es menor de edad, no se generará nada sugerente con este personaje.')}</p>
-  ${VN_AI.cg || VN_AI.sprite ? `<label class="field vnf"><span>${t('Cómo se ve')}</span><textarea id="vn-look" rows="3" maxlength="500" placeholder="${esc(t('Ej.: chico de pelo blanco largo con puntas moradas, ojos rosados, suéter negro y chaleco morado'))}">${esc(cur && cur.look || '')}</textarea></label>
+  ${VN_AI.cg || VN_AI.sprite ? `<label class="vnf"><span>${t('Cómo se ve')}</span><textarea class="field" id="vn-look" rows="3" maxlength="500" placeholder="${esc(t('Ej.: chico de pelo blanco largo con puntas moradas, ojos rosados, suéter negro y chaleco morado'))}">${esc(cur && cur.look || '')}</textarea></label>
   <p class="helper">${t('La IA usa esto para dibujarlo igual en los CG y para crear sus sprites. Si lo dejas vacío, lo describe sola mirando su imagen.')}</p>` : ''}
   <p class="helper">${t('Sube un PNG con fondo transparente por cada emoción. La neutral es la que se usa si no se detecta otra.')}</p>
   ${VN_AI.sprite ? `<div class="vn-ref"><label class="button ghost sm vn-up">${t('Subir imagen de referencia')}<input type="file" accept="image/*" data-refimg hidden></label><span class="vn-refshow" data-refshow></span></div>
@@ -5882,8 +5881,8 @@ function vnEdit(id) {
     <label class="check"><input type="checkbox" data-decl ${cur && cur.rights_ok_at ? 'checked' : ''}> ${t('Tengo derecho o autorización para utilizar estas imágenes.')}</label>
     <label class="check"><input type="checkbox" data-decl ${cur && cur.rights_ok_at ? 'checked' : ''}> ${t('No estoy utilizando ilustraciones, sprites o personajes de terceros sin permiso.')}</label>
     <label class="check"><input type="checkbox" data-decl ${cur && cur.rights_ok_at ? 'checked' : ''}> ${t('Acepto que Auri pueda retirar recursos que infrinjan derechos de terceros tras su revisión.')}</label>
-    <label class="field vnf"><span>${t('Origen de los recursos')}</span><select id="vn-origin">${[['', 'Elige…'], ['own', 'Los hice yo'], ['commission', 'Encargo a un artista (con permiso)'], ['licensed', 'Banco libre o con licencia'], ['ai', 'Creados con IA'], ['other', 'Otro']].map(([k, l]) => `<option value="${k}" ${cur && cur.origin === k ? 'selected' : ''}>${esc(t(l))}</option>`).join('')}</select></label>
-    <label class="field vnf"><span>${t('Créditos (artista, enlace o fuente)')}</span><input id="vn-credit" maxlength="200" value="${esc(cur && cur.credit || '')}"></label>
+    <label class="vnf"><span>${t('Origen de los recursos')}</span><select class="field" id="vn-origin">${[['', 'Elige…'], ['own', 'Los hice yo'], ['commission', 'Encargo a un artista (con permiso)'], ['licensed', 'Banco libre o con licencia'], ['ai', 'Creados con IA'], ['other', 'Otro']].map(([k, l]) => `<option value="${k}" ${cur && cur.origin === k ? 'selected' : ''}>${esc(t(l))}</option>`).join('')}</select></label>
+    <label class="vnf"><span>${t('Créditos (artista, enlace o fuente)')}</span><input class="field" id="vn-credit" maxlength="200" value="${esc(cur && cur.credit || '')}"></label>
     <p class="helper"><a href="#/ip">${t('Normas de propiedad intelectual')}</a> · <a href="#/ip">${t('Reclamaciones de artistas')}</a> · <a href="#/ip">${t('Retirada y apelación')}</a></p>
   </fieldset>
   <div class="vn-cells">${cells()}</div>
@@ -6083,12 +6082,12 @@ function vnBgEdit(id) {
   const st = () => url ? `background-image:url("${String(url).replace(/["\\\n]/g, '')}");background-position:${px}% ${py}%;background-size:${zm > 100 ? zm + '%' : 'cover'}` : '';
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${cur ? t('Editar fondo') : t('Nuevo fondo')}</h2>
   <label class="button secondary" style="display:block;text-align:center">${t('Elegir de la galería')}<input type="file" accept="image/*" hidden id="vb-file"></label>
-  ${VN.mature ? '' : `<div class="vb-ai"><label class="field vnf"><span>${t('O créalo con IA')}</span><input id="vb-desc" maxlength="150" placeholder="${esc(t('Ej.: salón de clases al atardecer con ventanas grandes'))}"></label><button type="button" class="button secondary" id="vb-gen">✨ ${t('Crear fondo con IA')} <small>${isOwner() ? t('Gratis') : qFmt(PRICES.bgmake || 4) + ' ' + gemI()}</small></button></div>`}
+  ${VN.mature ? '' : `<div class="vb-ai"><label class="vnf"><span>${t('O créalo con IA')}</span><input class="field" id="vb-desc" maxlength="150" placeholder="${esc(t('Ej.: salón de clases al atardecer con ventanas grandes'))}"></label><button type="button" class="button secondary" id="vb-gen">✨ ${t('Crear fondo con IA')} <small>${isOwner() ? t('Gratis') : qFmt(PRICES.bgmake || 4) + ' ' + gemI()}</small></button></div>`}
   <div class="vb-prev"><div class="vb-v" id="vb-v" style="${st()}"></div><div class="vb-h" id="vb-h" style="${st()}"></div></div><p class="helper">${t('Vista previa vertical y horizontal: así se verá en pantalla completa.')}</p>
-  <label class="field"><span>${t('Horizontal')}</span><input type="range" id="vb-x" min="0" max="100" value="${px}"></label>
-  <label class="field"><span>${t('Vertical')}</span><input type="range" id="vb-y" min="0" max="100" value="${py}"></label>
-  <label class="field"><span>${t('Zoom')}</span><input type="range" id="vb-z" min="100" max="250" value="${zm}"></label>
-  <label class="field vnf"><span>${t('Lugar')}</span><select id="vb-pl"><option value="">${t('Cualquier lugar')}</option>${Object.keys(VN_PLACE_LABELS).map(k => `<option value="${k}" ${cur && cur.place === k ? 'selected' : ''}>${esc(t(VN_PLACE_LABELS[k]))}</option>`).join('')}</select></label>
+  <label class="vnf"><span>${t('Horizontal')}</span><input class="field" type="range" id="vb-x" min="0" max="100" value="${px}"></label>
+  <label class="vnf"><span>${t('Vertical')}</span><input class="field" type="range" id="vb-y" min="0" max="100" value="${py}"></label>
+  <label class="vnf"><span>${t('Zoom')}</span><input class="field" type="range" id="vb-z" min="100" max="250" value="${zm}"></label>
+  <label class="vnf"><span>${t('Lugar')}</span><select class="field" id="vb-pl"><option value="">${t('Cualquier lugar')}</option>${Object.keys(VN_PLACE_LABELS).map(k => `<option value="${k}" ${cur && cur.place === k ? 'selected' : ''}>${esc(t(VN_PLACE_LABELS[k]))}</option>`).join('')}</select></label>
   <p class="helper">${t('Si el capítulo menciona ese lugar, se usa este fondo. "Cualquier lugar" se usa cuando no hay uno específico.')}</p>
   <p class="notice" data-err hidden></p>
   <div class="modal-actions">${cur ? `<button type="button" class="button ghost" id="vb-del">${t('Eliminar')}</button>` : ''}<button type="button" class="button ghost" data-close>${t('Cancelar')}</button><button type="button" class="button" id="vb-save">${t('Guardar')}</button></div></div>`;

@@ -2393,5 +2393,6 @@ window.I18N = { en: {
   "Volver al libro": "Back to the book",
   "Like": "Like",
   "de": "of",
-  "Crea un nuevo personaje para tu novela visual": "Create a new character for your visual novel"
+  "Crea un nuevo personaje para tu novela visual": "Create a new character for your visual novel",
+  "Los fondos los crea la IA cuando alguien empieza a leer: no tienes que subirlos.": "Backgrounds are created by AI when someone starts reading: you do not need to upload them."
 } };
