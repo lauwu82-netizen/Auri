@@ -6178,14 +6178,32 @@ async function vnrBoot(sid, n) {
   el.querySelector('[data-vnadj]').onclick = () => vnrAdjust(el);
   let rt = 0; const re = () => { clearTimeout(rt); rt = setTimeout(() => { if (!document.body.contains(el) || !VNR || VNR.sid !== sid) return window.removeEventListener('resize', re); const cur = VNR.pages[VNR.i] || { si: 0, off: 0 }; VNR.pages = vnrPaginate(el); let j = 0; VNR.pages.forEach((p, k) => { if (p.si < cur.si || (p.si === cur.si && p.off <= cur.off)) j = k; }); VNR.i = j; vnrDraw(); }, 200); };
   window.addEventListener('resize', re);
-  vnpRestore(el); vnrDraw();
+  await vnpPull(); el = curEl() || el; vnpRestore(el); vnrDraw();
 }
 /** Registra el chat del capítulo (igual que en la lectura normal) y devuelve su clave para abrirlo */
 function chatKeyOf(v, sg) { const html = chatCard(sg.cht, !!v.s.useReaderCharacter, { sid: v.sid, ci: v.ch.idx }, sg.pi), m = /data-key="([^"]+)"/.exec(html); return m ? m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>') : ''; }
 /** Progreso de lectura (en este dispositivo): se guarda solo a cada toque y se retoma al volver. Se guarda la posición en el guion, no el número de página, porque las páginas cambian con el tamaño de pantalla. */
 const vnpKey = v => v.sid + ':' + v.ch.idx;
-function vnpSave() { if (!VNR || !VNR.started) return; const pg = VNR.pages[VNR.i]; if (!pg || VNR.i < 1) return; const m = LS.get(uk('vnprog'), {}); m[vnpKey(VNR)] = { si: pg.si | 0, off: pg.off | 0, t: Date.now() }; LS.set(uk('vnprog'), m); }
-function vnpClear(v) { const m = LS.get(uk('vnprog'), {}); if (m[vnpKey(v)]) { delete m[vnpKey(v)]; LS.set(uk('vnprog'), m); } }
+const vnpCloud = () => vnOn() && /^[0-9a-f-]{36}$/i.test(String(sUuid(VNR ? VNR.sid : '')));
+let vnpTimer = 0;
+function vnpSave() {
+  if (!VNR || !VNR.started) return; const pg = VNR.pages[VNR.i]; if (!pg || VNR.i < 1) return; const m = LS.get(uk('vnprog'), {}), rec = { si: pg.si | 0, off: pg.off | 0, t: Date.now() }; m[vnpKey(VNR)] = rec; LS.set(uk('vnprog'), m);
+  if (!vnpCloud()) return; const sid = sUuid(VNR.sid), idx = VNR.ch.idx; clearTimeout(vnpTimer);     // a la nube con calma: solo la última posición, un par de segundos después
+  vnpTimer = setTimeout(() => { sbApi('/rest/v1/vn_progress?on_conflict=user_id,story_id,chapter_idx', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: { story_id: sid, chapter_idx: idx, pos_si: rec.si, pos_off: rec.off, updated_at: new Date(rec.t).toISOString() } }).catch(() => {}); }, 2500);
+}
+function vnpClear(v) {
+  const m = LS.get(uk('vnprog'), {}); if (m[vnpKey(v)]) { delete m[vnpKey(v)]; LS.set(uk('vnprog'), m); }
+  clearTimeout(vnpTimer); if (vnOn() && /^[0-9a-f-]{36}$/i.test(String(sUuid(v.sid)))) sbApi('/rest/v1/vn_progress?story_id=eq.' + sUuid(v.sid) + '&chapter_idx=eq.' + v.ch.idx, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => {});
+}
+/** Trae el progreso de la nube (por si leíste en otro dispositivo) y se queda con el más reciente */
+async function vnpPull() {
+  if (!vnpCloud()) return; const v = VNR;
+  try {
+    const r = await Promise.race([sbApi('/rest/v1/vn_progress?select=pos_si,pos_off,updated_at&story_id=eq.' + sUuid(v.sid) + '&chapter_idx=eq.' + v.ch.idx), new Promise(res => setTimeout(() => res(null), 3000))]);
+    const row = r && r.ok && Array.isArray(r.data) && r.data[0]; if (!row || VNR !== v) return; const tt = Date.parse(row.updated_at) || 0, m = LS.get(uk('vnprog'), {}), cur = m[vnpKey(v)];
+    if (!cur || tt > (cur.t || 0)) { m[vnpKey(v)] = { si: row.pos_si | 0, off: row.pos_off | 0, t: tt }; LS.set(uk('vnprog'), m); }
+  } catch (e) { /* sin nube: se usa lo local */ }
+}
 function vnpRestore(el) {
   const sv = (LS.get(uk('vnprog'), {}) || {})[vnpKey(VNR)]; if (!sv) return; let j = 0; VNR.pages.forEach((p, k) => { if (p.si < sv.si || (p.si === sv.si && p.off <= sv.off)) j = k; });
   if (j < 1 || j >= VNR.pages.length - 1) return; VNR.i = j;
