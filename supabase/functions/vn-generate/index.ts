@@ -188,8 +188,14 @@ async function run(req: Request, env: Env): Promise<Response> {
     const k = String(body.place || ''); if (!BGP[k]) return json({ error: 'place' }, 400);
     const ex = await fetch(`${URL_}/rest/v1/vn_bg_library?key=eq.${k}&select=url`, { headers: H }), eo = ex.ok ? (await ex.json())[0] : null; if (eo) return json({ url: eo.url, cached: true });
     try {
-      const o = await replicate(env.VN_BG_MODEL || 'stability-ai/sdxl', { prompt: `anime visual novel background, ${BGP[k]}, no people, soft light, detailed, wide scene`, negative_prompt: 'people, characters, text, watermark', width: 1024, height: 576 }, TOKEN);
-      const u = firstUrl(o); if (!u) return json({ failed: true, why: 'sin imagen' });
+      // 1) generador gratuito (Pollinations, sin llave ni tarjeta); 2) Replicate solo si el gratuito falla
+      let u = ''; const pq = `anime visual novel background, ${BGP[k]}, no people, soft light, detailed, wide scene, no text`;
+      try {
+        const fr = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(pq)}?width=1280&height=720&nologo=true&model=flux&seed=${Math.floor(Math.random() * 99999)}`);
+        if (fr.ok && (fr.headers.get('content-type') || '').startsWith('image/')) { const buf = new Uint8Array(await fr.arrayBuffer()); if (buf.length > 5000 && buf.length < 5 * 1024 * 1024) { const ct = (fr.headers.get('content-type') || 'image/jpeg').split(';')[0], ext = ct === 'image/png' ? 'png' : 'jpg', pth = `ai/lib/${k}.${ext}`; const up = await fetch(`${URL_}/storage/v1/object/images/${pth}`, { method: 'POST', headers: { ...H, 'Content-Type': ct, 'x-upsert': 'true' }, body: buf }); if (up.ok) { const pu0 = `${URL_}/storage/v1/object/public/images/${pth}`; await fetch(`${URL_}/rest/v1/vn_bg_library`, { method: 'POST', headers: { ...H, Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify({ key: k, url: pu0 }) }); return json({ url: pu0, free: true }); } } }
+      } catch (e) { console.error('pollinations', k, e); }
+      const o = await replicate(env.VN_BG_MODEL || 'stability-ai/sdxl', { prompt: pq, negative_prompt: 'people, characters, text, watermark', width: 1024, height: 576 }, TOKEN);
+      u = firstUrl(o); if (!u) return json({ failed: true, why: 'sin imagen' });
       await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'background', p_cost: Number(env.VN_COST_BG) > 0 ? Number(env.VN_COST_BG) : 0.004, p_detail: 'biblioteca ' + k });
       const pu = await persist(URL_, H, u, `ai/lib/${k}`);
       await fetch(`${URL_}/rest/v1/vn_bg_library`, { method: 'POST', headers: { ...H, Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify({ key: k, url: pu }) });
