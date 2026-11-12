@@ -2418,5 +2418,10 @@ window.I18N = { en: {
   "Fundador de Auri": "Auri Founder",
   "Fundadora de Auri": "Auri Founder",
   "Fundador/a de Auri": "Auri Founder",
-  "Libro fundador": "Founder book"
+  "Libro fundador": "Founder book",
+  "Sello de portada": "Cover seal",
+  "Mueve y ajusta el sello dorado de tus libros": "Move and adjust the golden seal on your books",
+  "Tu libro": "Your book",
+  "Arrastra el sello donde quieras, incluso fuera del libro, y ajusta su tamaño.": "Drag the seal wherever you like, even outside the book, and adjust its size.",
+  "Sello guardado": "Seal saved"
 } };
