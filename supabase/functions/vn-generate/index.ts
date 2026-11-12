@@ -311,6 +311,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   }
 
   if (body.action === 'script') {
+    if (ch.stories?.mature) return json({ error: 'mature' }, 403);                // nada de capítulos +18 hacia la IA (protege la cuenta de Replicate)
     const cref = 'chapter:' + cid + ':' + hash;
     { const no = await charge('chapter', cref, false, 24); if (no) return no; }          // todas las personas pagan el capítulo una vez (aunque el guion ya esté preparado)
     // Cada 100 lecturas el siguiente lector crea fondos nuevos y las 100 siguientes los reciben guardados.

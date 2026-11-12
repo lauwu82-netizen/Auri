@@ -6156,7 +6156,7 @@ async function vnrBoot(sid, n) {
   const text = s.useReaderCharacter ? fillHE(fillTN(ch.text, ocName || t('Lectora')), S.character) : ch.text, rawParas = paraSplit(ch.text);
   const cast = {}; rows.forEach(c => { cast[c.name] = c; }); if (ocName && !cast[ocName]) cast[ocName] = { name: ocName, sprites: (oc && oc.sprites) || {}, adult: true, me: true };
   let script = vnMock(text, Object.keys(cast), rawParas), bgs = {};
-  const cu = cUuid(sid, ch.id);
+  const cu = s.mature ? '' : cUuid(sid, ch.id);                  // libros +18: nunca se mandan a la IA; se leen con el guion local, gratis
   if (vnOn() && cu) {                                           // guion preparado por la IA (con lugar de cada escena) y fondos; si algo falla se lee con el guion local
     if (!(await vnrAsk(el, cu))) return;
     el = curEl() || el;
