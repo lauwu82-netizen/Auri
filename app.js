@@ -5528,7 +5528,7 @@ document.addEventListener('click', e => {
     'ce-bgdel': () => { if (CE) { CE.c.bg = ''; ceRender(); } },
     'ce-edit': () => { if (!CE) return; const x = CE.c.m[+id]; if (!x || x.call || x.sk || x.rx) return; if (x.ch) return chmOpen(+id); CE.ed = +id; const ta = $('#ce-txt'); if (ta) { ta.value = x.t; ta.focus(); } const bt = $('.ce-send .button'); if (bt) bt.textContent = t('Guardar'); ceRefresh(); },
     'story-menu': () => openStoryMenu(id),
-    'vn-toggle': () => vnToggle(), 'vn-add': () => vnEdit(null), 'vn-edit': () => vnEdit(id), 'vnbg-add': () => vnBgEdit(null), 'vnbg-edit': () => vnBgEdit(id),
+    'vn-toggle': () => vnToggle(), 'vn-who': () => vnWho(), 'vn-add': () => vnEdit(null), 'vn-edit': () => vnEdit(id), 'vnbg-add': () => vnBgEdit(null), 'vnbg-edit': () => vnBgEdit(id),
     'cr-close': () => crClose(), 'cr-all': () => crShowAll(), 'cr-pick': () => crPick(+id),
     'cr-nextchat': () => { const a = CR && crAfter(); crClose(); if (a && a.kind === 'chat') chatOpen(a.key); },
     'cr-nextchap': () => { const a = CR && crAfter(); crClose(); if (a) readNext(a.sid, a.ci); },
@@ -5844,12 +5844,18 @@ function vnView(sid) {
   if (!VN.ok) { vnLoad(sid); return `<main class="page"><p class="helper">${t('Cargando…')}</p></main>`; }
   const free = VN.emos.length;
   return `<main class="page vn"><div class="section-head"><div><a class="back" href="#/write/${esc(sid)}" data-dir="back">‹ ${t('Volver')}</a><h1>${t('Novela visual')}</h1><p>${esc(s.title || t('Sin título'))}</p></div></div>
+  ${isOwner() ? `<section class="panel"><button type="button" class="button secondary" data-act="vn-who">${t('Probar conexión con Replicate')}</button><p class="helper" id="vn-whomsg">${t('Solo Owner: muestra a qué cuenta pertenece la llave y si una petición pequeña pasa.')}</p></section>` : ''}
   ${VN.err ? `<p class="notice">${esc(VN.err)}</p>` : `<section class="panel"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>${t('Libro compatible con novela visual')}</strong><div class="helper">${t('Las personas podrán leerlo con personajes, fondos y reacciones.')}</div></div><button type="button" class="switch ${VN.vn ? 'on' : ''}" role="switch" aria-checked="${VN.vn}" aria-label="${esc(t('Libro compatible con novela visual'))}" data-act="vn-toggle"></button></div></section>
   <div class="section-head"><div><h2>${t('Personajes')}</h2><p>${tn(VN.chars.length, '{n} de 10 personaje', '{n} de 10 personajes')}</p></div>${VN.chars.length < 10 ? `<button type="button" class="button sm" data-act="vn-add">${t('Añadir personaje')}</button>` : ''}</div>
   <div class="vn-list">${VN.chars.map(c => { const n = Object.keys(c.sprites || {}).length, first = (c.sprites || {}).neutral || Object.values(c.sprites || {})[0];
     return `<button type="button" class="panel vn-char" data-act="vn-edit" data-id="${esc(c.id)}"><span class="vn-av">${first ? `<img src="${esc(first)}" alt="" loading="lazy">` : ''}</span><span class="vn-info"><b>${esc(c.name)}</b><small>${n}/${free} ${t('emociones')}${c.adult ? '' : ' · ' + t('menor de edad')}</small></span></button>`; }).join('') || `<p class="helper">${t('Aún no hay personajes. Añade el primero y sube un sprite por emoción.')}</p>`}</div>
   <div class="section-head"><div><h2>${t('Fondos')}</h2><p>${tn((VN.bgs || []).length, '{n} fondo', '{n} fondos')}</p></div><button type="button" class="button sm" data-act="vnbg-add">${t('Añadir fondo')}</button></div>
   <div class="vb-grid">${(VN.bgs || []).map(b => `<button type="button" class="vb-th" data-act="vnbg-edit" data-id="${esc(b.id)}" style="background-image:url('${esc(String(b.url).replace(/'/g, ''))}');background-position:${b.pos_x}% ${b.pos_y}%"><small>${esc(b.place ? t(VN_PLACE_LABELS[b.place] || b.place) : t('Cualquier lugar'))}</small></button>`).join('') || `<p class="helper">${t('Sube tus fondos desde la galería y ajústalos. Sin fondos, la lectura usa la portada difuminada.')}</p>`}</div>`}</main>`;
+}
+async function vnWho() {
+  const m = document.getElementById('vn-whomsg'); if (!m) return; m.textContent = t('Probando…');
+  let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'whoami' } }); } catch (e) { r = null; }
+  m.textContent = r && r.data ? JSON.stringify(r.data) : t('Sin respuesta (¿se publicó la función?)');
 }
 async function vnToggle() {
   const v = !VN.vn, r = await sbApi('/rest/v1/stories?id=eq.' + sUuid(VN.sid), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { vn: v } });

@@ -2367,5 +2367,9 @@ window.I18N = { en: {
   "Solo puedo ayudarte en tus propios libros ya guardados en tu cuenta.": "I can only help with your own books saved to your account.",
   "Auri ya trabajó mucho por hoy. Vuelve mañana.": "Auri has worked a lot today. Come back tomorrow.",
   "Auri no pudo responder ahora. No se te cobró; inténtalo en un momento.": "Auri could not answer now. You were not charged; try again in a moment.",
-  "No te alcanzan las gemas. Puedes conseguirlas en Recompensas.": "You do not have enough gems. You can get them in Rewards."
+  "No te alcanzan las gemas. Puedes conseguirlas en Recompensas.": "You do not have enough gems. You can get them in Rewards.",
+  "Probar conexión con Replicate": "Test Replicate connection",
+  "Solo Owner: muestra a qué cuenta pertenece la llave y si una petición pequeña pasa.": "Owner only: shows which account the key belongs to and whether a small request goes through.",
+  "Probando…": "Testing…",
+  "Sin respuesta (¿se publicó la función?)": "No response (was the function deployed?)"
 } };

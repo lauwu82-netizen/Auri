@@ -158,7 +158,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   if (!ur.ok) return json({ error: 'auth' }, 401);
   const user = await ur.json();
   let body: { action?: string; mode?: string; message?: string; text?: string; title?: string; synopsis?: string; genre?: string; hist?: Array<{ r?: string; c?: string }>; place?: string; list?: boolean; chapter_id?: string; story_id?: string; name?: string; emo?: string; slot?: number; desc?: string; ref?: string; me?: string; oc?: { name?: string; img?: string; hair?: string; eyes?: string } } = {}; try { body = await req.json(); } catch { /* vacío */ }
-  if (!['script', 'cg', 'sprite', 'bg', 'bglib', 'editor'].includes(String(body.action))) return json({ error: 'action' }, 400);
+  if (!['script', 'cg', 'sprite', 'bg', 'bglib', 'editor', 'whoami'].includes(String(body.action))) return json({ error: 'action' }, 400);
   if (!TOKEN) return json({ mock: true });                                            // sin llave: no se hace ni se gasta nada
   const H = { apikey: SVC, Authorization: 'Bearer ' + SVC, 'Content-Type': 'application/json' };
   const rpc = async (fn: string, args: Record<string, unknown>) => { const r = await fetch(`${URL_}/rest/v1/rpc/${fn}`, { method: 'POST', headers: H, body: JSON.stringify(args) }); return r.ok ? await r.json().catch(() => null) : null; };
@@ -201,6 +201,18 @@ async function run(req: Request, env: Env): Promise<Response> {
       await fetch(`${URL_}/rest/v1/vn_bg_library`, { method: 'POST', headers: { ...H, Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify({ key: k, url: pu }) });
       return json({ url: pu });
     } catch (e) { console.error('lib', k, e); await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'retry', p_cost: 0.002, p_detail: ('biblioteca falló ' + k + ': ' + (e && (e as Error).message || e)).slice(0, 240) }); return json({ failed: true, why: String(e && (e as Error).message || e).slice(0, 120) }); }
+  }
+  // ---- Diagnóstico (solo Owner): a qué cuenta de Replicate pertenece la llave y si una petición mínima pasa ----
+  if (body.action === 'whoami') {
+    if (!free) return json({ error: 'forbidden' }, 403);
+    const out: Record<string, unknown> = {};
+    try { const a = await fetch('https://api.replicate.com/v1/account', { headers: { Authorization: 'Bearer ' + TOKEN } }); const aj = await a.json().catch(() => ({})); out.account = a.ok ? { type: aj.type, username: aj.username, name: aj.name } : { status: a.status, body: JSON.stringify(aj).slice(0, 200) }; } catch (e) { out.account = String(e).slice(0, 120); }
+    try {
+      const r = await fetch('https://api.replicate.com/v1/models/meta/meta-llama-3-8b-instruct/predictions', { method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json', Prefer: 'wait=30' }, body: JSON.stringify({ input: { prompt: 'Di hola', max_tokens: 8 } }) });
+      const rj = await r.json().catch(() => ({}));
+      out.predict = { status: r.status, state: rj.status, detail: String(rj.detail || rj.error || '').slice(0, 220), ratelimit: r.headers.get('x-ratelimit-remaining') || r.headers.get('ratelimit-remaining') || '' };
+    } catch (e) { out.predict = String(e).slice(0, 120); }
+    return json(out);
   }
   // ---- Chat de escritura: corrige, da ideas o escribe (solo la autoría de la historia; nunca en libros +18) ----
   if (body.action === 'editor') {
