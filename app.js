@@ -5013,7 +5013,8 @@ function followCaret(force) {
     const ta = $('#w-ch-text'); if (!ta || document.activeElement !== ta) return; if (!force && Date.now() - TYPEAT > 1200) return;
     const vv = window.visualViewport, vt = vv ? vv.offsetTop : 0, vh = vv ? vv.height : window.innerHeight;
     const lh = parseFloat(getComputedStyle(ta).lineHeight) || 32, y = ta.getBoundingClientRect().top + caretBottom(ta);
-    const bar = $('.wf .fmt-bar'), bh = bar && bar.closest('.typing') ? bar.offsetHeight : 0, bottom = vt + vh - bh - lh * 1.5, top = vt + 64 + lh;
+    const bar = $('.wf .fmt-bar'), br = bar && bar.offsetParent !== null ? bar.getBoundingClientRect() : null, floor = br && br.height > 0 && br.top > vt ? Math.min(br.top, vt + vh) : vt + vh;   // la línea que escribes debe quedar ARRIBA de la barra de formato (A, Chat, CG…), no detrás
+    const bottom = floor - lh * 1.3, top = vt + 64 + lh;
     if (y > bottom) window.scrollBy(0, y - bottom); else if (y < top) window.scrollBy(0, y - top);
   });
 }
@@ -5031,7 +5032,7 @@ function kbVar() {
 document.addEventListener('focusin', e => { if (e.target.id === 'w-ch-text') { setTyping(true); setTimeout(followCaret, 120); setTimeout(followCaret, 420); setTimeout(followCaret, 800); } });
 document.addEventListener('focusout', e => { if (e.target.id === 'w-ch-text') setTyping(false); });
 document.addEventListener('selectionchange', () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') followCaret(); });
-if (window.visualViewport) { const f = () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { kbVar(); followCaret(); } }; window.visualViewport.addEventListener('resize', () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { kbVar(); followCaret(true); } }); }
+if (window.visualViewport) { const f = () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { kbVar(); followCaret(); } }; window.visualViewport.addEventListener('resize', () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { kbVar(); followCaret(true); setTimeout(() => followCaret(true), 350); } }); }
 /* --- Transiciones suaves entre pantallas (CSS + un poco de JS) --- */
 let NAVDIR = '';                                       // 'next' | 'prev' | '' → desliza hacia la derecha, hacia la izquierda o solo desvanece
 const BARS = {};                                       // último % mostrado de cada barra, para que se llenen con animación
