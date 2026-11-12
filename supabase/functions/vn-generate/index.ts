@@ -189,12 +189,12 @@ async function run(req: Request, env: Env): Promise<Response> {
     const ex = await fetch(`${URL_}/rest/v1/vn_bg_library?key=eq.${k}&select=url`, { headers: H }), eo = ex.ok ? (await ex.json())[0] : null; if (eo) return json({ url: eo.url, cached: true });
     try {
       const o = await replicate(env.VN_BG_MODEL || 'stability-ai/sdxl', { prompt: `anime visual novel background, ${BGP[k]}, no people, soft light, detailed, wide scene`, negative_prompt: 'people, characters, text, watermark', width: 1024, height: 576 }, TOKEN);
-      const u = firstUrl(o); if (!u) return json({ failed: true });
+      const u = firstUrl(o); if (!u) return json({ failed: true, why: 'sin imagen' });
       await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'background', p_cost: Number(env.VN_COST_BG) > 0 ? Number(env.VN_COST_BG) : 0.004, p_detail: 'biblioteca ' + k });
       const pu = await persist(URL_, H, u, `ai/lib/${k}`);
       await fetch(`${URL_}/rest/v1/vn_bg_library`, { method: 'POST', headers: { ...H, Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify({ key: k, url: pu }) });
       return json({ url: pu });
-    } catch (e) { console.error('lib', k, e); await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'retry', p_cost: 0.002, p_detail: ('biblioteca falló ' + k + ': ' + (e && (e as Error).message || e)).slice(0, 240) }); return json({ failed: true }); }
+    } catch (e) { console.error('lib', k, e); await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'retry', p_cost: 0.002, p_detail: ('biblioteca falló ' + k + ': ' + (e && (e as Error).message || e)).slice(0, 240) }); return json({ failed: true, why: String(e && (e as Error).message || e).slice(0, 120) }); }
   }
   if (body.action === 'sprite') {
     if (env.VN_SPRITE_ON !== '1') return json({ off: true }, 503);                       // sprites con IA en pausa (VN_SPRITE_ON=1 los enciende)

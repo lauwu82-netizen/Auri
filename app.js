@@ -5794,7 +5794,7 @@ function vnView(sid) {
   if (!VN.ok) { vnLoad(sid); return `<main class="page"><p class="helper">${t('Cargando…')}</p></main>`; }
   const free = VN.emos.length;
   return `<main class="page vn"><div class="section-head"><div><a class="back" href="#/write/${esc(sid)}" data-dir="back">‹ ${t('Volver')}</a><h1>${t('Novela visual')}</h1><p>${esc(s.title || t('Sin título'))}</p></div></div>
-  ${isOwner() ? `<section class="panel"><button type="button" class="btn" data-act="vn-seedbg">${t('Crear biblioteca de fondos')}</button><p class="helper">${t('Solo Owner. Tarda unos minutos; deja esta pantalla abierta.')}</p></section>` : ''}
+  ${isOwner() ? `<section class="panel"><button type="button" class="button" data-act="vn-seedbg">${t('Crear biblioteca de fondos')}</button><p class="helper" id="vn-seedmsg">${t('Solo Owner. Tarda unos minutos; deja esta pantalla abierta.')}</p></section>` : ''}
   ${VN.err ? `<p class="notice">${esc(VN.err)}</p>` : `<section class="panel"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>${t('Libro compatible con novela visual')}</strong><div class="helper">${t('Las personas podrán leerlo con personajes, fondos y reacciones.')}</div></div><button type="button" class="switch ${VN.vn ? 'on' : ''}" role="switch" aria-checked="${VN.vn}" aria-label="${esc(t('Libro compatible con novela visual'))}" data-act="vn-toggle"></button></div></section>
   <div class="section-head"><div><h2>${t('Personajes')}</h2><p>${tn(VN.chars.length, '{n} de 10 personaje', '{n} de 10 personajes')}</p></div>${VN.chars.length < 10 ? `<button type="button" class="button sm" data-act="vn-add">${t('Añadir personaje')}</button>` : ''}</div>
   <div class="vn-list">${VN.chars.map(c => { const n = Object.keys(c.sprites || {}).length, first = (c.sprites || {}).neutral || Object.values(c.sprites || {})[0];
@@ -6018,7 +6018,7 @@ async function vnSeedBgs(btn) {
       let ok = false;
       for (let i = 0; i < 3 && !ok; i++) {
         let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'bglib', place: k } }); } catch (e) { r = null; }
-        if (r && r.ok && r.data && r.data.url) { ok = true; lib[k] = r.data.url; } else await new Promise(res => setTimeout(res, 20000));
+        if (r && r.ok && r.data && r.data.url) { ok = true; lib[k] = r.data.url; } else { const m = document.getElementById('vn-seedmsg'); if (m) m.textContent = k + ': ' + ((r && r.data && (r.data.why || r.data.error)) || (r ? 'HTTP ' + r.status : 'sin respuesta')); } if (!ok) await new Promise(res => setTimeout(res, 20000));
       }
       if (ok) done++; else fail++;
       await new Promise(res => setTimeout(res, 12000));
