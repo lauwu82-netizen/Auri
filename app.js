@@ -2922,14 +2922,14 @@ function openPets() {
   document.body.appendChild(m);
 }
 /* Ambientes de lectura (solo libros tradicionales): partículas suaves sobre el texto. Gratis o con pase; quien lee puede apagarlos */
-const AMBS = { off: ['Ninguno', 'free', '🚫'], rain: ['Lluvia', 'free', '🌧️'], snow: ['Nieve', 'free', '❄️'], fog: ['Niebla', 'free', '🌫️'], fireflies: ['Luciérnagas', 'pass', '✨'], stars: ['Estrellas', 'pass', '⭐'], petals: ['Pétalos', 'pass', '🌸'] };
-const AMB_N = { rain: 34, snow: 14, fog: 4, fireflies: 9, stars: 4, petals: 12 };
-const ambOK = k => !AMBS[k] ? false : AMBS[k][1] === 'free' || isStaff(S.user);
+const AMBS = { off: ['Ninguno', 'free', '🚫'], rain: ['Lluvia', 'free', '🌧️'], snow: ['Nieve', 'free', '❄️'], fog: ['Niebla', 'free', '🌫️'], fireflies: ['Luciérnagas', 'pass', '✨'], stars: ['Estrellas', 'pass', '⭐'], petals: ['Pétalos', 'pass', '🌸'], stardust: ['Polvo de estrellas', 'founder', '✨'] };
+const AMB_N = { rain: 34, snow: 14, fog: 4, fireflies: 9, stars: 4, petals: 12, stardust: 16 };
+const ambOK = k => !AMBS[k] ? false : AMBS[k][1] === 'free' || (AMBS[k][1] === 'founder' ? isOwner() || !!(getUsers()[S.user] || {}).frameTop : isStaff(S.user));
 const ambKey = () => ambOK(cfg('amb')) ? cfg('amb') : 'off';
 const STAR_POS = [[12, 17, 1.0], [83, 24, 0.6], [26, 63, 0.3], [78, 79, 0.9]];   // estrellas fijas: x%, y%, tamaño
 function ambHTML(s) {
   const k = ambKey(); if (k === 'off' || !s || s.mode === 'chat') return '';
-  const D = { rain: [2.6, 2.4], snow: [90, 60], fog: [60, 40], fireflies: [6, 5], petals: [55, 35] }[k] || [0, 0];   // [mínimo, variación] en segundos: todo va lento y calmado para no distraer
+  const D = { rain: [2.6, 2.4], snow: [90, 60], fog: [60, 40], fireflies: [6, 5], petals: [55, 35], stardust: [10, 8] }[k] || [0, 0];   // [mínimo, variación] en segundos: todo va lento y calmado para no distraer
   const r = (i, m) => { const x = Math.sin(i * 12.9898 + m * 78.233) * 43758.5453; return x - Math.floor(x); };
   let h = '';
   if (k === 'stars') STAR_POS.forEach(([x, y, z], i) => h += `<i style="--x:${x}%;--y:${y}%;--s:${z};--d:${16 + i * 3}s;--dl:-${i * 5}s"></i>`);
@@ -4034,7 +4034,7 @@ function settingsView(secId) {
       <div class="set-col"><span>${t('Tipografía')}</span><div class="font-grid">${(FONTS.forEach(f => loadFont(f[0])), FONTS).map(f => `<button type="button" class="font-opt ${cfg('font') === f[0] ? 'on' : ''}" data-act="cfg" data-k="font" data-v="${f[0]}" style="font-family:${READ.font[f[0]]}" aria-pressed="${cfg('font') === f[0]}"><b>Aa</b><span>${esc(t(f[1]))}</span></button>`).join('')}</div></div>
       <div class="set-col"><span>${t('Fondo de lectura')}</span><div class="rbg-grid">${[['auto', 'Del tema'], ['cream', 'Crema'], ['sepia', 'Sepia'], ['night', 'Noche'], ['paper', 'Papel']].map(b => `<button type="button" class="rbg-opt ${cfg('rbg') === b[0] ? 'on' : ''}" data-act="cfg" data-k="rbg" data-v="${b[0]}" data-rbg="${b[0]}" aria-pressed="${cfg('rbg') === b[0]}"><span class="rbg-sw"></span>${t(b[1])}</button>`).join('')}</div></div>
       <div class="set-col"><span>${t('Separador de escena')}</span><div class="sep-prev">${sepHTML('scene-sep')}</div><div class="sep-grid">${Object.entries(SEPS).filter(([k]) => SEPS[k][1] !== 'founder' || sepOK(k)).map(([k, v]) => `<button type="button" class="sep-opt ${sepKey() === k ? 'on' : ''} ${sepOK(k) ? '' : 'lock'}" ${sepOK(k) ? `data-act="cfg" data-k="sepStyle" data-v="${k}"` : 'data-act="sep-lock"'} aria-pressed="${sepKey() === k}">${sepHTML('sep-mini', k)}<span>${t(v[0])}</span><em>${t(v[1] === 'free' ? 'Gratis' : v[1] === 'shop' ? 'Tienda' : v[1] === 'founder' ? 'Fundador' : 'Pase')}</em></button>`).join('')}</div></div>
-      <div class="set-col"><span>${t('Ambiente de lectura')}</span><p class="helper" style="margin:0">${t('Pequeñas animaciones suaves mientras lees libros tradicionales. Se quitan solas en modo Ahorro.')}</p><div class="sep-grid">${Object.entries(AMBS).map(([k, v]) => `<button type="button" class="sep-opt amb-opt ${ambKey() === k ? 'on' : ''} ${ambOK(k) ? '' : 'lock'}" ${ambOK(k) ? `data-act="cfg" data-k="amb" data-v="${k}"` : 'data-act="amb-lock"'} aria-pressed="${ambKey() === k}"><span class="amb-ico">${v[2]}</span><span>${t(v[0])}</span>${k === 'off' ? '' : `<em>${t(v[1] === 'free' ? 'Gratis' : 'Pase')}</em>`}</button>`).join('')}</div></div>
+      <div class="set-col"><span>${t('Ambiente de lectura')}</span><p class="helper" style="margin:0">${t('Pequeñas animaciones suaves mientras lees libros tradicionales. Se quitan solas en modo Ahorro.')}</p><div class="sep-grid">${Object.entries(AMBS).filter(([k]) => AMBS[k][1] !== 'founder' || ambOK(k)).map(([k, v]) => `<button type="button" class="sep-opt amb-opt ${ambKey() === k ? 'on' : ''} ${ambOK(k) ? '' : 'lock'}" ${ambOK(k) ? `data-act="cfg" data-k="amb" data-v="${k}"` : 'data-act="amb-lock"'} aria-pressed="${ambKey() === k}"><span class="amb-ico">${v[2]}</span><span>${t(v[0])}</span>${k === 'off' ? '' : `<em>${t(v[1] === 'free' ? 'Gratis' : v[1] === 'founder' ? 'Fundador' : 'Pase')}</em>`}</button>`).join('')}</div></div>
       ${sw('petStill', !!cfg('petStill'), 'Mascota quieta', 'La mascota de los perfiles se queda quieta, sin caminar ni dormirse.')}
       ${sw('dropcap', cfg('dropcap'), 'Letra capital', 'La primera letra de cada capítulo se ve grande y decorada.')}
       <div class="set-row"><span>${t('Márgenes del texto')}</span>${seg('margin', [['sm', 'Pequeños'], ['md', 'Normales'], ['lg', 'Amplios']], cfg('margin'))}</div>
