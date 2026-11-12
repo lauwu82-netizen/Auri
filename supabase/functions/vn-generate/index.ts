@@ -13,7 +13,7 @@
 // Secretos (Edge Functions > Secrets):
 //   REPLICATE_API_TOKEN   la llave de Replicate (SOLO aquí, nunca en GitHub ni en el chat)
 // Opcionales (para cambiar de modelo sin tocar la app):
-//   VN_TEXT_MODELS  (por defecto "meta/meta-llama-3.1-405b-instruct")   modelos de texto que analizan, separados por coma: si el primero se niega, prueba el siguiente
+//   VN_TEXT_MODELS  (por defecto "meta/meta-llama-3-70b-instruct,meta/meta-llama-3-8b-instruct")   modelos de texto que analizan, separados por coma: si el primero se niega, prueba el siguiente
 //   VN_BG_MODEL     (por defecto "stability-ai/sdxl")                  modelo de fondos
 //   VN_CG_MODEL     (por defecto "black-forest-labs/flux-kontext-pro") modelo de CG (admite imagen de referencia)
 //   VN_SPRITE_MODEL (sprites; por defecto el de CG) · VN_RMBG_MODEL (modelo que quita el fondo, vacío = no se usa; se elige en la prueba)
@@ -232,7 +232,7 @@ async function run(req: Request, env: Env): Promise<Response> {
     else if (mode === 'ideas') prompt = `${ctx}\n\nLa autora tiene bloqueo creativo. ${msg ? 'Pide: ' + msg + '\n' : ''}Dale 5 ideas breves y concretas de cómo continuar o mejorar su historia, numeradas, de máximo dos líneas cada una.\n\nÚLTIMA PARTE DEL CAPÍTULO:\n${text.slice(-4000)}`;
     else if (mode === 'write') prompt = `${ctx}\n\nEscribe el siguiente fragmento o capítulo de la historia siguiendo este pedido de la autora: ${msg || 'continúa la historia'}.\nMantén el estilo, los nombres y el tono. Devuelve ÚNICAMENTE el texto narrativo, sin comentarios ni títulos, de unas 600 a 900 palabras.\n\nLO ESCRITO HASTA AHORA:\n${text.slice(-5000)}`;
     else prompt = `${ctx}\n\n${hist ? 'Conversación previa:\n' + hist + '\n\n' : ''}Autora: ${msg}\n\n${text ? 'Texto del capítulo actual (por si ayuda):\n' + text.slice(-3000) + '\n\n' : ''}Responde de forma breve y útil.`;
-    const models0 = (env.VN_TEXT_MODELS || env.VN_TEXT_MODEL || 'meta/meta-llama-3.1-405b-instruct').split(',').map(x => x.trim()).filter(Boolean).slice(0, 2);
+    const models0 = (env.VN_TEXT_MODELS || env.VN_TEXT_MODEL || 'meta/meta-llama-3-70b-instruct,meta/meta-llama-3-8b-instruct').split(',').map(x => x.trim()).filter(Boolean).slice(0, 2);
     let reply = '', why = '';
     for (const m of models0) {
       try {
@@ -296,7 +296,7 @@ async function run(req: Request, env: Env): Promise<Response> {
     const text = String(ch.text || '').split(/\n\s*\n/).filter((p: string) => !/^\s*::(chat|sep|cg)/.test(p)).join('\n\n').slice(0, 24000);
     // Cadena de modelos: si uno se niega (contenido fuerte) o devuelve algo que no es el guion, se prueba el siguiente.
     // VN_TEXT_MODELS = "modelo1,modelo2,modelo3" (por defecto uno solo). Si ninguno sirve, la app usa su guion de prueba y el lector nunca se rompe.
-    const models = (env.VN_TEXT_MODELS || env.VN_TEXT_MODEL || 'meta/meta-llama-3.1-405b-instruct').split(',').map(x => x.trim()).filter(Boolean).slice(0, 4);
+    const models = (env.VN_TEXT_MODELS || env.VN_TEXT_MODEL || 'meta/meta-llama-3-70b-instruct,meta/meta-llama-3-8b-instruct').split(',').map(x => x.trim()).filter(Boolean).slice(0, 4);
     let script: Array<Record<string, unknown>> | null = null;
     for (const m of models) {
       const b = await budget(); if (b) { await refund(cref); return b; }
