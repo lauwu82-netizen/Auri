@@ -157,8 +157,8 @@ async function run(req: Request, env: Env): Promise<Response> {
   const ur = await fetch(URL_ + '/auth/v1/user', { headers: { apikey: ANON, Authorization: auth } });
   if (!ur.ok) return json({ error: 'auth' }, 401);
   const user = await ur.json();
-  let body: { action?: string; place?: string; list?: boolean; chapter_id?: string; story_id?: string; name?: string; emo?: string; slot?: number; desc?: string; ref?: string; me?: string; oc?: { name?: string; img?: string; hair?: string; eyes?: string } } = {}; try { body = await req.json(); } catch { /* vacío */ }
-  if (!['script', 'cg', 'sprite', 'bg', 'bglib'].includes(String(body.action))) return json({ error: 'action' }, 400);
+  let body: { action?: string; mode?: string; message?: string; text?: string; title?: string; synopsis?: string; genre?: string; hist?: Array<{ r?: string; c?: string }>; place?: string; list?: boolean; chapter_id?: string; story_id?: string; name?: string; emo?: string; slot?: number; desc?: string; ref?: string; me?: string; oc?: { name?: string; img?: string; hair?: string; eyes?: string } } = {}; try { body = await req.json(); } catch { /* vacío */ }
+  if (!['script', 'cg', 'sprite', 'bg', 'bglib', 'editor'].includes(String(body.action))) return json({ error: 'action' }, 400);
   if (!TOKEN) return json({ mock: true });                                            // sin llave: no se hace ni se gasta nada
   const H = { apikey: SVC, Authorization: 'Bearer ' + SVC, 'Content-Type': 'application/json' };
   const rpc = async (fn: string, args: Record<string, unknown>) => { const r = await fetch(`${URL_}/rest/v1/rpc/${fn}`, { method: 'POST', headers: H, body: JSON.stringify(args) }); return r.ok ? await r.json().catch(() => null) : null; };
@@ -201,6 +201,37 @@ async function run(req: Request, env: Env): Promise<Response> {
       await fetch(`${URL_}/rest/v1/vn_bg_library`, { method: 'POST', headers: { ...H, Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify({ key: k, url: pu }) });
       return json({ url: pu });
     } catch (e) { console.error('lib', k, e); await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'retry', p_cost: 0.002, p_detail: ('biblioteca falló ' + k + ': ' + (e && (e as Error).message || e)).slice(0, 240) }); return json({ failed: true, why: String(e && (e as Error).message || e).slice(0, 120) }); }
+  }
+  // ---- Chat de escritura: corrige, da ideas o escribe (solo la autoría de la historia; nunca en libros +18) ----
+  if (body.action === 'editor') {
+    const mode = ['chat', 'fix', 'ideas', 'write'].includes(String(body.mode)) ? String(body.mode) : 'chat';
+    const sq = await fetch(`${URL_}/rest/v1/stories?id=eq.${String(body.story_id || '')}&select=owner,mature`, { headers: H }), so0 = sq.ok ? (await sq.json())[0] : null;
+    if (!so0 || so0.owner !== user.id) return json({ error: 'forbidden' }, 403);
+    if (so0.mature) return json({ error: 'mature' }, 403);                          // nada de contenido +18 hacia la IA (protege la cuenta de Replicate)
+    const bq = await rpc('vn_budget_ok', { p_uid: user.id }); if (!(bq && bq.ok)) return json({ error: 'budget', reason: bq ? bq.reason : 'unknown' }, 429);
+    const eref = 'editor:' + mode + ':' + user.id + ':' + Date.now();
+    const no0 = await charge(mode === 'write' ? 'editor_write' : 'editor', eref, false, mode === 'write' ? 16 : 4); if (no0) return no0;
+    const msg = String(body.message || '').slice(0, 1500), text = String(body.text || '').slice(0, 14000);
+    const hist = (Array.isArray(body.hist) ? body.hist : []).slice(-6).map(h => (h && h.r === 'a' ? 'Auri: ' : 'Autora: ') + String(h && h.c || '').slice(0, 600)).join('\n');
+    const sys = 'Eres Auri, una gata alienígena amable que ayuda a escribir historias. Responde siempre en español neutro, sin regionalismos. Nunca escribas contenido sexual explícito, violencia gráfica extrema ni nada sexual con menores; si te lo piden, rechaza con amabilidad y propón otra dirección. Si no sabes algo, dilo.';
+    const ctx = `Libro: ${String(body.title || '').slice(0, 120)}\nGénero: ${String(body.genre || '').slice(0, 60)}\nSinopsis: ${String(body.synopsis || '').slice(0, 600)}`;
+    let prompt = '';
+    if (mode === 'fix') prompt = `${ctx}\n\nTarea: corrige SOLO la ortografía, la gramática, los acentos y la puntuación del capítulo. No cambies la voz, el estilo, el contenido ni el orden. No agregues ni quites escenas. Conserva los saltos de línea y los diálogos. Devuelve ÚNICAMENTE el capítulo corregido, sin comentarios antes ni después.\n\nCAPÍTULO:\n${text}`;
+    else if (mode === 'ideas') prompt = `${ctx}\n\nLa autora tiene bloqueo creativo. ${msg ? 'Pide: ' + msg + '\n' : ''}Dale 5 ideas breves y concretas de cómo continuar o mejorar su historia, numeradas, de máximo dos líneas cada una.\n\nÚLTIMA PARTE DEL CAPÍTULO:\n${text.slice(-4000)}`;
+    else if (mode === 'write') prompt = `${ctx}\n\nEscribe el siguiente fragmento o capítulo de la historia siguiendo este pedido de la autora: ${msg || 'continúa la historia'}.\nMantén el estilo, los nombres y el tono. Devuelve ÚNICAMENTE el texto narrativo, sin comentarios ni títulos, de unas 600 a 900 palabras.\n\nLO ESCRITO HASTA AHORA:\n${text.slice(-5000)}`;
+    else prompt = `${ctx}\n\n${hist ? 'Conversación previa:\n' + hist + '\n\n' : ''}Autora: ${msg}\n\n${text ? 'Texto del capítulo actual (por si ayuda):\n' + text.slice(-3000) + '\n\n' : ''}Responde de forma breve y útil.`;
+    const models0 = (env.VN_TEXT_MODELS || env.VN_TEXT_MODEL || 'meta/meta-llama-3.1-405b-instruct').split(',').map(x => x.trim()).filter(Boolean).slice(0, 2);
+    let reply = '';
+    for (const m of models0) {
+      try {
+        const out = await replicate(m, { prompt, system_prompt: sys, max_tokens: mode === 'fix' ? 6000 : 2500, temperature: mode === 'fix' ? 0.1 : 0.7 }, TOKEN, 3);
+        reply = (Array.isArray(out) ? out.join('') : String(out || '')).trim();
+        await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'analysis', p_cost: mode === 'write' || mode === 'fix' ? 0.03 : 0.01, p_detail: ('EDITOR ' + mode + (reply ? ' · ' : ' VACÍO · ') + m).slice(0, 120) });
+      } catch (e) { console.error('editor', m, e); await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'retry', p_cost: 0.002, p_detail: ('EDITOR ERROR · ' + String(e && (e as Error).message || e)).slice(0, 200) }); }
+      if (reply) break;
+    }
+    if (!reply) { await refund(eref); return json({ error: 'failed' }, 502); }
+    return json({ reply, mode });
   }
   if (body.action === 'sprite') {
     if (env.VN_SPRITE_ON !== '1') return json({ off: true }, 503);                       // sprites con IA en pausa (VN_SPRITE_ON=1 los enciende)

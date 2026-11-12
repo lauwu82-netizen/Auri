@@ -3348,10 +3348,12 @@ const ISLE_OPS = [
   { k: 'mod', ic: () => IC('<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>'), l: 'Moderación', n: () => modCounts().total, who: 'staff' },
 ];
 const isleOps = () => ISLE_OPS.filter(o => !o.who || (o.who === 'user' && !isGuest()) || (o.who === 'staff' && !isGuest() && isStaff()));
-const isleSaved = () => { const v = LS.get(ISLE_K, null); return v && (v.side === 'l' || v.side === 'r') ? v : { side: 'r', y: 6 }; };
+const isleEditor = () => /^#\/write\/[^/]+\/ch\//.test(location.hash) && !WPREVIEW && !!W;     // al escribir un capítulo, tocar a Auri abre el chat de escritura (no el menú)
+const isleKey = () => isleEditor() ? ISLE_K + '.ed' : ISLE_K;
+const isleSaved = () => { const v = LS.get(isleKey(), null); return v && (v.side === 'l' || v.side === 'r') ? v : { side: 'r', y: isleEditor() ? Math.round(innerHeight * .42) : 6 }; };
 const isleHidden = () => {
   const p = location.hash.slice(1) || '/', [, a, b, c] = p.split('/');
-  return !S.user || ['welcome', 'start', 'login', 'register', 'signup'].includes(a) || (S.user && activeBan(S.user)) || (a === 'story' && /^\d+$|^fin$/.test(c || '')) || (a === 'write' && c === 'ch') || a === 'vnr' || (a === 'messages' && !!b) || !!document.querySelector('.modal');
+  return !S.user || ['welcome', 'start', 'login', 'register', 'signup'].includes(a) || (S.user && activeBan(S.user)) || (a === 'story' && /^\d+$|^fin$/.test(c || '')) || (a === 'write' && c === 'ch' && WPREVIEW) || a === 'vnr' || (a === 'messages' && !!b) || !!document.querySelector('.modal');
 };
 function isleBuild() {
   if (ISLE) return ISLE;
@@ -3364,7 +3366,7 @@ function isleBuild() {
     if (!d.moved && Math.hypot(dx, dy) > 7) { d.moved = true; el.classList.add('drag'); } if (!d.moved) return;
     isleTrail(ev.clientX, ev.clientY); el.style.left = Math.max(4, Math.min(innerWidth - ISLE_W - 4, d.l + dx)) + 'px'; el.style.top = Math.max(isleTop(), Math.min(isleBottom(), d.t + dy)) + 'px'; });
   const up = ev => { const d = ISLE_ST.drag; if (!d || d.id !== ev.pointerId) return; ISLE_ST.drag = null; el.classList.remove('drag');
-    if (d.moved) { const cx = el.offsetLeft + ISLE_W / 2; LS.set(ISLE_K, { side: cx < innerWidth / 2 ? 'l' : 'r', y: el.offsetTop }); ISLE_ST.trail = []; isleLayout(); } else isleTap(); };
+    if (d.moved) { const cx = el.offsetLeft + ISLE_W / 2; LS.set(isleKey(), { side: cx < innerWidth / 2 ? 'l' : 'r', y: el.offsetTop }); ISLE_ST.trail = []; isleLayout(); } else isleTap(); };
   head.addEventListener('pointerup', up); head.addEventListener('pointercancel', ev => { const d = ISLE_ST.drag; if (d) { ISLE_ST.drag = null; el.classList.remove('drag'); isleLayout(); } });
   head.addEventListener('click', ev => { if (ev.detail === 0) isleTap(); });          // teclado
   document.addEventListener('pointerdown', ev => { if (ISLE_ST.open && !el.contains(ev.target)) isleToggle(false); }, true);
@@ -3393,6 +3395,7 @@ function isleSleepInit() {
 }
 function isleSeen() { if (!S.user || Date.now() - ISLE_ST.seenAt < 60000) return; ISLE_ST.seenAt = Date.now(); LS.set(uk('seen'), { t: ISLE_ST.seenAt, sleep: ISLE_ST.sleep }); }
 function isleTap() {
+  if (isleEditor()) return aiOpen();
   if (!ISLE_ST.sleep) return isleToggle(!ISLE_ST.open);
   ISLE_ST.taps++;
   if (ISLE_ST.taps === 1) { ISLE.classList.add('peek'); clearTimeout(ISLE_ST.pkT); ISLE_ST.pkT = setTimeout(() => ISLE.classList.remove('peek'), 1500); return; }
@@ -3440,9 +3443,56 @@ function isleSync() {
   const hide = isleHidden(); if (hide && !ISLE) return; const el = isleBuild();
   if (ISLE_ST.open) isleToggle(false);
   isleSleepInit(); isleSeen(); el.classList.toggle('off', hide); el.inert = hide; if (hide) return;
-  el.classList.toggle('ping', (unread() + dmUnread()) > 0); isleLayout();
+  el.classList.toggle('ping', (unread() + dmUnread()) > 0); isleLayout(); aiHint();
 }
 document.addEventListener('input', e => { if (e.target && e.target.id === 'w-title') { const bt = document.getElementById('nb-bt'); if (bt) bt.textContent = e.target.value; } });
+
+/* ---------- Chat de escritura (la isla, mientras escribes o editas un capítulo) ----------
+   Corrige ortografía, da ideas si hay bloqueo creativo, conversa y puede escribir un fragmento. Cuesta gemas (la Owner no paga). Nunca en libros +18. */
+const AI_Q = { chat: 4, write: 16 };
+let AIC = { cid: '', msgs: [], busy: false, undo: null };
+const aiTa = () => document.getElementById('w-ch-text');
+const aiSetText = v => { const ta = aiTa(); if (!ta) return; ta.value = v; ta.dispatchEvent(new Event('input', { bubbles: true })); };
+function aiPrice(mode) { if (isOwner()) return t('Gratis'); const q = mode === 'write' ? (PRICES.editor_write || AI_Q.write) : (PRICES.editor || AI_Q.chat); return qFmt(q) + ' ' + gemI(); }
+function aiHint() { if (!isleEditor()) return; try { if (localStorage.getItem('auri.aiHint') === '1') return; localStorage.setItem('auri.aiHint', '1'); } catch (e) { /* ignorar */ } toast(t('Toca a Auri para pedirle ayuda con tu capítulo.')); }
+function aiOpen() {
+  if (document.getElementById('ai-sheet') || !W) return; const cid = String((location.hash.split('/')[4] || ''));
+  if (AIC.cid !== cid) AIC = { cid, msgs: [], busy: false, undo: null };
+  const m = document.createElement('div'); m.className = 'modal sheet ai-modal'; m.id = 'ai-sheet';
+  const off = !!W.mature;
+  m.innerHTML = `<div class="modal-box ai-box" role="dialog" aria-modal="true" aria-label="${esc(t('Chat de escritura con Auri'))}">
+  <div class="ai-top"><b>${t('Auri · ayuda para escribir')}</b><button type="button" class="button ghost sm" data-ai="x">${t('Cerrar')}</button></div>
+  ${off ? `<p class="notice">${t('La IA no está disponible en libros +18.')}</p>` : `<div class="ai-chips"><button type="button" class="ai-chip" data-ai="fix">✓ ${t('Corregir mi capítulo')} <small>${aiPrice('chat')}</small></button><button type="button" class="ai-chip" data-ai="ideas">💡 ${t('Dame ideas')} <small>${aiPrice('chat')}</small></button><button type="button" class="ai-chip" data-ai="write">✍️ ${t('Escribe un fragmento')} <small>${aiPrice('write')}</small></button></div>
+  <p class="helper">${t('Para "Escribe un fragmento", cuéntame abajo qué debe pasar. Cada mensaje cuesta gemas; si falla, se te devuelven.')}</p>`}
+  <div class="ai-log" id="ai-log" aria-live="polite"></div>
+  ${off ? '' : `<div class="ai-in"><textarea id="ai-text" rows="2" maxlength="1500" placeholder="${esc(t('Escríbele a Auri…'))}"></textarea><button type="button" class="button" data-ai="send">${t('Enviar')}</button></div>`}</div>`;
+  document.body.appendChild(m); aiDraw();
+  m.addEventListener('click', e => { if (e.target === m) return m.remove(); const b = e.target.closest('[data-ai]'); if (!b) return; aiAct(b.dataset.ai, b); });
+}
+function aiDraw() {
+  const lg = document.getElementById('ai-log'); if (!lg) return;
+  lg.innerHTML = AIC.msgs.map((x, i) => `<div class="ai-m ${x.r}">${esc(x.c).replace(/\n/g, '<br>')}${x.r === 'a' && x.mode && x.mode !== 'chat' && x.mode !== 'ideas' ? `<div class="ai-act">${x.mode === 'fix' ? `<button type="button" class="button sm" data-ai="rep" data-i="${i}">${t('Reemplazar mi capítulo')}</button>` : `<button type="button" class="button sm" data-ai="add" data-i="${i}">${t('Añadir al final')}</button>`}<button type="button" class="button ghost sm" data-ai="copy" data-i="${i}">${t('Copiar')}</button></div>` : x.r === 'a' ? `<div class="ai-act"><button type="button" class="button ghost sm" data-ai="copy" data-i="${i}">${t('Copiar')}</button></div>` : ''}</div>`).join('') + (AIC.busy ? `<div class="ai-m a ai-wait">${t('Auri está pensando…')}</div>` : '') + (AIC.undo ? `<div class="ai-act"><button type="button" class="button ghost sm" data-ai="undo">${t('Deshacer el último cambio')}</button></div>` : '');
+  lg.scrollTop = lg.scrollHeight;
+}
+async function aiAct(k, btn) {
+  if (k === 'x') return document.getElementById('ai-sheet').remove();
+  const i = btn && btn.dataset.i != null ? +btn.dataset.i : -1, msg = AIC.msgs[i];
+  if (k === 'copy' && msg) { try { await navigator.clipboard.writeText(msg.c); toast(t('Copiado')); } catch (e) { toast(t('No se pudo copiar.')); } return; }
+  if (k === 'rep' && msg) { const ta = aiTa(); if (!ta || !confirm(t('¿Reemplazar todo el capítulo por la versión corregida? Podrás deshacerlo aquí.'))) return; AIC.undo = ta.value; aiSetText(msg.c); aiDraw(); toast(t('Capítulo corregido')); return; }
+  if (k === 'add' && msg) { const ta = aiTa(); if (!ta) return; AIC.undo = ta.value; aiSetText(ta.value.replace(/\s+$/, '') + '\n\n' + msg.c); aiDraw(); toast(t('Añadido al final')); return; }
+  if (k === 'undo') { if (AIC.undo != null) { aiSetText(AIC.undo); AIC.undo = null; aiDraw(); toast(t('Cambio deshecho')); } return; }
+  if (AIC.busy || !['fix', 'ideas', 'write', 'send'].includes(k)) return;
+  const inp = document.getElementById('ai-text'), said = inp ? inp.value.trim() : '', mode = k === 'send' ? 'chat' : k;
+  if (k === 'send' && !said) return; if (k === 'write' && !said && !confirm(t('¿Quieres que continúe la historia por mi cuenta? Puedes escribirme abajo qué debe pasar.'))) return;
+  const ta = aiTa(), text = ta ? ta.value : ''; if (mode === 'fix' && text.trim().length < 20) { AIC.msgs.push({ r: 'a', c: t('Todavía no hay texto para corregir. Escribe algo en el capítulo y vuelvo.') }); return aiDraw(); }
+  const label = { fix: t('Corrige mi capítulo'), ideas: t('Dame ideas'), write: t('Escribe un fragmento') + (said ? ': ' + said : ''), chat: said }[mode];
+  AIC.msgs.push({ r: 'u', c: label }); AIC.busy = true; if (inp && k !== 'fix') inp.value = ''; aiDraw();
+  let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'editor', mode, story_id: sUuid(W.id), message: said, text: String(text).slice(0, 14000), title: W.title || '', synopsis: W.synopsis || '', genre: W.genre || '', hist: AIC.msgs.slice(-8, -1).map(x => ({ r: x.r, c: x.c })) } }); } catch (e) { r = null; }
+  AIC.busy = false; const d = r && r.data || {};
+  if (r && r.ok && d.reply) { AIC.msgs.push({ r: 'a', c: d.reply, mode: d.mode }); if (!isOwner()) { try { walletLoad(); } catch (e) { /* ignorar */ } } }
+  else AIC.msgs.push({ r: 'a', c: r && r.status === 402 ? t('No te alcanzan las gemas. Puedes conseguirlas en Recompensas.') : d.error === 'mature' ? t('La IA no está disponible en libros +18.') : d.error === 'forbidden' ? t('Solo puedo ayudarte en tus propios libros ya guardados en tu cuenta.') : d.error === 'budget' ? t('Auri ya trabajó mucho por hoy. Vuelve mañana.') : t('Auri no pudo responder ahora. No se te cobró; inténtalo en un momento.') });
+  aiDraw();
+}
 /* ---------- Imágenes marcadas por la IA ----------
    La función "moderate-image" revisa las imágenes subidas. Si marca una, queda oculta para todos (relleno en su lugar).
    La autoría puede pedir revisión humana ("es un error"); el equipo la aprueba o rechaza en Moderación › Imágenes. */

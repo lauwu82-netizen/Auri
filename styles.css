@@ -2876,3 +2876,17 @@ html.lite .amb{display:none}
 .vb-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .vb-th{aspect-ratio:16/9;border-radius:12px;border:1px solid var(--line,#3a2f55);background:#1a1428 center/cover no-repeat;display:flex;align-items:flex-end;padding:6px;cursor:pointer;color:#fff;font:inherit}
 .vb-th small{background:rgba(0,0,0,.55);padding:2px 8px;border-radius:99px}
+
+/* Chat de escritura con Auri */
+.ai-box{display:flex;flex-direction:column;gap:10px;height:min(78dvh,640px);max-height:88dvh;overflow:hidden}
+.ai-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ai-chips{display:flex;flex-wrap:wrap;gap:8px}
+.ai-chip{border:1px solid hsl(var(--border,270 20% 40%));background:transparent;color:inherit;border-radius:99px;padding:8px 12px;font:inherit;cursor:pointer}
+.ai-chip small{opacity:.75;margin-left:4px}
+.ai-log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:4px 2px}
+.ai-m{max-width:92%;padding:10px 12px;border-radius:16px;line-height:1.5;font-size:15px;background:rgba(150,120,220,.14);align-self:flex-start;white-space:normal;overflow-wrap:anywhere}
+.ai-m.u{align-self:flex-end;background:rgba(150,100,230,.4)}
+.ai-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.ai-wait{opacity:.7}
+.ai-in{display:flex;gap:8px;align-items:flex-end}
+.ai-in textarea{flex:1;border-radius:14px;border:1px solid rgba(150,120,220,.4);background:transparent;color:inherit;font:inherit;padding:10px;resize:none}
