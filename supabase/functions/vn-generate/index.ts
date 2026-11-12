@@ -35,7 +35,7 @@ async function sha256Hex(s: string): Promise<string> {
 let lastRep = 0;                                           // con poco crédito Replicate deja 1 petición cada ~10 s: se espacian las llamadas de esta misma función
 async function replicate(model: string, input: Record<string, unknown>, token: string, maxRetry = 4): Promise<unknown> {
   for (let n = 0; ; n++) {
-    const gap = lastRep + 10500 - Date.now(); if (gap > 0) await new Promise(res => setTimeout(res, gap)); lastRep = Date.now();
+    const gap = lastRep + (Number(Deno.env.get('VN_REP_GAP_MS')) || 1500) - Date.now(); if (gap > 0) await new Promise(res => setTimeout(res, gap)); lastRep = Date.now();
     try { return await replicate1(model, input, token); }
     catch (e) {
       const m = String((e as Error).message || e);

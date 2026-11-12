@@ -6046,17 +6046,30 @@ function vnrPlaces(script, seed) {
   });
   return script;
 }
-/** Fondos de la historia: los sube la autoría desde su galería. Cada lugar usa el suyo; si no hay, uno "para cualquier lugar"; si no hay ninguno, queda la portada difuminada. */
-async function vnrBgQueue(cu, onFirst) {
-  const first = typeof onFirst === 'function' ? onFirst : () => {};
-  if (!VNR || !VNR.script) return first(); const v = VNR; let rows = [];
-  try { const r = await sbApi('/rest/v1/vn_backgrounds?select=place,url,pos_x,pos_y,zoom&story_id=eq.' + sUuid(v.sid) + '&order=created_at'); if (r && r.ok && Array.isArray(r.data)) rows = r.data; } catch (e) { /* sin fondos */ }
-  if (VNR !== v || !rows.length) return first();
+/** Fondos de cada escena. Orden: 1) el que la autoría subió para ese lugar; 2) uno creado con IA para ese lugar (se guarda por capítulo: la primera lectura lo crea y el resto lo recibe al instante);
+ *  3) uno "para cualquier lugar" de la autoría; 4) cualquier fondo ya listo. La lectura espera a que se creen (con avance) y luego fluye sin pausas. */
+async function vnrBgQueue(cu, prog) {
+  const note = typeof prog === 'function' ? prog : () => {};
+  if (!VNR || !VNR.script) return; const v = VNR; let rows = [];
+  try { const r = await sbApi('/rest/v1/vn_backgrounds?select=place,url,pos_x,pos_y,zoom&story_id=eq.' + sUuid(v.sid) + '&order=created_at'); if (r && r.ok && Array.isArray(r.data)) rows = r.data; } catch (e) { /* sin fondos propios */ }
+  if (VNR !== v) return; v.bgs = v.bgs || {}; v.bgAdj = v.bgAdj || {};
   const any = rows.filter(x => !x.place), by = {}; rows.forEach(x => { if (x.place && !by[x.place]) by[x.place] = x; });
-  v.bgs = v.bgs || {}; v.bgAdj = v.bgAdj || {};
-  v.script.forEach(b => { const pl = b.place; if (!pl || v.bgs[pl]) return; const row = by[pl] || (any.length ? any[[...pl].reduce((q, ch) => q + ch.charCodeAt(0), 0) % any.length] : null); if (row) { v.bgs[pl] = row.url; v.bgAdj[row.url] = { x: row.pos_x, y: row.pos_y, z: row.zoom }; } });
+  const use = (pl, row) => { v.bgs[pl] = row.url; v.bgAdj[row.url] = { x: row.pos_x, y: row.pos_y, z: row.zoom }; };
+  const places = []; v.script.forEach(b => { if (b.place && !places.includes(b.place)) places.push(b.place); });
+  places.forEach(pl => { if (by[pl]) use(pl, by[pl]); });
+  const need = places.filter(pl => !v.bgs[pl]).slice(0, 4);
+  if (need.length && cu && vnOn()) {
+    let done = 0; note(0, need.length);
+    await Promise.all(need.map(async pl => {
+      let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'bg', chapter_id: cu, place: pl } }); } catch (e) { r = null; }
+      if (VNR !== v) return; const u = r && r.ok && r.data && r.data.url; if (u) { v.bgs[pl] = u; const pg = v.pages[v.i]; if (pg && pg.place === pl) vnrDraw(); }
+      note(++done, need.length);
+    }));
+  }
+  if (VNR !== v) return;
+  const have = Object.values(v.bgs).filter(u => !(v.bgAdj || {})[u]);          // creados con IA (sin ajuste propio)
+  places.forEach(pl => { if (v.bgs[pl]) return; if (any.length) use(pl, any[[...pl].reduce((q, ch) => q + ch.charCodeAt(0), 0) % any.length]); else if (have.length) v.bgs[pl] = have[[...pl].reduce((q, ch) => q + ch.charCodeAt(0), 0) % have.length]; });
   const pg = v.pages[v.i]; if (pg && pg.place && v.bgs[pg.place]) vnrDraw();
-  first();
 }
 const VN_PLACE_LABELS = { 'cozy-cafe': 'Cafetería', 'library': 'Biblioteca', 'workshop': 'Taller', 'school-hallway': 'Pasillo', 'school-classroom': 'Salón de clases', 'university-campus': 'Universidad', 'bedroom': 'Habitación', 'kitchen': 'Cocina', 'living-room': 'Sala', 'park': 'Parque', 'city-street-evening': 'Calle', 'beach': 'Playa', 'forest': 'Bosque', 'gothic-church': 'Iglesia', 'hospital-room': 'Hospital', 'rooftop': 'Azotea', 'nightclub-stage': 'Club', 'office': 'Oficina', 'garden': 'Jardín', 'cemetery': 'Cementerio', 'train-station': 'Estación', 'mansion-interior': 'Mansión', 'home-interior': 'Casa' };
 /** Añadir o editar un fondo: se elige desde la galería, se ajusta (posición y zoom) y se vincula a un lugar. */
@@ -6147,8 +6160,9 @@ async function vnrBoot(sid, n) {
   script = vnrPlaces(script, cu || sid + ':' + n);
   VNR = { sid, n: +n, ch, s, cast, script, bgs, cgs: {}, pages: [], i: 0, order: [], next: s.chapters.find(c => c.idx === ch.idx + 1), adj: (vnLocalAdj()[sid] || {}) };
   VNR.pages = vnrPaginate(el);
-  let firstRes = () => {}; const firstP = new Promise(r => { firstRes = r; }); vnrBgQueue(cu, firstRes);
-  if (script !== null && Object.keys(bgs).length === 0 && VNR.script.some(b => b.place)) { const tx1 = el.querySelector('.vnr-box .vnr-text'); if (tx1) tx1.textContent = t('Preparando los fondos…'); await Promise.race([firstP, new Promise(r => setTimeout(r, 30000))]); el = curEl(); if (!el || !VNR || VNR.sid !== sid) return; }
+  { const tx1 = el.querySelector('.vnr-box .vnr-text'), say = (d, n) => { const x = (curEl() || el).querySelector('.vnr-box .vnr-text'); if (x && VNR && VNR.sid === sid && !VNR.started) x.textContent = t('Preparando los fondos…') + (n ? ' ' + d + '/' + n : ''); };
+    if (tx1) tx1.textContent = t('Preparando los fondos…');
+    await Promise.race([vnrBgQueue(cu, say), new Promise(r => setTimeout(r, 90000))]); el = curEl(); if (!el || !VNR || VNR.sid !== sid) return; VNR.started = true; }
   try { if (localStorage.getItem('auri.vnHint') === '1') el.querySelector('.vnr-hint').hidden = true; } catch (e) { /* ignorar */ }
   el.querySelector('.vnr-tap').addEventListener('click', ev => { if (ev.target.closest('[data-vnchat]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.key) chatOpen(pg.key); return; } if (ev.target.closest('[data-vncg]')) { const pg = VNR.pages[VNR.i]; if (pg && pg.cg === 'intro') vnrCgBuy(pg); return; } const r = el.getBoundingClientRect(), left = ev.clientX - r.left < r.width * 0.28; vnrGo(left ? -1 : 1); try { localStorage.setItem('auri.vnHint', '1'); } catch (e) { /* ignorar */ } el.querySelector('.vnr-hint').hidden = true; });
   el.querySelector('[data-vnadj]').onclick = () => vnrAdjust(el);
