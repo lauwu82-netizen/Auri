@@ -2394,5 +2394,22 @@ window.I18N = { en: {
   "Like": "Like",
   "de": "of",
   "Crea un nuevo personaje para tu novela visual": "Create a new character for your visual novel",
-  "Los fondos los crea la IA cuando alguien empieza a leer: no tienes que subirlos.": "Backgrounds are created by AI when someone starts reading: you do not need to upload them."
+  "Los fondos los crea la IA cuando alguien empieza a leer: no tienes que subirlos.": "Backgrounds are created by AI when someone starts reading: you do not need to upload them.",
+  "Gatito fundador morado": "Founder kitten (purple)",
+  "Gatito fundador azul": "Founder kitten (blue)",
+  "Gatito fundador rosa": "Founder kitten (pink)",
+  "Gatito fundador blanco": "Founder kitten (white)",
+  "Gatito fundador negro": "Founder kitten (black)",
+  "Gatito fundador calicó": "Founder kitten (calico)",
+  "Gatito fundador marrón": "Founder kitten (brown)",
+  "Gatito fundador gris": "Founder kitten (gray)",
+  "Gatito fundador siamés": "Founder kitten (Siamese)",
+  "Camina por tu portada, saluda cuando alguien entra a tu perfil y se duerme un rato. Es exclusiva de quienes entraron al Top 50.": "It walks across your cover, says hi when someone visits your profile and takes a nap. Exclusive to those who made the Top 50.",
+  "Ese puesto ya se regaló.": "That place has already been gifted.",
+  "Puesto": "Place",
+  "Del 4 al 50 · gatito al azar": "4th to 50th · random kitten",
+  "Puesto 1 · gatito morado": "1st place · purple kitten",
+  "Puesto 2 · gatito azul": "2nd place · blue kitten",
+  "Puesto 3 · gatito rosa": "3rd place · pink kitten",
+  "Tu gatito fundador ya te espera en Editar perfil.": "Your founder kitten is waiting in Edit profile."
 } };

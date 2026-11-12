@@ -389,23 +389,33 @@ function giftFind(raw) {                                // usuario (con o sin @)
   const m = ks.filter(e => String((us[e] || {}).name || '').toLowerCase() === q);
   return m.length === 1 ? { e: m[0] } : m.length > 1 ? { err: t('Hay varias cuentas con ese nombre: usa el correo.') } : { err: t('No encontré esa cuenta.') };
 }
-function giftSend(raw) {
+function giftSend(raw, place) {
   if (!isOwner()) return t('Solo la Owner puede regalar.'); giftSweep();
-  const f = giftFind(raw); if (f.err) return modCloud() ? giftSendCloud(raw, f.err) : f.err; const tg = f.e, u = getUsers()[tg];
+  const f = giftFind(raw); if (f.err) return modCloud() ? giftSendCloud(raw, f.err, place) : f.err; const tg = f.e, u = getUsers()[tg];
   if (tg === S.user || roleOf(tg) === 'OWNER') return t('Ese marco es para otras cuentas.');
   if (u.frameTop || giftsAll().some(g => g.to === tg && g.status === 'pending')) return u.frameTop ? t('{n} ya tiene el marco.', { n: uName(tg) }) : t('{n} ya tiene un regalo pendiente.', { n: uName(tg) });
   if (giftLeft() <= 0) return t('Ya no quedan cupos: {n} de {n} en uso.', { n: GIFT_TOTAL });
-  { const cu = modUid(tg); if (cu) return modDo('gift_send', { to_id: cu }); }
-  const now = Date.now(), L = giftsAll(); L.unshift({ id: now + Math.random().toString(36).slice(2, 5), kind: 'top50', to: tg, by: S.user, date: new Date(now).toISOString(), expires: new Date(now + GIFT_MS).toISOString(), status: 'pending' }); G.set('gifts', L);
+  if (place && giftsAll().some(g => g.place === place && (g.status === 'pending' || g.status === 'claimed'))) return t('Ese puesto ya se regaló.');
+  { const cu = modUid(tg); if (cu) return place ? modDo('gift_send_place', { to_id: cu, p: place }) : modDo('gift_send', { to_id: cu }); }
+  const now = Date.now(), L = giftsAll(); L.unshift({ id: now + Math.random().toString(36).slice(2, 5), kind: 'top50', to: tg, by: S.user, date: new Date(now).toISOString(), expires: new Date(now + GIFT_MS).toISOString(), status: 'pending', place: place || 0 }); G.set('gifts', L);
   pushNotif(tg, { type: 'sys', extra: '¡Te regalaron el marco exclusivo Top 50! Reclámalo en las próximas 24 h.', href: '#/gift' });
   logAction('gift-send', tg, 'Marco Top 50 · quedan ' + giftLeft() + ' de ' + GIFT_TOTAL); return '';
+}
+const GIFT_PLACE_TXT = { 0: 'Del 4 al 50 · gatito al azar', 1: 'Puesto 1 · gatito morado', 2: 'Puesto 2 · gatito azul', 3: 'Puesto 3 · gatito rosa' };
+const GIFT_PLACES = () => [0, 1, 2, 3].map(n => `<option value="${n}" ${n && giftsAll().some(g => g.place === n && (g.status === 'pending' || g.status === 'claimed')) ? 'disabled' : ''}>${esc(t(GIFT_PLACE_TXT[n]))}</option>`).join('');
+function giftPlacePick(id) {                              // la Owner elige el puesto antes de regalar (define qué gatito fundador recibe)
+  const m = document.createElement('div'); m.className = 'modal';
+  m.innerHTML = `<div class="modal-box mini-box" role="dialog" aria-modal="true"><h2>${esc(t('¿Regalar el marco Top 50 a {n}?', { n: uName(id) }))}</h2><p class="helper">${esc(t('Tendrá 24 h para reclamarlo. Si no lo hace, el regalo se cancela y el cupo vuelve a ti. Quedan {a} de {b}.', { a: giftLeft(), b: GIFT_TOTAL }))}</p><label class="vnf" style="margin-top:12px"><span>${esc(t('Puesto'))}</span><select class="field" data-pl>${GIFT_PLACES()}</select></label><div style="display:flex;gap:10px;margin-top:16px"><button class="button ghost" data-no style="flex:1">${esc(t('Cancelar'))}</button><button class="button" data-yes style="flex:1">${esc(t('Regalar'))}</button></div></div>`;
+  m.querySelector('[data-no]').onclick = () => m.remove();
+  m.querySelector('[data-yes]').onclick = async () => { const pl = +m.querySelector('[data-pl]').value || 0; m.remove(); const r = await giftSend(id, pl); toast(r || t('Regalo enviado ✓')); KEEP = true; render(); };
+  document.body.appendChild(m);
 }
 function giftClaim(id) {
   if (isUuid(id) && modCloud()) return modDo('gift_claim', { gid: id });
   giftSweep(); const L = giftsAll(), g = L.find(x => x.id === id); if (!g || g.to !== S.user) return t('Ese regalo no es tuyo.');
   if (g.status === 'expired') return t('Este regalo venció: pasaron 24 h sin reclamarlo.'); if (g.status !== 'pending') return t('Este regalo ya no está disponible.');
   g.status = 'claimed'; g.claimedDate = new Date().toISOString(); G.set('gifts', L);
-  const us = getUsers(); if (us[S.user]) { us[S.user].frameTop = true; G.set('users', us); }
+  const us = getUsers(); if (us[S.user]) { const fp = fpetFor(g.place); us[S.user].frameTop = true; us[S.user].pet = fp; us[S.user].petF = fp; G.set('users', us); }
   pushNotif(OWNER_EMAIL, { type: 'sys', extra: '{n} reclamó su marco Top 50.', xv: { n: uName(S.user) }, href: '#/moderation/gifts' });
   logAction('gift-claim', S.user, 'Reclamó el marco Top 50'); return '';
 }
@@ -440,7 +450,7 @@ function giftsView(tabs) {                              // pestaña de la Owner 
   const fd = iso => new Date(iso).toLocaleString(LOC(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('🎁 Regalos')}</span><h2 style="margin-top:8px">${t('Marco Top 50')}</h2><p>${t('Solo tú puedes regalarlo. Quien lo recibe tiene 24 h para reclamarlo; si no lo hace, el regalo se cancela y el cupo vuelve a ti.')}</p></div></div>
   <section class="panel gift-top"><div class="gift-av">${giftPreview(S.user)}</div><div class="gift-count"><b>${left}</b><span>${t('de {n} cupos disponibles', { n: GIFT_TOTAL })}</span><small class="helper">${t('50 para el top + 3 de prueba')}</small></div></section>
-  <section class="panel" style="margin-top:14px"><h3 style="margin-bottom:8px">${t('Regalar a una cuenta')}</h3><div class="form-group"><label for="g-to">${t('Usuario o correo')}</label><input id="g-to" class="field" autocomplete="off" placeholder="${esc(t('Ej: RiRi o correo@ejemplo.com'))}"></div><p class="error-line" data-err role="alert"></p><button class="button" data-act="gift-send" ${left > 0 ? '' : 'disabled'}>${t('Regalar marco')}</button><p class="helper" style="margin-top:8px">${t('También puedes regalarlo desde el perfil de la persona, en Administración.')}</p></section>
+  <section class="panel" style="margin-top:14px"><h3 style="margin-bottom:8px">${t('Regalar a una cuenta')}</h3><div class="form-group"><label for="g-to">${t('Usuario o correo')}</label><input id="g-to" class="field" autocomplete="off" placeholder="${esc(t('Ej: RiRi o correo@ejemplo.com'))}"></div><p class="error-line" data-err role="alert"></p><div class="form-group"><label for="g-place">${t('Puesto')}</label><select id="g-place" class="field">${GIFT_PLACES()}</select></div><button class="button" data-act="gift-send" ${left > 0 ? '' : 'disabled'}>${t('Regalar marco')}</button><p class="helper" style="margin-top:8px">${t('También puedes regalarlo desde el perfil de la persona, en Administración.')}</p></section>
   <h3 style="margin:18px 0 8px">${t('Esperando que lo reclamen')} (${pend.length})</h3>${pend.length ? pend.map(g => row(g, t('Le quedan {x}', { x: leftTxt(g.expires) }), `<button class="button danger sm" data-act="gift-cancel" data-id="${esc(g.id)}">${t('Cancelar regalo')}</button>`)).join('') : '<p class="helper">' + t('Ninguno.') + '</p>'}
   <h3 style="margin:18px 0 8px">${t('Reclamados')} (${got.length})</h3>${got.length ? got.map(g => row(g, t('Reclamado {d}', { d: fd(g.claimedDate) }), `<button class="button secondary sm" data-act="gift-cancel" data-id="${esc(g.id)}">${t('Quitar marco')}</button>`)).join('') : '<p class="helper">' + t('Ninguno.') + '</p>'}
   <h3 style="margin:18px 0 8px">${t('Historial')}</h3>${hist.length ? hist.map(g => row(g, (g.status === 'expired' ? t('Venció sin reclamar') : t('Retirado')) + ' · ' + fd(g.endDate), '')).join('') : '<p class="helper">' + t('Aún no hay movimientos.') + '</p>'}</main>`;
@@ -634,7 +644,7 @@ async function sbMirror() {
   const pv = (q.ok && Array.isArray(q.data) && q.data[0]) || {};
   const email = String(s.email || pv.email || '').toLowerCase(), us = LS.get('auri.users', {}), old = us[email] || {};
   us[email] = { ...old, uid: s.uid, cloud: true, name: pr.name, username: pr.username || old.username || '', community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || old.bio || '', avatar: pr.avatar || old.avatar || '', banner: pr.banner || old.banner || '',
-    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], collab: !!pr.collab, showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
+    role: pr.role, scope: Array.isArray(pr.scope) ? pr.scope : [], frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', petF: pr.pet_f || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], collab: !!pr.collab, showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined,
     birth: pv.birth || old.birth || '', gender: pv.gender || old.gender || '', interests: pv.interests || old.interests || [], onboarded: true,
     termsAccepted: pr.terms_accepted || old.termsAccepted, created: String(pr.created_at || '').slice(0, 10) || old.created, strikes: old.strikes || [] };
   LS.set('auri.users', us);
@@ -922,7 +932,7 @@ async function sbPullPublic() {                           // trae las obras de o
   for (const o of owners) {
     const pr = prof.find(x => x.id === o); if (!pr) continue; const key = remoteKey(o), old = us[key] || {};
     us[key] = { ...old, uid: o, cloud: true, remote: true, name: pr.name, username: pr.username || '', community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], collab: !!pr.collab, showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', petF: pr.pet_f || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], collab: !!pr.collab, showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
     const list = [];
     for (const r of stories.filter(x => x.owner === o)) {
       const pubs = (pubBy.get(r.id) || []), wk = (wkBy.get(r.id) || []), cmap = new Map();
@@ -1094,7 +1104,7 @@ async function sbSyncSocial(only) {
 function sbPseudo(pr, old) {                                   // copia local de la cuenta de otra persona (sin datos privados)
   old = old || {};
   return { ...old, uid: pr.id, cloud: true, remote: true, name: pr.name, username: pr.username || '', community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], collab: !!pr.collab, showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
+    frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', petF: pr.pet_f || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], collab: !!pr.collab, showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || old.created, strikes: old.strikes || [] };
 }
 const SOC_G = { 'auri.likes': ['likes'], 'auri.follows': ['follows'], 'auri.comments': ['comments', 'comment_likes'], 'auri.pcom': ['pcom', 'pcom_likes'], 'auri.subs': ['subscriptions'] };
 let SB_SOC_T;
@@ -1316,12 +1326,12 @@ function openBowGift(tg) {
   });
   document.body.appendChild(m);
 }
-async function giftSendCloud(raw, err) {                   // la Owner puede regalar a cuentas que este dispositivo aún no conoce
+async function giftSendCloud(raw, err, place) {                   // la Owner puede regalar a cuentas que este dispositivo aún no conoce
   const q = String(raw || '').trim().replace(/^@/, ''); if (!q) return err;
   const r = await sbApi('/rest/v1/rpc/find_user', { method: 'POST', body: { q } });
   if (!r.ok || !Array.isArray(r.data) || !r.data.length) return err;
   if (r.data.length > 1) return t('Hay varias cuentas con ese nombre: usa el correo.');
-  await sbKnow([r.data[0].id]); return modDo('gift_send', { to_id: r.data[0].id });
+  await sbKnow([r.data[0].id]); return place ? modDo('gift_send_place', { to_id: r.data[0].id, p: place }) : modDo('gift_send', { to_id: r.data[0].id });
 }
 function softRender(force) {
   const ae = document.activeElement && document.activeElement.tagName;
@@ -1915,7 +1925,7 @@ async function sbSearchUsers() {                         // trae de Supabase a l
   const us = LS.get('auri.users', {}), me = sbSes() && sbSes().uid; let ch = false;
   r.data.filter(p => p.id !== me).forEach(pr => { const key = remoteKey(pr.id), old = us[key];
     const n = { ...(old || {}), uid: pr.id, cloud: true, remote: true, name: pr.name, username: pr.username || '', community: pr.community === 'en' ? 'en' : 'es', bio: pr.bio || '', avatar: pr.avatar || '', banner: pr.banner || '', role: pr.role || 'USER', scope: Array.isArray(pr.scope) ? pr.scope : [],
-      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], collab: !!pr.collab, showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
+      frameWorn: !!pr.frame_worn, frameSel: pr.frame_sel == null ? undefined : pr.frame_sel, cosTop: pr.cos_top == null ? undefined : pr.cos_top, cosAdj: Array.isArray(pr.cos_adj) ? pr.cos_adj : undefined, pet: pr.pet || '', petF: pr.pet_f || '', cosBot: pr.cos_bot && typeof pr.cos_bot === 'object' ? pr.cos_bot : undefined, shape: pr.photo_shape || '', halo: pr.halo || '', accent: pr.accent || '', mbti: pr.mbti || '', mbtiTheme: !!pr.mbti_theme, hideLists: !!pr.hide_lists, frameTop: !!pr.frame_top, bows: Array.isArray(pr.bows) ? pr.bows : [], skins: Array.isArray(pr.skins) ? pr.skins : [], collab: !!pr.collab, showReading: !!pr.show_reading, modSince: pr.mod_since || undefined, admSince: pr.adm_since || undefined, onboarded: true, created: day(pr.created_at) || (old || {}).created, strikes: (old || {}).strikes || [] };
     if (JSON.stringify(old) !== JSON.stringify(n)) { us[key] = n; ch = true; } });
   if (ch) { LS.set('auri.users', us); const l = $('#list'); if (l && SM === 'users') l.innerHTML = usersList(); }
 }
@@ -2879,7 +2889,14 @@ const SEPS = { classic: ['Clásico', 'free', '<rect x="17" y="7" width="10" heig
 const sepOK = k => !SEPS[k] ? false : SEPS[k][1] === 'free' || isStaff(S.user);      // los de tienda/pase se desbloquean con compra (por ahora solo el equipo los ve)
 const sepKey = () => sepOK(cfg('sepStyle')) ? cfg('sepStyle') : 'classic';
 /* Mascotas 8-bit del perfil: hoja de 4 cuadros (quieta, paso 1, paso 2, dormida) en pets/<clave>.png. Para usar un dibujo propio basta con reemplazar el PNG */
-const PETS = { gato: ['Gatito', '¡Miau!'], perro: ['Perrito', '¡Guau!'], conejo: ['Conejito', '¡Hola!'] };
+const PETS = { gato: ['Gatito', '¡Miau!'], perro: ['Perrito', '¡Guau!'], conejo: ['Conejito', '¡Hola!'],
+  'fundador-morado': ['Gatito fundador morado', '¡Miau!'], 'fundador-azul': ['Gatito fundador azul', '¡Miau!'], 'fundador-rosa': ['Gatito fundador rosa', '¡Miau!'],
+  'fundador-blanco': ['Gatito fundador blanco', '¡Miau!'], 'fundador-negro': ['Gatito fundador negro', '¡Miau!'], 'fundador-calico': ['Gatito fundador calicó', '¡Miau!'],
+  'fundador-marron': ['Gatito fundador marrón', '¡Miau!'], 'fundador-gris': ['Gatito fundador gris', '¡Miau!'], 'fundador-siames': ['Gatito fundador siamés', '¡Miau!'] };
+/* Gatitos fundadores (Top 50): exclusivos, con medalla. Puesto 1 morado (Auri), 2 azul, 3 rosa; del 4 al 50 sale uno al azar (la asignación real la hace el servidor al reclamar el regalo) */
+const FPET_RANDOM = ['blanco', 'negro', 'calico', 'marron', 'gris', 'siames'], FPET_PLACE = { 1: 'morado', 2: 'azul', 3: 'rosa' };
+const fpetFor = place => 'fundador-' + (FPET_PLACE[place] || FPET_RANDOM[Math.floor(Math.random() * FPET_RANDOM.length)]);
+const isFPet = k => /^fundador-/.test(String(k || ''));
 let PETG = { e: '', t: 0 };
 function petHTML(e) {
   const k = (getUsers()[e] || {}).pet; if (!PETS[k]) return '';
@@ -2892,10 +2909,10 @@ async function sbPushPet() {
   await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { pet: u.pet || null } });
 }
 function openPets() {
-  const me = S.user, cur = (getUsers()[me] || {}).pet || '';
+  const me = S.user, mu = getUsers()[me] || {}, cur = mu.pet || '', list = Object.entries(PETS).filter(([k]) => isOwner() || k === mu.petF);
   const m = document.createElement('div'); m.className = 'modal sheet';
-  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Mascota 8-bit')}</h2><p class="helper">${t('Camina por tu portada, saluda cuando alguien entra a tu perfil y se duerme un rato. Solo para ti por ahora.')}</p>
-    <div class="pet-grid"><button type="button" class="pet-opt ${cur ? '' : 'on'}" data-pet=""><span class="pet-prev none">✕</span><b>${t('Ninguna')}</b></button>${Object.entries(PETS).map(([k, v]) => `<button type="button" class="pet-opt ${cur === k ? 'on' : ''}" data-pet="${k}"><span class="pet-prev" style="--pet:url('pets/${k}.png')"></span><b>${t(v[0])}</b></button>`).join('')}</div></div>`;
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Mascota 8-bit')}</h2><p class="helper">${t(isOwner() ? 'Camina por tu portada, saluda cuando alguien entra a tu perfil y se duerme un rato. Solo para ti por ahora.' : 'Camina por tu portada, saluda cuando alguien entra a tu perfil y se duerme un rato. Es exclusiva de quienes entraron al Top 50.')}</p>
+    <div class="pet-grid"><button type="button" class="pet-opt ${cur ? '' : 'on'}" data-pet=""><span class="pet-prev none">✕</span><b>${t('Ninguna')}</b></button>${list.map(([k, v]) => `<button type="button" class="pet-opt ${cur === k ? 'on' : ''}" data-pet="${k}"><span class="pet-prev" style="--pet:url('pets/${k}.png')"></span><b>${t(v[0])}</b></button>`).join('')}</div></div>`;
   m.addEventListener('click', ev => {
     const b = ev.target.closest('[data-pet]');
     if (b) { const us = getUsers(); if (!us[me]) return; us[me].pet = b.dataset.pet; G.set('users', us); sbPushPet(); toast(t('Mascota guardada')); m.remove(); PETG = { e: '', t: 0 }; render(); return; }
@@ -4349,7 +4366,7 @@ function editProfileView() {
     <button type="button" class="ep-row" data-act="mbti"><span><b>MBTI</b><small>${mbtiOf(S.user) ? `${mbtiOf(S.user)} · ${t(mbtiGroup(mbtiOf(S.user))[1])}` : t('Elige tu tipo de personalidad')}</small></span><i aria-hidden="true">›</i></button>
     <h3 class="ep-h">${EPI.frame}<span>${t('Insignias y adornos')}</span></h3>
     <button type="button" class="ep-row" data-act="frames"><span><b>${t('Marcos')}</b><small>${frameLine}</small></span><i aria-hidden="true">›</i></button>
-    ${isOwner() ? `<button type="button" class="ep-row" data-act="pets"><span><b>${t('Mascota 8-bit')}</b><small>${PETS[u.pet] ? t(PETS[u.pet][0]) : t('Ninguna')}</small></span><i aria-hidden="true">›</i></button>` : ''}
+    ${isOwner() || u.petF ? `<button type="button" class="ep-row" data-act="pets"><span><b>${t('Mascota 8-bit')}</b><small>${PETS[u.pet] ? t(PETS[u.pet][0]) : t('Ninguna')}</small></span><i aria-hidden="true">›</i></button>` : ''}
     <h3 class="ep-h">${EPI.shield}<span>${t('Privacidad')}</span></h3>
     <div class="ep-card ep-sw">${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}${sw('hideLists', !!u.hideLists, 'Ocultar mis listas', 'Nadie más ve quién te sigue ni a quién sigues. Los números siguen visibles.')}${sw('showReading', !!u.showReading, 'Mostrar lo que leo', 'En tu perfil aparece el libro que estás leyendo ahora (solo libros públicos y no +18). Está apagado por defecto.')}</div>
 ${isOwner() ? `<h3 class="ep-h">${EPI.spark}<span>${t('Pruebas de Auri')}</span></h3><button type="button" class="ep-row" data-act="isle-test" data-id="sleep"><span><b>${t('Reproducir: Auri dormido')}</b><small>${t('Solo para ti. No espera los 3 días.')}</small></span><i aria-hidden="true">›</i></button><button type="button" class="ep-row" data-act="isle-test" data-id="dizzy"><span><b>${t('Reproducir: Auri mareado')}</b><small>${t('Ojos de espiral.')}</small></span><i aria-hidden="true">›</i></button>` : ''}
@@ -5266,7 +5283,7 @@ document.addEventListener('click', e => {
     'test-role': () => { testRole(id, el.dataset.role); toast(t('Rol de prueba actualizado ✓')); KEEP = true; render(); },
     'mod-comm': () => { if (!isStaff()) return; MODC = ['es', 'en'].includes(id) ? id : 'all'; KEEP = true; render(); },
     'adm-scope': () => { if (!isOwner()) return; const us = getUsers(), cur = staffScope(id), nx = cur.length > 1 ? ['es'] : cur[0] === 'es' ? ['en'] : ['es', 'en']; if (!us[id]) return; us[id].scope = nx; G.set('users', us); if (modCloud() && us[id].uid) sbApi('/rest/v1/profiles?id=eq.' + us[id].uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { scope: nx } }); logAction('scope-set', id, 'Modera: ' + nx.map(c => COMMS[c]).join(' y ')); toast(t('Ahora modera: {c}', { c: nx.map(c => COMMS[c]).join(' / ') })); KEEP = true; render(); },
-    'gift-send': async () => { const inp = $('#g-to'), r = await giftSend(inp ? inp.value : ''), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('Regalo enviado: tiene 24 h para reclamarlo')); KEEP = true; render(); },
+    'gift-send': async () => { const inp = $('#g-to'), pl = $('#g-place'), r = await giftSend(inp ? inp.value : '', pl ? +pl.value || 0 : 0), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('Regalo enviado: tiene 24 h para reclamarlo')); KEEP = true; render(); },
     'bow-gift': () => { if (isOwner() && canAct(id)) openBowGift(id); },
     'collab-toggle': async () => { if (!isOwner() || !canAct(id)) return; const on = !isCollab(id), cu = modUid(id); let e = '';
       if (cu) e = await modDo('collab_set', { to_id: cu, on_: on }); else { const us = getUsers(); if (!us[id]) return; us[id].collab = on; G.set('users', us); pushNotif(id, { type: 'sys', extra: on ? 'Ahora eres colaboradora de Auri: puedes subir tus propias imágenes en el modo novela visual.' : 'Se retiró tu permiso de colaboración.' }); logAction('collab-set', id, on ? 'Activó colaboración' : 'Quitó colaboración'); }
@@ -5278,8 +5295,8 @@ document.addEventListener('click', e => {
     'cs-snd': () => { setCfg('chatSnd', el.dataset.v); sndUnlock(); KEEP = true; render(); sndPlay('recv'); },
     'cs-sndtest': () => { sndUnlock(); sndPlay('recv', true); setTimeout(() => sndPlay('send', true), 700); setTimeout(() => sndPlay('react', true), 1300); },
     'cr-snd': () => { setCfg('chatSnd', sndOn() ? 'off' : 'on'); sndUnlock(); el.innerHTML = sndIcon(); el.setAttribute('aria-pressed', sndOn()); sndPlay('recv'); },
-    'gift-profile': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Regalar el marco Top 50 a {n}?', { n: uName(id) }), t('Tendrá 24 h para reclamarlo. Si no lo hace, el regalo se cancela y el cupo vuelve a ti. Quedan {a} de {b}.', { a: giftLeft(), b: GIFT_TOTAL }), t('Regalar'), t('Cancelar'), async () => { const r = await giftSend(id); toast(r || t('Regalo enviado ✓')); KEEP = true; render(); }); },
-    'gift-claim': async () => { const r = await giftClaim(id), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('¡Marco reclamado!')); KEEP = true; render(); },
+    'gift-profile': () => { if (!isOwner() || !canAct(id)) return; giftPlacePick(id); },
+    'gift-claim': async () => { const r = await giftClaim(id), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('¡Marco reclamado!') + ' ' + t('Tu gatito fundador ya te espera en Editar perfil.')); KEEP = true; render(); },
     'gift-cancel': () => { if (!isOwner()) return; const g = giftsAll().find(x => x.id === id); if (!g) return; dialog(g.status === 'claimed' ? t('¿Quitar el marco a {n}?', { n: uName(g.to) }) : t('¿Cancelar el regalo para {n}?', { n: uName(g.to) }), t('El cupo volverá a ti.'), t('Sí, continuar'), t('No'), async () => { await giftCancel(id); KEEP = true; render(); }, true); },
     'adm-mod': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Invitar a {n} a la moderación?', { n: uName(id) }), t('Recibirá una invitación y deberá aceptarla y confirmar que es mayor de edad.'), t('Enviar invitación'), t('Cancelar'), async () => { const r = await inviteMod(id); toast(r || t('Invitación enviada ✓')); }); },
     'adm-admin': () => { if (!isOwner() || !canAct(id)) return; dialog(t('¿Ascender a {n} a administración?', { n: uName(id) }), t('Recibirá una invitación que puede aceptar o rechazar. Si acepta, podrá publicar anuncios, revisar capítulos y descender moderadores, pero no ascender a nadie.'), t('Enviar invitación'), t('Cancelar'), async () => { const r = await inviteRole(id, 'ADMIN'); toast(r || t('Invitación enviada ✓')); }); },
