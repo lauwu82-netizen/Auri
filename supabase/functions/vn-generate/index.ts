@@ -233,16 +233,16 @@ async function run(req: Request, env: Env): Promise<Response> {
     else if (mode === 'write') prompt = `${ctx}\n\nEscribe el siguiente fragmento o capítulo de la historia siguiendo este pedido de la autora: ${msg || 'continúa la historia'}.\nMantén el estilo, los nombres y el tono. Devuelve ÚNICAMENTE el texto narrativo, sin comentarios ni títulos, de unas 600 a 900 palabras.\n\nLO ESCRITO HASTA AHORA:\n${text.slice(-5000)}`;
     else prompt = `${ctx}\n\n${hist ? 'Conversación previa:\n' + hist + '\n\n' : ''}Autora: ${msg}\n\n${text ? 'Texto del capítulo actual (por si ayuda):\n' + text.slice(-3000) + '\n\n' : ''}Responde de forma breve y útil.`;
     const models0 = (env.VN_TEXT_MODELS || env.VN_TEXT_MODEL || 'meta/meta-llama-3.1-405b-instruct').split(',').map(x => x.trim()).filter(Boolean).slice(0, 2);
-    let reply = '';
+    let reply = '', why = '';
     for (const m of models0) {
       try {
         const out = await replicate(m, { prompt, system_prompt: sys, max_tokens: mode === 'fix' ? 6000 : 2500, temperature: mode === 'fix' ? 0.1 : 0.7 }, TOKEN, 3);
         reply = (Array.isArray(out) ? out.join('') : String(out || '')).trim();
         await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'analysis', p_cost: mode === 'write' || mode === 'fix' ? 0.03 : 0.01, p_detail: ('EDITOR ' + mode + (reply ? ' · ' : ' VACÍO · ') + m).slice(0, 120) });
-      } catch (e) { console.error('editor', m, e); await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'retry', p_cost: 0.002, p_detail: ('EDITOR ERROR · ' + String(e && (e as Error).message || e)).slice(0, 200) }); }
+      } catch (e) { console.error('editor', m, e); why = String(e && (e as Error).message || e).slice(0, 160); await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'retry', p_cost: 0.002, p_detail: ('EDITOR ERROR · ' + String(e && (e as Error).message || e)).slice(0, 200) }); }
       if (reply) break;
     }
-    if (!reply) { await refund(eref); return json({ error: 'failed' }, 502); }
+    if (!reply) { await refund(eref); return json({ error: 'failed', why }, 502); }
     return json({ reply, mode });
   }
   if (body.action === 'sprite') {

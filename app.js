@@ -3490,7 +3490,7 @@ async function aiAct(k, btn) {
   let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'editor', mode, story_id: sUuid(W.id), message: said, text: String(text).slice(0, 14000), title: W.title || '', synopsis: W.synopsis || '', genre: W.genre || '', hist: AIC.msgs.slice(-8, -1).map(x => ({ r: x.r, c: x.c })) } }); } catch (e) { r = null; }
   AIC.busy = false; const d = r && r.data || {};
   if (r && r.ok && d.reply) { AIC.msgs.push({ r: 'a', c: d.reply, mode: d.mode }); if (!isOwner()) { try { walletLoad(); } catch (e) { /* ignorar */ } } }
-  else AIC.msgs.push({ r: 'a', c: r && r.status === 402 ? t('No te alcanzan las gemas. Puedes conseguirlas en Recompensas.') : d.error === 'mature' ? t('La IA no está disponible en libros +18.') : d.error === 'forbidden' ? t('Solo puedo ayudarte en tus propios libros ya guardados en tu cuenta.') : d.error === 'budget' ? t('Auri ya trabajó mucho por hoy. Vuelve mañana.') : t('Auri no pudo responder ahora. No se te cobró; inténtalo en un momento.') });
+  else AIC.msgs.push({ r: 'a', c: r && r.status === 402 ? t('No te alcanzan las gemas. Puedes conseguirlas en Recompensas.') : d.error === 'mature' ? t('La IA no está disponible en libros +18.') : d.error === 'forbidden' ? t('Solo puedo ayudarte en tus propios libros ya guardados en tu cuenta.') : d.error === 'budget' ? t('Auri ya trabajó mucho por hoy. Vuelve mañana.') : t('Auri no pudo responder ahora. No se te cobró; inténtalo en un momento.') + ' [' + (r ? r.status : 'sin conexión') + (d.error ? ' ' + d.error : '') + (d.why ? ' · ' + d.why : '') + (d.message ? ' · ' + String(d.message).slice(0, 120) : '') + ']' });
   aiDraw();
 }
 /* ---------- Imágenes marcadas por la IA ----------
