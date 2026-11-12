@@ -2414,5 +2414,9 @@ window.I18N = { en: {
   "Tu gatito fundador ya te espera en Editar perfil.": "Your founder kitten is waiting in Edit profile.",
   "Estrellas fundadoras": "Founder stars",
   "Fundador": "Founder",
-  "Polvo de estrellas": "Stardust"
+  "Polvo de estrellas": "Stardust",
+  "Fundador de Auri": "Auri Founder",
+  "Fundadora de Auri": "Auri Founder",
+  "Fundador/a de Auri": "Auri Founder",
+  "Libro fundador": "Founder book"
 } };
