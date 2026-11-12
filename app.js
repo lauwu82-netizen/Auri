@@ -6048,6 +6048,7 @@ function vnrPlaces(script, seed) {
 }
 /** Fondos de cada escena. Orden: 1) el que la autoría subió para ese lugar; 2) uno creado con IA para ese lugar (se guarda por capítulo: la primera lectura lo crea y el resto lo recibe al instante);
  *  3) uno "para cualquier lugar" de la autoría; 4) cualquier fondo ya listo. La lectura espera a que se creen (con avance) y luego fluye sin pausas. */
+let VN_VAR = 0;   // variante de fondos de esta lectura (cambia cada 100 lecturas)
 async function vnrBgQueue(cu, prog) {
   const note = typeof prog === 'function' ? prog : () => {};
   if (!VNR || !VNR.script) return; const v = VNR; let rows = [];
@@ -6061,7 +6062,7 @@ async function vnrBgQueue(cu, prog) {
   if (need.length && cu && vnOn()) {
     let done = 0; note(0, need.length);
     await Promise.all(need.map(async pl => {
-      let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'bg', chapter_id: cu, place: pl } }); } catch (e) { r = null; }
+      let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'bg', chapter_id: cu, place: pl, variant: VN_VAR } }); } catch (e) { r = null; }
       if (VNR !== v) return; const u = r && r.ok && r.data && r.data.url; if (!u && isOwner() && !v.bgWhy) { v.bgWhy = 1; const w = r && r.data || {}; toast(t('No se pudo crear un fondo.') + ' [' + (r ? r.status : 'sin conexión') + (w.error ? ' ' + w.error : '') + (w.why ? ' · ' + String(w.why).slice(0, 110) : '') + ']'); } if (u) { v.bgs[pl] = u; const pg = v.pages[v.i]; if (pg && pg.place === pl) vnrDraw(); }
       note(++done, need.length);
     }));
@@ -6133,7 +6134,7 @@ async function vnrAsk(el, cu) {
 async function vnrServer(cu, local, ocName, useOc, ch) {
   let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'script', chapter_id: cu } }); } catch (e) { r = null; }
   if (r && r.status === 402) return { pay: true };
-  const d = r && r.ok && r.data || {}; if (!Array.isArray(d.script) || !d.script.length) return {};
+  const d = r && r.ok && r.data || {}; VN_VAR = Math.max(0, Math.floor(Number(d.variant) || 0)); if (!Array.isArray(d.script) || !d.script.length) return {};
   const nm = n => n === 'TN' ? (useOc ? ocName : '') : n || '';
   let place = '';
   const texts = d.script.map(x => {

@@ -163,7 +163,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   const ur = await fetch(URL_ + '/auth/v1/user', { headers: { apikey: ANON, Authorization: auth } });
   if (!ur.ok) return json({ error: 'auth' }, 401);
   const user = await ur.json();
-  let body: { action?: string; mode?: string; message?: string; text?: string; title?: string; synopsis?: string; genre?: string; hist?: Array<{ r?: string; c?: string }>; place?: string; list?: boolean; chapter_id?: string; story_id?: string; name?: string; emo?: string; slot?: number; desc?: string; ref?: string; me?: string; oc?: { name?: string; img?: string; hair?: string; eyes?: string } } = {}; try { body = await req.json(); } catch { /* vacío */ }
+  let body: { action?: string; variant?: number; mode?: string; message?: string; text?: string; title?: string; synopsis?: string; genre?: string; hist?: Array<{ r?: string; c?: string }>; place?: string; list?: boolean; chapter_id?: string; story_id?: string; name?: string; emo?: string; slot?: number; desc?: string; ref?: string; me?: string; oc?: { name?: string; img?: string; hair?: string; eyes?: string } } = {}; try { body = await req.json(); } catch { /* vacío */ }
   if (!['script', 'cg', 'sprite', 'bg', 'bglib', 'editor', 'whoami'].includes(String(body.action))) return json({ error: 'action' }, 400);
   if (!TOKEN) return json({ mock: true });                                            // sin llave: no se hace ni se gasta nada
   const H = { apikey: SVC, Authorization: 'Bearer ' + SVC, 'Content-Type': 'application/json' };
@@ -295,14 +295,17 @@ async function run(req: Request, env: Env): Promise<Response> {
   // ---- Fondo de un lugar (uno por llamada: Replicate limita las peticiones y así la lectura nunca espera) ----
   if (body.action === 'bg') {
     const pl = String(body.place || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').slice(0, 40); if (!pl) return json({ error: 'place' }, 400);
-    const have = (await cachedAssets())[pl]; if (have) return json({ url: have, cached: true });
+    let vr = Math.max(0, Math.min(1000, Math.floor(Number(body.variant) || 0)));
+    if (vr > 0) { const cr2 = await fetch(`${URL_}/rest/v1/vn_assets?chapter_id=eq.${cid}&hash=eq.${hash}&key=like.n:*&select=key`, { method: 'HEAD', headers: { ...H, Prefer: 'count=exact' } }), t2 = Number((cr2.headers.get('content-range') || '').split('/')[1]); if (!(Number.isFinite(t2) && vr <= Math.floor(t2 / 100))) vr = 0; }   // no se puede pedir una variante que todavía no toca
+    const pk = vr > 0 ? `${pl}-v${vr}` : pl;
+    const have = (await cachedAssets())[pk]; if (have) return json({ url: have, cached: true });
     const stop = await budget(); if (stop) return stop;
     try {
       const u = await genBgUrl(env, TOKEN, pl.replace(/-/g, ' '));
       if (!u) return json({ failed: true, why: 'sin imagen' });
       await spend('background', num('VN_COST_BG', 0.004), pl);
-      const pu = await persist(URL_, H, u, `ai/bg/${String(cid).slice(0, 8)}-${hash.slice(0, 12)}-${pl}`);
-      await fetch(`${URL_}/rest/v1/vn_assets`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ chapter_id: cid, hash, key: pl, url: pu }) });
+      const pu = await persist(URL_, H, u, `ai/bg/${String(cid).slice(0, 8)}-${hash.slice(0, 12)}-${pk}`);
+      await fetch(`${URL_}/rest/v1/vn_assets`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ chapter_id: cid, hash, key: pk, url: pu }) });
       return json({ url: pu });
     } catch (e) { console.error('fondo', pl, e); await spend('retry', 0.002, ('fondo falló ' + pl + ': ' + (e && (e as Error).message || e)).slice(0, 240)); return json({ failed: true, why: String(e && (e as Error).message || e).slice(0, 160) }); }
   }
@@ -310,8 +313,16 @@ async function run(req: Request, env: Env): Promise<Response> {
   if (body.action === 'script') {
     const cref = 'chapter:' + cid + ':' + hash;
     { const no = await charge('chapter', cref, false, 24); if (no) return no; }          // todas las personas pagan el capítulo una vez (aunque el guion ya esté preparado)
+    // Cada 100 lecturas el siguiente lector crea fondos nuevos y las 100 siguientes los reciben guardados.
+    // Se cuenta con filas-marca en vn_assets (key "n:<id>"): sin SQL nuevo. Lectura #1..#100 -> variante 0; #101..#200 -> variante 1; etc.
+    let variant = 0;
+    try {
+      const cr = await fetch(`${URL_}/rest/v1/vn_assets?chapter_id=eq.${cid}&hash=eq.${hash}&key=like.n:*&select=key`, { method: 'HEAD', headers: { ...H, Prefer: 'count=exact' } });
+      const tot = Number((cr.headers.get('content-range') || '').split('/')[1]); variant = Number.isFinite(tot) && tot >= 0 ? Math.floor(tot / 100) : 0;
+      await fetch(`${URL_}/rest/v1/vn_assets`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify({ chapter_id: cid, hash, key: 'n:' + crypto.randomUUID(), url: '-' }) });
+    } catch (e) { console.error('variante', e); }
     const got = await fetch(`${URL_}/rest/v1/vn_scripts?chapter_id=eq.${cid}&hash=eq.${hash}&select=script`, { headers: H });
-    const have = got.ok ? (await got.json())[0] : null; if (have) return json({ script: have.script, assets: await cachedAssets(), cached: true });     // ya preparado por la primera persona que lo leyó
+    const have = got.ok ? (await got.json())[0] : null; if (have) return json({ script: have.script, assets: {}, variant, cached: true });     // ya preparado por la primera persona que lo leyó
     const stop = await budget(); if (stop) { await refund(cref); return stop; }
     const cs = await fetch(`${URL_}/rest/v1/vn_characters?story_id=eq.${ch.story_id}&select=name`, { headers: H }), cast = (cs.ok ? await cs.json() : []).map((c: { name: string }) => c.name); if (!cast.includes('TN')) cast.push('TN');   // TN = la persona que lee (la app lo cambia por el nombre de su OC)
     const es = await fetch(`${URL_}/rest/v1/vn_emotions?select=key`, { headers: H }), emos = (es.ok ? await es.json() : []).map((e: { key: string }) => e.key);
@@ -331,7 +342,7 @@ async function run(req: Request, env: Env): Promise<Response> {
     }
     if (!script) { await refund(cref); return json({ error: 'bad_script' }, 502); }                              // el cliente sigue con su guion de prueba
     await fetch(`${URL_}/rest/v1/vn_scripts`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ chapter_id: cid, hash, script }) });
-    return json({ script, assets: {} });                                                                  // los fondos se piden aparte, uno por uno (action 'bg')
+    return json({ script, assets: {}, variant });                                                                  // los fondos se piden aparte, uno por uno (action 'bg')
   }
 
   // ---- CG ----
