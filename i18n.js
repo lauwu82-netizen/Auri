@@ -2380,5 +2380,15 @@ window.I18N = { en: {
   "Fondo creado. Ajústalo y guárdalo.": "Background created. Adjust it and save it.",
   "Solo puedo crear fondos en tus propios libros guardados en tu cuenta.": "I can only create backgrounds in your own books saved to your account.",
   "No se pudo crear el fondo.": "Could not create the background.",
-  "No se pudo crear un fondo.": "Could not create a background."
+  "No se pudo crear un fondo.": "Could not create a background.",
+  "Compatible con novela visual": "Visual novel compatible",
+  "Léelo con personajes, fondos y reacciones": "Read it with characters, backgrounds and reactions",
+  "Retomamos donde te quedaste": "Picking up where you left off",
+  "Empezar de nuevo": "Start over",
+  "Fin del capítulo {n}": "End of chapter {n}",
+  "Leer el capítulo {n}": "Read chapter {n}",
+  "Llegaste al final de lo publicado.": "You reached the end of what is published.",
+  "Ver el final": "See the ending",
+  "Leer este capítulo otra vez": "Read this chapter again",
+  "Volver al libro": "Back to the book"
 } };

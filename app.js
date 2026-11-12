@@ -3150,6 +3150,7 @@ function storyDetail(s, mine) {
   <a class="button read-cta" data-replace data-dir="next" ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} href="#/story/${esc(s.id)}/${next.idx + 1}">${!read.length && !at ? t('Empezar a leer') : all ? t('Leer otra vez') : t('Continuar: cap. {n}', { n: next.idx + 1 })}</a>
   ${vnReadBtn(s, next)}
   <div class="row-btns"><button type="button" class="ic-btn like-btn ${likes(s.id).includes(S.user) ? 'on' : ''}" data-act="like" data-id="${esc(s.id)}" aria-pressed="${likes(s.id).includes(S.user)}" aria-label="${esc(likes(s.id).includes(S.user) ? t('Quitar me gusta') : t('Me gusta'))}" title="${esc(t('Me gusta'))}">${HEART}</button><button type="button" class="ic-btn fav-btn ${fav ? 'on' : ''}" data-act="fav" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(fav ? t('En favoritos') : t('Favorito'))}" title="${esc(t('Favorito'))}"><svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.85 5.78 6.38.93-4.62 4.5 1.09 6.35L12 17.36l-5.7 3 1.09-6.35-4.62-4.5 6.38-.93L12 2.8z"/></svg></button><button class="button secondary" data-act="lib-toggle" data-id="${esc(s.id)}">${S.lib.includes(s.id) ? '✓ ' + t('En tu biblioteca') : '📚 ' + t('Guardar en biblioteca')}</button>${mine ? `<a class="ic-btn edit-btn" href="#/write/${esc(s.id)}" aria-label="${esc(t('Editar'))}" title="${esc(t('Editar'))}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19l-4 1z"/><path d="m14.5 6.5 3 3"/></svg></a>` : ''}</div></div>
+  ${s.vn || VNF[s.id] ? `<div class="vn-badge" role="note"><span class="vn-badge-ic" aria-hidden="true">✦</span><span><b>${t('Compatible con novela visual')}</b><small>${t('Léelo con personajes, fondos y reacciones')}</small></span></div>` : ''}
   <p class="detail-syn">${esc(s.synopsis)}</p>
   ${s.mature ? `<div class="adult-box"><span class="adult-badge">+18</span><div><b>${t('Contenido para adultos')}</b><small>${t('Esta historia es solo para mayores de 18 años.')}</small></div></div>` : ''}
   <div class="tags" style="justify-content:center">${tagChips(s.tags)}</div>
@@ -6177,14 +6178,34 @@ async function vnrBoot(sid, n) {
   el.querySelector('[data-vnadj]').onclick = () => vnrAdjust(el);
   let rt = 0; const re = () => { clearTimeout(rt); rt = setTimeout(() => { if (!document.body.contains(el) || !VNR || VNR.sid !== sid) return window.removeEventListener('resize', re); const cur = VNR.pages[VNR.i] || { si: 0, off: 0 }; VNR.pages = vnrPaginate(el); let j = 0; VNR.pages.forEach((p, k) => { if (p.si < cur.si || (p.si === cur.si && p.off <= cur.off)) j = k; }); VNR.i = j; vnrDraw(); }, 200); };
   window.addEventListener('resize', re);
-  vnrDraw();
+  vnpRestore(el); vnrDraw();
 }
 /** Registra el chat del capítulo (igual que en la lectura normal) y devuelve su clave para abrirlo */
 function chatKeyOf(v, sg) { const html = chatCard(sg.cht, !!v.s.useReaderCharacter, { sid: v.sid, ci: v.ch.idx }, sg.pi), m = /data-key="([^"]+)"/.exec(html); return m ? m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>') : ''; }
+/** Progreso de lectura (en este dispositivo): se guarda solo a cada toque y se retoma al volver. Se guarda la posición en el guion, no el número de página, porque las páginas cambian con el tamaño de pantalla. */
+const vnpKey = v => v.sid + ':' + v.ch.idx;
+function vnpSave() { if (!VNR || !VNR.started) return; const pg = VNR.pages[VNR.i]; if (!pg || VNR.i < 1) return; const m = LS.get(uk('vnprog'), {}); m[vnpKey(VNR)] = { si: pg.si | 0, off: pg.off | 0, t: Date.now() }; LS.set(uk('vnprog'), m); }
+function vnpClear(v) { const m = LS.get(uk('vnprog'), {}); if (m[vnpKey(v)]) { delete m[vnpKey(v)]; LS.set(uk('vnprog'), m); } }
+function vnpRestore(el) {
+  const sv = (LS.get(uk('vnprog'), {}) || {})[vnpKey(VNR)]; if (!sv) return; let j = 0; VNR.pages.forEach((p, k) => { if (p.si < sv.si || (p.si === sv.si && p.off <= sv.off)) j = k; });
+  if (j < 1 || j >= VNR.pages.length - 1) return; VNR.i = j;
+  const b = document.createElement('div'); b.className = 'vnr-resume'; b.innerHTML = `<span>${t('Retomamos donde te quedaste')}</span><button type="button">${t('Empezar de nuevo')}</button>`; el.appendChild(b);
+  const off = () => b.remove(); b.querySelector('button').onclick = ev => { ev.stopPropagation(); VNR.i = 0; vnpClear(VNR); vnrDraw(); off(); }; setTimeout(off, 7000);
+}
+/** Final del capítulo: tarjeta en vez de saltar sola al siguiente */
+function vnrEnd() {
+  const el = document.querySelector('.vnr'); if (!el || !VNR || el.querySelector('.vnr-end')) return; vnpClear(VNR);
+  const nx = VNR.next, sid = VNR.sid, n = VNR.n, d = document.createElement('div'); d.className = 'vnr-end';
+  d.innerHTML = `<div class="vnr-end-box"><small>${t('Fin del capítulo {n}', { n })}</small><h2>${esc(VNR.ch.title || '')}</h2>
+  ${nx ? `<button type="button" class="button" data-e="next">${t('Leer el capítulo {n}', { n: n + 1 })} →</button>` : `<p>${t('Llegaste al final de lo publicado.')}</p><button type="button" class="button" data-e="fin">${t('Ver el final')}</button>`}
+  <button type="button" class="button ghost" data-e="again">${t('Leer este capítulo otra vez')}</button><button type="button" class="button ghost" data-e="book">${t('Volver al libro')}</button></div>`;
+  el.appendChild(d); d.addEventListener('click', ev => { ev.stopPropagation(); const k = ev.target.closest('[data-e]'); if (!k) return; const a = k.dataset.e;
+    if (a === 'next') goReplace('/vnr/' + sid + '/' + (n + 1)); else if (a === 'fin') go('/story/' + sid + '/fin'); else if (a === 'book') go('/story/' + sid); else { d.remove(); VNR.i = 0; vnrDraw(); } });
+}
 function vnrGo(d) {
   if (!VNR) return; const j = VNR.i + d;
-  if (j < 0) return; if (j >= VNR.pages.length) { if (VNR.next) { goReplace('/vnr/' + VNR.sid + '/' + (VNR.n + 1)); } else go('/story/' + VNR.sid + '/fin'); return; }
-  VNR.i = j; vnrDraw(); const pg = VNR.pages[j]; if (d > 0 && pg && pg.chat && pg.key) chatOpen(pg.key);
+  if (j < 0) return; if (j >= VNR.pages.length) return vnrEnd();
+  VNR.i = j; vnpSave(); vnrDraw(); const pg = VNR.pages[j]; if (d > 0 && pg && pg.chat && pg.key) chatOpen(pg.key);
 }
 /** Una persona que no es Owner aceptó gastar gemas en este CG */
 function vnrCgBuy(pg) {

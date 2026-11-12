@@ -2893,3 +2893,16 @@ html.lite .amb{display:none}
 
 .vb-ai{margin:12px 0;display:grid;gap:8px}
 .vb-ai small{opacity:.75;margin-left:4px}
+
+/* Etiqueta "compatible con novela visual" y final de capítulo */
+.vn-badge{display:flex;gap:12px;align-items:center;justify-content:center;margin:12px auto;padding:10px 16px;max-width:420px;border-radius:18px;border:1px solid rgba(190,150,255,.45);background:linear-gradient(135deg,rgba(130,90,220,.22),rgba(230,130,200,.16))}
+.vn-badge-ic{width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#e879c9);color:#fff;font-size:16px}
+.vn-badge b{display:block;font-size:14px}.vn-badge small{display:block;opacity:.75;font-size:12px}
+.vnr-resume{position:absolute;top:calc(env(safe-area-inset-top,0px) + 54px);left:50%;transform:translateX(-50%);z-index:6;display:flex;gap:10px;align-items:center;padding:8px 14px;border-radius:99px;background:rgba(20,14,36,.82);color:#fff;font-size:13px;white-space:nowrap;animation:vnrfade .6s ease both}
+.vnr-resume button{border:0;background:transparent;color:#d9bfff;font:inherit;text-decoration:underline;cursor:pointer}
+.vnr-end{position:absolute;inset:0;z-index:7;display:grid;place-items:center;background:rgba(12,8,24,.72);backdrop-filter:blur(6px);animation:vnrfade .8s ease both}
+.vnr-end-box{display:grid;gap:10px;justify-items:center;text-align:center;padding:24px;max-width:340px;width:86%;color:#fff}
+.vnr-end-box small{opacity:.8;letter-spacing:.04em}.vnr-end-box h2{margin:0 0 6px;font-family:Georgia,serif}.vnr-end-box .button{width:100%}
+@keyframes vnrfade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.vnr-resume,.vnr-end{animation:none}}
+.vnr-end .button.ghost{color:#eadfff;opacity:1}
