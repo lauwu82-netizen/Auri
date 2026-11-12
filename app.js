@@ -5478,7 +5478,7 @@ document.addEventListener('click', e => {
     'ce-bgdel': () => { if (CE) { CE.c.bg = ''; ceRender(); } },
     'ce-edit': () => { if (!CE) return; const x = CE.c.m[+id]; if (!x || x.call || x.sk || x.rx) return; if (x.ch) return chmOpen(+id); CE.ed = +id; const ta = $('#ce-txt'); if (ta) { ta.value = x.t; ta.focus(); } const bt = $('.ce-send .button'); if (bt) bt.textContent = t('Guardar'); ceRefresh(); },
     'story-menu': () => openStoryMenu(id),
-    'vn-toggle': () => vnToggle(), 'vn-seedbg': () => vnSeedBgs(document.querySelector('[data-act="vn-seedbg"]')), 'vn-add': () => vnEdit(null), 'vn-edit': () => vnEdit(id),
+    'vn-toggle': () => vnToggle(), 'vn-add': () => vnEdit(null), 'vn-edit': () => vnEdit(id), 'vnbg-add': () => vnBgEdit(null), 'vnbg-edit': () => vnBgEdit(id),
     'cr-close': () => crClose(), 'cr-all': () => crShowAll(), 'cr-pick': () => crPick(+id),
     'cr-nextchat': () => { const a = CR && crAfter(); crClose(); if (a && a.kind === 'chat') chatOpen(a.key); },
     'cr-nextchap': () => { const a = CR && crAfter(); crClose(); if (a) readNext(a.sid, a.ci); },
@@ -5781,9 +5781,9 @@ const VN_EMO = { neutral: 'Neutral', feliz: 'Happy', triste: 'Sad', sonrojado: '
 async function vnLoad(sid) {
   if (VN.busy) return; VN.busy = true; const u = sUuid(sid);
   try {
-    const [a, b, c] = await Promise.all([sbApi('/rest/v1/vn_emotions?select=*&order=sort'), sbApi('/rest/v1/vn_characters?select=*&story_id=eq.' + u + '&order=pos,created_at'), sbApi('/rest/v1/stories?select=vn,owner&id=eq.' + u)]);
+    const [a, b, c, d] = await Promise.all([sbApi('/rest/v1/vn_emotions?select=*&order=sort'), sbApi('/rest/v1/vn_characters?select=*&story_id=eq.' + u + '&order=pos,created_at'), sbApi('/rest/v1/stories?select=vn,owner&id=eq.' + u), sbApi('/rest/v1/vn_backgrounds?select=*&story_id=eq.' + u + '&order=created_at').catch(() => ({ ok: false }))]);
     if (!a.ok || !b.ok || !c.ok) { VN.err = /vn_/.test(JSON.stringify([a.data, b.data, c.data])) || /vn/.test(JSON.stringify(c.data || '')) ? t('Falta correr el SQL 40 en Supabase.') : t('No se pudo cargar. Revisa tu conexión.'); VN.ok = true; }
-    else { VN.emos = a.data; VN.chars = b.data; VN.vn = !!(c.data[0] && c.data[0].vn); VNF[sid] = VN.vn; VN.err = ''; VN.ok = true; }
+    else { VN.emos = a.data; VN.chars = b.data; VN.bgs = d && d.ok && Array.isArray(d.data) ? d.data : []; VN.vn = !!(c.data[0] && c.data[0].vn); VNF[sid] = VN.vn; VN.err = ''; VN.ok = true; }
   } catch (e) { VN.err = t('No se pudo cargar. Revisa tu conexión.'); VN.ok = true; }
   VN.busy = false; if ((location.hash || '').startsWith('#/vn/' + sid)) { KEEP = true; render(); }
 }
@@ -5794,11 +5794,12 @@ function vnView(sid) {
   if (!VN.ok) { vnLoad(sid); return `<main class="page"><p class="helper">${t('Cargando…')}</p></main>`; }
   const free = VN.emos.length;
   return `<main class="page vn"><div class="section-head"><div><a class="back" href="#/write/${esc(sid)}" data-dir="back">‹ ${t('Volver')}</a><h1>${t('Novela visual')}</h1><p>${esc(s.title || t('Sin título'))}</p></div></div>
-  ${isOwner() ? `<section class="panel"><button type="button" class="button" data-act="vn-seedbg">${t('Crear biblioteca de fondos')}</button><p class="helper" id="vn-seedmsg">${t('Solo Owner. Tarda unos minutos; deja esta pantalla abierta.')}</p></section>` : ''}
   ${VN.err ? `<p class="notice">${esc(VN.err)}</p>` : `<section class="panel"><div class="toggle-line" style="border:0;margin:0;padding:0"><div><strong>${t('Libro compatible con novela visual')}</strong><div class="helper">${t('Las personas podrán leerlo con personajes, fondos y reacciones.')}</div></div><button type="button" class="switch ${VN.vn ? 'on' : ''}" role="switch" aria-checked="${VN.vn}" aria-label="${esc(t('Libro compatible con novela visual'))}" data-act="vn-toggle"></button></div></section>
   <div class="section-head"><div><h2>${t('Personajes')}</h2><p>${tn(VN.chars.length, '{n} de 10 personaje', '{n} de 10 personajes')}</p></div>${VN.chars.length < 10 ? `<button type="button" class="button sm" data-act="vn-add">${t('Añadir personaje')}</button>` : ''}</div>
   <div class="vn-list">${VN.chars.map(c => { const n = Object.keys(c.sprites || {}).length, first = (c.sprites || {}).neutral || Object.values(c.sprites || {})[0];
-    return `<button type="button" class="panel vn-char" data-act="vn-edit" data-id="${esc(c.id)}"><span class="vn-av">${first ? `<img src="${esc(first)}" alt="" loading="lazy">` : ''}</span><span class="vn-info"><b>${esc(c.name)}</b><small>${n}/${free} ${t('emociones')}${c.adult ? '' : ' · ' + t('menor de edad')}</small></span></button>`; }).join('') || `<p class="helper">${t('Aún no hay personajes. Añade el primero y sube un sprite por emoción.')}</p>`}</div>`}</main>`;
+    return `<button type="button" class="panel vn-char" data-act="vn-edit" data-id="${esc(c.id)}"><span class="vn-av">${first ? `<img src="${esc(first)}" alt="" loading="lazy">` : ''}</span><span class="vn-info"><b>${esc(c.name)}</b><small>${n}/${free} ${t('emociones')}${c.adult ? '' : ' · ' + t('menor de edad')}</small></span></button>`; }).join('') || `<p class="helper">${t('Aún no hay personajes. Añade el primero y sube un sprite por emoción.')}</p>`}</div>
+  <div class="section-head"><div><h2>${t('Fondos')}</h2><p>${tn((VN.bgs || []).length, '{n} fondo', '{n} fondos')}</p></div><button type="button" class="button sm" data-act="vnbg-add">${t('Añadir fondo')}</button></div>
+  <div class="vb-grid">${(VN.bgs || []).map(b => `<button type="button" class="vb-th" data-act="vnbg-edit" data-id="${esc(b.id)}" style="background-image:url('${esc(String(b.url).replace(/'/g, ''))}');background-position:${b.pos_x}% ${b.pos_y}%"><small>${esc(b.place ? t(VN_PLACE_LABELS[b.place] || b.place) : t('Cualquier lugar'))}</small></button>`).join('') || `<p class="helper">${t('Sube tus fondos desde la galería y ajústalos. Sin fondos, la lectura usa la portada difuminada.')}</p>`}</div>`}</main>`;
 }
 async function vnToggle() {
   const v = !VN.vn, r = await sbApi('/rest/v1/stories?id=eq.' + sUuid(VN.sid), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { vn: v } });
@@ -5989,44 +5990,48 @@ function vnrPlaces(script, seed) {
   });
   return script;
 }
-/** Los fondos salen de una biblioteca global ya creada: leer es instantáneo y nunca llama a Replicate. */
-let VN_LIB = null;
-async function vnLib(force) {
-  if (VN_LIB && !force) return VN_LIB;
-  try { const r = await sbApi('/rest/v1/vn_bg_library?select=key,url'); if (r && r.ok && Array.isArray(r.data)) { VN_LIB = {}; r.data.forEach(x => { VN_LIB[x.key] = x.url; }); } } catch (e) { /* sin biblioteca: fondo difuminado */ }
-  return VN_LIB || {};
-}
+/** Fondos de la historia: los sube la autoría desde su galería. Cada lugar usa el suyo; si no hay, uno "para cualquier lugar"; si no hay ninguno, queda la portada difuminada. */
 async function vnrBgQueue(cu, onFirst) {
   const first = typeof onFirst === 'function' ? onFirst : () => {};
-  if (!VNR || !VNR.script) return first(); const v = VNR, lib = await vnLib();
-  if (VNR !== v) return first();
-  v.bgs = v.bgs || {}; v.script.forEach(b => { if (b.place && lib[b.place]) v.bgs[b.place] = lib[b.place]; });
+  if (!VNR || !VNR.script) return first(); const v = VNR; let rows = [];
+  try { const r = await sbApi('/rest/v1/vn_backgrounds?select=place,url,pos_x,pos_y,zoom&story_id=eq.' + sUuid(v.sid) + '&order=created_at'); if (r && r.ok && Array.isArray(r.data)) rows = r.data; } catch (e) { /* sin fondos */ }
+  if (VNR !== v || !rows.length) return first();
+  const any = rows.filter(x => !x.place), by = {}; rows.forEach(x => { if (x.place && !by[x.place]) by[x.place] = x; });
+  v.bgs = v.bgs || {}; v.bgAdj = v.bgAdj || {};
+  v.script.forEach(b => { const pl = b.place; if (!pl || v.bgs[pl]) return; const row = by[pl] || (any.length ? any[[...pl].reduce((q, ch) => q + ch.charCodeAt(0), 0) % any.length] : null); if (row) { v.bgs[pl] = row.url; v.bgAdj[row.url] = { x: row.pos_x, y: row.pos_y, z: row.zoom }; } });
   const pg = v.pages[v.i]; if (pg && pg.place && v.bgs[pg.place]) vnrDraw();
   first();
 }
-/** Solo la Owner: crea los fondos que faltan en la biblioteca, uno por uno y con pausa. */
-async function vnSeedBgs(btn) {
-  if (!isOwner() || !btn || btn.dataset.busy) return; btn.dataset.busy = '1';
-  const say = x => { btn.textContent = x; };
-  try {
-    const l = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'bglib', list: true } });
-    const keys = (l && l.ok && l.data && l.data.keys) || []; if (!keys.length) { say(t('No se pudo iniciar')); delete btn.dataset.busy; return; }
-    let lib = await vnLib(true), done = 0, fail = 0;
-    for (const k of keys) {
-      if (lib[k]) { done++; continue; }
-      say(t('Creando fondos…') + ' ' + done + '/' + keys.length);
-      let ok = false;
-      for (let i = 0; i < 3 && !ok; i++) {
-        let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'bglib', place: k } }); } catch (e) { r = null; }
-        if (r && r.ok && r.data && r.data.url) { ok = true; lib[k] = r.data.url; } else { const m = document.getElementById('vn-seedmsg'); if (m) m.textContent = k + ': ' + ((r && r.data && (r.data.why || r.data.error)) || (r ? 'HTTP ' + r.status : 'sin respuesta')); } if (!ok) await new Promise(res => setTimeout(res, 20000));
-      }
-      if (ok) done++; else fail++;
-      await new Promise(res => setTimeout(res, 12000));
-    }
-    VN_LIB = lib; say(fail ? t('Faltan') + ' ' + fail + ' · ' + t('Reintentar') : t('Biblioteca lista'));
-    toast(fail ? t('Faltaron algunos fondos. Pulsa de nuevo para reintentar.') : t('Biblioteca de fondos lista'));
-  } catch (e) { say(t('No se pudo iniciar')); }
-  delete btn.dataset.busy;
+const VN_PLACE_LABELS = { 'cozy-cafe': 'Cafetería', 'library': 'Biblioteca', 'workshop': 'Taller', 'school-hallway': 'Pasillo', 'school-classroom': 'Salón de clases', 'university-campus': 'Universidad', 'bedroom': 'Habitación', 'kitchen': 'Cocina', 'living-room': 'Sala', 'park': 'Parque', 'city-street-evening': 'Calle', 'beach': 'Playa', 'forest': 'Bosque', 'gothic-church': 'Iglesia', 'hospital-room': 'Hospital', 'rooftop': 'Azotea', 'nightclub-stage': 'Club', 'office': 'Oficina', 'garden': 'Jardín', 'cemetery': 'Cementerio', 'train-station': 'Estación', 'mansion-interior': 'Mansión', 'home-interior': 'Casa' };
+/** Añadir o editar un fondo: se elige desde la galería, se ajusta (posición y zoom) y se vincula a un lugar. */
+function vnBgEdit(id) {
+  const cur = id ? (VN.bgs || []).find(x => x.id === id) : null, m = document.createElement('div'); m.className = 'modal sheet';
+  let url = cur ? cur.url : '', px = cur ? cur.pos_x : 50, py = cur ? cur.pos_y : 50, zm = cur ? cur.zoom : 100;
+  const st = () => url ? `background-image:url("${String(url).replace(/["\\\n]/g, '')}");background-position:${px}% ${py}%;background-size:${zm > 100 ? zm + '%' : 'cover'}` : '';
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${cur ? t('Editar fondo') : t('Nuevo fondo')}</h2>
+  <label class="button secondary" style="display:block;text-align:center">${t('Elegir de la galería')}<input type="file" accept="image/*" hidden id="vb-file"></label>
+  <div class="vb-prev"><div class="vb-v" id="vb-v" style="${st()}"></div><div class="vb-h" id="vb-h" style="${st()}"></div></div><p class="helper">${t('Vista previa vertical y horizontal: así se verá en pantalla completa.')}</p>
+  <label class="field"><span>${t('Horizontal')}</span><input type="range" id="vb-x" min="0" max="100" value="${px}"></label>
+  <label class="field"><span>${t('Vertical')}</span><input type="range" id="vb-y" min="0" max="100" value="${py}"></label>
+  <label class="field"><span>${t('Zoom')}</span><input type="range" id="vb-z" min="100" max="250" value="${zm}"></label>
+  <label class="field vnf"><span>${t('Lugar')}</span><select id="vb-pl"><option value="">${t('Cualquier lugar')}</option>${Object.keys(VN_PLACE_LABELS).map(k => `<option value="${k}" ${cur && cur.place === k ? 'selected' : ''}>${esc(t(VN_PLACE_LABELS[k]))}</option>`).join('')}</select></label>
+  <p class="helper">${t('Si el capítulo menciona ese lugar, se usa este fondo. "Cualquier lugar" se usa cuando no hay uno específico.')}</p>
+  <p class="notice" data-err hidden></p>
+  <div class="modal-actions">${cur ? `<button type="button" class="button ghost" id="vb-del">${t('Eliminar')}</button>` : ''}<button type="button" class="button ghost" data-close>${t('Cancelar')}</button><button type="button" class="button" id="vb-save">${t('Guardar')}</button></div></div>`;
+  document.body.appendChild(m);
+  const q = x => m.querySelector(x), err = m.querySelector('[data-err]'), paint = () => { q('#vb-v').setAttribute('style', st()); q('#vb-h').setAttribute('style', st()); };
+  const showErr = x => { err.textContent = x; err.hidden = !x; };
+  m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-close]')) m.remove(); });
+  q('#vb-x').oninput = e => { px = +e.target.value; paint(); }; q('#vb-y').oninput = e => { py = +e.target.value; paint(); }; q('#vb-z').oninput = e => { zm = +e.target.value; paint(); };
+  q('#vb-file').onchange = ev => { const f = ev.target.files[0]; if (!f) return; showErr(''); fitPhoto(f, 1600, 1600, async d => { toast(t('Subiendo la foto…')); const u = await sbUpImg(d); if (!u) return showErr(t('No se pudo subir la imagen. Inténtalo otra vez.')); url = u; paint(); }); };
+  q('#vb-save').onclick = async () => {
+    if (!url) return showErr(t('Elige una imagen de tu galería.'));
+    const body = { place: q('#vb-pl').value, url, pos_x: px, pos_y: py, zoom: zm };
+    const r = cur ? await sbApi('/rest/v1/vn_backgrounds?id=eq.' + cur.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body }) : await sbApi('/rest/v1/vn_backgrounds', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: { ...body, story_id: sUuid(VN.sid) } });
+    if (!r.ok) return showErr(/vn_backgrounds/.test(JSON.stringify(r.data || '')) ? t('Falta correr el SQL 50 en Supabase.') : t('No se pudo guardar.'));
+    m.remove(); VN.ok = false; VN.busy = false; vnLoad(VN.sid); toast(t('Fondo guardado'));
+  };
+  if (cur) q('#vb-del').onclick = async () => { if (!confirm(t('¿Eliminar este fondo?'))) return; const r = await sbApi('/rest/v1/vn_backgrounds?id=eq.' + cur.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); if (!r.ok) return showErr(t('No se pudo guardar.')); m.remove(); VN.ok = false; VN.busy = false; vnLoad(VN.sid); };
 }
 /** Antes de leer: muestra cuántas gemas cuesta el capítulo y espera a que la persona acepte (la Owner y quien ya lo pagó entran directo). */
 async function vnrAsk(el, cu) {
@@ -6164,7 +6169,7 @@ function vnrDraw() {
   stage.querySelectorAll('.vnr-cgimg').forEach(x => x.remove());
   stage.classList.remove('dim');
   { const bg = el.querySelector('.vnr-bg'), u = pg.place && VNR.bgs && VNR.bgs[pg.place], cur = bg.dataset.u || '';
-    if (u && u !== cur) { bg.dataset.u = u; bg.classList.add('fade'); setTimeout(() => { bg.style.backgroundImage = `url("${String(u).replace(/["\\\n]/g, '')}")`; bg.classList.add('scene'); bg.classList.remove('fade'); }, 350); } }
+    if (u && u !== cur) { bg.dataset.u = u; bg.classList.add('fade'); setTimeout(() => { bg.style.backgroundImage = `url("${String(u).replace(/["\\\n]/g, '')}")`; const aj = (VNR && VNR.bgAdj && VNR.bgAdj[u]) || { x: 50, y: 50, z: 100 }; bg.style.setProperty('background-position', aj.x + '% ' + aj.y + '%', 'important'); bg.style.setProperty('background-size', aj.z > 100 ? aj.z + '%' : 'cover', 'important'); bg.classList.add('scene'); bg.classList.remove('fade'); }, 350); } }
   const on = (pg.stage || []).slice(); VNR.order = VNR.order.filter(n => on.includes(n)); on.forEach(n => { if (!VNR.order.includes(n)) VNR.order.push(n); });
   const xs = vnrXs(VNR.order.length), have = new Map([...stage.children].map(c => [c.dataset.n, c]));
   have.forEach((c, n) => { if (!VNR.order.includes(n)) c.remove(); });
