@@ -5010,7 +5010,7 @@ let TYPEAT = 0;   // última vez que se escribió: solo entonces la pantalla sig
 function followCaret(force) {
   cancelAnimationFrame(FOLLOWQ);
   FOLLOWQ = requestAnimationFrame(() => {
-    const ta = $('#w-ch-text'); if (!ta || document.activeElement !== ta) return; if (!force && Date.now() - TYPEAT > 1200) return;
+    const ta = $('#w-ch-text'); if (!ta || document.activeElement !== ta) return; if (!force && Date.now() - TYPEAT > 1200) return; kbVar();
     const vv = window.visualViewport, vt = vv ? vv.offsetTop : 0, vh = vv ? vv.height : window.innerHeight;
     const lh = parseFloat(getComputedStyle(ta).lineHeight) || 32, y = ta.getBoundingClientRect().top + caretBottom(ta);
     const bar = $('.wf .fmt-bar'), br = bar && bar.offsetParent !== null ? bar.getBoundingClientRect() : null, floor = br && br.height > 0 && br.top > vt ? Math.min(br.top, vt + vh) : vt + vh;   // la línea que escribes debe quedar ARRIBA de la barra de formato (A, Chat, CG…), no detrás
@@ -5029,10 +5029,11 @@ function kbVar() {
   const bar = w.querySelector('.fmt-bar'), bh = bar ? bar.offsetHeight || 54 : 54;   // la barra se coloca justo encima del teclado, midiendo la parte visible real
   w.style.setProperty('--bt', Math.max(0, (vv ? vv.offsetTop + vv.height : window.innerHeight) - bh) + 'px'); w.style.setProperty('--bh', bh + 'px');
 }
-document.addEventListener('focusin', e => { if (e.target.id === 'w-ch-text') { setTyping(true); setTimeout(followCaret, 120); setTimeout(followCaret, 420); setTimeout(followCaret, 800); } });
+document.addEventListener('focusin', e => { if (e.target.id === 'w-ch-text') { setTyping(true); [120, 420, 800].forEach(ms => setTimeout(() => followCaret(true), ms)); } });
 document.addEventListener('focusout', e => { if (e.target.id === 'w-ch-text') setTyping(false); });
 document.addEventListener('selectionchange', () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') followCaret(); });
-if (window.visualViewport) { const f = () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { kbVar(); followCaret(); } }; window.visualViewport.addEventListener('resize', () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { kbVar(); followCaret(true); setTimeout(() => followCaret(true), 350); } }); }
+if (window.visualViewport) { const f = () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { kbVar(); followCaret(); } }; window.visualViewport.addEventListener('resize', () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { kbVar(); followCaret(true); setTimeout(() => followCaret(true), 350); } });
+  window.visualViewport.addEventListener('scroll', () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') kbVar(); }); }       // la barra de formato sigue pegada al teclado cuando iOS mueve la vista (sin tirar del cursor)
 /* --- Transiciones suaves entre pantallas (CSS + un poco de JS) --- */
 let NAVDIR = '';                                       // 'next' | 'prev' | '' → desliza hacia la derecha, hacia la izquierda o solo desvanece
 const BARS = {};                                       // último % mostrado de cada barra, para que se llenen con animación
