@@ -5006,10 +5006,11 @@ function caretBottom(ta, full) {
 }
 /** La pantalla sigue al cursor: si queda tapado por el teclado (o pegado arriba), se desliza lo justo para verlo con un poco de aire */
 let FOLLOWQ = 0;
-function followCaret() {
+let TYPEAT = 0;   // última vez que se escribió: solo entonces la pantalla sigue al cursor (si la subes o bajas con el dedo, no te devuelve)
+function followCaret(force) {
   cancelAnimationFrame(FOLLOWQ);
   FOLLOWQ = requestAnimationFrame(() => {
-    const ta = $('#w-ch-text'); if (!ta || document.activeElement !== ta) return;
+    const ta = $('#w-ch-text'); if (!ta || document.activeElement !== ta) return; if (!force && Date.now() - TYPEAT > 1200) return;
     const vv = window.visualViewport, vt = vv ? vv.offsetTop : 0, vh = vv ? vv.height : window.innerHeight;
     const lh = parseFloat(getComputedStyle(ta).lineHeight) || 32, y = ta.getBoundingClientRect().top + caretBottom(ta);
     const bar = $('.wf .fmt-bar'), bh = bar && bar.closest('.typing') ? bar.offsetHeight : 0, bottom = vt + vh - bh - lh * 1.5, top = vt + 64 + lh;
@@ -5030,7 +5031,7 @@ function kbVar() {
 document.addEventListener('focusin', e => { if (e.target.id === 'w-ch-text') { setTyping(true); setTimeout(followCaret, 120); setTimeout(followCaret, 420); setTimeout(followCaret, 800); } });
 document.addEventListener('focusout', e => { if (e.target.id === 'w-ch-text') setTyping(false); });
 document.addEventListener('selectionchange', () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') followCaret(); });
-if (window.visualViewport) { const f = () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { kbVar(); followCaret(); } }; window.visualViewport.addEventListener('resize', f); window.visualViewport.addEventListener('scroll', f); }
+if (window.visualViewport) { const f = () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { kbVar(); followCaret(); } }; window.visualViewport.addEventListener('resize', () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { kbVar(); followCaret(true); } }); }
 /* --- Transiciones suaves entre pantallas (CSS + un poco de JS) --- */
 let NAVDIR = '';                                       // 'next' | 'prev' | '' → desliza hacia la derecha, hacia la izquierda o solo desvanece
 const BARS = {};                                       // último % mostrado de cada barra, para que se llenen con animación
@@ -5559,7 +5560,7 @@ document.addEventListener('input', e => {
   if (CE && e.target.id === 'ce-name') { if (CE.c.k === 'g') CE.c.n = e.target.value; else { CE.c.p[0].n = CE.c.n = e.target.value; const ch = $('.ce-chip[data-id="0"]'); if (ch) ch.textContent = e.target.value || t('Personaje'); } return; }
   if (CE && e.target.classList && e.target.classList.contains('ce-pn')) { const i = +e.target.dataset.i; if (CE.c.p[i]) CE.c.p[i].n = e.target.value; const ch = $('.ce-chip[data-id="' + i + '"]'); if (ch) ch.textContent = e.target.value || t('Personaje'); return; }
   if (CE && e.target.id === 'ce-txt') { CE.txt = e.target.value; e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; return; }
-  if (e.target.id === 'w-ch-text') { $('#w-count').textContent = wc(e.target.value); autoGrow(); followCaret(); }
+  if (e.target.id === 'w-ch-text') { TYPEAT = Date.now(); $('#w-count').textContent = wc(e.target.value); autoGrow(); followCaret(); }
   if (['w-ch-text', 'w-ch-title', 'w-ch-music'].includes(e.target.id)) {            // guardado automático mientras escribes
     const sv = $('#w-saved'); if (sv) sv.textContent = '';
     clearTimeout(ASV); ASV = setTimeout(() => { autosave(); const v = $('#w-saved'); if (v && W) v.textContent = t('Guardado ✓'); }, 1200);
