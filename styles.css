@@ -1645,6 +1645,7 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .ch-orn i:last-child,.scene-sep i:last-child{background:linear-gradient(270deg,transparent,hsl(var(--primary)/.55))}
 .sp-mid{flex:none;display:block;color:hsl(var(--primary)/.85)}.sp-mid svg{display:block;width:44px;height:24px}.ch-orn .sp-mid svg{width:30px;height:16px}
 .sp-dots i{display:none}.sp-dots{max-width:120px}
+.sp-fundador .sp-mid{color:#d9a21f}.sp-fundador i{background:linear-gradient(90deg,transparent,rgba(217,162,31,.6))!important}.sp-fundador i:last-child{background:linear-gradient(270deg,transparent,rgba(217,162,31,.6))!important}
 .scene-sep{margin:2.1em auto;max-width:260px}
 [data-dropcap="1"] .rf-body .reader-text .dc-l{float:left;font-family:var(--serif);font-weight:600;font-size:3.3em;line-height:.82;padding:.06em .1em 0 0;color:hsl(var(--primary))}
 .dc-pu{font-style:normal;font-weight:500;font-size:.4em;vertical-align:top;line-height:1.5;margin-right:.1em}

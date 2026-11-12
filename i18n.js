@@ -2411,5 +2411,7 @@ window.I18N = { en: {
   "Puesto 1 · gatito morado": "1st place · purple kitten",
   "Puesto 2 · gatito azul": "2nd place · blue kitten",
   "Puesto 3 · gatito rosa": "3rd place · pink kitten",
-  "Tu gatito fundador ya te espera en Editar perfil.": "Your founder kitten is waiting in Edit profile."
+  "Tu gatito fundador ya te espera en Editar perfil.": "Your founder kitten is waiting in Edit profile.",
+  "Estrellas fundadoras": "Founder stars",
+  "Fundador": "Founder"
 } };
