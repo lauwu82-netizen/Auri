@@ -86,7 +86,7 @@ const nameIn = (name: string, text: string) => name.trim().length > 1 && new Reg
 const firstUrl = (o: unknown): string => Array.isArray(o) ? String(o[0] || '') : typeof o === 'string' ? o : '';
 /** Crea UN fondo (sin personas). Por defecto Flux Schnell (oficial, barato, 16:9); VN_BG_MODEL puede cambiarlo. Devuelve la URL temporal de Replicate. */
 async function genBgUrl(env: Env, TOKEN: string, scene: string): Promise<string> {
-  const model = env.VN_BG_MODEL || 'black-forest-labs/flux-schnell', prompt = `anime visual novel background, ${scene}, no people, soft light, detailed, wide scene, no text`;
+  const model = env.VN_BG_MODEL || 'black-forest-labs/flux-schnell', inside = /interior|inside|indoor|dentro|classroom|hallway|library|bedroom|kitchen|living-room|office|hospital|church|cafe|workshop/i.test(scene) && !/exterior|outside|outdoor|courtyard|campus|street/i.test(scene), outside = /exterior|outside|outdoor|courtyard|campus|street|park|garden|beach|forest|rooftop/i.test(scene), where = inside ? 'indoors, the inside of the room with walls, ceiling, windows and furniture, NOT the building exterior' : outside ? 'outdoors, exterior view' : '', prompt = `anime visual novel background, ${scene}, ${where ? where + ', ' : ''}no people, soft light, detailed, wide scene, no text`;
   const input = /flux/i.test(model) ? { prompt, aspect_ratio: '16:9', num_outputs: 1, output_format: 'jpg' } : { prompt, negative_prompt: 'people, characters, text, watermark', width: 1024, height: 576 };
   return firstUrl(await replicate(model, input, TOKEN, 2));
 }
@@ -102,7 +102,7 @@ Reglas:
 - Un nombre dentro de lo que alguien dice es a quien le hablan, no quien habla.
 - "emo" es la emoción de quien habla (o del personaje principal del tramo).
 - "stage" son los personajes visibles: aparecen cuando llegan o hablan y se van cuando se retiran. Si la escena no menciona a nadie, "stage" es [].
-- "place" es un lugar corto en minúsculas con guiones (p. ej. "parque-tarde"); repítelo mientras no cambie.
+- "place" describe el LUGAR EXACTO donde están los personajes en ese momento, en inglés, minúsculas con guiones, máximo 55 caracteres. Indica SIEMPRE si están dentro o fuera: termina con "interior" o "exterior" seguido de la hora (day, evening o night). Si el texto dice que están DENTRO de un edificio (entran, están en un salón, en un pasillo, en una biblioteca…), usa "interior" y la estancia concreta (p. ej. "university-classroom-interior-day", "school-hallway-interior-evening"); si están en el patio, la calle o el campus, usa "exterior" (p. ej. "university-courtyard-exterior-day"). No uses el nombre del edificio solo: "university" sin estancia muestra la fachada. Repite el mismo valor mientras no cambien de lugar.
 - Los bloques que empiezan con :: no son texto: ignóralos.
 Responde SOLO con un arreglo JSON: [{"t":"…","who":"","emo":"neutral","stage":[],"place":"…"}]
 
@@ -118,7 +118,7 @@ function parseScript(raw: string, cast: string[], emos: string[]): Array<Record<
     const t = String(x.t || '').trim(); if (!t) continue;
     const who = cast.includes(String(x.who)) ? String(x.who) : '', emo = emos.includes(String(x.emo)) ? String(x.emo) : 'neutral';
     const stage = (Array.isArray(x.stage) ? x.stage : []).map(String).filter(n => cast.includes(n)).slice(0, 3);
-    out.push({ t, who, emo, stage, place: String(x.place || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').slice(0, 40) });
+    out.push({ t, who, emo, stage, place: String(x.place || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').slice(0, 60) });
   }
   return out.length ? out : null;
 }
@@ -281,7 +281,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   const cr = await fetch(`${URL_}/rest/v1/chapters?id=eq.${cid}&select=id,story_id,title,text,status,stories(owner,mature)`, { headers: H });
   const ch = cr.ok ? (await cr.json())[0] : null; if (!ch) return json({ error: 'not_found' }, 404);
   if (ch.status !== 'approved' && ch.stories?.owner !== user.id) return json({ error: 'forbidden' }, 403);      // solo capítulos publicados (o los tuyos)
-  const hash = await sha256Hex((ch.title || '') + '\n' + (ch.text || ''));
+  const hash = await sha256Hex('v2\n' + (ch.title || '') + '\n' + (ch.text || ''));
   const num = (k: string, d: number) => Number(env[k]) > 0 ? Number(env[k]) : d;
 
   async function budget() { const b = await rpc('vn_budget_ok', { p_uid: user.id }); return b && b.ok ? null : json({ error: 'budget', reason: b ? b.reason : 'unknown' }, 429); }
@@ -294,7 +294,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   };
   // ---- Fondo de un lugar (uno por llamada: Replicate limita las peticiones y así la lectura nunca espera) ----
   if (body.action === 'bg') {
-    const pl = String(body.place || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').slice(0, 40); if (!pl) return json({ error: 'place' }, 400);
+    const pl = String(body.place || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').slice(0, 60); if (!pl) return json({ error: 'place' }, 400);
     let vr = Math.max(0, Math.min(1000, Math.floor(Number(body.variant) || 0)));
     if (vr > 0) { const cr2 = await fetch(`${URL_}/rest/v1/vn_assets?chapter_id=eq.${cid}&hash=eq.${hash}&key=like.n:*&select=key`, { method: 'HEAD', headers: { ...H, Prefer: 'count=exact' } }), t2 = Number((cr2.headers.get('content-range') || '').split('/')[1]); if (!(Number.isFinite(t2) && vr <= Math.floor(t2 / 100))) vr = 0; }   // no se puede pedir una variante que todavía no toca
     const pk = vr > 0 ? `${pl}-v${vr}` : pl;

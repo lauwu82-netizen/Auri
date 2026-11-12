@@ -6030,7 +6030,7 @@ function vnrPaginate(el) {
 /** Lugares que se detectan en el texto sin IA (por palabras): sirven de respaldo si el guion de la IA no llegó. */
 const VN_PLACES = [
   [/\b(cafeter[ií]a|caf[eé])\b/i, 'cozy-cafe'], [/\b(biblioteca)\b/i, 'library'], [/\b(taller)\b/i, 'workshop'], [/\b(pasillo|corredor)\b/i, 'school-hallway'],
-  [/\b(aula|sal[oó]n de clases?|clase|escuela|colegio|instituto|academia)\b/i, 'school-classroom'], [/\b(universidad|campus)\b/i, 'university-campus'],
+  [/\b(aula|sal[oó]n de clases?|clase|escuela|colegio|instituto|academia)\b/i, 'school-classroom'], [/\b(universidad)\b[^.]{0,80}\b(dentro|adentro|entr[oó]|entraron|aula|sal[oó]n|pasillo)\b|\b(dentro|adentro|entr[oó]|entraron)\b[^.]{0,80}\b(universidad)\b/i, 'university-classroom-interior-day'], [/\b(universidad|campus)\b/i, 'university-campus'],
   [/\b(habitaci[oó]n|cuarto|dormitorio|cama)\b/i, 'bedroom'], [/\b(cocina)\b/i, 'kitchen'], [/\b(sala de estar|sof[aá]|living)\b/i, 'living-room'],
   [/\b(parque|banca)\b/i, 'park'], [/\b(calle|acera|avenida)\b/i, 'city-street-evening'], [/\b(playa|arena|mar)\b/i, 'beach'], [/\b(bosque|sendero)\b/i, 'forest'],
   [/\b(iglesia|catedral|capilla)\b/i, 'gothic-church'], [/\b(hospital|enfermer[ií]a)\b/i, 'hospital-room'], [/\b(azotea|terraza|techo)\b/i, 'rooftop'],
@@ -6057,7 +6057,7 @@ async function vnrBgQueue(cu, prog) {
   const any = rows.filter(x => !x.place), by = {}; rows.forEach(x => { if (x.place && !by[x.place]) by[x.place] = x; });
   const use = (pl, row) => { v.bgs[pl] = row.url; v.bgAdj[row.url] = { x: row.pos_x, y: row.pos_y, z: row.zoom }; };
   const places = []; v.script.forEach(b => { if (b.place && !places.includes(b.place)) places.push(b.place); });
-  places.forEach(pl => { if (by[pl]) use(pl, by[pl]); });
+  places.forEach(pl => { const k = by[pl] ? pl : Object.keys(by).filter(q => pl.includes(q)).sort((a, b) => b.length - a.length)[0]; if (k) use(pl, by[k]); });     // el lugar de la IA puede ser más largo (p. ej. "school-classroom-interior-day"): vale el fondo tuyo cuyo lugar esté contenido
   const need = places.filter(pl => !v.bgs[pl]).slice(0, 4);
   if (need.length && cu && vnOn()) {
     let done = 0; note(0, need.length);
