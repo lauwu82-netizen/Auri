@@ -84,6 +84,12 @@ async function persist(URL_: string, H: Record<string, string>, src: string, pat
 }
 const nameIn = (name: string, text: string) => name.trim().length > 1 && new RegExp('(^|[^\\p{L}\\p{N}])' + name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}\\p{N}])', 'iu').test(text);
 const firstUrl = (o: unknown): string => Array.isArray(o) ? String(o[0] || '') : typeof o === 'string' ? o : '';
+/** Crea UN fondo (sin personas). Por defecto Flux Schnell (oficial, barato, 16:9); VN_BG_MODEL puede cambiarlo. Devuelve la URL temporal de Replicate. */
+async function genBgUrl(env: Env, TOKEN: string, scene: string): Promise<string> {
+  const model = env.VN_BG_MODEL || 'black-forest-labs/flux-schnell', prompt = `anime visual novel background, ${scene}, no people, soft light, detailed, wide scene, no text`;
+  const input = /flux/i.test(model) ? { prompt, aspect_ratio: '16:9', num_outputs: 1, output_format: 'jpg' } : { prompt, negative_prompt: 'people, characters, text, watermark', width: 1024, height: 576 };
+  return firstUrl(await replicate(model, input, TOKEN, 2));
+}
 
 /** Prompt que pide el guion en JSON. Las reglas son las de la novela visual de Auri. */
 function scriptPrompt(text: string, cast: string[], emos: string[]): string {
@@ -194,8 +200,8 @@ async function run(req: Request, env: Env): Promise<Response> {
         const fr = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(pq)}?width=1280&height=720&nologo=true&model=flux&seed=${Math.floor(Math.random() * 99999)}`);
         if (fr.ok && (fr.headers.get('content-type') || '').startsWith('image/')) { const buf = new Uint8Array(await fr.arrayBuffer()); if (buf.length > 5000 && buf.length < 5 * 1024 * 1024) { const ct = (fr.headers.get('content-type') || 'image/jpeg').split(';')[0], ext = ct === 'image/png' ? 'png' : 'jpg', pth = `ai/lib/${k}.${ext}`; const up = await fetch(`${URL_}/storage/v1/object/images/${pth}`, { method: 'POST', headers: { ...H, 'Content-Type': ct, 'x-upsert': 'true' }, body: buf }); if (up.ok) { const pu0 = `${URL_}/storage/v1/object/public/images/${pth}`; await fetch(`${URL_}/rest/v1/vn_bg_library`, { method: 'POST', headers: { ...H, Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify({ key: k, url: pu0 }) }); return json({ url: pu0, free: true }); } } }
       } catch (e) { console.error('pollinations', k, e); }
-      const o = await replicate(env.VN_BG_MODEL || 'stability-ai/sdxl', { prompt: pq, negative_prompt: 'people, characters, text, watermark', width: 1024, height: 576 }, TOKEN);
-      u = firstUrl(o); if (!u) return json({ failed: true, why: 'sin imagen' });
+      const o = await genBgUrl(env, TOKEN, BGP[k]);
+      u = o; if (!u) return json({ failed: true, why: 'sin imagen' });
       await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'background', p_cost: Number(env.VN_COST_BG) > 0 ? Number(env.VN_COST_BG) : 0.004, p_detail: 'biblioteca ' + k });
       const pu = await persist(URL_, H, u, `ai/lib/${k}`);
       await fetch(`${URL_}/rest/v1/vn_bg_library`, { method: 'POST', headers: { ...H, Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify({ key: k, url: pu }) });
@@ -245,6 +251,22 @@ async function run(req: Request, env: Env): Promise<Response> {
     if (!reply) { await refund(eref); return json({ error: 'failed', why }, 502); }
     return json({ reply, mode });
   }
+  // ---- Fondo con IA para una historia (desde el panel de novela visual): solo la autoría; nunca en libros +18 ----
+  if (body.action === 'bgmake') {
+    const sq2 = await fetch(`${URL_}/rest/v1/stories?id=eq.${String(body.story_id || '')}&select=owner,mature`, { headers: H }), s2 = sq2.ok ? (await sq2.json())[0] : null;
+    if (!s2 || s2.owner !== user.id) return json({ error: 'forbidden' }, 403);
+    if (s2.mature) return json({ error: 'mature' }, 403);
+    const scene = String(body.desc || '').replace(/[^\p{L}\p{N} ,.'-]+/gu, ' ').trim().slice(0, 160); if (scene.length < 3) return json({ error: 'desc' }, 400);
+    const bq2 = await rpc('vn_budget_ok', { p_uid: user.id }); if (!(bq2 && bq2.ok)) return json({ error: 'budget', reason: bq2 ? bq2.reason : 'unknown' }, 429);
+    const bref = 'bgmake:' + user.id + ':' + Date.now();
+    const no2 = await charge('bgmake', bref, false, 4); if (no2) return no2;
+    try {
+      const u = await genBgUrl(env, TOKEN, scene); if (!u) { await refund(bref); return json({ failed: true, why: 'Replicate no devolvió imagen' }); }
+      await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'background', p_cost: Number(env.VN_COST_BG) > 0 ? Number(env.VN_COST_BG) : 0.004, p_detail: 'fondo del panel · ' + scene.slice(0, 60) });
+      const pu = await persist(URL_, H, u, `ai/bgmake/${String(body.story_id).slice(0, 8)}-${Date.now()}`);
+      return json({ url: pu });
+    } catch (e) { await refund(bref); const why = String(e && (e as Error).message || e).slice(0, 200); await rpc('vn_usage_add', { p_uid: user.id, p_kind: 'retry', p_cost: 0.002, p_detail: ('fondo del panel falló: ' + why).slice(0, 240) }); return json({ failed: true, why }); }
+  }
   if (body.action === 'sprite') {
     if (env.VN_SPRITE_ON !== '1') return json({ off: true }, 503);                       // sprites con IA en pausa (VN_SPRITE_ON=1 los enciende)
     const sref = 'sprite:' + String(body.story_id || '') + ':' + String(body.name || '').slice(0, 30) + ':' + String(body.emo || '') + ':' + Date.now();
@@ -276,13 +298,13 @@ async function run(req: Request, env: Env): Promise<Response> {
     const have = (await cachedAssets())[pl]; if (have) return json({ url: have, cached: true });
     const stop = await budget(); if (stop) return stop;
     try {
-      const o = await replicate(env.VN_BG_MODEL || 'stability-ai/sdxl', { prompt: `anime visual novel background, ${pl.replace(/-/g, ' ')}, no people, soft light, detailed`, negative_prompt: 'people, characters, text, watermark', width: 1024, height: 576 }, TOKEN);
-      const u = firstUrl(o); if (!u) return json({ failed: true });
+      const u = await genBgUrl(env, TOKEN, pl.replace(/-/g, ' '));
+      if (!u) return json({ failed: true, why: 'sin imagen' });
       await spend('background', num('VN_COST_BG', 0.004), pl);
       const pu = await persist(URL_, H, u, `ai/bg/${String(cid).slice(0, 8)}-${hash.slice(0, 12)}-${pl}`);
       await fetch(`${URL_}/rest/v1/vn_assets`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ chapter_id: cid, hash, key: pl, url: pu }) });
       return json({ url: pu });
-    } catch (e) { console.error('fondo', pl, e); await spend('retry', 0.002, ('fondo falló ' + pl + ': ' + (e && (e as Error).message || e)).slice(0, 240)); return json({ failed: true }); }
+    } catch (e) { console.error('fondo', pl, e); await spend('retry', 0.002, ('fondo falló ' + pl + ': ' + (e && (e as Error).message || e)).slice(0, 240)); return json({ failed: true, why: String(e && (e as Error).message || e).slice(0, 160) }); }
   }
 
   if (body.action === 'script') {

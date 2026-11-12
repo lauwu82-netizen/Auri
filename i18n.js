@@ -2371,5 +2371,14 @@ window.I18N = { en: {
   "Probar conexión con Replicate": "Test Replicate connection",
   "Solo Owner: muestra a qué cuenta pertenece la llave y si una petición pequeña pasa.": "Owner only: shows which account the key belongs to and whether a small request goes through.",
   "Probando…": "Testing…",
-  "Sin respuesta (¿se publicó la función?)": "No response (was the function deployed?)"
+  "Sin respuesta (¿se publicó la función?)": "No response (was the function deployed?)",
+  "O créalo con IA": "Or create it with AI",
+  "Ej.: salón de clases al atardecer con ventanas grandes": "E.g.: classroom at sunset with big windows",
+  "Crear fondo con IA": "Create background with AI",
+  "Cuéntame cómo es el lugar.": "Tell me what the place looks like.",
+  "Creando…": "Creating…",
+  "Fondo creado. Ajústalo y guárdalo.": "Background created. Adjust it and save it.",
+  "Solo puedo crear fondos en tus propios libros guardados en tu cuenta.": "I can only create backgrounds in your own books saved to your account.",
+  "No se pudo crear el fondo.": "Could not create the background.",
+  "No se pudo crear un fondo.": "Could not create a background."
 } };

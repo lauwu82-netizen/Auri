@@ -5831,9 +5831,9 @@ const VN_EMO = { neutral: 'Neutral', feliz: 'Happy', triste: 'Sad', sonrojado: '
 async function vnLoad(sid) {
   if (VN.busy) return; VN.busy = true; const u = sUuid(sid);
   try {
-    const [a, b, c, d] = await Promise.all([sbApi('/rest/v1/vn_emotions?select=*&order=sort'), sbApi('/rest/v1/vn_characters?select=*&story_id=eq.' + u + '&order=pos,created_at'), sbApi('/rest/v1/stories?select=vn,owner&id=eq.' + u), sbApi('/rest/v1/vn_backgrounds?select=*&story_id=eq.' + u + '&order=created_at').catch(() => ({ ok: false }))]);
+    const [a, b, c, d] = await Promise.all([sbApi('/rest/v1/vn_emotions?select=*&order=sort'), sbApi('/rest/v1/vn_characters?select=*&story_id=eq.' + u + '&order=pos,created_at'), sbApi('/rest/v1/stories?select=vn,owner,mature&id=eq.' + u), sbApi('/rest/v1/vn_backgrounds?select=*&story_id=eq.' + u + '&order=created_at').catch(() => ({ ok: false }))]);
     if (!a.ok || !b.ok || !c.ok) { VN.err = /vn_/.test(JSON.stringify([a.data, b.data, c.data])) || /vn/.test(JSON.stringify(c.data || '')) ? t('Falta correr el SQL 40 en Supabase.') : t('No se pudo cargar. Revisa tu conexión.'); VN.ok = true; }
-    else { VN.emos = a.data; VN.chars = b.data; VN.bgs = d && d.ok && Array.isArray(d.data) ? d.data : []; VN.vn = !!(c.data[0] && c.data[0].vn); VNF[sid] = VN.vn; VN.err = ''; VN.ok = true; }
+    else { VN.emos = a.data; VN.chars = b.data; VN.bgs = d && d.ok && Array.isArray(d.data) ? d.data : []; VN.vn = !!(c.data[0] && c.data[0].vn); VN.mature = !!(c.data[0] && c.data[0].mature); VNF[sid] = VN.vn; VN.err = ''; VN.ok = true; }
   } catch (e) { VN.err = t('No se pudo cargar. Revisa tu conexión.'); VN.ok = true; }
   VN.busy = false; if ((location.hash || '').startsWith('#/vn/' + sid)) { KEEP = true; render(); }
 }
@@ -6062,7 +6062,7 @@ async function vnrBgQueue(cu, prog) {
     let done = 0; note(0, need.length);
     await Promise.all(need.map(async pl => {
       let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'bg', chapter_id: cu, place: pl } }); } catch (e) { r = null; }
-      if (VNR !== v) return; const u = r && r.ok && r.data && r.data.url; if (u) { v.bgs[pl] = u; const pg = v.pages[v.i]; if (pg && pg.place === pl) vnrDraw(); }
+      if (VNR !== v) return; const u = r && r.ok && r.data && r.data.url; if (!u && isOwner() && !v.bgWhy) { v.bgWhy = 1; const w = r && r.data || {}; toast(t('No se pudo crear un fondo.') + ' [' + (r ? r.status : 'sin conexión') + (w.error ? ' ' + w.error : '') + (w.why ? ' · ' + String(w.why).slice(0, 110) : '') + ']'); } if (u) { v.bgs[pl] = u; const pg = v.pages[v.i]; if (pg && pg.place === pl) vnrDraw(); }
       note(++done, need.length);
     }));
   }
@@ -6079,6 +6079,7 @@ function vnBgEdit(id) {
   const st = () => url ? `background-image:url("${String(url).replace(/["\\\n]/g, '')}");background-position:${px}% ${py}%;background-size:${zm > 100 ? zm + '%' : 'cover'}` : '';
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${cur ? t('Editar fondo') : t('Nuevo fondo')}</h2>
   <label class="button secondary" style="display:block;text-align:center">${t('Elegir de la galería')}<input type="file" accept="image/*" hidden id="vb-file"></label>
+  ${VN.mature ? '' : `<div class="vb-ai"><label class="field vnf"><span>${t('O créalo con IA')}</span><input id="vb-desc" maxlength="150" placeholder="${esc(t('Ej.: salón de clases al atardecer con ventanas grandes'))}"></label><button type="button" class="button secondary" id="vb-gen">✨ ${t('Crear fondo con IA')} <small>${isOwner() ? t('Gratis') : qFmt(PRICES.bgmake || 4) + ' ' + gemI()}</small></button></div>`}
   <div class="vb-prev"><div class="vb-v" id="vb-v" style="${st()}"></div><div class="vb-h" id="vb-h" style="${st()}"></div></div><p class="helper">${t('Vista previa vertical y horizontal: así se verá en pantalla completa.')}</p>
   <label class="field"><span>${t('Horizontal')}</span><input type="range" id="vb-x" min="0" max="100" value="${px}"></label>
   <label class="field"><span>${t('Vertical')}</span><input type="range" id="vb-y" min="0" max="100" value="${py}"></label>
@@ -6093,6 +6094,13 @@ function vnBgEdit(id) {
   m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-close]')) m.remove(); });
   q('#vb-x').oninput = e => { px = +e.target.value; paint(); }; q('#vb-y').oninput = e => { py = +e.target.value; paint(); }; q('#vb-z').oninput = e => { zm = +e.target.value; paint(); };
   q('#vb-file').onchange = ev => { const f = ev.target.files[0]; if (!f) return; showErr(''); fitPhoto(f, 1600, 1600, async d => { toast(t('Subiendo la foto…')); const u = await sbUpImg(d); if (!u) return showErr(t('No se pudo subir la imagen. Inténtalo otra vez.')); url = u; paint(); }); };
+  if (q('#vb-gen')) q('#vb-gen').onclick = async () => {
+    const d = q('#vb-desc').value.trim(); if (d.length < 3) return showErr(t('Cuéntame cómo es el lugar.')); const b = q('#vb-gen'); if (b.dataset.busy) return; b.dataset.busy = '1'; showErr(''); const old = b.innerHTML; b.textContent = t('Creando…');
+    let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'bgmake', story_id: sUuid(VN.sid), desc: d } }); } catch (e) { r = null; }
+    delete b.dataset.busy; b.innerHTML = old; const x = r && r.data || {};
+    if (r && r.ok && x.url) { url = x.url; paint(); if (!isOwner()) { try { walletLoad(); } catch (e) { /* ignorar */ } } return toast(t('Fondo creado. Ajústalo y guárdalo.')); }
+    showErr((r && r.status === 402 ? t('No te alcanzan las gemas. Puedes conseguirlas en Recompensas.') : x.error === 'mature' ? t('La IA no está disponible en libros +18.') : x.error === 'forbidden' ? t('Solo puedo crear fondos en tus propios libros guardados en tu cuenta.') : t('No se pudo crear el fondo.')) + ' [' + (r ? r.status : 'sin conexión') + (x.error ? ' ' + x.error : '') + (x.why ? ' · ' + x.why : '') + ']');
+  };
   q('#vb-save').onclick = async () => {
     if (!url) return showErr(t('Elige una imagen de tu galería.'));
     const body = { place: q('#vb-pl').value, url, pos_x: px, pos_y: py, zoom: zm };

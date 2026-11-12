@@ -2890,3 +2890,6 @@ html.lite .amb{display:none}
 .ai-wait{opacity:.7}
 .ai-in{display:flex;gap:8px;align-items:flex-end}
 .ai-in textarea{flex:1;border-radius:14px;border:1px solid rgba(150,120,220,.4);background:transparent;color:inherit;font:inherit;padding:10px;resize:none}
+
+.vb-ai{margin:12px 0;display:grid;gap:8px}
+.vb-ai small{opacity:.75;margin-left:4px}
