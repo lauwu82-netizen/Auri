@@ -2906,3 +2906,22 @@ html.lite .amb{display:none}
 @keyframes vnrfade{from{opacity:0}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){.vnr-resume,.vnr-end{animation:none}}
 .vnr-end .button.ghost{color:#eadfff;opacity:1}
+
+/* Botones de acción del libro (círculos con etiqueta) y panel de personajes de novela visual */
+.act-wrap{display:grid;gap:10px;justify-items:center}
+.row-btns.act{gap:14px;flex-wrap:nowrap}
+.row-btns.act .ic-btn{width:60px;height:60px;background:transparent;border:1.5px solid color-mix(in srgb,hsl(var(--primary)) 45%,transparent);color:hsl(var(--foreground))}
+.row-btns.act .ic-btn.lib-btn.on{background:hsl(var(--primary));border-color:hsl(var(--primary));color:#fff}
+.row-btns.act .like-btn .heart{width:26px;height:26px}.row-btns.act .fav-btn .star{width:26px;height:26px}
+.act-cap{margin:0;font-size:13px;opacity:.8;text-align:center}
+.vn-sec{display:grid;gap:14px;padding:18px}
+.vn-sec-h{display:flex;align-items:center;gap:10px}.vn-sec-h h2{margin:0;flex:1;font-size:24px}
+.vn-bar{width:5px;height:26px;border-radius:99px;background:linear-gradient(#a06ee8,#7c4dd0)}
+.vn-pill{padding:5px 12px;border-radius:99px;background:color-mix(in srgb,currentColor 12%,transparent);font-size:14px;opacity:.9}
+.vn-sec .vn-list{display:grid;gap:12px}
+.vn-sec .vn-char{border:0;border-radius:18px;background:color-mix(in srgb,hsl(var(--primary)) 10%,hsl(var(--card)));padding:14px}
+.vn-sec .vn-av{width:68px;height:68px;border-radius:16px;color:color-mix(in srgb,hsl(var(--primary)) 70%,#fff)}
+.vn-sec .vn-info b{font-size:19px}
+.vn-add{display:grid;gap:6px;justify-items:center;text-align:center;padding:22px 14px;border:2px dashed color-mix(in srgb,hsl(var(--primary)) 55%,transparent);border-radius:18px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.vn-add-t{display:inline-flex;align-items:center;gap:10px;font-weight:700;font-size:20px;color:color-mix(in srgb,hsl(var(--primary)) 60%,#fff)}
+.vn-add small{opacity:.75}.vn-add:active{transform:scale(.98)}

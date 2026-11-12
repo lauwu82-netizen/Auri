@@ -2390,5 +2390,8 @@ window.I18N = { en: {
   "Llegaste al final de lo publicado.": "You reached the end of what is published.",
   "Ver el final": "See the ending",
   "Leer este capítulo otra vez": "Read this chapter again",
-  "Volver al libro": "Back to the book"
+  "Volver al libro": "Back to the book",
+  "Like": "Like",
+  "de": "of",
+  "Crea un nuevo personaje para tu novela visual": "Create a new character for your visual novel"
 } };
