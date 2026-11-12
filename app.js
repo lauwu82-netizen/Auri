@@ -5100,6 +5100,7 @@ function safeView(fn, sid) {
   }
 }
 function render() {
+  const keepY = window.scrollY || 0;                             // al re-dibujar la MISMA pantalla (etiquetas, filtros, botones…) no se vuelve arriba
   uiReset(); applyAccent();
   giftSweep();                                                   // vence regalos sin reclamar (24 h) y devuelve el cupo
   if (S.user && canNews() && $('#nb-list')) { if (NBFRESH) NBFRESH = false; else nbDraftSave(true); }       // si te vas de Noticias sin terminar, lo escrito queda como borrador
@@ -5157,7 +5158,7 @@ function render() {
     const st = findStory(b), nx = st && c && c !== 'fin' ? st.chapters.find(x => x.idx === +c - 1) : null;
     if (nx && b === MUSIC.sid && nx.music && nx.music === MUSIC.url) MUSIC.ch = String(c); else closeMusic(); }
   if (HLC) { const hid = HLC; HLC = ''; const cm0 = comments(b).find(x => String(x.id) === hid); if (cm0) { setTimeout(() => { const el = document.getElementById('cm-' + hid); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('cm-hl'); setTimeout(() => el.classList.remove('cm-hl'), 3200); } }, 120); } else toast(t('Ese comentario ya no está.')); }
-  else if (!KEEP) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); }
+  else if (!KEEP) { if (nav) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); } else window.scrollTo(0, keepY); }
   imgGuard(app); chatAuto(); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); flowInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
   if (nav && a === 'story' && c && c !== 'fin') { pcHintOnce(); readingPing(b); viewPing(b); chtStart(b, c); }
