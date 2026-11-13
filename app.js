@@ -1358,7 +1358,7 @@ function softRender(force) {
   KEEP = true; render();
 }
 let MOD_BUSY = false, MOD_LAST = 0, MOD_PROF = 0;
-const modSig = () => { const us = LS.get('auri.users', {}), o = {}; for (const k in us) { const u = us[k]; if (u && (u.remote || k === S.user)) o[k] = [u.role, u.scope, u.frameWorn, u.frameSel, u.frameTop, u.bows, u.skins, u.strikes, u.ban, u.modSince, u.admSince]; } return JSON.stringify([o, G.get('reports', []), G.get('appeals', []), G.get('gifts', []), G.get('modlog', [])]); };
+const modSig = () => { const us = LS.get('auri.users', {}), o = {}; for (const k in us) { const u = us[k]; if (u && (u.remote || k === S.user)) o[k] = [u.role, u.scope, u.frameWorn, u.frameSel, u.frameTop, u.pet, u.petF, u.ftitle, u.sealAdj, u.bows, u.skins, u.strikes, u.ban, u.modSince, u.admSince]; } return JSON.stringify([o, G.get('reports', []), G.get('appeals', []), G.get('gifts', []), G.get('modlog', [])]); };
 async function sbSyncMod(force) {
   if (!modCloud()) return false;
   if (MOD_BUSY) return false; MOD_BUSY = true; MOD_LAST = Date.now();
@@ -1378,7 +1378,7 @@ async function sbSyncMod(force) {
     const need = [me]; if (force || Date.now() - MOD_PROF > 600000) { MOD_PROF = Date.now(); for (const key in us) if (us[key] && us[key].remote && us[key].uid) need.push(us[key].uid); }
     for (let i = 0; i < need.length; i += 80) {
       const pr = await sbApi('/rest/v1/profiles?select=*&id=in.(' + need.slice(i, i + 80).join(',') + ')');
-      if (pr.ok && Array.isArray(pr.data)) pr.data.forEach(p => { const key = ids.key(p.id); if (key && us[key]) us[key] = { ...us[key], role: p.role, scope: Array.isArray(p.scope) ? p.scope : [], frameWorn: !!p.frame_worn, frameSel: p.frame_sel == null ? undefined : p.frame_sel, hideLists: !!p.hide_lists, frameTop: !!p.frame_top, bows: Array.isArray(p.bows) ? p.bows : [], skins: Array.isArray(p.skins) ? p.skins : [], collab: !!p.collab, showReading: !!p.show_reading, modSince: p.mod_since || undefined, admSince: p.adm_since || undefined }; });
+      if (pr.ok && Array.isArray(pr.data)) pr.data.forEach(p => { const key = ids.key(p.id); if (key && us[key]) us[key] = { ...us[key], role: p.role, scope: Array.isArray(p.scope) ? p.scope : [], frameWorn: !!p.frame_worn, frameSel: p.frame_sel == null ? undefined : p.frame_sel, hideLists: !!p.hide_lists, frameTop: !!p.frame_top, pet: p.pet || '', petF: p.pet_f || '', ftitle: p.ftitle || '', sealAdj: p.seal_adj && typeof p.seal_adj === 'object' ? p.seal_adj : undefined, bows: Array.isArray(p.bows) ? p.bows : [], skins: Array.isArray(p.skins) ? p.skins : [], collab: !!p.collab, showReading: !!p.show_reading, modSince: p.mod_since || undefined, admSince: p.adm_since || undefined }; });
     }
     LS.set('auri.users', us);
     if (ap) G.set('appeals', ap.map(x => ({ id: x.id, user: k(x.user_id), banDate: x.ban_date, ban: { reason: x.ban_reason || '', by: k(x.ban_by), until: x.ban_until || null }, text: x.text, imgs: x.imgs || [], date: day(x.created_at), status: x.status, handledBy: k(x.handled_by), handledDate: day(x.handled_at), note: x.note || '' })));
