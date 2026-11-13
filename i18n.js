@@ -2459,5 +2459,9 @@ window.I18N = { en: {
   "Título llamativo · Cupido celeste": "Eye-catching title · Sky-blue Cupid",
   "Mascota · Diablillo": "Pet · Little devil",
   "Cupida": "Cupid (girl)",
-  "Mascota · Cupida": "Pet · Cupid (girl)"
+  "Mascota · Cupida": "Pet · Cupid (girl)",
+  "Título · Corazón de biblioteca": "Title · Library Heart",
+  "Título · Tinta y corazón": "Title · Ink and Heart",
+  "Título · Rompecorazones": "Title · Heartbreaker",
+  "Título · Rompecorazones · AuriCoins ×100": "Title · Heartbreaker · AuriCoins ×100"
 } };
