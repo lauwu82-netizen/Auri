@@ -5874,10 +5874,11 @@ function chtCheck() {
   sbApi('/rest/v1/rpc/mission_read', { method: 'POST', body: { p_story: su, p_pos: +m[2] - 1, p_secs: Math.round((Date.now() - CHT.t) / 1000) } }).then(() => { if (passOn()) msAll(true); });
 }
 /* Premios de ejemplo de cada pase (se cambian por los definitivos cuando estén los diseños) */
-const PASS_FREE = { 4: 'Insignia de temporada', 8: 'Insignia de temporada', 10: 'Gemas moradas ×3', 14: 'Separador · carta de amor', 19: 'Gemas moradas ×3', 20: 'Insignia final de temporada' };
+const PASS_FREE_BASE = { 4: 'Insignia de temporada', 8: 'Insignia de temporada', 10: 'Gemas moradas ×3', 14: 'Separador · carta de amor', 19: 'Gemas moradas ×3', 20: 'Insignia final de temporada' };
+const PASS_FREE = { reader: { ...PASS_FREE_BASE, 18: 'Sprite aleatorio' }, writer: { ...PASS_FREE_BASE, 18: 'Sprite · corazón roto' } };
 const PASS_PAID = {
-  reader: { 1: 'Forma · corazón con alitas', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador · flecha y corazón', 4: 'AuriGems ×10', 5: 'Decoración de perfil 1', 7: 'AuriGems ×10', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'AuriGems ×15', 11: 'Decoración de perfil 2', 12: 'Mascota · Cupida', 13: 'AuriGems ×15', 14: 'Chat San Valentín · lila', 16: 'AuriGems ×20', 17: 'Mascota · Cupido', 19: 'AuriGems ×20', 20: 'Título · Corazón de biblioteca' },
-  writer: { 1: 'Título · Tinta y corazón', 2: 'AuriCoins ×50', 3: 'Forma · corazón partido', 4: 'AuriGems ×10', 5: 'Marco de portada 1', 6: 'AuriCoins ×50', 7: 'Portada de San Valentín 2', 8: 'Efectos del chat', 9: 'AuriGems ×10', 10: 'Cosmético de perfil de creador', 11: 'Impulso a destacados ×1', 12: 'AuriCoins ×75', 13: 'Marco de portada 2', 14: 'Mascota · Diablillo', 15: 'AuriGems ×15', 16: 'Portada de San Valentín', 17: 'AuriCoins ×75', 18: 'Ambiente por capítulo', 19: 'AuriGems ×15', 20: 'Título · Rompecorazones · AuriCoins ×100' }
+  reader: { 1: 'Forma · corazón con alitas', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador · flecha y corazón', 4: 'AuriGems ×10', 5: 'Decoración de perfil 1', 7: 'AuriGems ×10', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'AuriGems ×15', 11: 'Decoración de perfil 2', 12: 'Mascota · Cupida', 13: 'AuriGems ×15', 14: 'Chat San Valentín · lila', 15: 'Sprite aleatorio', 16: 'AuriGems ×20', 17: 'Mascota · Cupido', 18: 'Sprite aleatorio', 19: 'AuriGems ×20', 20: 'Sprite a elección · Título · Corazón de biblioteca' },
+  writer: { 1: 'Título · Tinta y corazón', 2: 'AuriCoins ×50', 3: 'Forma · corazón partido', 4: 'AuriGems ×10', 5: 'Marco de portada 1', 6: 'AuriCoins ×50', 7: 'Portada de San Valentín 2', 8: 'Efectos del chat', 9: 'AuriGems ×10', 10: 'Cosmético de perfil de creador', 11: 'Impulso a destacados ×1', 12: 'AuriCoins ×75', 13: 'Marco de portada 2', 14: 'Mascota · Diablillo', 15: 'AuriGems ×15', 16: 'Portada de San Valentín', 17: 'Ambiente por capítulo', 18: 'Sprite · borracho enamorado', 19: 'AuriGems ×15', 20: 'Título · Rompecorazones · AuriCoins ×175' }
 };
 function shopView(tab) {
   if (!passOn()) return `<main class="page">${empty('Aquí pronto habrá algo nuevo', 'La tienda y los pases todavía no están abiertos.')}</main>`;
@@ -5910,7 +5911,7 @@ function passTab() {
   const paid = PASS_PAID[MS.track] || {};
   return `${msLevel(st)}<p class="helper" style="margin:6px 2px 10px">${t('Premios de ejemplo: se cambian por los definitivos y se entregan cuando exista la tienda.')}</p>
   <div class="lv-head"><span></span><b>${t('Gratis')}</b><b>${t('Pase')}</b></div>
-  <div class="lv-list">${Array.from({ length: 20 }, (_, i) => i + 1).map(n => `<div class="lv ${st.level >= n ? 'reached' : ''}"><span class="lv-n">${n}<small>${lvXp(n)} XP</small></span><div class="lv-c">${PASS_FREE[n] ? esc(t(PASS_FREE[n])) : '<i>—</i>'}</div><div class="lv-c paid ${st.owned ? '' : 'lock'}">${paid[n] ? esc(t(paid[n])) : '<i>—</i>'}</div></div>`).join('')}</div>`;
+  <div class="lv-list">${Array.from({ length: 20 }, (_, i) => i + 1).map(n => `<div class="lv ${st.level >= n ? 'reached' : ''}"><span class="lv-n">${n}<small>${lvXp(n)} XP</small></span><div class="lv-c">${PASS_FREE[MS.track][n] ? esc(t(PASS_FREE[MS.track][n])) : '<i>—</i>'}</div><div class="lv-c paid ${st.owned ? '' : 'lock'}">${paid[n] ? esc(t(paid[n])) : '<i>—</i>'}</div></div>`).join('')}</div>`;
 }
 
 /* ---------- Novela visual · pantalla de la autoría (por ahora solo la Owner) ----------

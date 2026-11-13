@@ -2465,4 +2465,9 @@ window.I18N = { en: {
   "Título · Rompecorazones": "Title · Heartbreaker",
   "Título · Rompecorazones · AuriCoins ×100": "Title · Heartbreaker · AuriCoins ×100",
   'Corazón con alitas': 'Heart with wings', 'Corazón partido': 'Broken heart', 'Forma · corazón con alitas': 'Shape · heart with wings', 'Forma · corazón partido': 'Shape · broken heart',
+  "Sprite aleatorio": "Random sprite",
+  "Sprite · corazón roto": "Sprite · broken heart",
+  "Sprite · borracho enamorado": "Sprite · lovestruck drunk",
+  "Sprite a elección · Título · Corazón de biblioteca": "Sprite of your choice · Title · Library Heart",
+  "Título · Rompecorazones · AuriCoins ×175": "Title · Heartbreaker · AuriCoins ×175",
 } };
