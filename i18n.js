@@ -2470,4 +2470,5 @@ window.I18N = { en: {
   "Sprite · borracho enamorado": "Sprite · lovestruck drunk",
   "Sprite a elección · Título · Corazón de biblioteca": "Sprite of your choice · Title · Library Heart",
   "Título · Rompecorazones · AuriCoins ×175": "Title · Heartbreaker · AuriCoins ×175",
+  "San Valentín": "Valentine's Day",
 } };
