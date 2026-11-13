@@ -2474,4 +2474,7 @@ window.I18N = { en: {
   "Caja de bombones": "Box of chocolates",
   "Corazones enamorados": "Hearts in love",
   "Corazón con encaje": "Lace heart",
+  "Adorno · caja de bombones": "Ornament · box of chocolates",
+  "Adorno · corazones enamorados": "Ornament · hearts in love",
+  "Adorno · corazón con encaje": "Ornament · lace heart",
 } };
