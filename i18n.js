@@ -2463,5 +2463,6 @@ window.I18N = { en: {
   "Título · Corazón de biblioteca": "Title · Library Heart",
   "Título · Tinta y corazón": "Title · Ink and Heart",
   "Título · Rompecorazones": "Title · Heartbreaker",
-  "Título · Rompecorazones · AuriCoins ×100": "Title · Heartbreaker · AuriCoins ×100"
+  "Título · Rompecorazones · AuriCoins ×100": "Title · Heartbreaker · AuriCoins ×100",
+  'Corazón con alitas': 'Heart with wings', 'Corazón partido': 'Broken heart', 'Forma · corazón con alitas': 'Shape · heart with wings', 'Forma · corazón partido': 'Shape · broken heart',
 } };
