@@ -4980,7 +4980,7 @@ function openCharForm(id, after) {
     <p class="helper"><a href="#/ip">${t('Normas de propiedad intelectual')}</a> · <a href="#/ip">${t('Reclamaciones de artistas')}</a> · <a href="#/ip">${t('Retirada y apelación')}</a></p></fieldset></details>` : ''}
   <p class="error" data-err></p><div class="cf-btns"><button class="button ghost" data-cancel>${t('Cancelar')}</button><button class="button" data-save>${t('Guardar')}</button></div></div>`;
   const q = sel => m.querySelector(sel), close = () => m.remove(), setPrev = () => { q('[data-prev]').innerHTML = photo ? `<img src="${esc(photo)}" alt="">` : '🐱'; q('[data-nophoto]').hidden = !photo; };
-  const vnDraw = () => { const box = q('[data-vncells]'); if (!box) return; box.innerHTML = vnEmoList().map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : ''}</div><b>${esc(t(e.name))}</b><label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}</div>`).join(''); };
+  const vnDraw = () => { const box = q('[data-vncells]'); if (!box) return; box.innerHTML = vnEmoList().map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : vnSil(e.key)}</div><b>${esc(t(e.name))}</b><label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}</div>`).join(''); };
   if (q('[data-vncells]')) { vnDraw(); vnEmosLoad().then(vnDraw);
     const box = q('[data-vncells]');
     box.addEventListener('change', ev => { const inp = ev.target.closest('input[data-emo]'); if (!inp || !inp.files[0]) return; const k = inp.dataset.emo; q('[data-err]').textContent = t('Subiendo…');
@@ -5921,6 +5921,18 @@ const vnOn = () => !!S.user && !isGuest() && cloud() && !!sbSes();          // a
 /** Funciones de IA de imágenes en pausa (Replicate limita las peticiones y los resultados aún no son fiables). Solo los fondos siguen activos. Para volver a encenderlas: poner true. */
 const VN_AI = { cg: false, sprite: false };
 const VN_KEYS = [['neutral', 'Neutral'], ['feliz', 'Feliz'], ['triste', 'Triste'], ['sonrojado', 'Sonrojado'], ['asustado', 'Asustado'], ['enojado', 'Enojado']];
+/* Silueta gris con la emoción: se ve en las tarjetas de sprite vacías para saber qué dibujo va ahí */
+const VN_SIL = {
+  neutral: '<circle cx="24" cy="31" r="1.6" class="d"/><circle cx="36" cy="31" r="1.6" class="d"/><path d="M25 40h10"/>',
+  feliz: '<path d="M21.5 31.5q2.5-4 5 0M33.5 31.5q2.5-4 5 0"/><path d="M23 38q7 8 14 0"/>',
+  triste: '<circle cx="24" cy="32" r="1.6" class="d"/><circle cx="36" cy="32" r="1.6" class="d"/><path d="M20.5 30l6.5-3M39.5 30l-6.5-3"/><path d="M25 42q5-4 10 0"/><path d="M24 36v4" class="t"/>',
+  sonrojado: '<circle cx="24" cy="31" r="1.6" class="d"/><circle cx="36" cy="31" r="1.6" class="d"/><path d="M26 39q4 3 8 0"/><ellipse cx="20.5" cy="37" rx="3" ry="1.8" class="b"/><ellipse cx="39.5" cy="37" rx="3" ry="1.8" class="b"/>',
+  asustado: '<circle cx="24" cy="31" r="3.4"/><circle cx="36" cy="31" r="3.4"/><circle cx="24" cy="31" r="1" class="d"/><circle cx="36" cy="31" r="1" class="d"/><ellipse cx="30" cy="41" rx="2.4" ry="3"/><path d="M45 20q2 3 0 5q-2-2 0-5z" class="b"/>',
+  enojado: '<circle cx="24" cy="32" r="1.6" class="d"/><circle cx="36" cy="32" r="1.6" class="d"/><path d="M20 27l8 3M40 27l-8 3"/><path d="M25 41q5-3 10 0"/>',
+  corazon_roto: '<path d="M21.5 31q2.5 2.5 5 0M33.5 31q2.5 2.5 5 0"/><path d="M25 42q5-4 10 0"/><path d="M24 34v6M36 34v6" class="t"/><path d="M30 63c-5-3-7-6-6-9 1-2 4-2 6 1 2-3 5-3 6-1 1 3-1 6-6 9z" class="h"/><path d="M30 55l-2 4 3 1-2 3" class="c"/>',
+  borracho_enamorado: '<path d="M21.5 31q2.5 2 5 0M33.5 31q2.5 2 5 0"/><path d="M24 39q3 3 6 0t6 0"/><ellipse cx="20.5" cy="36" rx="3" ry="1.8" class="b"/><ellipse cx="39.5" cy="36" rx="3" ry="1.8" class="b"/><path d="M46 12c-3-2-4-4-3-5 1-1 2 0 3 1 1-1 2-2 3-1 1 1 0 3-3 5z" class="h"/><path d="M9 20c-2-1-3-3-2-4 1-1 2 0 2 1 1-1 2-1 2 0 1 1 0 2-2 3z" class="h"/>'
+};
+const vnSil = k => `<svg class="vn-sil" viewBox="0 0 60 80" aria-hidden="true"><g class="sg"><path class="s" d="M5 80C5 60 18 55 30 55s25 5 25 25z"/><rect class="s" x="25" y="44" width="10" height="13" rx="4"/><circle class="s" cx="30" cy="32" r="17"/></g><g class="f">${VN_SIL[k] || VN_SIL.neutral}</g></svg>`;
 let VN_EM = null;                                        // emociones de la nube (si ya cargaron); si no, la lista por defecto
 const vnEmoList = () => VN_EM && VN_EM.length ? VN_EM : VN_KEYS.map(([key, name]) => ({ key, name }));
 async function vnEmosLoad() { if (VN_EM) return; try { const r = await sbApi('/rest/v1/vn_emotions?select=*&order=sort'); if (r.ok && Array.isArray(r.data) && r.data.length) VN_EM = r.data; } catch (e) { /* se usa la lista por defecto */ } }

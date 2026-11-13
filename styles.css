@@ -2683,6 +2683,10 @@ html.lite .amb{display:none}
 .vn-cells{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0}
 .vn-cell{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;font-size:12px}
 .vn-spr{width:100%;aspect-ratio:3/4;border-radius:12px;border:1px dashed color-mix(in srgb,hsl(var(--primary)) 35%,transparent);background:color-mix(in srgb,hsl(var(--primary)) 6%,transparent);display:grid;place-items:center;overflow:hidden}
+.vn-sil{width:78%;height:auto;display:block}.vn-sil .sg{opacity:.32}.vn-sil .s{fill:hsl(var(--muted-foreground))}
+.vn-sil .f{fill:none;stroke:hsl(var(--background));stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.vn-sil .f .d{fill:hsl(var(--background));stroke:none}.vn-sil .f .b{fill:hsl(var(--background)/.55);stroke:none}.vn-sil .f .t{stroke-width:1.2;opacity:.8}
+.vn-sil .f .h{fill:hsl(var(--muted-foreground)/.55);stroke:none}.vn-sil .f .c{stroke:hsl(var(--background));stroke-width:1.3}
 .vn-spr.has{border-style:solid}.vn-spr img{width:100%;height:100%;object-fit:contain}
 .vn-up{cursor:pointer}
 .modal-box:has(.vn-cells){max-height:88vh;overflow:auto}
