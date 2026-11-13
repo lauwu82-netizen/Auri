@@ -293,9 +293,9 @@ const CQ = {
 };
 const cqOf = e => roleOf(e) === 'OWNER' ? Object.keys(CQ) : ((getUsers()[e] || {}).cq || []).filter(k => CQ[k]);
 const cqBot = e => cqOf(e).filter(k => CQ[k][1] === 'bot');
-const FR_NAME = { own: 'Insignia de Owner', mod: 'Insignia de moderación', adm: 'Insignia de administración', top: 'Insignia Top 50', ...Object.fromEntries(Object.entries(CQ).filter(([, v]) => v[1] === 'bot').map(([k, v]) => [k, v[0]])) };
+const FR_NAME = { own: 'Insignia de Owner', mod: 'Insignia de moderación', adm: 'Insignia de administración', top: 'Insignia Top 50 (clara)', 'top:dark': 'Insignia Top 50 (oscura)', ...Object.fromEntries(Object.entries(CQ).filter(([, v]) => v[1] === 'bot').map(([k, v]) => [k, v[0]])) };
 const frameLocked = e => ['MODERATOR', 'ADMIN'].includes(roleOf(e));                      // moderación y administración: su marco es fijo
-function ownedFrames(e) { const u = getUsers()[e] || {}, l = []; if (roleOf(e) === 'OWNER') l.push('own'); if (u.frameTop) l.push('top'); return l.concat(cqBot(e)); }   // los que esta persona tiene para elegir
+function ownedFrames(e) { const u = getUsers()[e] || {}, l = []; if (roleOf(e) === 'OWNER') l.push('own'); if (u.frameTop) l.push('top', 'top:dark'); return l.concat(cqBot(e)); }   // los que esta persona tiene para elegir
 const frameKey = e => {
   const r = roleOf(e), u = getUsers()[e] || {};
   if (r === 'ADMIN' && u.frameWorn) return 'adm'; if (r === 'MODERATOR' && u.frameWorn) return 'mod';       // el marco del rol manda y no se quita
@@ -329,7 +329,7 @@ const COS_IMG = {
 };
 const AURI_LOGO = 'https://i.postimg.cc/PxD8ksW5/Photoroom-20261108-192124.png';
 const cosOne = (k, c = '') => COS_IMG[k] ? `<img${c ? ` class="${c}"` : ''} src="${esc(COS_IMG[k])}" alt="" referrerpolicy="no-referrer" decoding="async">` : '';
-const cosImg = k => k === 'top' ? cosOne('top', 'v-l') + cosOne('top:dark', 'v-d') : cosOne(k);   // Top 50: una versión clara y otra oscura, según el tema
+const cosImg = k => cosOne(k);   // Top 50: dos versiones (clara y oscura) que cada persona elige, sin importar el tema de la app
 const svgBot = cosImg, svgTop = cosImg;
 const bowsOf = e => roleOf(e) === 'OWNER' ? Object.keys(BOWS) : ((getUsers()[e] || {}).bows || []).filter(k => BOWS[k]);   // lazos que tiene esa persona (la Owner tiene todos)
 const topKey = e => {                                    // adorno de arriba que se muestra para esa persona
@@ -348,7 +348,7 @@ const topItems = e => { const u = getUsers()[e] || {}; if (Array.isArray(u.cosAd
 const adjHTML = (o, extra = '') => cosImg(o.k) ? `<span class="orn orn-top adj${extra}" style="left:${o.x}%;top:${o.y}%;width:${Math.round(ADJ_W * o.s * 10) / 10}%;transform:translate(-50%,-50%) rotate(${o.r}deg)">${cosImg(o.k)}</span>` : '';
 const botAdjOf = e => { const b = (getUsers()[e] || {}).cosBot; return b && typeof b === 'object' ? { y: adjNum(b.y, -40, 40, 0), s: adjNum(b.s, .5, 1.8, 1) } : null; };   // adorno de abajo: solo sube/baja y cambia de tamaño
 const botSty = ba => ba && (ba.y || ba.s !== 1) ? ` style="margin-bottom:${-ba.y}%;transform:scale(${ba.s});transform-origin:50% 30%"` : '';
-const ornHTMLk = (bot, top, ba) => { const items = Array.isArray(top) ? top : top && cosImg(top) ? [adjDefault(top)] : []; return items.map(o => adjHTML(o)).join('') + (bot && cosImg(bot) ? `<span class="orn orn-bot ${bot === 'top' ? 'b50' : CQ[bot] ? 'bq ' + bot.slice(3) : 'bA'}"${botSty(ba)}>${cosImg(bot)}</span>` : ''); };
+const ornHTMLk = (bot, top, ba) => { const items = Array.isArray(top) ? top : top && cosImg(top) ? [adjDefault(top)] : []; return items.map(o => adjHTML(o)).join('') + (bot && cosImg(bot) ? `<span class="orn orn-bot ${bot === 'top' || bot === 'top:dark' ? 'b50' : CQ[bot] ? 'bq ' + bot.slice(3) : 'bA'}"${botSty(ba)}>${cosImg(bot)}</span>` : ''); };
 const nmCls = e => ({ OWNER: 'nm-own', ADMIN: 'nm-adm', MODERATOR: 'nm-mod' }[roleOf(e)] || '');   // solo el equipo tiene el usuario con color
 const ornHTML = e => ornHTMLk(frameKey(e), topItems(e), frameLocked(e) ? null : botAdjOf(e));
 /* --- Forma y borde de la foto de perfil (por ahora solo la Owner; todo queda guardado para ponerlo a la venta después) --- */

@@ -2443,5 +2443,7 @@ window.I18N = { en: {
   "Cupón de pase de escritor": "Writer pass coupon",
   "1 mes · canjéalo antes del {d}": "1 month · redeem before {d}",
   "Canjear": "Redeem",
-  "¡Pase activado por 1 mes!": "Pass activated for 1 month!"
+  "¡Pase activado por 1 mes!": "Pass activated for 1 month!",
+  "Insignia Top 50 (clara)": "Top 50 badge (light)",
+  "Insignia Top 50 (oscura)": "Top 50 badge (dark)"
 } };
