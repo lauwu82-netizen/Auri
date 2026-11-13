@@ -289,7 +289,8 @@ function revokeMod(tg) {                                // "descender": Owner (A
 /* Packs coquette (cada pack: 2 adornos de arriba + 1 de abajo). Por ahora solo la Owner los tiene; luego se podrán regalar o vender (u.cq = lista de claves) */
 const CQ = {
   'cq:flores': ['Corona de flores de porcelana', 'top'], 'cq:mariposas': ['Mariposas de encaje', 'top'], 'cq:joya': ['Joya con moño y rosas', 'bot'],
-  'cq:corazones': ['Corazones flotantes', 'top'], 'cq:vichy': ['Moño vichy con cerezas', 'top'], 'cq:perlas': ['Collar de perlas con lazos', 'bot']
+  'cq:corazones': ['Corazones flotantes', 'top'], 'cq:vichy': ['Moño vichy con cerezas', 'top'], 'cq:perlas': ['Collar de perlas con lazos', 'bot'],
+  'cq:bombones': ['Caja de bombones', 'top'], 'cq:enamorado': ['Corazones enamorados', 'top'], 'cq:encaje': ['Corazón con encaje', 'bot']      // pack San Valentín dulce (2 arriba + 1 abajo)
 };
 const cqOf = e => roleOf(e) === 'OWNER' ? Object.keys(CQ) : ((getUsers()[e] || {}).cq || []).filter(k => CQ[k]);
 const cqBot = e => cqOf(e).filter(k => CQ[k][1] === 'bot');
@@ -325,7 +326,8 @@ const COS_IMG = {
   'bow:red': 'https://i.postimg.cc/zvCxsr7s/Photoroom-20261029-060014.png', 'bow:purple': 'https://i.postimg.cc/rFhmStCW/IMG-2622.png', 'bow:yellow': 'https://i.postimg.cc/GpTx0Rh9/Photoroom-20261029-055933.png',
   'bow:green': 'https://i.postimg.cc/ncd4CrX3/Photoroom-20261029-055905.png',
   'cq:flores': 'https://i.postimg.cc/C1V6LfmX/Photoroom-20261105-171117.png', 'cq:mariposas': 'https://i.postimg.cc/Zn5HCP3F/Photoroom-20261105-171218.png', 'cq:joya': 'https://i.postimg.cc/SsT81B2z/Photoroom-20261105-171311.png',
-  'cq:corazones': 'https://i.postimg.cc/9F3t3jgR/Photoroom-20261105-171355.png', 'cq:vichy': 'https://i.postimg.cc/PrtJv3CG/Photoroom-20261105-171440.png', 'cq:perlas': 'https://i.postimg.cc/3NfsRxyh/Photoroom-20261105-171507.png'
+  'cq:corazones': 'https://i.postimg.cc/9F3t3jgR/Photoroom-20261105-171355.png', 'cq:vichy': 'https://i.postimg.cc/PrtJv3CG/Photoroom-20261105-171440.png', 'cq:perlas': 'https://i.postimg.cc/3NfsRxyh/Photoroom-20261105-171507.png',
+  'cq:bombones': 'https://i.postimg.cc/4yR1RqZX/Photoroom-20261113-193803.png', 'cq:enamorado': 'https://i.postimg.cc/Yq3zTdsD/Photoroom-20261113-193819.png', 'cq:encaje': 'https://i.postimg.cc/s2BPQsgx/Photoroom-20261113-193838.png'
 };
 const AURI_LOGO = 'https://i.postimg.cc/PxD8ksW5/Photoroom-20261108-192124.png';
 const cosOne = (k, c = '') => COS_IMG[k] ? `<img${c ? ` class="${c}"` : ''} src="${esc(COS_IMG[k])}" alt="" referrerpolicy="no-referrer" decoding="async">` : '';
@@ -340,7 +342,7 @@ const topKey = e => {                                    // adorno de arriba que
 /* Adornos de arriba: hasta 2, cada uno con su posición (x, y en % de la foto), giro (grados) y tamaño (1 = normal) */
 const ADJ_MAX = 2, ADJ_W = 46;
 const adjNum = (v, a, b, d) => { v = +v; return Number.isFinite(v) ? Math.round(Math.min(b, Math.max(a, v)) * 10) / 10 : d; };
-const CQ_ADJ = { 'cq:flores': { x: 50, y: -12, r: 0, s: 2.15 }, 'cq:mariposas': { x: 50, y: 16, r: 0, s: 2.4 }, 'cq:corazones': { x: 50, y: -8, r: 0, s: 2.2 }, 'cq:vichy': { x: 8, y: 6, r: -12, s: 1 } };
+const CQ_ADJ = { 'cq:flores': { x: 50, y: -12, r: 0, s: 2.15 }, 'cq:mariposas': { x: 50, y: 16, r: 0, s: 2.4 }, 'cq:corazones': { x: 50, y: -8, r: 0, s: 2.2 }, 'cq:vichy': { x: 8, y: 6, r: -12, s: 1 }, 'cq:bombones': { x: 88, y: 16, r: 8, s: .95 }, 'cq:enamorado': { x: 50, y: -14, r: 0, s: 2.1 } };
 const adjDefault = k => CQ_ADJ[k] ? { k, ...CQ_ADJ[k] } : k === 'crown' ? { k, x: 27, y: -5, r: -27, s: 1 } : { k, x: 91, y: 4, r: 0, s: 1 };
 const adjOk = (e, k) => typeof k === 'string' && !!COS_IMG[k] && (CQ[k] ? CQ[k][1] === 'top' && cqOf(e).includes(k) : k === 'crown' ? roleOf(e) === 'OWNER' : /^bow:/.test(k) && bowsOf(e).includes(k.slice(4)));
 const adjClean = (e, l) => (Array.isArray(l) ? l : []).filter(o => o && adjOk(e, o.k)).slice(0, ADJ_MAX).map(o => { const d = adjDefault(o.k); return { k: o.k, x: adjNum(o.x, -40, 140, d.x), y: adjNum(o.y, -40, 140, d.y), r: adjNum(o.r, -180, 180, d.r), s: adjNum(o.s, .4, 3, d.s) }; });

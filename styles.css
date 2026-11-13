@@ -2615,6 +2615,10 @@ html.lite .amb{display:none}
 .fr.sm .orn-bot.bq.joya{left:-18%;bottom:-27%;width:136%}
 .fr.sm .orn-bot.bq.perlas{left:-26%;bottom:-44%;width:152%}
 
+/* 106b · Pack San Valentín dulce: corazón con encaje (abajo) */
+.orn-bot.bq.encaje{left:-20%;bottom:-36%;width:140%}
+.fr.sm .orn-bot.bq.encaje{left:-24%;bottom:-40%;width:148%}
+
 /* 107 · Mascota junto al nombre y ajuste del adorno de abajo */
 .pf-namerow{display:flex;align-items:flex-end;gap:6px;width:100%;min-width:0}
 .pf-namerow .pf-name{flex:0 1 auto;min-width:0}

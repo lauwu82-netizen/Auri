@@ -2471,4 +2471,7 @@ window.I18N = { en: {
   "Sprite a elección · Título · Corazón de biblioteca": "Sprite of your choice · Title · Library Heart",
   "Título · Rompecorazones · AuriCoins ×175": "Title · Heartbreaker · AuriCoins ×175",
   "San Valentín": "Valentine's Day",
+  "Caja de bombones": "Box of chocolates",
+  "Corazones enamorados": "Hearts in love",
+  "Corazón con encaje": "Lace heart",
 } };
