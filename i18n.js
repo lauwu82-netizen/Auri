@@ -2445,5 +2445,17 @@ window.I18N = { en: {
   "Canjear": "Redeem",
   "¡Pase activado por 1 mes!": "Pass activated for 1 month!",
   "Insignia Top 50 (clara)": "Top 50 badge (light)",
-  "Insignia Top 50 (oscura)": "Top 50 badge (dark)"
+  "Insignia Top 50 (oscura)": "Top 50 badge (dark)",
+  "Carta de amor": "Love letter",
+  "Flecha y corazón": "Arrow and heart",
+  "Cupido": "Cupid",
+  "Cupido lila": "Lilac Cupid",
+  "Cupido celeste": "Sky-blue Cupid",
+  "Diablillo": "Little devil",
+  "Separador · carta de amor": "Separator · love letter",
+  "Separador · flecha y corazón": "Separator · arrow and heart",
+  "Mascota · Cupido": "Pet · Cupid",
+  "Mascota · Cupido lila": "Pet · Lilac Cupid",
+  "Título llamativo · Cupido celeste": "Eye-catching title · Sky-blue Cupid",
+  "Mascota · Diablillo": "Pet · Little devil"
 } };
