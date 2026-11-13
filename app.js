@@ -389,25 +389,44 @@ function giftFind(raw) {                                // usuario (con o sin @)
   const m = ks.filter(e => String((us[e] || {}).name || '').toLowerCase() === q);
   return m.length === 1 ? { e: m[0] } : m.length > 1 ? { err: t('Hay varias cuentas con ese nombre: usa el correo.') } : { err: t('No encontré esa cuenta.') };
 }
-function giftSend(raw, place) {
+function giftSend(raw, place, lvl) {
   if (!isOwner()) return t('Solo la Owner puede regalar.'); giftSweep();
-  const f = giftFind(raw); if (f.err) return modCloud() ? giftSendCloud(raw, f.err, place) : f.err; const tg = f.e, u = getUsers()[tg];
+  const f = giftFind(raw); if (f.err) return modCloud() ? giftSendCloud(raw, f.err, place, lvl) : f.err; const tg = f.e, u = getUsers()[tg];
   if (tg === S.user || roleOf(tg) === 'OWNER') return t('Ese marco es para otras cuentas.');
   if (u.frameTop || giftsAll().some(g => g.to === tg && g.status === 'pending')) return u.frameTop ? t('{n} ya tiene el marco.', { n: uName(tg) }) : t('{n} ya tiene un regalo pendiente.', { n: uName(tg) });
   if (giftLeft() <= 0) return t('Ya no quedan cupos: {n} de {n} en uso.', { n: GIFT_TOTAL });
-  if (place && giftsAll().some(g => g.place === place && (g.status === 'pending' || g.status === 'claimed'))) return t('Ese puesto ya se regaló.');
-  { const cu = modUid(tg); if (cu) return place ? modDo('gift_send_place', { to_id: cu, p: place }) : modDo('gift_send', { to_id: cu }); }
-  const now = Date.now(), L = giftsAll(); L.unshift({ id: now + Math.random().toString(36).slice(2, 5), kind: 'top50', to: tg, by: S.user, date: new Date(now).toISOString(), expires: new Date(now + GIFT_MS).toISOString(), status: 'pending', place: place || 0 }); G.set('gifts', L);
+  if (place >= 1 && place <= 3 && giftsAll().some(g => g.place === place && (g.status === 'pending' || g.status === 'claimed'))) return t('Ese puesto ya se regaló.');
+  { const cu = modUid(tg); if (cu) return place ? modDo('gift_send_place', { to_id: cu, p: place, lvl: lvl == null ? 1 : lvl }) : modDo('gift_send', { to_id: cu }); }
+  const now = Date.now(), L = giftsAll(); L.unshift({ id: now + Math.random().toString(36).slice(2, 5), kind: 'top50', to: tg, by: S.user, date: new Date(now).toISOString(), expires: new Date(now + GIFT_MS).toISOString(), status: 'pending', place: place || 0, level: lvl == null ? 1 : lvl }); G.set('gifts', L);
   pushNotif(tg, { type: 'sys', extra: '¡Te regalaron el marco exclusivo Top 50! Reclámalo en las próximas 24 h.', href: '#/gift' });
   logAction('gift-send', tg, 'Marco Top 50 · quedan ' + giftLeft() + ' de ' + GIFT_TOTAL); return '';
 }
-const GIFT_PLACE_TXT = { 0: 'Del 4 al 50 · gatito al azar', 1: 'Puesto 1 · gatito morado', 2: 'Puesto 2 · gatito azul', 3: 'Puesto 3 · gatito rosa' };
-const GIFT_PLACES = () => [0, 1, 2, 3].map(n => `<option value="${n}" ${n && giftsAll().some(g => g.place === n && (g.status === 'pending' || g.status === 'claimed')) ? 'disabled' : ''}>${esc(t(GIFT_PLACE_TXT[n]))}</option>`).join('');
-function giftPlacePick(id) {                              // la Owner elige el puesto antes de regalar (define qué gatito fundador recibe)
+const GIFT_PLACE_TXT = { 1: 'Puesto 1 · gatito morado', 2: 'Puesto 2 · gatito azul', 3: 'Puesto 3 · gatito rosa', 10: 'Del 4 al 10 · gatito al azar', 50: 'Del 11 al 50 · gatito al azar' };
+const GIFT_LEVEL_TXT = { 0: 'Pocas personas: solo lo exclusivo y las gemas', 1: 'Participación normal: + 200 AuriCoins', 2: 'Mucha gente: AuriCoins por niveles y pases del Top 3' };
+const GIFT_CHAPS = { 1: 100, 2: 50, 3: 25 };
+/** Qué incluye el paquete (igual que lo entrega el servidor al reclamar) */
+function giftPackLines(pl, lv) {
+  const L = [t('Marco Top 50, gatito, estrellitas, polvo de estrellas, título y sello')];
+  if (GIFT_CHAPS[pl]) L.push(t('AuriGems moradas: {g} ({c} capítulos de novela visual)', { g: GIFT_CHAPS[pl] * 6, c: GIFT_CHAPS[pl] }));
+  const cn = lv === 1 ? 200 : lv === 2 ? (pl <= 3 ? 500 : pl === 10 ? 300 : 200) : 0;
+  if (cn) L.push(t('{n} AuriCoins', { n: cn }));
+  if (lv === 2 && pl <= 3) L.push(t('Cupones: pase de lector y pase de escritor (1 mes cada uno, para canjear en 90 días)'));
+  return L;
+}
+const giftPlaceTaken = n => n <= 3 && giftsAll().some(g => g.place === n && (g.status === 'pending' || g.status === 'claimed'));
+const GIFT_PLACES = () => [50, 10, 3, 2, 1].map(n => `<option value="${n}" ${giftPlaceTaken(n) ? 'disabled' : ''}>${esc(t(GIFT_PLACE_TXT[n]))}</option>`).join('');
+const GIFT_LEVELS = () => [0, 1, 2].map(n => `<option value="${n}" ${n === 1 ? 'selected' : ''}>${esc(t(GIFT_LEVEL_TXT[n]))}</option>`).join('');
+const giftPackHTML = (pl, lv) => `<ul class="gift-pack">${giftPackLines(+pl, +lv).map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+function giftPlacePick(id) {                              // la Owner elige puesto y nivel: el paquete se entrega solo al reclamar
   const m = document.createElement('div'); m.className = 'modal';
-  m.innerHTML = `<div class="modal-box mini-box" role="dialog" aria-modal="true"><h2>${esc(t('¿Regalar el marco Top 50 a {n}?', { n: uName(id) }))}</h2><p class="helper">${esc(t('Tendrá 24 h para reclamarlo. Si no lo hace, el regalo se cancela y el cupo vuelve a ti. Quedan {a} de {b}.', { a: giftLeft(), b: GIFT_TOTAL }))}</p><label class="vnf" style="margin-top:12px"><span>${esc(t('Puesto'))}</span><select class="field" data-pl>${GIFT_PLACES()}</select></label><div style="display:flex;gap:10px;margin-top:16px"><button class="button ghost" data-no style="flex:1">${esc(t('Cancelar'))}</button><button class="button" data-yes style="flex:1">${esc(t('Regalar'))}</button></div></div>`;
+  m.innerHTML = `<div class="modal-box mini-box" role="dialog" aria-modal="true"><h2>${esc(t('¿Regalar el marco Top 50 a {n}?', { n: uName(id) }))}</h2><p class="helper">${esc(t('Tendrá 24 h para reclamarlo. Si no lo hace, el regalo se cancela y el cupo vuelve a ti. Quedan {a} de {b}.', { a: giftLeft(), b: GIFT_TOTAL }))}</p>
+    <label class="vnf" style="margin-top:12px"><span>${esc(t('Puesto'))}</span><select class="field" data-pl>${GIFT_PLACES()}</select></label>
+    <label class="vnf" style="margin-top:10px"><span>${esc(t('Nivel de premios'))}</span><select class="field" data-lv>${GIFT_LEVELS()}</select></label>
+    <div data-pack></div><div style="display:flex;gap:10px;margin-top:16px"><button class="button ghost" data-no style="flex:1">${esc(t('Cancelar'))}</button><button class="button" data-yes style="flex:1">${esc(t('Regalar'))}</button></div></div>`;
+  const pl = m.querySelector('[data-pl]'), lv = m.querySelector('[data-lv]'), pk = m.querySelector('[data-pack]'), paint = () => { pk.innerHTML = '<p class="helper" style="margin:12px 0 4px">' + esc(t('Incluye:')) + '</p>' + giftPackHTML(pl.value, lv.value); };
+  pl.onchange = lv.onchange = paint; paint();
   m.querySelector('[data-no]').onclick = () => m.remove();
-  m.querySelector('[data-yes]').onclick = async () => { const pl = +m.querySelector('[data-pl]').value || 0; m.remove(); const r = await giftSend(id, pl); toast(r || t('Regalo enviado ✓')); KEEP = true; render(); };
+  m.querySelector('[data-yes]').onclick = async () => { const p = +pl.value || 50, l = +lv.value; m.remove(); const r = await giftSend(id, p, l); toast(r || t('Regalo enviado ✓')); KEEP = true; render(); };
   document.body.appendChild(m);
 }
 function giftClaim(id) {
@@ -450,7 +469,7 @@ function giftsView(tabs) {                              // pestaña de la Owner 
   const fd = iso => new Date(iso).toLocaleString(LOC(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   return `<main class="page story-layout">${tabs}<div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('🎁 Regalos')}</span><h2 style="margin-top:8px">${t('Marco Top 50')}</h2><p>${t('Solo tú puedes regalarlo. Quien lo recibe tiene 24 h para reclamarlo; si no lo hace, el regalo se cancela y el cupo vuelve a ti.')}</p></div></div>
   <section class="panel gift-top"><div class="gift-av">${giftPreview(S.user)}</div><div class="gift-count"><b>${left}</b><span>${t('de {n} cupos disponibles', { n: GIFT_TOTAL })}</span><small class="helper">${t('50 para el top + 3 de prueba')}</small></div></section>
-  <section class="panel" style="margin-top:14px"><h3 style="margin-bottom:8px">${t('Regalar a una cuenta')}</h3><div class="form-group"><label for="g-to">${t('Usuario o correo')}</label><input id="g-to" class="field" autocomplete="off" placeholder="${esc(t('Ej: RiRi o correo@ejemplo.com'))}"></div><p class="error-line" data-err role="alert"></p><div class="form-group"><label for="g-place">${t('Puesto')}</label><select id="g-place" class="field">${GIFT_PLACES()}</select></div><button class="button" data-act="gift-send" ${left > 0 ? '' : 'disabled'}>${t('Regalar marco')}</button><p class="helper" style="margin-top:8px">${t('También puedes regalarlo desde el perfil de la persona, en Administración.')}</p></section>
+  <section class="panel" style="margin-top:14px"><h3 style="margin-bottom:8px">${t('Regalar a una cuenta')}</h3><div class="form-group"><label for="g-to">${t('Usuario o correo')}</label><input id="g-to" class="field" autocomplete="off" placeholder="${esc(t('Ej: RiRi o correo@ejemplo.com'))}"></div><p class="error-line" data-err role="alert"></p><div class="form-group"><label for="g-place">${t('Puesto')}</label><select id="g-place" class="field">${GIFT_PLACES()}</select></div><div class="form-group"><label for="g-level">${t('Nivel de premios')}</label><select id="g-level" class="field">${GIFT_LEVELS()}</select></div><button class="button" data-act="gift-send" ${left > 0 ? '' : 'disabled'}>${t('Regalar marco')}</button><p class="helper" style="margin-top:8px">${t('También puedes regalarlo desde el perfil de la persona, en Administración.')}</p></section>
   <h3 style="margin:18px 0 8px">${t('Esperando que lo reclamen')} (${pend.length})</h3>${pend.length ? pend.map(g => row(g, t('Le quedan {x}', { x: leftTxt(g.expires) }), `<button class="button danger sm" data-act="gift-cancel" data-id="${esc(g.id)}">${t('Cancelar regalo')}</button>`)).join('') : '<p class="helper">' + t('Ninguno.') + '</p>'}
   <h3 style="margin:18px 0 8px">${t('Reclamados')} (${got.length})</h3>${got.length ? got.map(g => row(g, t('Reclamado {d}', { d: fd(g.claimedDate) }), `<button class="button secondary sm" data-act="gift-cancel" data-id="${esc(g.id)}">${t('Quitar marco')}</button>`)).join('') : '<p class="helper">' + t('Ninguno.') + '</p>'}
   <h3 style="margin:18px 0 8px">${t('Historial')}</h3>${hist.length ? hist.map(g => row(g, (g.status === 'expired' ? t('Venció sin reclamar') : t('Retirado')) + ' · ' + fd(g.endDate), '')).join('') : '<p class="helper">' + t('Aún no hay movimientos.') + '</p>'}</main>`;
@@ -1326,12 +1345,12 @@ function openBowGift(tg) {
   });
   document.body.appendChild(m);
 }
-async function giftSendCloud(raw, err, place) {                   // la Owner puede regalar a cuentas que este dispositivo aún no conoce
+async function giftSendCloud(raw, err, place, lvl) {                   // la Owner puede regalar a cuentas que este dispositivo aún no conoce
   const q = String(raw || '').trim().replace(/^@/, ''); if (!q) return err;
   const r = await sbApi('/rest/v1/rpc/find_user', { method: 'POST', body: { q } });
   if (!r.ok || !Array.isArray(r.data) || !r.data.length) return err;
   if (r.data.length > 1) return t('Hay varias cuentas con ese nombre: usa el correo.');
-  await sbKnow([r.data[0].id]); return place ? modDo('gift_send_place', { to_id: r.data[0].id, p: place }) : modDo('gift_send', { to_id: r.data[0].id });
+  await sbKnow([r.data[0].id]); return place ? modDo('gift_send_place', { to_id: r.data[0].id, p: place, lvl: lvl == null ? 1 : lvl }) : modDo('gift_send', { to_id: r.data[0].id });
 }
 function softRender(force) {
   const ae = document.activeElement && document.activeElement.tagName;
@@ -4890,17 +4909,26 @@ function ipView() {
     <p class="helper" id="ip-err" role="alert"></p><button type="button" class="button" data-act="ip-send">${t('Enviar')}</button>
   </section></main>`;
 }
+function voucherSection(w) {                                  // cupones de pase (y pases activos) del evento Top 50
+  const V = Array.isArray(w.vouchers) ? w.vouchers : [], fmt = d => new Date(d).toLocaleDateString(uiLang() === 'en' ? 'en-US' : 'es', { day: 'numeric', month: 'long', year: 'numeric' });
+  const act = [w.pass_r ? t('Pase de lector activo hasta {d}', { d: fmt(w.pass_r) }) : '', w.pass_w ? t('Pase de escritor activo hasta {d}', { d: fmt(w.pass_w) }) : ''].filter(Boolean);
+  if (!V.length && !act.length) return '';
+  return `<section class="panel rw-vouchers"><h3 style="margin:0 0 4px">${t('Tus cupones de pase')}</h3>${act.map(x => `<p class="helper" style="margin:2px 0">${esc(x)}</p>`).join('')}
+  ${V.map(v => `<article class="rw-card"><div class="rw-main"><strong>${t(v.kind === 'reader' ? 'Cupón de pase de lector' : 'Cupón de pase de escritor')}</strong><span class="rw-sub">${t('1 mes · canjéalo antes del {d}', { d: fmt(v.expires) })}</span></div><button type="button" class="button sm" data-act="rw-voucher" data-id="${esc(v.id)}">${t('Canjear')}</button></article>`).join('')}</section>`;
+}
 function rewardsView() {
   if (!rwOn()) return `<main class="page">${empty('Aquí pronto habrá algo nuevo', 'Inicia sesión para ver tus recompensas.')}</main>`;
   if (RWS === null) rwLoad();
-  const w = WALLET || { cyan: 0, purple: 0, pending: 0 }, list = Array.isArray(RWS) ? RWS : [], loading = RWS === null || RWS === 'loading';
+  const w = WALLET || { cyan: 0, purple: 0, pending: 0, coins: 0 }, list = Array.isArray(RWS) ? RWS : [], loading = RWS === null || RWS === 'loading';
   const pend = list.filter(x => x.dir === 'in' && x.status === 'pending'), hist = list.filter(x => !(x.dir === 'in' && x.status === 'pending'));
   const owner = isOwner(), body = RW_TAB === 'hist'
     ? (hist.length ? hist.map(rewardCard).join('') : `<p class="helper">${t('Aquí saldrá el registro de lo que recibas y envíes.')}</p>`)
     : (pend.length ? (pend.length > 1 ? `<button type="button" class="button" style="width:100%;margin-bottom:10px" data-act="rw-claim-all">${t('Reclamar todo')}</button>` : '') + pend.map(rewardCard).join('') : `<p class="helper">${loading ? t('Cargando…') : t('No tienes nada por reclamar.')}</p>`);
   return `<main class="page rw-page"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">${t('Recompensas')}</span><h2 style="margin-top:8px">${t('Tus gemas y regalos')}</h2></div></div>
   <section class="panel rw-wallet"><div class="rw-bal">${gemI()}<div><b>${qFmt(w.cyan)}</b><span>${t('Gemas cian')}</span></div></div>
-  ${w.purple > 0 ? `<div class="rw-bal">${gemI('p')}<div><b>${qFmt(w.purple)}</b><span>${t('Gemas moradas')}</span></div></div>` : ''}</section>
+  ${w.purple > 0 ? `<div class="rw-bal">${gemI('p')}<div><b>${qFmt(w.purple)}</b><span>${t('Gemas moradas')}</span></div></div>` : ''}
+  ${w.coins > 0 ? `<div class="rw-bal"><i class="coin" aria-hidden="true"></i><div><b>${w.coins}</b><span>${t('AuriCoins')}</span></div></div>` : ''}</section>
+  ${voucherSection(w)}
   <div class="tabs" role="tablist"><button class="tab ${RW_TAB === 'pending' ? 'active' : ''}" data-act="rw-tab" data-v="pending">${t('Por reclamar')}${pend.length ? ' (' + pend.length + ')' : ''}</button><button class="tab ${RW_TAB === 'hist' ? 'active' : ''}" data-act="rw-tab" data-v="hist">${t('Historial')}</button></div>
   ${body}
   <section class="panel rw-send"><h3 style="margin:0 0 4px">${t('Donar gemas cian')}</h3><p class="helper" style="margin:0 0 12px">${owner ? t('Como Owner no gastas tu saldo: puedes regalar las que quieras.') : t('Se descuentan de tus gemas cian. Si la persona no las reclama a tiempo, vuelven a ti. Solo entre cuentas del mismo rango de edad.')}</p>
@@ -5316,7 +5344,7 @@ document.addEventListener('click', e => {
     'test-role': () => { testRole(id, el.dataset.role); toast(t('Rol de prueba actualizado ✓')); KEEP = true; render(); },
     'mod-comm': () => { if (!isStaff()) return; MODC = ['es', 'en'].includes(id) ? id : 'all'; KEEP = true; render(); },
     'adm-scope': () => { if (!isOwner()) return; const us = getUsers(), cur = staffScope(id), nx = cur.length > 1 ? ['es'] : cur[0] === 'es' ? ['en'] : ['es', 'en']; if (!us[id]) return; us[id].scope = nx; G.set('users', us); if (modCloud() && us[id].uid) sbApi('/rest/v1/profiles?id=eq.' + us[id].uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { scope: nx } }); logAction('scope-set', id, 'Modera: ' + nx.map(c => COMMS[c]).join(' y ')); toast(t('Ahora modera: {c}', { c: nx.map(c => COMMS[c]).join(' / ') })); KEEP = true; render(); },
-    'gift-send': async () => { const inp = $('#g-to'), pl = $('#g-place'), r = await giftSend(inp ? inp.value : '', pl ? +pl.value || 0 : 0), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('Regalo enviado: tiene 24 h para reclamarlo')); KEEP = true; render(); },
+    'gift-send': async () => { const inp = $('#g-to'), pl = $('#g-place'), lvl = $('#g-level'), r = await giftSend(inp ? inp.value : '', pl ? +pl.value || 50 : 50, lvl ? +lvl.value : 1), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('Regalo enviado: tiene 24 h para reclamarlo')); KEEP = true; render(); },
     'bow-gift': () => { if (isOwner() && canAct(id)) openBowGift(id); },
     'collab-toggle': async () => { if (!isOwner() || !canAct(id)) return; const on = !isCollab(id), cu = modUid(id); let e = '';
       if (cu) e = await modDo('collab_set', { to_id: cu, on_: on }); else { const us = getUsers(); if (!us[id]) return; us[id].collab = on; G.set('users', us); pushNotif(id, { type: 'sys', extra: on ? 'Ahora eres colaboradora de Auri: puedes subir tus propias imágenes en el modo novela visual.' : 'Se retiró tu permiso de colaboración.' }); logAction('collab-set', id, on ? 'Activó colaboración' : 'Quitó colaboración'); }
@@ -5519,6 +5547,7 @@ document.addEventListener('click', e => {
       $('#ip-msg').value = ''; toast(t('Recibido. Lo revisaremos.'));
     },
     'rw-tab': () => { RW_TAB = el.dataset.v === 'hist' ? 'hist' : 'pending'; KEEP = true; render(); },
+    'rw-voucher': async () => { el.disabled = true; const r = await sbApi('/rest/v1/rpc/voucher_redeem', { method: 'POST', body: { p_id: el.dataset.id } }); toast(r.ok ? t('¡Pase activado por 1 mes!') : rpcMsg(r)); await walletLoad(); KEEP = true; render(); },
     'rw-claim': async () => { el.disabled = true; const r = await sbApi('/rest/v1/rpc/reward_claim', { method: 'POST', body: { p_id: el.dataset.id } });
       if (r.ok && r.data) toast(t('Recibiste') + ' ' + qFmt(r.data.amount) + ' ' + t('gemas cian')); else toast(rpcMsg(r)); RWS = null; await walletLoad(); KEEP = true; render(); },
     'rw-claim-all': async () => { el.disabled = true; const r = await sbApi('/rest/v1/rpc/reward_claim_all', { method: 'POST', body: {} });
