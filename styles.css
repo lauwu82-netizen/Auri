@@ -2949,3 +2949,11 @@ html.lite .amb{display:none}
 .coin{display:inline-block;width:34px;height:34px;border-radius:50%;flex:none;background:radial-gradient(circle at 35% 30%,#fff3bf,#f2c24c 55%,#bf8416);box-shadow:inset 0 0 0 3px rgba(164,109,14,.55),inset 0 0 0 5px rgba(255,243,191,.6)}
 .gift-pack{margin:4px 0 0;padding-left:18px;font-size:14px;line-height:1.5}
 .rw-vouchers{margin-top:14px}.rw-vouchers .rw-card{margin-top:8px}
+
+/* Colores de los títulos (degradado horizontal) */
+.pf-ftitle[class*=" tt-"]{background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-fill-color:transparent;width:fit-content}
+.tt-fundador{background-image:linear-gradient(90deg,#b9831a,#e8b53c 55%,#f6d36a)}
+.tt-corazon{background-image:linear-gradient(90deg,#f08aac,#e04868 55%,#c8233c)}
+.tt-tinta{background-image:linear-gradient(90deg,#d9a21f,#e8a05e 45%,#ec7ca2)}
+.tt-rompe{background-image:linear-gradient(90deg,#d6283f,#8e1d3a 50%,#231823)}
+.dark .tt-rompe{background-image:linear-gradient(90deg,#ee3b55,#a02244 55%,#5a3a5c)}
