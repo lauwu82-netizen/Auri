@@ -2457,5 +2457,7 @@ window.I18N = { en: {
   "Mascota · Cupido": "Pet · Cupid",
   "Mascota · Cupido lila": "Pet · Lilac Cupid",
   "Título llamativo · Cupido celeste": "Eye-catching title · Sky-blue Cupid",
-  "Mascota · Diablillo": "Pet · Little devil"
+  "Mascota · Diablillo": "Pet · Little devil",
+  "Cupida": "Cupid (girl)",
+  "Mascota · Cupida": "Pet · Cupid (girl)"
 } };

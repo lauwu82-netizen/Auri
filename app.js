@@ -2921,7 +2921,7 @@ const sepKey = () => sepOK(cfg('sepStyle')) ? cfg('sepStyle') : 'classic';
 const PETS = { gato: ['Gatito', '¡Miau!'], perro: ['Perrito', '¡Guau!'], conejo: ['Conejito', '¡Hola!'],
   'fundador-morado': ['Gatito fundador morado', '¡Miau!'], 'fundador-azul': ['Gatito fundador azul', '¡Miau!'], 'fundador-rosa': ['Gatito fundador rosa', '¡Miau!'],
   'fundador-blanco': ['Gatito fundador blanco', '¡Miau!'], 'fundador-negro': ['Gatito fundador negro', '¡Miau!'], 'fundador-calico': ['Gatito fundador calicó', '¡Miau!'],
-  'fundador-marron': ['Gatito fundador marrón', '¡Miau!'], 'cupido': ['Cupido', '¡Te quiero!'], 'cupido-lila': ['Cupido lila', '¡Te quiero!'], 'cupido-celeste': ['Cupido celeste', '¡Te quiero!'], 'diablillo': ['Diablillo', '¡Uy, mi corazón!'],
+  'fundador-marron': ['Gatito fundador marrón', '¡Miau!'], 'cupida': ['Cupida', '¡Te quiero!'], 'cupido': ['Cupido', '¡Te quiero!'], 'diablillo': ['Diablillo', '¡Uy, mi corazón!'],
   'fundador-gris': ['Gatito fundador gris', '¡Miau!'], 'fundador-siames': ['Gatito fundador siamés', '¡Miau!'] };
 /* Gatitos fundadores (Top 50): exclusivos, con medalla. Puesto 1 morado (Auri), 2 azul, 3 rosa; del 4 al 50 sale uno al azar (la asignación real la hace el servidor al reclamar el regalo) */
 const FPET_RANDOM = ['blanco', 'negro', 'calico', 'marron', 'gris', 'siames'], FPET_PLACE = { 1: 'morado', 2: 'azul', 3: 'rosa' };
@@ -5865,7 +5865,7 @@ function chtCheck() {
 /* Premios de ejemplo de cada pase (se cambian por los definitivos cuando estén los diseños) */
 const PASS_FREE = { 4: 'Insignia de temporada', 8: 'Insignia de temporada', 10: 'Gemas moradas ×3', 14: 'Separador · carta de amor', 19: 'Gemas moradas ×3', 20: 'Insignia final de temporada' };
 const PASS_PAID = {
-  reader: { 1: 'Halo de bienvenida', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador · flecha y corazón', 4: 'AuriGems ×10', 5: 'Decoración de perfil 1', 7: 'AuriGems ×10', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'AuriGems ×15', 11: 'Decoración de perfil 2', 12: 'Mascota · Cupido', 13: 'AuriGems ×15', 14: 'Chat San Valentín · lila', 16: 'AuriGems ×20', 17: 'Mascota · Cupido lila', 19: 'AuriGems ×20', 20: 'Título llamativo · Cupido celeste' },
+  reader: { 1: 'Halo de bienvenida', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador · flecha y corazón', 4: 'AuriGems ×10', 5: 'Decoración de perfil 1', 7: 'AuriGems ×10', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'AuriGems ×15', 11: 'Decoración de perfil 2', 12: 'Mascota · Cupida', 13: 'AuriGems ×15', 14: 'Chat San Valentín · lila', 16: 'AuriGems ×20', 17: 'Mascota · Cupido', 19: 'AuriGems ×20', 20: 'Título llamativo' },
   writer: { 1: 'Título de creador', 2: 'AuriCoins ×50', 3: 'Stickers del chat', 4: 'AuriGems ×10', 5: 'Marco de portada 1', 6: 'AuriCoins ×50', 8: 'Efectos del chat', 9: 'AuriGems ×10', 10: 'Cosmético de perfil de creador', 11: 'Impulso a destacados ×1', 12: 'AuriCoins ×75', 13: 'Marco de portada 2', 14: 'Mascota · Diablillo', 15: 'AuriGems ×15', 16: 'Portada de San Valentín', 17: 'AuriCoins ×75', 18: 'Ambiente por capítulo', 19: 'AuriGems ×15', 20: 'Portada de San Valentín 2 · AuriCoins ×100' }
 };
 function shopView(tab) {
