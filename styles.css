@@ -2983,3 +2983,5 @@ html.lite .amb{display:none}
 [data-nf=bonita],[data-nfs=bonita]{font-family:'Pacifico',cursive!important;font-weight:400!important}
 [data-nf=elegante],[data-nfs=elegante]{font-family:'Playfair Display',Georgia,serif!important;font-style:italic;font-weight:600!important}
 [data-nf=redonda],[data-nfs=redonda]{font-family:'Fredoka',ui-rounded,sans-serif!important;font-weight:600!important}
+
+.lv-c{flex-direction:column;gap:6px}.lv-claim{padding:4px 12px;font-size:12px}.lv-done{font-size:11px;opacity:.7;font-weight:700}

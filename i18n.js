@@ -2490,4 +2490,7 @@ window.I18N = { en: {
   "Letras bonitas": "Pretty letters",
   "Elegante": "Elegant",
   "Redondita": "Rounded",
+  "Por ahora se entregan las gemas moradas, las AuriCoins y los títulos. Lo demás llegará pronto.": "For now purple gems, AuriCoins and titles are delivered. The rest is coming soon.",
+  "Reclamado": "Claimed",
+  "¡Premio reclamado!": "Reward claimed!",
 } };
