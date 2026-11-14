@@ -2481,4 +2481,13 @@ window.I18N = { en: {
   "Plantilla de portada · dulce": "Cover template · sweet",
   "Plantilla de portada · oscura": "Cover template · dark",
   "Fondo del editor · San Valentín": "Editor background · Valentine's Day",
+  "Se ve bajo tu nombre en el perfil. Puedes cambiarlo cuando quieras.": "It shows under your name on your profile. You can change it any time.",
+  "Título guardado": "Title saved",
+  "Fuente del nombre": "Name font",
+  "Cambia la letra de tu nombre en el perfil.": "Change the lettering of your name on your profile.",
+  "Fuente guardada": "Font saved",
+  "8-bit": "8-bit",
+  "Letras bonitas": "Pretty letters",
+  "Elegante": "Elegant",
+  "Redondita": "Rounded",
 } };

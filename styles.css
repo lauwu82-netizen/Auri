@@ -2970,3 +2970,16 @@ html.lite .amb{display:none}
 .tt-tinta{background-image:linear-gradient(90deg,#d9a21f,#e8a05e 45%,#ec7ca2)}
 .tt-rompe{background-image:linear-gradient(90deg,#d6283f,#8e1d3a 50%,#231823)}
 .dark .tt-rompe{background-image:linear-gradient(90deg,#ee3b55,#a02244 55%,#5a3a5c)}
+
+/* 108 · Selector de títulos y fuente del nombre */
+.tt-list,.nf-list{display:grid;gap:8px;margin-top:12px}
+.tt-opt,.nf-opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;border-radius:14px;border:1.5px solid hsl(var(--border));background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.tt-opt.on,.nf-opt.on{border-color:hsl(var(--primary));background:hsl(var(--primary)/.1)}
+.tt-opt .pf-ftitle{margin:0;font-size:16px}.tt-none{font-size:14px;color:hsl(var(--muted-foreground))}
+.nf-s{font-size:24px;line-height:1.25}.nf-opt small{color:hsl(var(--muted-foreground));font-size:12px}
+[data-nf=retro8],[data-nfs=retro8]{font-family:'Press Start 2P',monospace!important;font-weight:400!important}
+.pf-name[data-nf=retro8]{font-size:.62em;line-height:1.5}.nf-s[data-nfs=retro8]{font-size:15px}
+[data-nf=cursiva],[data-nfs=cursiva]{font-family:'Dancing Script',cursive!important;font-weight:700!important}
+[data-nf=bonita],[data-nfs=bonita]{font-family:'Pacifico',cursive!important;font-weight:400!important}
+[data-nf=elegante],[data-nfs=elegante]{font-family:'Playfair Display',Georgia,serif!important;font-style:italic;font-weight:600!important}
+[data-nf=redonda],[data-nfs=redonda]{font-family:'Fredoka',ui-rounded,sans-serif!important;font-weight:600!important}
