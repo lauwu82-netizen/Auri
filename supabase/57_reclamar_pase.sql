@@ -1,17 +1,19 @@
 -- Auri · reclamar recompensas del pase (etapa 1: gemas moradas, monedas y titulos)
--- Las gemas se guardan en cuartos (12 = 3 gemas). Los premios de pase de paga tambien dan gemas moradas.
+-- Las gemas se guardan en cuartos (12 = 3 gemas). En el pase de paga se alternan gemas cian y moradas.
 alter table public.profiles add column if not exists titles text[] not null default array[]::text[];
 
 create table if not exists public.pass_rewards (
   track text not null check (track in ($q$reader$q$, $q$writer$q$)),
   tier text not null check (tier in ($q$free$q$, $q$paid$q$)),
   level int not null check (level between 1 and 20),
-  kind text not null check (kind in ($q$purple$q$, $q$coins$q$, $q$title$q$)),
+  kind text not null,
   item text not null,
   amount int not null default 0,
   key text,
   primary key (track, tier, level, item)
 );
+alter table public.pass_rewards drop constraint if exists pass_rewards_kind_check;
+alter table public.pass_rewards add constraint pass_rewards_kind_check check (kind in ($q$cyan$q$, $q$purple$q$, $q$coins$q$, $q$title$q$));
 alter table public.pass_rewards enable row level security;
 drop policy if exists pr_sel on public.pass_rewards;
 create policy pr_sel on public.pass_rewards for select to authenticated using (true);
@@ -22,11 +24,11 @@ insert into public.pass_rewards (track, tier, level, kind, item, amount, key) va
 ($q$reader$q$,$q$free$q$,19,$q$purple$q$,$q$purple:12$q$,12,null),
 ($q$writer$q$,$q$free$q$,10,$q$purple$q$,$q$purple:12$q$,12,null),
 ($q$writer$q$,$q$free$q$,19,$q$purple$q$,$q$purple:12$q$,12,null),
-($q$reader$q$,$q$paid$q$,4,$q$purple$q$,$q$purple:40$q$,40,null),
+($q$reader$q$,$q$paid$q$,4,$q$cyan$q$,$q$cyan:40$q$,40,null),
 ($q$reader$q$,$q$paid$q$,7,$q$purple$q$,$q$purple:40$q$,40,null),
-($q$reader$q$,$q$paid$q$,10,$q$purple$q$,$q$purple:60$q$,60,null),
+($q$reader$q$,$q$paid$q$,10,$q$cyan$q$,$q$cyan:60$q$,60,null),
 ($q$reader$q$,$q$paid$q$,13,$q$purple$q$,$q$purple:60$q$,60,null),
-($q$reader$q$,$q$paid$q$,16,$q$purple$q$,$q$purple:80$q$,80,null),
+($q$reader$q$,$q$paid$q$,16,$q$cyan$q$,$q$cyan:80$q$,80,null),
 ($q$reader$q$,$q$paid$q$,19,$q$purple$q$,$q$purple:80$q$,80,null),
 ($q$reader$q$,$q$paid$q$,20,$q$title$q$,$q$title:corazon$q$,0,$q$corazon$q$),
 ($q$writer$q$,$q$paid$q$,1,$q$title$q$,$q$title:tinta$q$,0,$q$tinta$q$),
@@ -34,9 +36,9 @@ insert into public.pass_rewards (track, tier, level, kind, item, amount, key) va
 ($q$writer$q$,$q$paid$q$,6,$q$coins$q$,$q$coins:50$q$,50,null),
 ($q$writer$q$,$q$paid$q$,12,$q$coins$q$,$q$coins:75$q$,75,null),
 ($q$writer$q$,$q$paid$q$,20,$q$coins$q$,$q$coins:175$q$,175,null),
-($q$writer$q$,$q$paid$q$,4,$q$purple$q$,$q$purple:40$q$,40,null),
+($q$writer$q$,$q$paid$q$,4,$q$cyan$q$,$q$cyan:40$q$,40,null),
 ($q$writer$q$,$q$paid$q$,9,$q$purple$q$,$q$purple:40$q$,40,null),
-($q$writer$q$,$q$paid$q$,15,$q$purple$q$,$q$purple:60$q$,60,null),
+($q$writer$q$,$q$paid$q$,15,$q$cyan$q$,$q$cyan:60$q$,60,null),
 ($q$writer$q$,$q$paid$q$,19,$q$purple$q$,$q$purple:60$q$,60,null),
 ($q$writer$q$,$q$paid$q$,20,$q$title$q$,$q$title:rompe$q$,0,$q$rompe$q$);
 
@@ -90,7 +92,10 @@ begin
     get diagnostics ins = row_count;
     if ins = 0 then continue; end if;
     n := n + 1;
-    if r.kind = $q$purple$q$ then
+    if r.kind = $q$cyan$q$ then
+      update public.wallets set cyan = cyan + r.amount, updated_at = now() where uid = me;
+      insert into public.gem_ledger (uid, kind, delta, reason, ref) values (me, $q$cyan$q$, r.amount, $q$pase$q$, $q$pass:$q$ || s.id || $q$:$q$ || p_track || $q$:$q$ || p_tier || $q$:$q$ || p_level);
+    elsif r.kind = $q$purple$q$ then
       update public.wallets set purple = purple + r.amount, updated_at = now() where uid = me;
       insert into public.gem_ledger (uid, kind, delta, reason, ref) values (me, $q$purple$q$, r.amount, $q$pase$q$, $q$pass:$q$ || s.id || $q$:$q$ || p_track || $q$:$q$ || p_tier || $q$:$q$ || p_level);
     elsif r.kind = $q$coins$q$ then

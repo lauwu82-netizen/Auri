@@ -2493,4 +2493,10 @@ window.I18N = { en: {
   "Por ahora se entregan las gemas moradas, las AuriCoins y los títulos. Lo demás llegará pronto.": "For now purple gems, AuriCoins and titles are delivered. The rest is coming soon.",
   "Reclamado": "Claimed",
   "¡Premio reclamado!": "Reward claimed!",
+  "AuriGems cian ×10": "Cyan AuriGems ×10",
+  "AuriGems cian ×15": "Cyan AuriGems ×15",
+  "AuriGems cian ×20": "Cyan AuriGems ×20",
+  "AuriGems moradas ×10": "Purple AuriGems ×10",
+  "AuriGems moradas ×15": "Purple AuriGems ×15",
+  "AuriGems moradas ×20": "Purple AuriGems ×20",
 } };
