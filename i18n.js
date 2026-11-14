@@ -2499,4 +2499,5 @@ window.I18N = { en: {
   "AuriGems moradas ×10": "Purple AuriGems ×10",
   "AuriGems moradas ×15": "Purple AuriGems ×15",
   "AuriGems moradas ×20": "Purple AuriGems ×20",
+  "Elige la forma de tu foto de perfil.": "Choose the shape of your profile photo.",
 } };
