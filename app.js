@@ -5032,7 +5032,7 @@ function openCharForm(id, after) {
     <p class="helper"><a href="#/ip">${t('Normas de propiedad intelectual')}</a> · <a href="#/ip">${t('Reclamaciones de artistas')}</a> · <a href="#/ip">${t('Retirada y apelación')}</a></p></fieldset></details>` : ''}
   <p class="error" data-err></p><div class="cf-btns"><button class="button ghost" data-cancel>${t('Cancelar')}</button><button class="button" data-save>${t('Guardar')}</button></div></div>`;
   const q = sel => m.querySelector(sel), close = () => m.remove(), setPrev = () => { q('[data-prev]').innerHTML = photo ? `<img src="${esc(photo)}" alt="">` : '🐱'; q('[data-nophoto]').hidden = !photo; };
-  const vnDraw = () => { const box = q('[data-vncells]'); if (!box) return; box.innerHTML = vnEmoList().map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : vnSil(e.key)}</div><b>${esc(t(e.name))}</b><label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}</div>`).join(''); };
+  const vnDraw = () => { const box = q('[data-vncells]'); if (!box) return; box.innerHTML = vnEmoList().map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : vnSil(e.key)}</div><b>${esc(t(e.name))}</b>${vnTag(e)}<label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}</div>`).join(''); };
   if (q('[data-vncells]')) { vnDraw(); vnEmosLoad().then(vnDraw);
     const box = q('[data-vncells]');
     box.addEventListener('change', ev => { const inp = ev.target.closest('input[data-emo]'); if (!inp || !inp.files[0]) return; const k = inp.dataset.emo; q('[data-err]').textContent = t('Subiendo…');
@@ -5614,7 +5614,8 @@ document.addEventListener('click', e => {
       $('#ip-msg').value = ''; toast(t('Recibido. Lo revisaremos.'));
     },
     'rw-tab': () => { RW_TAB = el.dataset.v === 'hist' ? 'hist' : 'pending'; KEEP = true; render(); },
-    'pass-claim': async () => { const [tier, lv] = (el.dataset.id || '').split(':'); el.disabled = true; const r = await sbApi('/rest/v1/rpc/pass_claim', { method: 'POST', body: { p_track: MS.track, p_tier: tier, p_level: +lv } }); toast(r.ok ? t('¡Premio reclamado!') : rpcMsg(r)); if (r.ok) { const s = sbSes(), pf = s ? await sbApi('/rest/v1/profiles?select=titles,items&id=eq.' + s.uid) : null; if (pf && pf.ok && pf.data && pf.data[0]) { const us = getUsers(); if (us[S.user]) { us[S.user].titles = Array.isArray(pf.data[0].titles) ? pf.data[0].titles : []; us[S.user].items = Array.isArray(pf.data[0].items) ? pf.data[0].items : []; G.set('users', us); } } await Promise.all([msAll(true), walletLoad()]); } KEEP = true; render(); },
+    'pass-claim': async () => { const [tier, lv] = (el.dataset.id || '').split(':'); el.disabled = true; const r = await sbApi('/rest/v1/rpc/pass_claim', { method: 'POST', body: { p_track: MS.track, p_tier: tier, p_level: +lv } }); const sp = r.ok && r.data && Array.isArray(r.data.sprites) ? r.data.sprites : []; toast(r.ok ? t('¡Premio reclamado!') : rpcMsg(r)); if (r.ok) await passRefresh(); else { KEEP = true; render(); } vnReveal(sp); },
+    'pass-pick': () => vnPick(),
     'rw-voucher': async () => { el.disabled = true; const r = await sbApi('/rest/v1/rpc/voucher_redeem', { method: 'POST', body: { p_id: el.dataset.id } }); toast(r.ok ? t('¡Pase activado por 1 mes!') : rpcMsg(r)); await walletLoad(); KEEP = true; render(); },
     'rw-claim': async () => { el.disabled = true; const r = await sbApi('/rest/v1/rpc/reward_claim', { method: 'POST', body: { p_id: el.dataset.id } });
       if (r.ok && r.data) toast(t('Recibiste') + ' ' + qFmt(r.data.amount) + ' ' + t('gemas cian')); else toast(rpcMsg(r)); RWS = null; await walletLoad(); KEEP = true; render(); },
@@ -5961,13 +5962,17 @@ function missionsTab() {
 }
 function lvClaim(tier, n, st) {                      // botón Reclamar de cada casilla (solo gemas, monedas y títulos por ahora)
   const it = (MS.rw[MS.track] || []).filter(x => x.tier === tier && x.level === n); if (!it.length || st.level < n || (tier === 'paid' && !st.owned)) return '';
+  const pk = it.find(x => x.kind === 'sprite_pick'), rest = it.filter(x => x.kind !== 'sprite_pick');
+  const pkb = pk ? (pk.claimed ? '' : `<button type="button" class="button sm lv-claim" data-act="pass-pick">${t('Elegir sprite')}</button>`) : '';
+  if (pk && !rest.length) return pk.claimed ? `<small class="lv-done">✓ ${t('Reclamado')}</small>` : pkb;
+  if (pk) return (rest.some(x => !x.claimed) ? `<button type="button" class="button sm lv-claim" data-act="pass-claim" data-id="${tier}:${n}">${t('Reclamar')}</button>` : `<small class="lv-done">✓ ${t('Reclamado')}</small>`) + pkb;
   return it.some(x => !x.claimed) ? `<button type="button" class="button sm lv-claim" data-act="pass-claim" data-id="${tier}:${n}">${t('Reclamar')}</button>` : `<small class="lv-done">✓ ${t('Reclamado')}</small>`;
 }
 function passTab() {
   const st = MS[MS.track]; if (!st) return `<p class="helper">${t('Cargando tus misiones…')}</p>`;
   if (!st.season) return `<p class="helper">${t('No hay una temporada activa ahora.')}</p>`;
   const paid = PASS_PAID[MS.track] || {};
-  return `${msLevel(st)}<p class="helper" style="margin:6px 2px 10px">${t('Por ahora se entregan las gemas moradas, las AuriCoins y los títulos. Lo demás llegará pronto.')}</p>
+  return `${msLevel(st)}<p class="helper" style="margin:6px 2px 10px">${t('Reclama tus premios cuando llegues al nivel. Los sprites se usan en el editor de personajes de las novelas visuales.')}</p>
   <div class="lv-head"><span></span><b>${t('Gratis')}</b><b>${t('Pase')}</b></div>
   <div class="lv-list">${Array.from({ length: 20 }, (_, i) => i + 1).map(n => `<div class="lv ${st.level >= n ? 'reached' : ''}"><span class="lv-n">${n}<small>${lvXp(n)} XP</small></span><div class="lv-c">${PASS_FREE[MS.track][n] ? esc(t(PASS_FREE[MS.track][n])) : '<i>—</i>'}${lvClaim('free', n, st)}</div><div class="lv-c paid ${st.owned ? '' : 'lock'}">${paid[n] ? esc(t(paid[n])) : '<i>—</i>'}${lvClaim('paid', n, st)}</div></div>`).join('')}</div>`;
 }
@@ -5981,19 +5986,92 @@ const vnOn = () => !!S.user && !isGuest() && cloud() && !!sbSes();          // a
 const VN_AI = { cg: false, sprite: false };
 const VN_KEYS = [['neutral', 'Neutral'], ['feliz', 'Feliz'], ['triste', 'Triste'], ['sonrojado', 'Sonrojado'], ['asustado', 'Asustado'], ['enojado', 'Enojado']];
 /* Silueta gris con la emoción: se ve en las tarjetas de sprite vacías para saber qué dibujo va ahí */
+const _hrt = (x, y, s) => `<path class="h" transform="translate(${x} ${y}) scale(${s})" d="M0 3c-4-2-5-5-3-6.5 1.5-1 3 0 3 1.5 0-1.5 1.5-2.5 3-1.5 2 1.5 1 4.5-3 6.5z"/>`;
+const _str = (x, y, s, c = 'h') => `<path class="${c}" transform="translate(${x} ${y}) scale(${s})" d="M0-4Q.7-.7 4 0Q.7.7 0 4Q-.7.7-4 0Q-.7-.7 0-4z"/>`;
+const _eyeC = '<path d="M21.5 31q2.5 2.5 5 0M33.5 31q2.5 2.5 5 0"/>', _eyeD = '<circle cx="24" cy="31" r="1.6" class="d"/><circle cx="36" cy="31" r="1.6" class="d"/>';
+const _armsX = '<path d="M7 66Q30 50 53 66L51 74Q30 60 9 74Z"/>', _armsL = '<path d="M9 73Q30 61 51 73M13 64Q30 56 47 64"/>', _bottle = '<path class="h" d="M44 66h9v11h-9zM46.5 57h4v9h-4z"/>';
+/* Silueta gris con la emoción: se ve en las tarjetas de sprite vacías. Cada una es [cuerpo extra, rostro y detalles] */
 const VN_SIL = {
-  neutral: '<circle cx="24" cy="31" r="1.6" class="d"/><circle cx="36" cy="31" r="1.6" class="d"/><path d="M25 40h10"/>',
-  feliz: '<path d="M21.5 31.5q2.5-4 5 0M33.5 31.5q2.5-4 5 0"/><path d="M23 38q7 8 14 0"/>',
-  triste: '<circle cx="24" cy="32" r="1.6" class="d"/><circle cx="36" cy="32" r="1.6" class="d"/><path d="M20.5 30l6.5-3M39.5 30l-6.5-3"/><path d="M25 42q5-4 10 0"/><path d="M24 36v4" class="t"/>',
-  sonrojado: '<circle cx="24" cy="31" r="1.6" class="d"/><circle cx="36" cy="31" r="1.6" class="d"/><path d="M26 39q4 3 8 0"/><ellipse cx="20.5" cy="37" rx="3" ry="1.8" class="b"/><ellipse cx="39.5" cy="37" rx="3" ry="1.8" class="b"/>',
-  asustado: '<circle cx="24" cy="31" r="3.4"/><circle cx="36" cy="31" r="3.4"/><circle cx="24" cy="31" r="1" class="d"/><circle cx="36" cy="31" r="1" class="d"/><ellipse cx="30" cy="41" rx="2.4" ry="3"/><path d="M45 20q2 3 0 5q-2-2 0-5z" class="b"/>',
-  enojado: '<circle cx="24" cy="32" r="1.6" class="d"/><circle cx="36" cy="32" r="1.6" class="d"/><path d="M20 27l8 3M40 27l-8 3"/><path d="M25 41q5-3 10 0"/>',
-  corazon_roto: '<path d="M21.5 31q2.5 2.5 5 0M33.5 31q2.5 2.5 5 0"/><path d="M25 42q5-4 10 0"/><path d="M24 34v6M36 34v6" class="t"/><path d="M30 63c-5-3-7-6-6-9 1-2 4-2 6 1 2-3 5-3 6-1 1 3-1 6-6 9z" class="h"/><path d="M30 55l-2 4 3 1-2 3" class="c"/>',
-  borracho_enamorado: '<path d="M21.5 31q2.5 2 5 0M33.5 31q2.5 2 5 0"/><path d="M24 39q3 3 6 0t6 0"/><ellipse cx="20.5" cy="36" rx="3" ry="1.8" class="b"/><ellipse cx="39.5" cy="36" rx="3" ry="1.8" class="b"/><path d="M46 12c-3-2-4-4-3-5 1-1 2 0 3 1 1-1 2-2 3-1 1 1 0 3-3 5z" class="h"/><path d="M9 20c-2-1-3-3-2-4 1-1 2 0 2 1 1-1 2-1 2 0 1 1 0 2-2 3z" class="h"/>'
+  neutral: ['', _eyeD + '<path d="M25 40h10"/>'],
+  feliz: ['', '<path d="M21.5 31.5q2.5-4 5 0M33.5 31.5q2.5-4 5 0"/><path d="M23 38q7 8 14 0"/>'],
+  triste: ['', _eyeD.replace(/cy="31"/g, 'cy="32"') + '<path d="M20.5 30l6.5-3M39.5 30l-6.5-3"/><path d="M25 42q5-4 10 0"/><path d="M24 36v4" class="t"/>'],
+  sonrojado: ['', _eyeD + '<path d="M26 39q4 3 8 0"/><ellipse cx="20.5" cy="37" rx="3" ry="1.8" class="b"/><ellipse cx="39.5" cy="37" rx="3" ry="1.8" class="b"/>'],
+  asustado: ['', '<circle cx="24" cy="31" r="3.4"/><circle cx="36" cy="31" r="3.4"/><circle cx="24" cy="31" r="1" class="d"/><circle cx="36" cy="31" r="1" class="d"/><ellipse cx="30" cy="41" rx="2.4" ry="3"/><path d="M45 20q2 3 0 5q-2-2 0-5z" class="h"/>'],
+  enojado: ['', _eyeD.replace(/cy="31"/g, 'cy="32"') + '<path d="M20 27l8 3M40 27l-8 3"/><path d="M25 41q5-3 10 0"/>'],
+  corazon_roto: ['', '<path d="M21.5 31q2.5 2.5 5 0M33.5 31q2.5 2.5 5 0"/><path d="M25 42q5-4 10 0"/><path d="M24 34v6M36 34v6" class="t"/><path class="h" d="M30 63c-5-3-7-6-6-9 1-2 4-2 6 1 2-3 5-3 6-1 1 3-1 6-6 9z"/><path d="M30 55l-2 4 3 1-2 3" class="c"/>'],
+  borracho_enamorado: ['', '<path d="M21.5 31q2.5 2 5 0M33.5 31q2.5 2 5 0"/><path d="M24 39q3 3 6 0t6 0"/><ellipse cx="20.5" cy="36" rx="3" ry="1.8" class="b"/><ellipse cx="39.5" cy="36" rx="3" ry="1.8" class="b"/>' + _hrt(47, 12, 1.3) + _hrt(10, 19, 1)],
+  /* comunes */
+  pensativo: ['<ellipse cx="38" cy="47" rx="5" ry="3.6"/>', '<circle cx="26" cy="30" r="1.6" class="d"/><circle cx="38" cy="30" r="1.6" class="d"/><path d="M20 26l7-1M40 26l-7-1" /><path d="M26 40h7"/><circle class="h" cx="47" cy="17" r="1.6"/><circle class="h" cx="51" cy="12" r="2.4"/><ellipse class="h" cx="55" cy="5" rx="4" ry="3"/>'],
+  motivado: ['<circle cx="48" cy="58" r="6"/>', '<circle cx="24" cy="31" r="1.7" class="d"/><circle cx="36" cy="31" r="1.7" class="d"/><path d="M20 27l7 2.5M40 27l-7 2.5"/><path d="M23 38q7 7 14 0"/><path class="o" d="M52 46l3-4M56 54l4-1M49 49l1-5"/>'],
+  confundido: ['', _eyeD + '<path d="M20 28l7-1.5M33 25q4-2 8 0"/><path d="M24 41q2.2-2 4.4 0t4.4 0t4.4 0"/><path class="o" d="M44 15q0-6 6-6t6 5q0 3-4 4.5v3M50 26.5v.5"/>'],
+  estirandose: ['<path d="M7 68C0 48 2 28 6 7l6 1C9 28 9 48 15 62zM53 68C60 48 58 28 54 7l-6 1C51 28 51 48 45 62z"/>', _eyeC.replace(/q2.5 2.5/g, 'q2.5 -2.5') + '<ellipse cx="30" cy="41" rx="3" ry="3.6"/>'],
+  celular: ['<path d="M21 60l5-4h8l5 4-2 14H23z"/>', '<path d="M21.5 33q2.5 2 5 0M33.5 33q2.5 2 5 0"/><path d="M26 41h8"/><rect class="h" x="25" y="58" width="10" height="16" rx="2"/><path class="o" d="M20 52q10-6 20 0"/>'],
+  panico: ['<circle cx="11" cy="42" r="5.5"/><circle cx="49" cy="42" r="5.5"/>', '<circle cx="24" cy="31" r="3.6"/><circle cx="36" cy="31" r="3.6"/><circle cx="24" cy="31" r=".9" class="d"/><circle cx="36" cy="31" r=".9" class="d"/><ellipse cx="30" cy="42" rx="4" ry="5"/><path class="o" d="M10 14l3 3M50 14l-3 3M30 8v4"/><path class="h" d="M46 24q2 3 0 5q-2-2 0-5z"/>'],
+  sorprendido: ['', '<circle cx="24" cy="32" r="2.8"/><circle cx="36" cy="32" r="2.8"/><circle cx="24" cy="32" r="1" class="d"/><circle cx="36" cy="32" r="1" class="d"/><path d="M20 24q4-3 8 0M32 24q4-3 8 0"/><ellipse cx="30" cy="42" rx="2.4" ry="3"/><path class="o" d="M50 8v9M50 22v1"/>'],
+  nervioso: ['', _eyeD + '<path d="M20 29l7-2M40 29l-7-2"/><path d="M23 41q2-2 4 0t4 0t4 0t4 0"/><path class="h" d="M46 20q3 4 0 7q-3-3 0-7z"/><path class="h" d="M13 22q2 3 0 5q-2-2 0-5z"/>'],
+  bostezando: ['<ellipse cx="38" cy="46" rx="5.5" ry="4"/>', '<path d="M21.5 31q2.5 2.5 5 0M33.5 31q2.5 2.5 5 0"/><ellipse cx="30" cy="42" rx="4.5" ry="6"/><path d="M45 28q2 3 0 4" class="t"/>'],
+  /* poco comunes */
+  coqueto: ['', '<path d="M21.5 31q2.5 2.5 5 0"/><circle cx="36" cy="31" r="1.6" class="d"/><path d="M24 38q6 6 12-1"/><ellipse cx="20.5" cy="36" rx="3" ry="1.8" class="b"/><ellipse cx="39.5" cy="36" rx="3" ry="1.8" class="b"/>' + _hrt(47, 20, 1.5) + _hrt(52, 11, 1)],
+  borracho: [_bottle.replace('class="h" ', ''), '<path d="M21.5 31q3 3 6 0M33.5 31q3 3 6 0"/><path d="M24 40q2-2.5 4 0t4 0t4 0"/><ellipse cx="20.5" cy="37" rx="3" ry="1.8" class="b"/><ellipse cx="39.5" cy="37" rx="3" ry="1.8" class="b"/>' + _bottle + '<path class="o" d="M13 12q4-4 8 0M40 10q4-4 8 0"/>'],
+  emocionado: ['', _str(24, 31, 1.5, 'dd') + _str(36, 31, 1.5, 'dd') + '<path d="M22 37q8 11 16 0z" class="d"/><ellipse cx="20" cy="38" rx="2.6" ry="1.6" class="b"/><ellipse cx="40" cy="38" rx="2.6" ry="1.6" class="b"/>' + _hrt(8, 18, 1.5) + _hrt(52, 12, 1.8) + _hrt(54, 30, 1.1) + _hrt(14, 6, 1)],
+  orgulloso: [_armsX, _armsL + '<path d="M21.5 31q2.5-3 5 0M33.5 31q2.5-3 5 0"/><path d="M20 26q4-3 8-1M33 25q4-2 8 1"/><path d="M24 39q7 5 14-2"/>'],
+  carcajada: ['', '<path d="M21.5 31.5q2.5-4 5 0M33.5 31.5q2.5-4 5 0"/><path d="M21 36q9 14 18 0z" class="d"/><path d="M19 36v5M41 36v5" class="t"/><path class="o" d="M6 22l-3-2M54 22l3-2M5 34h-3M55 34h3"/>'],
+  cafe: ['', '<path d="M21.5 31q2.5 2.5 5 0M33.5 31q2.5 2.5 5 0"/><path d="M25 39q5 4 10 0"/><path class="h" d="M39 58h13v10q0 6-6.5 6t-6.5-6z"/><path class="o" d="M52 61q6 0 6 4.5t-6 4.5M43 53q-2-3 0-6t0-5M48 53q-2-3 0-6t0-5"/>'],
+  audifonos: ['', '<path d="M21.5 31q2.5 2.5 5 0M33.5 31q2.5 2.5 5 0"/><path d="M25 39q5 4 10 0"/><path class="o2" d="M13 32C11 6 49 6 47 32"/><rect class="h" x="9" y="26" width="7" height="13" rx="3.5"/><rect class="h" x="44" y="26" width="7" height="13" rx="3.5"/><circle class="h" cx="51" cy="12" r="2.2"/><path class="o" d="M53 12V4l4 1.5"/>'],
+  celoso: [_armsX, _armsL + '<circle cx="27" cy="31" r="1.6" class="d"/><circle cx="39" cy="31" r="1.6" class="d"/><path d="M20 27l8 2.5M40 27l-8 2.5"/><path d="M25 42q5-4 10 0"/><ellipse cx="20.5" cy="37" rx="3" ry="1.8" class="b"/><ellipse cx="39.5" cy="37" rx="3" ry="1.8" class="b"/>'],
+  /* épicos */
+  yandere: ['', '<circle cx="24" cy="31" r="3.4"/><circle cx="36" cy="31" r="3.4"/><circle cx="24" cy="31" r=".8" class="d"/><circle cx="36" cy="31" r=".8" class="d"/><path d="M21 38q9 12 18 0"/><path class="o" d="M20 10v-6M30 8v-6M40 10v-6"/>' + _hrt(47, 68, 2.6)],
+  borracho_triste: [_bottle.replace('class="h" ', ''), '<path d="M21.5 31q3 2 5 0M33.5 31q2 2 5 0"/><path d="M25 42q2-3 5 0t5 0"/><path d="M23 35v14M37 35v14" class="t"/><ellipse cx="20.5" cy="37" rx="3" ry="1.8" class="b"/><ellipse cx="39.5" cy="37" rx="3" ry="1.8" class="b"/>' + _bottle],
+  mareado: ['', '<path d="M24 31a1.3 1.3 0 0 1 1.3 1.3a2.6 2.6 0 0 1-2.6 2.6a3.9 3.9 0 0 1-3.9-3.9"/><path transform="translate(12 0)" d="M24 31a1.3 1.3 0 0 1 1.3 1.3a2.6 2.6 0 0 1-2.6 2.6a3.9 3.9 0 0 1-3.9-3.9"/><path d="M24 41q2-2.5 4 0t4 0t4 0"/>' + _str(14, 10, 1.3) + _str(46, 8, 1.1) + _str(30, 4, .9)],
+  culpable: ['', '<path d="M21.5 33q2.5 2 5 0M33.5 33q2.5 2 5 0"/><path d="M20 30l7-3M40 30l-7-3"/><path d="M26 42h8"/><path class="h" d="M47 22q3 4 0 7q-3-3 0-7z"/><circle class="h" cx="46" cy="10" r="1.3"/><circle class="h" cx="50" cy="10" r="1.3"/><circle class="h" cx="54" cy="10" r="1.3"/>'],
+  dormido: ['', '<path d="M21.5 32q2.5 2.5 5 0M33.5 32q2.5 2.5 5 0"/><ellipse cx="30" cy="41" rx="2.2" ry="2.6"/><circle class="o" cx="35" cy="43" r="3"/><path class="o" d="M43 17h6l-6 7h6M52 7h4l-4 5h4"/>'],
+  /* legendarios */
+  alma_fuera: ['', '<circle cx="24" cy="31" r="1.2" class="d"/><circle cx="36" cy="31" r="1.2" class="d"/><ellipse cx="30" cy="41" rx="3" ry="4"/><path class="h" d="M39 26v-11a7 7 0 0 1 14 0v11l-3.5-2.5L46 26l-3.5-2.5z"/><circle cx="44.5" cy="14" r="1.2" class="d"/><circle cx="49.5" cy="14" r="1.2" class="d"/><path class="o" d="M42 33q3 3 6 0"/>'],
+  llorando_cascada: ['', '<path d="M21.5 31q2.5 2.5 5 0M33.5 31q2.5 2.5 5 0"/><path d="M22 38q8 6 16 0q-1 8-8 8t-8-8z" class="d"/><path class="o3" d="M24 34q-4 10-4 24M36 34q4 10 4 24"/><path class="h" d="M17 62q2 4 0 6q-2-2 0-6zM43 62q2 4 0 6q-2-2 0-6z"/>'],
+  estrellas: ['', _str(24, 31, 1.8, 'dd') + _str(36, 31, 1.8, 'dd') + '<path d="M22 37q8 11 16 0z" class="d"/>' + _str(8, 14, 2.4) + _str(52, 10, 3) + _str(54, 30, 1.8) + _str(10, 40, 1.6) + _str(30, 4, 1.8) + '<path class="o" d="M3 26l3 1M57 22l-3 1M46 3l-1 3"/>'],
+  villano: ['', '<path d="M19 30l8 3M41 30l-8 3" class="b2"/><path d="M20 26l8 3M40 26l-8 3"/><path d="M20 38q10 12 20 0q-10 3-20 0z" class="d"/><path class="h" d="M7 34q-5-9 1-18 1 7 6 10zM53 34q5-9-1-18-1 7-6 10zM30 6q-3-4 0-8 3 4 0 8z"/>']
 };
-const vnSil = k => `<svg class="vn-sil" viewBox="0 0 60 80" aria-hidden="true"><g class="sg"><path class="s" d="M5 80C5 60 18 55 30 55s25 5 25 25z"/><rect class="s" x="25" y="44" width="10" height="13" rx="4"/><circle class="s" cx="30" cy="32" r="17"/></g><g class="f">${VN_SIL[k] || VN_SIL.neutral}</g></svg>`;
+const vnSil = k => { const s = VN_SIL[k] || VN_SIL.neutral; return `<svg class="vn-sil" viewBox="0 0 60 80" aria-hidden="true"><g class="sg"><path class="s" d="M5 80C5 60 18 55 30 55s25 5 25 25z"/><rect class="s" x="25" y="44" width="10" height="13" rx="4"/><circle class="s" cx="30" cy="32" r="17"/><g class="s">${s[0]}</g></g><g class="f">${s[1]}</g></svg>`; };
+const RARITY = { basic: ['Básico', ''], common: ['Común', 'r-c'], uncommon: ['Poco común', 'r-u'], epic: ['Épico', 'r-e'], legendary: ['Legendario', 'r-l'], special: ['De temporada', 'r-s'] };
+const vnMine = l => l.filter(e => !e.rarity || e.rarity === 'basic' || e.free || hasItem(S.user, 'sprite:' + e.key));   // solo los sprites que la cuenta tiene (la Owner los tiene todos para probar)
+function vnReveal(keys) {                               // aviso tranquilo al ganar un sprite
+  if (!keys || !keys.length) return;
+  const go = () => {
+    const list = (VN_EM || []).filter(e => keys.includes(e.key));
+    const m = document.createElement('div'); m.className = 'modal sheet';
+    m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('¡Nuevo sprite!')}</h2><div class="vn-rev">${keys.map(k => { const e = list.find(x => x.key === k) || { key: k, name: k }; return `<div class="vn-rev-c"><div class="vn-spr">${vnSil(k)}</div><b>${esc(t(e.name))}</b>${vnTag(e)}</div>`; }).join('')}</div><p class="helper">${t('Ya está en tus editores de personajes. Ahí le pones tu dibujo.')}</p><button type="button" class="button" data-no>${t('Listo')}</button></div>`;
+    m.addEventListener('click', ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); });
+    document.body.appendChild(m);
+  };
+  vnEmosLoad().then(go, go);
+}
+function vnPick() {                                      // elegir el sprite del nivel 20
+  vnEmosLoad().then(() => {
+    const own = (getUsers()[S.user] || {}).items || [];
+    const list = (VN_EM || []).filter(e => ['common', 'uncommon', 'epic'].includes(e.rarity) && !own.includes('sprite:' + e.key));
+    const m = document.createElement('div'); m.className = 'modal sheet';
+    m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Elige tu sprite')}</h2><p class="helper">${t('Solo puedes elegir uno. Los legendarios y de temporada no se pueden elegir.')}</p><div class="vn-pick">${list.length ? list.map(e => `<button type="button" class="vn-cell" data-pk="${esc(e.key)}"><div class="vn-spr">${vnSil(e.key)}</div><b>${esc(t(e.name))}</b>${vnTag(e)}</button>`).join('') : `<p class="helper">${t('Ya tienes todos los que se pueden elegir.')}</p>`}</div></div>`;
+    m.addEventListener('click', async ev => {
+      const b = ev.target.closest('[data-pk]');
+      if (b) {
+        const e = list.find(x => x.key === b.dataset.pk); if (!e || !confirm(t('¿Elegir «{n}»? No se puede cambiar después.', { n: t(e.name) }))) return;
+        b.disabled = true; const r = await sbApi('/rest/v1/rpc/pass_pick_sprite', { method: 'POST', body: { p_key: e.key } });
+        if (!r.ok) { toast(rpcMsg(r)); b.disabled = false; return; }
+        m.remove(); await passRefresh(); vnReveal([e.key]); return;
+      }
+      if (ev.target === m || ev.target.closest('[data-no]')) m.remove();
+    });
+    document.body.appendChild(m);
+  });
+}
+async function passRefresh() {                           // refresca objetos, títulos, premios y billetera
+  const s = sbSes(), pf = s ? await sbApi('/rest/v1/profiles?select=titles,items&id=eq.' + s.uid) : null;
+  if (pf && pf.ok && pf.data && pf.data[0]) { const us = getUsers(); if (us[S.user]) { us[S.user].titles = Array.isArray(pf.data[0].titles) ? pf.data[0].titles : []; us[S.user].items = Array.isArray(pf.data[0].items) ? pf.data[0].items : []; G.set('users', us); } }
+  await Promise.all([msAll(true), walletLoad()]); KEEP = true; render();
+}
+const vnTag = e => RARITY[e.rarity] && RARITY[e.rarity][1] ? `<small class="vn-rar ${RARITY[e.rarity][1]}">${t(RARITY[e.rarity][0])}</small>` : '';
 let VN_EM = null;                                        // emociones de la nube (si ya cargaron); si no, la lista por defecto
-const vnEmoList = () => VN_EM && VN_EM.length ? VN_EM : VN_KEYS.map(([key, name]) => ({ key, name }));
+const vnEmoList = () => vnMine(VN_EM && VN_EM.length ? VN_EM : VN_KEYS.map(([key, name]) => ({ key, name })));
 async function vnEmosLoad() { if (VN_EM) return; try { const r = await sbApi('/rest/v1/vn_emotions?select=*&order=sort'); if (r.ok && Array.isArray(r.data) && r.data.length) VN_EM = r.data; } catch (e) { /* se usa la lista por defecto */ } }
 let VN = { sid: '', ok: false, busy: false, vn: false, chars: [], emos: [], err: '' };
 const VN_EMO = { neutral: 'Neutral', feliz: 'Happy', triste: 'Sad', sonrojado: 'Blushing', asustado: 'Scared', enojado: 'Angry' };
@@ -6036,7 +6114,7 @@ function spriteFit(file, cb) {                           // sprite: máximo 640 
 }
 function vnEdit(id) {
   const cur = id ? VN.chars.find(c => c.id === id) : null, sp = { ...(cur ? cur.sprites || {} : {}) }, m = document.createElement('div'); let refImg = '', busyK = ''; m.className = 'modal sheet'; let adj = vnAdjOk(cur && cur.adj && Object.keys(cur.adj).length ? cur.adj : null);
-  const cells = () => VN.emos.map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : ''}</div><b>${esc(t(e.name))}</b><label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}${VN_AI.sprite ? `<button type="button" class="link-btn" data-gen="${esc(e.key)}" ${busyK ? 'disabled' : ''}>${busyK === e.key ? t('Creando… puede tardar un minuto') : '✦ ' + t('Crear con IA')}</button>` : ''}</div>`).join('');
+  const cells = () => vnMine(VN.emos).map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : vnSil(e.key)}</div><b>${esc(t(e.name))}</b>${vnTag(e)}<label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}${VN_AI.sprite ? `<button type="button" class="link-btn" data-gen="${esc(e.key)}" ${busyK ? 'disabled' : ''}>${busyK === e.key ? t('Creando… puede tardar un minuto') : '✦ ' + t('Crear con IA')}</button>` : ''}</div>`).join('');
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${cur ? t('Editar personaje') : t('Nuevo personaje')}</h2>
   <label class="vnf"><span>${t('Nombre')}</span><input class="field" id="vn-name" maxlength="40" value="${esc(cur ? cur.name : '')}"></label>
   <label class="check"><input type="checkbox" id="vn-adult" ${!cur || cur.adult ? 'checked' : ''}> ${t('Es mayor de edad')}</label><p class="helper">${t('Si es menor de edad, no se generará nada sugerente con este personaje.')}</p>
