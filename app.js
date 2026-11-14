@@ -4360,13 +4360,18 @@ function worksSection(list, e) {
   const grid = !f.length && list.length <= 6 ? `<div class="story-grid">${list.map(storyCard).join('')}</div>` : '';
   return `${flow}${grid}${(f.length || list.length > 6) ? `<button type="button" class="pf-allb" data-act="pf-all" data-id="${esc(e)}"><span><b>${t('Todos los libros')}</b><small>${tn(list.length, '{n} libro', '{n} libros')}</small></span><i aria-hidden="true">›</i></button>` : ''}`;
 }
+let PFS = { h: '', left: 0, stop: false, touch: false, t: 0 };   // estado del carrusel de destacados: sobrevive a los re-dibujos de la pantalla
 function flowInit() {
   clearInterval(PFTIMER); PFTIMER = null; const fl = $('#pf-flow'); if (!fl) return;
+  if (PFS.h !== location.hash) PFS = { h: location.hash, left: 0, stop: false, touch: false, t: 0 };      // otro perfil: empieza de cero
   const cs = [...fl.children], paint = () => { const mid = fl.scrollLeft + fl.clientWidth / 2; cs.forEach(c => { const d = Math.min(1, Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid) / (c.offsetWidth * 1.15)); c.style.transform = `scale(${(1.14 - .3 * d).toFixed(3)})`; c.style.opacity = (1 - .45 * d).toFixed(2); }); };
-  let raf = 0, stop = false; fl.addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); }, { passive: true }); paint();
-  ['pointerdown', 'touchstart', 'wheel'].forEach(ev => fl.addEventListener(ev, () => { stop = true; clearInterval(PFTIMER); PFTIMER = null; }, { passive: true }));      // al deslizar tú, deja de cambiar sola
-  if (cs.length < 2 || reduceMotion()) return; let i = 0;
-  PFTIMER = setInterval(() => { if (stop || !document.body.contains(fl)) { clearInterval(PFTIMER); PFTIMER = null; return; } if (document.hidden) return; i = (i + 1) % cs.length; fl.scrollTo({ left: cs[i].offsetLeft + cs[i].offsetWidth / 2 - fl.clientWidth / 2, behavior: 'smooth' }); }, 5000);
+  if (PFS.left) { fl.style.scrollSnapType = 'none'; fl.scrollLeft = PFS.left; requestAnimationFrame(() => { fl.style.scrollSnapType = ''; }); }   // vuelve donde estabas (sin salto)
+  let raf = 0; fl.addEventListener('scroll', () => { PFS.left = fl.scrollLeft; cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); }, { passive: true }); paint();
+  const hold = () => { PFS.stop = true; PFS.touch = true; PFS.t = Date.now(); clearInterval(PFTIMER); PFTIMER = null; }, free = () => { setTimeout(() => { PFS.touch = false; }, 350); };
+  ['pointerdown', 'touchstart', 'wheel'].forEach(ev => fl.addEventListener(ev, hold, { passive: true }));      // al deslizar tú, deja de cambiar sola
+  ['pointerup', 'pointercancel', 'touchend', 'touchcancel'].forEach(ev => fl.addEventListener(ev, free, { passive: true }));
+  if (cs.length < 2 || reduceMotion() || PFS.stop) return; let i = 0;
+  PFTIMER = setInterval(() => { if (PFS.stop || PFS.touch || !document.body.contains(fl)) { clearInterval(PFTIMER); PFTIMER = null; return; } if (document.hidden) return; i = (i + 1) % cs.length; fl.scrollTo({ left: cs[i].offsetLeft + cs[i].offsetWidth / 2 - fl.clientWidth / 2, behavior: 'smooth' }); }, 5000);
 }
 function openAllBooks(e) {
   const list = PF_LIST[e] || [], u = getUsers()[e] || {}; if (!list.length) return;
@@ -5239,6 +5244,7 @@ function safeView(fn, sid) {
   }
 }
 function render() {
+  if (PFS.touch && Date.now() - PFS.t < 6000 && ('#' + (location.hash.slice(1) || '/')) === PFS.h) { const k = KEEP; setTimeout(() => { KEEP = k; render(); }, 350); return; }   // no se redibuja mientras deslizas los destacados (cortaba el gesto)
   const keepY = window.scrollY || 0;                             // al re-dibujar la MISMA pantalla (etiquetas, filtros, botones…) no se vuelve arriba
   uiReset(); applyAccent();
   giftSweep();                                                   // vence regalos sin reclamar (24 h) y devuelve el cupo
