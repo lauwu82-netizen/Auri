@@ -2477,4 +2477,8 @@ window.I18N = { en: {
   "Adorno · caja de bombones": "Ornament · box of chocolates",
   "Adorno · corazones enamorados": "Ornament · hearts in love",
   "Adorno · corazón con encaje": "Ornament · lace heart",
+  "Fondo del editor": "Editor background",
+  "Plantilla de portada · dulce": "Cover template · sweet",
+  "Plantilla de portada · oscura": "Cover template · dark",
+  "Fondo del editor · San Valentín": "Editor background · Valentine's Day",
 } };
