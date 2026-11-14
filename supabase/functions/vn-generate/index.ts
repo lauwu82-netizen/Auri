@@ -326,7 +326,11 @@ async function run(req: Request, env: Env): Promise<Response> {
     const have = got.ok ? (await got.json())[0] : null; if (have) return json({ script: have.script, assets: {}, variant, cached: true });     // ya preparado por la primera persona que lo leyó
     const stop = await budget(); if (stop) { await refund(cref); return stop; }
     const cs = await fetch(`${URL_}/rest/v1/vn_characters?story_id=eq.${ch.story_id}&select=name`, { headers: H }), cast = (cs.ok ? await cs.json() : []).map((c: { name: string }) => c.name); if (!cast.includes('TN')) cast.push('TN');   // TN = la persona que lee (la app lo cambia por el nombre de su OC)
-    const es = await fetch(`${URL_}/rest/v1/vn_emotions?select=key`, { headers: H }), emos = (es.ok ? await es.json() : []).map((e: { key: string }) => e.key);
+    const es = await fetch(`${URL_}/rest/v1/vn_emotions?select=key`, { headers: H }), allEmos = (es.ok ? await es.json() : []).map((e: { key: string }) => e.key);
+    // solo se usan las emociones que la autoría realmente subió en algún personaje (más neutral); si no hay ninguna, todas
+    const sr = await fetch(`${URL_}/rest/v1/vn_characters?story_id=eq.${ch.story_id}&select=sprites`, { headers: H }), used = new Set<string>(['neutral']);
+    for (const c of (sr.ok ? await sr.json() : []) as Array<{ sprites?: Record<string, string> }>) for (const [k, v] of Object.entries(c.sprites || {})) if (/^https:\/\//.test(String(v || ''))) used.add(k);
+    const emos = allEmos.filter((k: string) => used.has(k)).length > 1 ? allEmos.filter((k: string) => used.has(k)) : allEmos;
     const text = String(ch.text || '').split(/\n\s*\n/).filter((p: string) => !/^\s*::(chat|sep|cg)/.test(p)).join('\n\n').slice(0, 24000);
     // Cadena de modelos: si uno se niega (contenido fuerte) o devuelve algo que no es el guion, se prueba el siguiente.
     // VN_TEXT_MODELS = "modelo1,modelo2,modelo3" (por defecto uno solo). Si ninguno sirve, la app usa su guion de prueba y el lector nunca se rompe.
