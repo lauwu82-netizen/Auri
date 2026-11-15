@@ -377,6 +377,7 @@ function shapeDefs() {                              // recortes SVG compartidos 
 const hasItem = (e, k) => roleOf(e) === 'OWNER' || (Array.isArray((getUsers()[e] || {}).items) && getUsers()[e].items.includes(k));   // objetos de pase ya reclamados (la Owner los tiene todos para probar)
 const shapesOf = e => ['', ...Object.keys(SHAPES).filter(k => k && hasItem(e, 'shape:' + k))];
 const lookOf = e => { const u = getUsers()[e] || {}; return { shape: SHAPES[u.shape] && u.shape && hasItem(e, 'shape:' + u.shape) ? u.shape : '', halo: roleOf(e) === 'OWNER' && HALOS[u.halo] ? u.halo : '' }; };   // por ahora solo la Owner las tiene
+const stageLook = e => { const l = lookOf(e); return (l.shape ? ` data-shape="${l.shape}"` : '') + (l.halo && HALOS[l.halo] ? ` data-halo="${l.halo}" style="--a:132px;--hc:${HALOS[l.halo][0]}"` : ' style="--a:132px"'); };   // vista previa de adornos: con la forma y el halo de la persona
 const lookAttr = e => { const l = lookOf(e); return (l.shape ? ` data-shape="${l.shape}"` : '') + (l.halo ? ` data-halo="${l.halo}" style="--hc:${HALOS[l.halo][0]}"` : ''); };
 const frWrap = (e, cls, av) => `<span class="fr ${cls}"${lookAttr(e)}>${av}${ornHTML(e)}</span>`;
 const framedAvatar = (e, cls = '') => frWrap(e, cls, userAvatar(e, cls));
@@ -4505,7 +4506,7 @@ function openFrames() {
   const top = avail.length ? '<div class="adj-ed"></div>' : `<p class="helper">${t('Pronto habrá adornos para ponerte aquí, en la tienda.')}</p>`;
   const ba0 = botAdjOf(me) || { y: 0, s: 1 };
   const botEd = !locked && cur ? `<div class="bot-ed"><p class="helper" style="margin:10px 0 6px">${t('Ajusta el adorno de abajo para que quede bien con la forma de tu foto: súbelo, bájalo o cambia su tamaño.')}</p>
-    <div class="adj-stage bot"><span class="fr" style="--a:132px">${avatarHTML(u.avatar, u.name, 'xl')}${ornHTMLk(cur, '', ba0)}</span></div>
+    <div class="adj-stage bot"><span class="fr"${stageLook(me)}>${avatarHTML(u.avatar, u.name, 'xl')}${ornHTMLk(cur, '', ba0)}</span></div>
     <label class="adj-row"><span>${t('Posición')}</span><input type="range" id="bot-y" min="-40" max="40" step="1" value="${Math.round(ba0.y)}"></label>
     <label class="adj-row"><span>${t('Tamaño')}</span><input type="range" id="bot-s" min="50" max="180" step="2" value="${Math.round(ba0.s * 100)}"></label>
     <div class="adj-btns"><button type="button" class="button ghost sm" data-bot="reset">${t('Restablecer')}</button><button type="button" class="button sm" data-bot="save">${t('Guardar')}</button></div></div>` : '';
@@ -4536,7 +4537,7 @@ function adjEditor(m, box, me, avail) {
   const draw = () => {
     if (sel >= list.length) sel = Math.max(0, list.length - 1); const cur = list[sel];
     box.innerHTML = `<p class="helper" style="margin:0 0 8px">${t('Arrastra cada adorno para moverlo. Máximo 2.')}</p>
-    <div class="adj-stage"><span class="fr" style="--a:132px">${avatarHTML(u.avatar, u.name, 'xl')}${list.map((o, i) => adjHTML(o, ' ed' + (i === sel ? ' sel' : '')).replace('<span ', `<span data-i="${i}" `)).join('')}</span></div>
+    <div class="adj-stage"><span class="fr"${stageLook(me)}>${avatarHTML(u.avatar, u.name, 'xl')}${list.map((o, i) => adjHTML(o, ' ed' + (i === sel ? ' sel' : '')).replace('<span ', `<span data-i="${i}" `)).join('')}</span></div>
     ${list.length ? `<div class="adj-tabs">${list.map((o, i) => `<button type="button" class="adj-tab ${i === sel ? 'on' : ''}" data-adj="pick" data-i="${i}">${t('Adorno {n}', { n: i + 1 })}</button>`).join('')}</div>
     <label class="adj-row"><span>${t('Tamaño')}</span><input type="range" id="adj-s" min="40" max="300" step="4" value="${Math.round(cur.s * 100)}"></label>
     <label class="adj-row"><span>${t('Giro')}</span><input type="range" id="adj-r" min="-180" max="180" step="2" value="${Math.round(cur.r)}"></label>
