@@ -3169,3 +3169,6 @@ html.noglow:not(.dark) .pf-av .fr[data-shape]{filter:none!important}
 .by-chip b{font:700 14.5px var(--sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .by-chip i{font-style:normal;color:hsl(var(--primary));font-weight:800;font-size:18px;margin-left:2px}
 .by-chip:active{background:hsl(var(--primary)/.1)}
+/* chip del autor sin burbuja: solo foto y nombre */
+.by-chip{border:0;background:none;box-shadow:none;padding:4px 4px 4px 2px;gap:12px}
+.by-chip:active{background:none;opacity:.75}
