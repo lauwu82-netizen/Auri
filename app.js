@@ -3599,7 +3599,7 @@ function aiOpen() {
   ${off ? `<p class="notice">${t('La IA no está disponible en libros +18.')}</p>` : `<div class="ai-chips"><button type="button" class="ai-chip" data-ai="fix">✓ ${t('Corregir mi capítulo')} <small>${aiPrice('chat')}</small></button><button type="button" class="ai-chip" data-ai="ideas">💡 ${t('Dame ideas')} <small>${aiPrice('chat')}</small></button><button type="button" class="ai-chip" data-ai="write">✍️ ${t('Escribe un fragmento')} <small>${aiPrice('write')}</small></button></div>
   <p class="helper">${t('Para "Escribe un fragmento", cuéntame abajo qué debe pasar. Cada mensaje cuesta gemas; si falla, se te devuelven.')}</p>`}
   <div class="ai-log" id="ai-log" aria-live="polite"></div>
-  ${off ? '' : `<div class="ai-in"><textarea id="ai-text" rows="2" maxlength="1500" placeholder="${esc(t('Escríbele a Auri…'))}"></textarea><button type="button" class="button" data-ai="send">${t('Enviar')}</button></div>`}</div>`;
+  ${off ? '' : `<div class="ai-in"><textarea id="ai-text" rows="2" maxlength="1500" placeholder="${esc(t('Escríbele a Auri…'))}"></textarea><button type="button" class="ai-send" data-ai="send" aria-label="${esc(t('Enviar'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V6"/><path d="M6 11.5l6-6 6 6"/></svg></button></div>`}</div>`;
   document.body.appendChild(m); aiDraw();
   m.addEventListener('click', e => { if (e.target === m) return m.remove(); const b = e.target.closest('[data-ai]'); if (!b) return; aiAct(b.dataset.ai, b); });
 }

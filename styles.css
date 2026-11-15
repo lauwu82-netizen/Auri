@@ -3185,3 +3185,9 @@ html.noglow:not(.dark) .pf-av .fr[data-shape]{filter:none!important}
 .dark .tt-timido{background-image:linear-gradient(90deg,#ffc2d8,#f08ab0 55%,#d08fb2)}
 .tt-plumanovata{background-image:linear-gradient(90deg,#6f8fb0,#4d6a8f 55%,#3a4f73)}
 .dark .tt-plumanovata{background-image:linear-gradient(90deg,#a9c4e3,#86a6cf 55%,#6d86b8)}
+
+/* enviar al chat de Auri: flecha hacia arriba */
+.ai-in .ai-send{flex:none;width:46px;height:46px;border-radius:50%;border:0;padding:0;display:grid;place-items:center;background:var(--btn);color:#fff;cursor:pointer;box-shadow:0 6px 14px -6px hsl(var(--primary)/.6);transition:transform .15s ease,box-shadow .2s ease}
+.ai-in .ai-send svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.ai-in .ai-send:active{transform:scale(.92)}
+.ai-in .ai-send:disabled{opacity:.5}
