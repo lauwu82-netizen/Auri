@@ -2775,7 +2775,7 @@ html.lite .ms-row{animation:none;filter:none}
 
 /* 114. CG (ilustración especial) en el lector */
 .vnr-cgimg{position:absolute;inset:0 0 0 0;background:center/contain no-repeat;animation:vnrIn .6s ease both}
-.vnr-cgimg.ph{display:grid;place-items:center;padding:24px;text-align:center;color:rgba(255,255,255,.7);font-size:14px;background:radial-gradient(circle at 50% 40%,rgba(199,125,255,.22),transparent 65%)}
+.vnr-cgimg.ph{display:grid;place-items:center;padding:24px;text-align:center;color:rgba(255,255,255,.7);font-size:14px;background:radial-gradient(circle at 50% 40%,hsl(var(--primary)/.22),transparent 65%)}
 @keyframes vnrIn{from{opacity:0}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){.vnr-cgimg{animation:none}}
 
@@ -2909,21 +2909,21 @@ html.lite .ms-row{animation:none;filter:none}
 .ai-box{display:flex;flex-direction:column;gap:10px;height:min(78dvh,640px);max-height:88dvh;overflow:hidden}
 .ai-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .ai-chips{display:flex;flex-wrap:wrap;gap:8px}
-.ai-chip{border:1px solid hsl(var(--border,270 20% 40%));background:transparent;color:inherit;border-radius:99px;padding:8px 12px;font:inherit;cursor:pointer}
+.ai-chip{border:1px solid hsl(var(--primary)/.35);background:transparent;color:inherit;border-radius:99px;padding:8px 12px;font:inherit;cursor:pointer}
 .ai-chip small{opacity:.75;margin-left:4px}
 .ai-log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:4px 2px}
-.ai-m{max-width:92%;padding:10px 12px;border-radius:16px;line-height:1.5;font-size:15px;background:rgba(150,120,220,.14);align-self:flex-start;white-space:normal;overflow-wrap:anywhere}
-.ai-m.u{align-self:flex-end;background:rgba(150,100,230,.4)}
+.ai-m{max-width:92%;padding:10px 12px;border-radius:16px;line-height:1.5;font-size:15px;background:hsl(var(--primary)/.14);align-self:flex-start;white-space:normal;overflow-wrap:anywhere}
+.ai-m.u{align-self:flex-end;background:hsl(var(--primary)/.4)}
 .ai-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .ai-wait{opacity:.7}
 .ai-in{display:flex;gap:8px;align-items:flex-end}
-.ai-in textarea{flex:1;border-radius:14px;border:1px solid rgba(150,120,220,.4);background:transparent;color:inherit;font:inherit;padding:10px;resize:none}
+.ai-in textarea{flex:1;border-radius:14px;border:1px solid hsl(var(--primary)/.4);background:transparent;color:inherit;font:inherit;padding:10px;resize:none}
 
 .vb-ai{margin:12px 0;display:grid;gap:8px}
 .vb-ai small{opacity:.75;margin-left:4px}
 
 /* Etiqueta "compatible con novela visual" y final de capítulo */
-.vn-badge{display:flex;gap:12px;align-items:center;justify-content:center;margin:12px auto;padding:10px 16px;max-width:420px;border-radius:18px;border:1px solid rgba(190,150,255,.45);background:linear-gradient(135deg,rgba(130,90,220,.22),rgba(230,130,200,.16))}
+.vn-badge{display:flex;gap:12px;align-items:center;justify-content:center;margin:12px auto;padding:10px 16px;max-width:420px;border-radius:18px;border:1px solid hsl(var(--primary)/.45);background:linear-gradient(135deg,hsl(var(--primary)/.22),hsl(var(--primary)/.1))}
 .vn-badge-ic{width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#e879c9);color:#fff;font-size:16px}
 .vn-badge b{display:block;font-size:14px}.vn-badge small{display:block;opacity:.75;font-size:12px}
 .vnr-resume{position:absolute;top:calc(env(safe-area-inset-top,0px) + 54px);left:50%;transform:translateX(-50%);z-index:6;display:flex;gap:10px;align-items:center;padding:8px 14px;border-radius:99px;background:rgba(20,14,36,.82);color:#fff;font-size:13px;white-space:nowrap;animation:vnrfade .6s ease both}
