@@ -5881,7 +5881,7 @@ window.addEventListener('scroll', () => {                         // barra de av
 /* ---------- Misiones, pases y tienda (por ahora solo la Owner) ----------
    El servidor decide el progreso a partir de lo que de verdad pasó (likes, comentarios, lecturas, vistas...).
    Aquí solo se muestra y se avisa. SQL: 38_misiones_pases.sql */
-const passOn = () => !!S.user && !isGuest() && isOwner() && cloud() && !!sbSes();
+const passOn = () => !!S.user && !isGuest() && hasItem(S.user, 'tester:store') && cloud() && !!sbSes();   // por ahora: la Owner y las cuentas de prueba a las que ella les dio acceso
 let MS = { reader: null, writer: null, rw: { reader: [], writer: [] }, at: 0, busy: false, track: 'reader' }, CHT = { k: '', t: 0, sent: true, tm: 0 };
 const lvXp = n => n <= 1 ? 0 : 100 * (n - 1) + 25 * ((n - 1) * (n - 2) / 2);
 const MS_TIER = { easy: 'Fácil', mid: 'Media', hard: 'Difícil' };
