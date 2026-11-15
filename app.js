@@ -4767,6 +4767,7 @@ function admMenu(tg) {
   ${up && (r === 'MODERATOR' || r === 'ADMIN') ? `<button class="adm-item" data-act="adm-scope" data-id="${esc(tg)}">🌐 ${t('Comunidades que modera: {c}', { c: staffScope(tg).map(c => COMMS[c]).join(' / ') })}</button>` : ''}
   ${up && r === 'USER' ? `<button class="adm-item" data-act="bow-gift" data-id="${esc(tg)}">🎀 ${t('Regalar lazos')}</button>` : ''}
   ${up && r === 'USER' ? `<button class="adm-item" data-act="skin-gift" data-id="${esc(tg)}">💬 ${t('Regalar estilos de chat')}</button>` : ''}
+  ${up && r === 'USER' ? `<button class="adm-item" data-act="pass-test" data-id="${esc(tg)}" data-on="1">🧪 ${t('Dar los pases completos (prueba)')}</button><button class="adm-item" data-act="pass-test" data-id="${esc(tg)}" data-on="0">🧹 ${t('Quitar pases y premios del pase (prueba)')}</button>` : ''}
   ${up ? `<button class="adm-item" data-act="gift-profile" data-id="${esc(tg)}">🎁 ${t('Regalar marco Top 50 (quedan {n})', { n: giftLeft() })}</button>` : ''}
   ${up && r === 'USER' ? `<button class="adm-item" data-act="collab-toggle" data-id="${esc(tg)}">🤝 ${isCollab(tg) ? t('Quitar permiso de colaboración') : t('Hacer colaboradora')}</button>` : ''}
   ${up && r === 'USER' ? `<button class="adm-item" data-act="adm-mod" data-id="${esc(tg)}">${t('🛡 Hacer moderador')}</button>` : ''}
@@ -5426,6 +5427,7 @@ document.addEventListener('click', e => {
     'cs-snd': () => { setCfg('chatSnd', el.dataset.v); sndUnlock(); KEEP = true; render(); sndPlay('recv'); },
     'cs-sndtest': () => { sndUnlock(); sndPlay('recv', true); setTimeout(() => sndPlay('send', true), 700); setTimeout(() => sndPlay('react', true), 1300); },
     'cr-snd': () => { setCfg('chatSnd', sndOn() ? 'off' : 'on'); sndUnlock(); el.innerHTML = sndIcon(); el.setAttribute('aria-pressed', sndOn()); sndPlay('recv'); },
+    'pass-test': async () => { if (!isOwner() || !canAct(id)) return; const on = el.dataset.on === '1', cu = modUid(id); if (!cu) return toast(t('Esta cuenta no está en la nube.')); if (!on && !confirm(t('¿Quitar los pases y los premios del pase de esta cuenta?'))) return; const e = await modDo('owner_pass_test', { to_id: cu, on_: on }); toast(e || (on ? t('Listo: tiene los dos pases y nivel 20, sin reclamar.') : t('Pases y premios del pase quitados.'))); },
     'gift-profile': () => { if (!isOwner() || !canAct(id)) return; giftPlacePick(id); },
     'gift-claim': async () => { const r = await giftClaim(id), er = $('[data-err]'); if (r) { if (er) er.textContent = r; return toast(r); } toast(t('¡Marco reclamado!') + ' ' + t('Tu gatito fundador ya te espera en Editar perfil.')); KEEP = true; render(); },
     'gift-cancel': () => { if (!isOwner()) return; const g = giftsAll().find(x => x.id === id); if (!g) return; dialog(g.status === 'claimed' ? t('¿Quitar el marco a {n}?', { n: uName(g.to) }) : t('¿Cancelar el regalo para {n}?', { n: uName(g.to) }), t('El cupo volverá a ti.'), t('Sí, continuar'), t('No'), async () => { await giftCancel(id); KEEP = true; render(); }, true); },

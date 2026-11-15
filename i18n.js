@@ -2546,4 +2546,10 @@ window.I18N = { en: {
   "Collar oscuro": "Dark necklace",
   "Adornos · corona de rosas, corazón y collar oscuro": "Ornaments · rose crown, heart and dark necklace",
   "Gótico": "Gothic",
+  "Dar los pases completos (prueba)": "Give full passes (test)",
+  "Quitar pases y premios del pase (prueba)": "Remove passes and pass rewards (test)",
+  "Esta cuenta no está en la nube.": "This account isn't in the cloud.",
+  "¿Quitar los pases y los premios del pase de esta cuenta?": "Remove this account's passes and pass rewards?",
+  "Listo: tiene los dos pases y nivel 20, sin reclamar.": "Done: it has both passes at level 20, nothing claimed.",
+  "Pases y premios del pase quitados.": "Passes and pass rewards removed.",
 } };
