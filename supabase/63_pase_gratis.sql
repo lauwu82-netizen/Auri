@@ -1,0 +1,25 @@
+-- Auri · pase gratis: mas premios en los 20 niveles (lector y escritor)
+delete from public.pass_rewards where tier = $q$free$q$ and level in (1, 2, 3, 5, 6, 9, 11, 12, 13, 15, 16);
+insert into public.pass_rewards (track, tier, level, kind, item, amount, key) values
+($q$reader$q$,$q$free$q$,1,$q$purple$q$,$q$purple:8$q$,8,null),
+($q$reader$q$,$q$free$q$,2,$q$title$q$,$q$title:timido$q$,0,$q$timido$q$),
+($q$reader$q$,$q$free$q$,3,$q$purple$q$,$q$purple:8$q$,8,null),
+($q$reader$q$,$q$free$q$,5,$q$purple$q$,$q$purple:8$q$,8,null),
+($q$reader$q$,$q$free$q$,6,$q$item$q$,$q$sep:corazon$q$,0,$q$sep:corazon$q$),
+($q$reader$q$,$q$free$q$,9,$q$purple$q$,$q$purple:12$q$,12,null),
+($q$reader$q$,$q$free$q$,11,$q$purple$q$,$q$purple:8$q$,8,null),
+($q$reader$q$,$q$free$q$,12,$q$purple$q$,$q$purple:8$q$,8,null),
+($q$reader$q$,$q$free$q$,13,$q$purple$q$,$q$purple:12$q$,12,null),
+($q$reader$q$,$q$free$q$,15,$q$sprite_random$q$,$q$sprite_random$q$,0,$q$sprite_random$q$),
+($q$reader$q$,$q$free$q$,16,$q$purple$q$,$q$purple:8$q$,8,null),
+($q$writer$q$,$q$free$q$,1,$q$purple$q$,$q$purple:8$q$,8,null),
+($q$writer$q$,$q$free$q$,2,$q$title$q$,$q$title:plumanovata$q$,0,$q$plumanovata$q$),
+($q$writer$q$,$q$free$q$,3,$q$item$q$,$q$ebg:papel$q$,0,$q$ebg:papel$q$),
+($q$writer$q$,$q$free$q$,5,$q$purple$q$,$q$purple:8$q$,8,null),
+($q$writer$q$,$q$free$q$,6,$q$item$q$,$q$sep:pluma$q$,0,$q$sep:pluma$q$),
+($q$writer$q$,$q$free$q$,9,$q$purple$q$,$q$purple:12$q$,12,null),
+($q$writer$q$,$q$free$q$,11,$q$item$q$,$q$ebg:noche$q$,0,$q$ebg:noche$q$),
+($q$writer$q$,$q$free$q$,12,$q$purple$q$,$q$purple:8$q$,8,null),
+($q$writer$q$,$q$free$q$,13,$q$purple$q$,$q$purple:12$q$,12,null),
+($q$writer$q$,$q$free$q$,15,$q$sprite_random$q$,$q$sprite_random$q$,0,$q$sprite_random$q$),
+($q$writer$q$,$q$free$q$,16,$q$purple$q$,$q$purple:8$q$,8,null);
