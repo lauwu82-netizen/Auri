@@ -327,7 +327,7 @@ const COS_IMG = {
   'bow:green': 'https://i.postimg.cc/ncd4CrX3/Photoroom-20261029-055905.png',
   'cq:flores': 'https://i.postimg.cc/C1V6LfmX/Photoroom-20261105-171117.png', 'cq:mariposas': 'https://i.postimg.cc/Zn5HCP3F/Photoroom-20261105-171218.png', 'cq:joya': 'https://i.postimg.cc/SsT81B2z/Photoroom-20261105-171311.png',
   'cq:corazones': 'https://i.postimg.cc/9F3t3jgR/Photoroom-20261105-171355.png', 'cq:vichy': 'https://i.postimg.cc/PrtJv3CG/Photoroom-20261105-171440.png', 'cq:perlas': 'https://i.postimg.cc/3NfsRxyh/Photoroom-20261105-171507.png',
-  'cq:bombones': 'https://i.postimg.cc/4yR1RqZX/Photoroom-20261113-193803.png', 'cq:enamorado': 'https://i.postimg.cc/Yq3zTdsD/Photoroom-20261113-193819.png', 'cq:encaje': 'https://i.postimg.cc/s2BPQsgx/Photoroom-20261113-193838.png'
+  'cq:bombones': 'https://i.postimg.cc/4yR1RqZX/Photoroom-20261113-193803.png', 'cq:enamorado': 'https://i.postimg.cc/Yq3zTdsD/Photoroom-20261113-193819.png', 'cq:encaje': 'https://i.postimg.cc/fRMdDSLc/Photoroom-20261114-205052.png'
 };
 const AURI_LOGO = 'https://i.postimg.cc/PxD8ksW5/Photoroom-20261108-192124.png';
 const cosOne = (k, c = '') => COS_IMG[k] ? `<img${c ? ` class="${c}"` : ''} src="${esc(COS_IMG[k])}" alt="" referrerpolicy="no-referrer" decoding="async">` : '';
