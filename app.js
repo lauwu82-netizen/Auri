@@ -376,7 +376,7 @@ function shapeDefs() {                              // recortes SVG compartidos 
 }
 const hasItem = (e, k) => roleOf(e) === 'OWNER' || (Array.isArray((getUsers()[e] || {}).items) && getUsers()[e].items.includes(k));   // objetos de pase ya reclamados (la Owner los tiene todos para probar)
 const shapesOf = e => ['', ...Object.keys(SHAPES).filter(k => k && hasItem(e, 'shape:' + k))];
-const lookOf = e => { const u = getUsers()[e] || {}; return { shape: SHAPES[u.shape] && u.shape && hasItem(e, 'shape:' + u.shape) ? u.shape : '', halo: roleOf(e) === 'OWNER' && HALOS[u.halo] ? u.halo : '' }; };   // por ahora solo la Owner las tiene
+const lookOf = e => { const u = getUsers()[e] || {}; return { shape: SHAPES[u.shape] && u.shape && hasItem(e, 'shape:' + u.shape) ? u.shape : '', halo: HALOS[u.halo] ? u.halo : '' }; };   // por ahora solo la Owner las tiene
 const stageLook = e => { const l = lookOf(e); return (l.shape ? ` data-shape="${l.shape}"` : '') + (l.halo && HALOS[l.halo] ? ` data-halo="${l.halo}" style="--a:132px;--hc:${HALOS[l.halo][0]}"` : ' style="--a:132px"'); };   // vista previa de adornos: con la forma y el halo de la persona
 const lookAttr = e => { const l = lookOf(e); return (l.shape ? ` data-shape="${l.shape}"` : '') + (l.halo ? ` data-halo="${l.halo}" style="--hc:${HALOS[l.halo][0]}"` : ''); };
 const frWrap = (e, cls, av) => `<span class="fr ${cls}"${lookAttr(e)}>${av}${ornHTML(e)}</span>`;
@@ -4466,10 +4466,10 @@ const shapeIco = k => k ? `<svg viewBox="0 0 1 1" aria-hidden="true"><path d="${
 function editProfileView() {
   const u = getUsers()[S.user] || {}, has = safeImg(u.banner), n = ownedFrames(S.user), locked = frameLocked(S.user), k = frameKey(S.user), owner = roleOf(S.user) === 'OWNER';
   const frameLine = locked ? t('Tu insignia es fija') : k ? t(FR_NAME[k]) : n.length ? t('Sin insignia') : t('Aún no tienes insignias');
-  const canLook = owner || shapesOf(S.user).length > 1, lk = canLook ? lookOf(S.user) : null, bio = EPD ? EPD.bio : (u.bio || '');
-  const look = canLook ? `<h3 class="ep-h">${EPI.spark}<span>${t('Forma de la foto')}</span></h3><p class="ep-help">${owner ? t('Solo tú las tienes por ahora. Elige cómo se ve tu foto de perfil.') : t('Elige la forma de tu foto de perfil.')}</p>
-    <div class="ep-shapes" role="group" aria-label="${esc(t('Forma'))}">${shapesOf(S.user).map(x => `<button type="button" class="ep-shape ${(lk.shape || '') === x ? 'on' : ''}" data-act="ep-shape" data-id="${x}" aria-pressed="${(lk.shape || '') === x}" aria-label="${esc(t(SHAPES[x]))}" title="${esc(t(SHAPES[x]))}">${shapeIco(x)}<small>${esc(t(SHAPES[x]))}</small></button>`).join('')}</div>
-    ${owner ? `    <h3 class="ep-h"><i class="ep-dot"></i><span>${t('Borde de color')}</span></h3>
+  const showShapes = owner || shapesOf(S.user).length > 1, canLook = true, lk = lookOf(S.user), bio = EPD ? EPD.bio : (u.bio || '');
+  const look = canLook ? `${showShapes ? `<h3 class="ep-h">${EPI.spark}<span>${t('Forma de la foto')}</span></h3><p class="ep-help">${owner ? t('Solo tú las tienes por ahora. Elige cómo se ve tu foto de perfil.') : t('Elige la forma de tu foto de perfil.')}</p>
+    <div class="ep-shapes" role="group" aria-label="${esc(t('Forma'))}">${shapesOf(S.user).map(x => `<button type="button" class="ep-shape ${(lk.shape || '') === x ? 'on' : ''}" data-act="ep-shape" data-id="${x}" aria-pressed="${(lk.shape || '') === x}" aria-label="${esc(t(SHAPES[x]))}" title="${esc(t(SHAPES[x]))}">${shapeIco(x)}<small>${esc(t(SHAPES[x]))}</small></button>`).join('')}</div>` : ''}
+    ${true ? `    <h3 class="ep-h"><i class="ep-dot"></i><span>${t('Borde de color')}</span></h3>
     <div class="ep-halos" role="group" aria-label="${esc(t('Borde de color'))}">${[['', 'Sin borde'], ...Object.entries(HALOS).map(([x, v]) => [x, v[1]])].map(([x, nm]) => `<button type="button" class="ep-halo ${(lk.halo || '') === x ? 'on' : ''}" data-act="ep-halo" data-id="${x}" aria-pressed="${(lk.halo || '') === x}" aria-label="${esc(t(nm))}" title="${esc(t(nm))}"><i class="${x ? '' : 'none'}" style="${x ? 'background:' + HALOS[x][0] : ''}"></i></button>`).join('')}</div>` : ''}` : '';
   return `<main class="page story-layout ep-page ep2"><div class="ep-top"><a class="icon-btn" href="#/profile" data-dir="prev" aria-label="${esc(t('Volver'))}">‹</a><h2>${t('Editar perfil')}</h2><button type="submit" form="ep-form" class="button sm ep-save">${t('Guardar')}</button></div>
   ${imgOpen().length ? `<a class="img-alert" href="#/images" data-dir="next"><b>${t('Una de tus imágenes fue ocultada')}</b><span>${t('Ver qué pasó y pedir revisión')}</span><i aria-hidden="true">›</i></a>` : ''}
@@ -5648,7 +5648,7 @@ document.addEventListener('click', e => {
     'pf-list': () => openUserList(id, el.dataset.kind), 'pf-works': () => { const w = document.getElementById('pf-works'); if (w && w.scrollIntoView) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
     'frames': () => openFrames(), 'pets': () => openPets(), 'seal': () => openSeal(), 'titles': () => openTitles(), 'nfont': () => openNameFont(), 'look': () => openLook(),
     'ep-shape': () => { if (id && !hasItem(S.user, 'shape:' + id)) return; const us = getUsers(); us[S.user].shape = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
-    'ep-halo': () => { if (roleOf(S.user) !== 'OWNER') return; const us = getUsers(); us[S.user].halo = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
+    'ep-halo': () => { const us = getUsers(); us[S.user].halo = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
     'avoid-add': () => avoidAdd(), 'avoid-del': () => { setCfg('avoidTags', avoidList().filter(x => x !== tagKey(id))); KEEP = true; render(); }, 'theme-colors': () => openThemes(), 'mod-order': () => { setCfg('modShuffle', cfg('modShuffle') === false); KEEP = true; render(); }, 'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
     'fmt': () => applyFmt(id),
     'align': () => applyAlign(id),
