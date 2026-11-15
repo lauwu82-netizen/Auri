@@ -3129,3 +3129,12 @@ html.lite .ms-row{animation:none;filter:none}
 .pf-fmenu{left:0;right:auto;top:50px;min-width:160px;z-index:7}
 
 .pf-tags .pf-edit.mini{gap:0}
+
+.pf-tools .pf-tool{width:44px;height:44px;padding:0;border-radius:50%;display:inline-grid;place-items:center}
+.stat-ic{display:inline-flex;align-items:flex-end;gap:3px;height:16px}
+.stat-ic i{display:block;width:4px;border-radius:2px 2px 0 0;background:currentColor}
+.stat-ic i:nth-child(1){height:7px}.stat-ic i:nth-child(2){height:16px}.stat-ic i:nth-child(3){height:11px}
+.plus-ic{position:relative;display:block;width:16px;height:16px}
+.plus-ic::before,.plus-ic::after{content:"";position:absolute;background:currentColor;border-radius:2px}
+.plus-ic::before{left:0;right:0;top:50%;height:2.5px;translate:0 -50%}
+.plus-ic::after{top:0;bottom:0;left:50%;width:2.5px;translate:-50% 0}

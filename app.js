@@ -4447,7 +4447,7 @@ function profileView() {
   const u = getUsers()[S.user] || {}, works = S.stories.filter(s => storyState(s) !== 'draft').map(s => ({ ...s, owner: S.user, author: u.name }));
   const acts = '', editBtn = `<a class="pf-edit mini" href="#/profile/edit" data-dir="next" aria-label="${esc(t('Editar perfil'))}"><span class="pen-c" aria-hidden="true"><span class="pen"></span></span></a>`, edit = '';
   return `<main class="page pf-page">${profileHero(S.user, true, acts, '', editBtn)}${edit}
-  <div class="pf-tools"><a class="button ghost sm" href="#/stats" data-dir="next">${t('📊 Estadísticas')}</a><a class="button sm" href="#/write">${t('＋ Nueva')}</a></div>${worksSection(works, S.user)}
+  <div class="pf-tools"><a class="button ghost sm pf-tool" href="#/stats" data-dir="next" aria-label="${esc(t('Estadísticas'))}"><span class="stat-ic" aria-hidden="true"><i></i><i></i><i></i></span></a><a class="button sm pf-tool" href="#/write" aria-label="${esc(t('Nueva historia'))}"><span class="plus-ic" aria-hidden="true"></span></a></div>${worksSection(works, S.user)}
   ${charsSection()}${profileExtras()}</main>`;
 }
 /** Pantalla "Editar perfil" (estilo redes sociales): portada y foto arriba, y debajo los datos en filas */

@@ -2553,4 +2553,6 @@ window.I18N = { en: {
   "Listo: tiene los dos pases y nivel 20, sin reclamar.": "Done: it has both passes at level 20, nothing claimed.",
   "Pases y premios del pase quitados.": "Passes and pass rewards removed.",
   "Dejar de seguir": "Unfollow",
+  "Estadísticas": "Statistics",
+  "Nueva historia": "New story",
 } };
