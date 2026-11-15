@@ -4647,6 +4647,7 @@ function openLook() {
   });
   document.body.appendChild(m);
 }
+let PFF = null;                                        // perfil con el menú «Dejar de seguir» abierto
 let PFM = null;                                        // perfil con el menú «⋯» abierto
 function userView(e) {
   const u = getUsers()[e]; sbPres(e);
@@ -4655,7 +4656,8 @@ function userView(e) {
   const ENV = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7.5 8 6 8-6"/></svg>', ml = t('Mensaje');
   const pu = getUsers()[e] || {}, mi = (act, txt, cls = '', extra = '') => `<button type="button" role="menuitem" class="${cls}" data-act="${act}" data-id="${esc(e)}"${extra}>${txt}</button>`;
   const menu = PFM === e ? `<div class="c-menu pf-menu" role="menu">${iMute(e) ? mi('unmute', t('Dejar de silenciar')) : mi('mute', t('Silenciar'))}${iBlock(e) ? mi('unblock', t('Desbloquear')) : mi('block', t('Bloquear'), 'danger-link')}${mi('report-user', t('Reportar'))}${imgrOk(pu.avatar) ? mi('report-pimg', t('Reportar foto'), '', ' data-k="avatar"') : ''}${imgrOk(pu.banner) ? mi('report-pimg', t('Reportar portada del perfil'), '', ' data-k="banner"') : ''}</div>` : '';
-  const acts = `<button class="button ${fl ? 'secondary' : ''}" data-act="follow" data-id="${esc(e)}">${fl ? t('Siguiendo ✓') : t('＋ Seguir')}</button>
+  const FOL = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9.5" cy="8" r="3.6"/><path d="M2.8 20c.5-3.6 3.2-5.6 6.7-5.6 1.6 0 3 .4 4.1 1.1"/><path d="m15.6 18.4 2.3 2.3 4.1-4.6"/></svg>', fln = t('Siguiendo');
+  const acts = `${fl ? `<span class="pf-fwrap"><button type="button" class="pf-env pf-fol" data-act="fol-menu" data-id="${esc(e)}" aria-label="${esc(fln)}" title="${esc(fln)}" aria-expanded="${PFF === e}">${FOL}</button>${PFF === e ? `<div class="c-menu pf-menu pf-fmenu" role="menu"><button type="button" role="menuitem" class="danger-link" data-act="follow" data-id="${esc(e)}">${t('Dejar de seguir')}</button></div>` : ''}</span>` : `<button class="button" data-act="follow" data-id="${esc(e)}">${t('＋ Seguir')}</button>`}
   ${dmWhy(S.user, e) === '' ? `<a class="pf-env" href="#/messages/${encodeURIComponent(e)}" data-dir="next" aria-label="${esc(ml)}" title="${esc(ml)}">${ENV}</a>` : `<button type="button" class="pf-env" data-act="dm-why" data-id="${esc(e)}" aria-label="${esc(ml)}" title="${esc(ml)}">${ENV}</button>`}
   ${imgrProfile(e)}`, corner = `<span class="pf-mwrap"><button type="button" class="pf-dots" data-act="pf-menu" data-id="${esc(e)}" aria-label="${esc(t('Más opciones'))}" aria-expanded="${PFM === e}"><i></i><i></i><i></i></button>${menu}</span>`;
   return `<main class="page pf-page">${profileHero(e, false, acts, corner)}${modUserBooks(e)}${repHistory(e)}${admMenu(e)}${worksSection(works, e)}</main>`;
@@ -5527,7 +5529,8 @@ document.addEventListener('click', e => {
     'col-add': () => { colAdd(id); toast(t('Guardado en tus colecciones ⭐')); KEEP = true; render(); },
     'col-del': () => { colDel(id); toast(t('Quitado de tus colecciones')); KEEP = true; render(); },
     like: () => { const s = findStory(id); if (s) { const was = likes(s.id).includes(S.user); toggleLike(s); KEEP = true; render(); const hb = document.querySelector('.like-btn'); if (hb && !was) { hb.classList.add('pulse'); setTimeout(() => hb.classList.remove('pulse'), 500); } } },
-    follow: () => { toggleFollow(id); KEEP = true; render(); },
+    follow: () => { PFF = null; toggleFollow(id); KEEP = true; render(); },
+    'fol-menu': () => { PFF = PFF === id ? null : id; KEEP = true; render(); },
     'car-go': () => { CARHOLD = Date.now() + 8000; carGo(+el.dataset.i); },
     'nd-save': () => { if (nbDraftSave(false)) { KEEP = true; render(); } },
     'nd-open': () => { if (!canNews()) return; const d = ndAll().find(x => x.id === id); if (!d) return; if (NBID !== d.id) nbDraftSave(true);
@@ -5766,6 +5769,7 @@ document.addEventListener('change', e => {
   if (id === 'av-file' || id === 'av-file2') { editPhoto(f, 'avatar'); e.target.value = ''; }
 });
 document.addEventListener('error', e => { if (e.target.classList && e.target.classList.contains('cover-img')) e.target.style.display = 'none'; if (e.target.classList && e.target.classList.contains('fr-img')) { e.target.style.display = 'none'; if (e.target.parentNode) e.target.parentNode.classList.add('fr-fallback'); } }, true);
+document.addEventListener('click', e => { if (PFF !== null && !e.target.closest('.pf-fwrap')) { PFF = null; KEEP = true; if (!e.target.closest('[data-act]')) render(); } }, true);
 document.addEventListener('click', e => { if (PFM !== null && !e.target.closest('.pf-mwrap')) { PFM = null; KEEP = true; if (!e.target.closest('[data-act]')) render(); } }, true);
 document.addEventListener('click', e => { if (MENUC !== null && !e.target.closest('.c-more-wrap')) { MENUC = null; KEEP = true; if (PCS) paintPcList(); if (!e.target.closest('[data-act]')) render(); } }, true);
 let WLX = null;                                        // deslizar a los lados en la presentación de bienvenida

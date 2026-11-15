@@ -2552,4 +2552,5 @@ window.I18N = { en: {
   "¿Quitar los pases y los premios del pase de esta cuenta?": "Remove this account's passes and pass rewards?",
   "Listo: tiene los dos pases y nivel 20, sin reclamar.": "Done: it has both passes at level 20, nothing claimed.",
   "Pases y premios del pase quitados.": "Passes and pass rewards removed.",
+  "Dejar de seguir": "Unfollow",
 } };

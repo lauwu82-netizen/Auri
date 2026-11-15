@@ -3122,3 +3122,8 @@ html.lite .ms-row{animation:none;filter:none}
 /* la mascota ya no ensancha la página al llegar al borde derecho (en iPhone hacía zoom) */
 .pet-strip{overflow-x:clip}
 .pet-hi{left:50%;translate:-50% 0;bottom:50px}
+
+/* Siguiendo: icono de persona con palomita y menú «Dejar de seguir» */
+.pf-fwrap{position:relative;display:inline-block}
+.pf-fol{border-color:hsl(var(--primary)/.5);background:hsl(var(--primary)/.1)}
+.pf-fmenu{left:0;right:auto;top:50px;min-width:160px;z-index:7}
