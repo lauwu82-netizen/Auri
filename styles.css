@@ -3148,3 +3148,10 @@ html.lite .ms-row{animation:none;filter:none}
 /* opción: quitar el brillo de color del avatar y los cosméticos */
 html.noglow .pf-av .fr,html.noglow .pf-av .fr[data-shape],html.noglow .fr .orn,html.noglow .fr .orn img,html.noglow .fr .orn svg,html.noglow .orn-bot,html.noglow .st-av{filter:none!important}
 html.noglow .pf-av .fr .avatar,html.noglow .pf-av>.avatar,html.noglow .fr .avatar{box-shadow:none!important}
+
+/* modo claro: sombra del avatar del perfil más suave y sin recortes (antes eran sombras negras pensadas para el modo oscuro) */
+html:not(.dark) .pf-av,html:not(.dark) .pf-av .fr{overflow:visible}
+html:not(.dark) .pf-av .fr[data-shape]{filter:drop-shadow(0 0 2px hsl(var(--primary)/.6)) drop-shadow(0 3px 5px hsl(var(--primary)/.22))}
+html:not(.dark) .pf-av .fr .avatar,html:not(.dark) .pf-av>.avatar{box-shadow:0 0 0 1.5px hsl(var(--primary)/.5),0 4px 12px hsl(var(--primary)/.22),inset 0 -6px 10px rgba(0,0,0,.1)}
+html:not(.dark) .pf-av .fr[data-shape] .avatar{box-shadow:none!important}
+html.noglow:not(.dark) .pf-av .fr[data-shape]{filter:none!important}
