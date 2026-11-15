@@ -2545,4 +2545,5 @@ window.I18N = { en: {
   "Corazón oscuro": "Dark heart",
   "Collar oscuro": "Dark necklace",
   "Adornos · corona de rosas, corazón y collar oscuro": "Ornaments · rose crown, heart and dark necklace",
+  "Gótico": "Gothic",
 } };

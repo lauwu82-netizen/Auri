@@ -3009,3 +3009,87 @@ html.lite .amb{display:none}
 .pf-edit .pen{position:relative;display:block;width:5px;height:11px;border:1.5px solid currentColor;border-bottom:0;border-radius:1.5px 1.5px 0 0;transform:rotate(45deg) translateY(-2px)}
 .pf-edit .pen::before{content:"";position:absolute;left:-1.5px;top:100%;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid currentColor}
 .pf-edit .pen::after{content:"";position:absolute;left:0;right:0;top:1.5px;height:1.5px;background:currentColor}
+
+/* Tema gótico (rojo oscuro) */
+:root[data-accent=gotico]{--background:350 40% 98%; --foreground:350 30% 18%; --card:0 0% 100%; --primary:350 70% 40%; --accent:350 55% 94%; --accent-foreground:350 70% 28%; --muted-foreground:350 12% 48%; --border:350 30% 88%; --title:#4a1520; --soft:#7d6068; --brand:#9b1c31; --btn:linear-gradient(115deg,#c23a4f,#8f1a2e); --hero:linear-gradient(112deg,#fff 2%,#fdeef0 49%,#f3c3ca 100%); --shadow:0 16px 44px rgba(120,20,40,.10);}
+:root[data-accent=gotico].dark{--background:350 28% 8%; --foreground:350 25% 92%; --card:350 22% 13%; --primary:350 70% 52%; --accent:350 24% 22%; --accent-foreground:350 70% 88%; --muted-foreground:350 12% 66%; --border:350 18% 24%; --title:#f6d6dc; --soft:#c7a3ab; --brand:#ef8a9a; --hero:linear-gradient(112deg,#240c12 2%,#3a1018 49%,#661a2a 100%); --shadow:0 16px 44px rgba(0,0,0,.5);}
+:root[data-accent=gotico] .shell{background:radial-gradient(ellipse at 92% -10%,rgba(255,147,162,.26),transparent 32%),hsl(var(--background))}
+:root[data-accent=gotico] .brand-mark{background:linear-gradient(140deg,#ffe8eb,#ffb6c0)}
+:root[data-accent=gotico] .button{box-shadow:0 8px 20px rgba(208,22,53,.18)}
+:root[data-accent=gotico] .shell{background:radial-gradient(ellipse at 92% -10%,rgba(249,171,184,.22),transparent 32%),hsl(var(--background))}
+:root[data-accent=gotico] .brand-mark{background:linear-gradient(140deg,#ffedf0,#ffd7de)}
+:root[data-accent=gotico] .button{box-shadow:0 8px 20px rgba(178,63,83,.18)}
+:root[data-accent=gotico] .field:focus,:root[data-accent=gotico] .select:focus,:root[data-accent=gotico] .textarea:focus{border-color:#d98795;box-shadow:0 0 0 3px rgba(207,106,122,.18)}
+:root[data-accent=gotico] .eyebrow{color:#a24d5b}
+:root[data-accent=gotico].dark .eyebrow{color:#f3a5b2}
+:root[data-accent=gotico] .chip.active{background:#fbe2e6;border-color:#ebbac2;color:#993f4e}
+:root[data-accent=gotico] .tag{color:#a35360;background:#fcecef}
+:root[data-accent=gotico].dark .tag{background:#50252d;color:#f8b6c2}
+:root[data-accent=gotico] .switch{background:#d3bfc2}
+:root[data-accent=gotico] .switch[aria-checked="true"]{background:#c7596c}
+:root[data-accent=gotico] .toast{background:#6b313b}
+:root[data-accent=gotico] .cover{background:linear-gradient(120deg,#f9e2e6,#efc3ca)}
+:root[data-accent=gotico] .cover .eyebrow{color:#873846}
+:root[data-accent=gotico] .check input{accent-color:#c7596c}
+:root[data-accent=gotico] .avatar{background:linear-gradient(140deg,#f3a5b2,#c7596c)}
+:root[data-accent=gotico] .notif.new{border-color:#d98795}
+:root[data-accent=gotico] .bst{background:#6b313b}
+:root[data-accent=gotico] .modal{background:rgba(52,18,24,.55)}
+:root[data-accent=gotico] .cover{box-shadow:0 6px 16px rgba(114,43,56,.14)}
+:root[data-accent=gotico] .cover-title{color:#702c38}
+:root[data-accent=gotico] .bst{background:rgba(107,49,59,.92)}
+:root[data-accent=gotico] .mini-pill{color:#873846}
+:root[data-accent=gotico] .ch-item.active{border-color:#d98795}
+:root[data-accent=gotico] .char-card.active{border-color:#d98795}
+:root[data-accent=gotico] .detail-cover{background:linear-gradient(120deg,#f9e2e6,#efc3ca)}
+:root[data-accent=gotico] .detail-cover.ph{color:#702c38}
+:root[data-accent=gotico] .pill.ph-finished{background:#f8dbe0;color:#873846}
+:root[data-accent=gotico] .bottom-nav{box-shadow:0 -8px 24px rgba(114,43,56,.08)}
+:root[data-accent=gotico] .bn-plus{box-shadow:0 10px 24px rgba(178,63,83,.45),0 0 0 5px hsl(var(--background))}
+:root[data-accent=gotico] .bn-plus.active{box-shadow:0 10px 26px rgba(178,63,83,.6),0 0 0 5px hsl(var(--background)),0 0 0 8px rgba(207,106,122,.35)}
+:root[data-accent=gotico] .pop-back{background:rgba(52,18,24,.18)}
+:root[data-accent=gotico] .char-tile.active{border-color:#d98795;box-shadow:0 0 0 3px rgba(207,106,122,.25)}
+:root[data-accent=gotico] .ra-img{background:linear-gradient(140deg,#f3a5b2,#c7596c)}
+:root[data-accent=gotico] .ra-card.active .ra-img{border-color:#c7596c;box-shadow:0 8px 20px rgba(178,63,83,.35)}
+:root[data-accent=gotico] .ct-img{background:linear-gradient(140deg,#f3a5b2,#c7596c)}
+:root[data-accent=gotico] .pf-banner{background:linear-gradient(135deg,#f3b1bd,#c7596c) center/cover no-repeat}
+:root[data-accent=gotico] .chc-add:hover{border-color:#d98795}
+:root[data-accent=gotico] .chc-x{color:#6b313b}
+:root[data-accent=gotico] .seg-b.on{box-shadow:0 4px 12px rgba(178,63,83,.3)}
+:root[data-accent=gotico] .qz-dot.done{background:#d98795}
+:root[data-accent=gotico] .qz-opt.on{border-color:#c7596c;box-shadow:0 0 0 3px rgba(207,106,122,.25)}
+:root[data-accent=gotico] .qz-chip.on{box-shadow:0 4px 12px rgba(178,63,83,.3)}
+:root[data-accent=gotico] .role-tag.owner{background:linear-gradient(135deg,#fc5f68,#f3a2ab)}
+:root[data-accent=gotico] .check-line input{accent-color:#c7596c}
+:root[data-accent=gotico] .mod-ov{background:radial-gradient(circle at 50% 30%,#933546,#351017)}
+:root[data-accent=gotico] .mod-ov .helper{color:#f2cad2}
+:root[data-accent=gotico] .pc-pill{box-shadow:0 4px 12px rgba(178,63,83,.3)}
+:root[data-accent=gotico] .pc-quote{border-left:3px solid #d98795}
+:root[data-accent=gotico] .pc-spoil input{accent-color:#c7596c}
+:root[data-accent=gotico] .cr-event{box-shadow:inset 0 0 0 2px #f3a2ab,var(--shadow)}
+:root[data-accent=gotico] .cr-cover{box-shadow:0 8px 20px rgba(104,26,40,.3)}
+:root[data-accent=gotico] .cv-frame{background:repeating-conic-gradient(#f6dbdf 0 25%,#fceff1 0 50%) 0 0/16px 16px;box-shadow:0 0 0 2px #d98795,0 8px 22px rgba(104,26,40,.25)}
+:root[data-accent=gotico] .cv-zoom input{accent-color:#c7596c}
+:root[data-accent=gotico] .cr-slide::after{background:linear-gradient(100deg,transparent,rgba(251,231,235,.38),transparent)}
+:root[data-accent=gotico] .cr-slide .eyebrow{text-shadow:0 0 10px rgba(241,216,221,.7)}
+:root[data-accent=gotico] .cr-dot.on{box-shadow:0 0 10px hsl(var(--primary)/.6),0 0 4px rgba(241,216,221,.9)}
+:root[data-accent=gotico] .c-badge.staff{color:#b95969;background:rgba(241,216,221,.55)}
+:root[data-accent=gotico] .c-menu{box-shadow:0 12px 30px rgba(114,43,56,.18)}
+:root[data-accent=gotico] .ap-th button{background:rgba(47,18,23,.7)}
+:root[data-accent=gotico] .poll-opt:not(:disabled):hover{border-color:#d98795}
+:root[data-accent=gotico] .poll-row.mine{border-color:#c7596c}
+:root[data-accent=gotico] .notif-cv{background:linear-gradient(140deg,#f3a5b2,#c7596c);box-shadow:0 3px 8px rgba(104,26,40,.25)}
+:root[data-accent=gotico] .resume-fab{box-shadow:0 10px 28px rgba(178,63,83,.45)}
+:root[data-accent=gotico] .pf-banner{background:linear-gradient(160deg,#ac4457,#4a1821 70%) center/cover no-repeat}
+:root[data-accent=gotico] .ep-banner{background:linear-gradient(160deg,#ac4457,#4a1821 70%) center/cover no-repeat}
+:root[data-accent=gotico] .end-cover .cover{box-shadow:0 14px 30px rgba(114,43,56,.28)}
+:root[data-accent=gotico] .end-badge{box-shadow:0 6px 14px rgba(114,43,56,.3)}
+:root[data-accent=gotico] .nm-mod{ color: #c65066}
+:root[data-accent=gotico].dark .nm-mod{ color: #e498a6}
+:root[data-accent=gotico] .bug-fab{box-shadow:0 6px 16px rgba(98,32,43,.22)}
+:root[data-accent=gotico] .hal-b i{border:1.5px solid rgba(98,32,43,.18)}
+:root[data-accent=gotico] .hal-b i.none{background:linear-gradient(135deg,transparent 46%,#deb7be 46% 54%,transparent 54%)}
+
+:root[data-accent=gotico]{--btn:linear-gradient(115deg,#8f1a2e 0%,#b92b43 60%,#d04a60 100%)}
+:root[data-accent=gotico]{--background:350 40% 99%}    :root[data-accent=gotico].dark{--background:350 30% 6%}
+:root[data-accent=gotico] .shell{background:hsl(var(--background));isolation:isolate}
