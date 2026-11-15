@@ -2997,3 +2997,7 @@ html.lite .amb{display:none}
 .vn-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px;max-height:55vh;overflow:auto;margin:10px 0}
 .vn-pick .vn-cell{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
 @media (prefers-reduced-motion:reduce){.vn-rev-c{animation:none}}
+
+/* 108 · Pack San Valentín oscuro: collar (abajo) */
+.orn-bot.bq.collardark{left:-22%;bottom:-40%;width:144%}
+.fr.sm .orn-bot.bq.collardark{left:-26%;bottom:-44%;width:152%}

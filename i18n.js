@@ -2541,4 +2541,8 @@ window.I18N = { en: {
   "Solo puedes elegir uno. Los legendarios y de temporada no se pueden elegir.": "You can only choose one. Legendary and seasonal ones can't be chosen.",
   "Ya tienes todos los que se pueden elegir.": "You already have all the ones you can choose.",
   "¿Elegir «{n}»? No se puede cambiar después.": "Choose «{n}»? It can't be changed later.",
+  "Corona de rosas oscuras": "Dark rose crown",
+  "Corazón oscuro": "Dark heart",
+  "Collar oscuro": "Dark necklace",
+  "Adornos · corona de rosas, corazón y collar oscuro": "Ornaments · rose crown, heart and dark necklace",
 } };

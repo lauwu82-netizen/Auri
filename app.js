@@ -290,7 +290,8 @@ function revokeMod(tg) {                                // "descender": Owner (A
 const CQ = {
   'cq:flores': ['Corona de flores de porcelana', 'top'], 'cq:mariposas': ['Mariposas de encaje', 'top'], 'cq:joya': ['Joya con moño y rosas', 'bot'],
   'cq:corazones': ['Corazones flotantes', 'top'], 'cq:vichy': ['Moño vichy con cerezas', 'top'], 'cq:perlas': ['Collar de perlas con lazos', 'bot'],
-  'cq:bombones': ['Caja de bombones', 'top'], 'cq:enamorado': ['Corazones enamorados', 'top'], 'cq:encaje': ['Corazón con encaje', 'bot']      // pack San Valentín dulce (2 arriba + 1 abajo)
+  'cq:bombones': ['Caja de bombones', 'top'], 'cq:enamorado': ['Corazones enamorados', 'top'], 'cq:encaje': ['Corazón con encaje', 'bot'],      // pack San Valentín dulce (2 arriba + 1 abajo)
+  'cq:rosas': ['Corona de rosas oscuras', 'top'], 'cq:corazondark': ['Corazón oscuro', 'top'], 'cq:collardark': ['Collar oscuro', 'bot']      // pack San Valentín oscuro (pase de escritor)
 };
 const cqOf = e => roleOf(e) === 'OWNER' ? Object.keys(CQ) : [...((getUsers()[e] || {}).cq || []), ...(((getUsers()[e] || {}).items || []).filter(k => k.startsWith('cq:')))].filter((k, i, l) => CQ[k] && l.indexOf(k) === i);
 const cqBot = e => cqOf(e).filter(k => CQ[k][1] === 'bot');
@@ -327,7 +328,8 @@ const COS_IMG = {
   'bow:green': 'https://i.postimg.cc/ncd4CrX3/Photoroom-20261029-055905.png',
   'cq:flores': 'https://i.postimg.cc/C1V6LfmX/Photoroom-20261105-171117.png', 'cq:mariposas': 'https://i.postimg.cc/Zn5HCP3F/Photoroom-20261105-171218.png', 'cq:joya': 'https://i.postimg.cc/SsT81B2z/Photoroom-20261105-171311.png',
   'cq:corazones': 'https://i.postimg.cc/9F3t3jgR/Photoroom-20261105-171355.png', 'cq:vichy': 'https://i.postimg.cc/PrtJv3CG/Photoroom-20261105-171440.png', 'cq:perlas': 'https://i.postimg.cc/3NfsRxyh/Photoroom-20261105-171507.png',
-  'cq:bombones': 'https://i.postimg.cc/4yR1RqZX/Photoroom-20261113-193803.png', 'cq:enamorado': 'https://i.postimg.cc/Yq3zTdsD/Photoroom-20261113-193819.png', 'cq:encaje': 'https://i.postimg.cc/fRMdDSLc/Photoroom-20261114-205052.png'
+  'cq:bombones': 'https://i.postimg.cc/4yR1RqZX/Photoroom-20261113-193803.png', 'cq:enamorado': 'https://i.postimg.cc/Yq3zTdsD/Photoroom-20261113-193819.png', 'cq:encaje': 'https://i.postimg.cc/fRMdDSLc/Photoroom-20261114-205052.png',
+  'cq:rosas': 'https://i.postimg.cc/65bDrnvc/IMG-3344.png', 'cq:corazondark': 'https://i.postimg.cc/kGnkcysf/IMG-3343.png', 'cq:collardark': 'https://i.postimg.cc/W1QCKVS6/IMG-3345.png'
 };
 const AURI_LOGO = 'https://i.postimg.cc/PxD8ksW5/Photoroom-20261108-192124.png';
 const cosOne = (k, c = '') => COS_IMG[k] ? `<img${c ? ` class="${c}"` : ''} src="${esc(COS_IMG[k])}" alt="" referrerpolicy="no-referrer" decoding="async">` : '';
@@ -342,7 +344,7 @@ const topKey = e => {                                    // adorno de arriba que
 /* Adornos de arriba: hasta 2, cada uno con su posición (x, y en % de la foto), giro (grados) y tamaño (1 = normal) */
 const ADJ_MAX = 2, ADJ_W = 46;
 const adjNum = (v, a, b, d) => { v = +v; return Number.isFinite(v) ? Math.round(Math.min(b, Math.max(a, v)) * 10) / 10 : d; };
-const CQ_ADJ = { 'cq:flores': { x: 50, y: -12, r: 0, s: 2.15 }, 'cq:mariposas': { x: 50, y: 16, r: 0, s: 2.4 }, 'cq:corazones': { x: 50, y: -8, r: 0, s: 2.2 }, 'cq:vichy': { x: 8, y: 6, r: -12, s: 1 }, 'cq:bombones': { x: 88, y: 16, r: 8, s: .95 }, 'cq:enamorado': { x: 50, y: -14, r: 0, s: 2.1 } };
+const CQ_ADJ = { 'cq:flores': { x: 50, y: -12, r: 0, s: 2.15 }, 'cq:mariposas': { x: 50, y: 16, r: 0, s: 2.4 }, 'cq:corazones': { x: 50, y: -8, r: 0, s: 2.2 }, 'cq:vichy': { x: 8, y: 6, r: -12, s: 1 }, 'cq:bombones': { x: 88, y: 16, r: 8, s: .95 }, 'cq:enamorado': { x: 50, y: -14, r: 0, s: 2.1 }, 'cq:rosas': { x: 50, y: -12, r: 0, s: 2.15 }, 'cq:corazondark': { x: 88, y: 16, r: 8, s: .95 } };
 const adjDefault = k => CQ_ADJ[k] ? { k, ...CQ_ADJ[k] } : k === 'crown' ? { k, x: 27, y: -5, r: -27, s: 1 } : { k, x: 91, y: 4, r: 0, s: 1 };
 const adjOk = (e, k) => typeof k === 'string' && !!COS_IMG[k] && (CQ[k] ? CQ[k][1] === 'top' && cqOf(e).includes(k) : k === 'crown' ? roleOf(e) === 'OWNER' : /^bow:/.test(k) && bowsOf(e).includes(k.slice(4)));
 const adjClean = (e, l) => (Array.isArray(l) ? l : []).filter(o => o && adjOk(e, o.k)).slice(0, ADJ_MAX).map(o => { const d = adjDefault(o.k); return { k: o.k, x: adjNum(o.x, -40, 140, d.x), y: adjNum(o.y, -40, 140, d.y), r: adjNum(o.r, -180, 180, d.r), s: adjNum(o.s, .4, 3, d.s) }; });
@@ -5933,7 +5935,7 @@ const PASS_FREE_BASE = { 4: 'Insignia de temporada', 8: 'Insignia de temporada',
 const PASS_FREE = { reader: { ...PASS_FREE_BASE, 18: 'Sprite aleatorio' }, writer: { ...PASS_FREE_BASE, 18: 'Sprite · corazón roto' } };
 const PASS_PAID = {
   reader: { 1: 'Forma · corazón con alitas', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador · flecha y corazón', 4: 'AuriGems cian ×10', 5: 'Adorno · caja de bombones', 6: 'Adorno · corazones enamorados', 7: 'AuriGems moradas ×10', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'AuriGems cian ×15', 11: 'Adorno · corazón con encaje', 12: 'Mascota · Cupida', 13: 'AuriGems moradas ×15', 14: 'Chat San Valentín · lila', 15: 'Sprite aleatorio', 16: 'AuriGems cian ×20', 17: 'Mascota · Cupido', 18: 'Sprite aleatorio', 19: 'AuriGems moradas ×20', 20: 'Sprite a elección · Título · Corazón de biblioteca' },
-  writer: { 1: 'Título · Tinta y corazón', 2: 'AuriCoins ×50', 3: 'Forma · corazón partido', 4: 'AuriGems cian ×10', 5: 'Marco de portada 1', 6: 'AuriCoins ×50', 7: 'Plantilla de portada · dulce', 8: 'Fondo del editor · San Valentín', 9: 'AuriGems moradas ×10', 10: 'Cosmético de perfil de creador', 11: 'Impulso a destacados ×1', 12: 'AuriCoins ×75', 13: 'Marco de portada 2', 14: 'Mascota · Diablillo', 15: 'AuriGems cian ×15', 16: 'Plantilla de portada · oscura', 17: 'Ambiente por capítulo', 18: 'Sprite · borracho enamorado', 19: 'AuriGems moradas ×15', 20: 'Título · Rompecorazones · AuriCoins ×175' }
+  writer: { 1: 'Título · Tinta y corazón', 2: 'AuriCoins ×50', 3: 'Forma · corazón partido', 4: 'AuriGems cian ×10', 5: 'Marco de portada 1', 6: 'AuriCoins ×50', 7: 'Plantilla de portada · dulce', 8: 'Fondo del editor · San Valentín', 9: 'AuriGems moradas ×10', 10: 'Cosmético de perfil de creador', 11: 'Impulso a destacados ×1', 12: 'AuriCoins ×75', 13: 'Adornos · corona de rosas, corazón y collar oscuro', 14: 'Mascota · Diablillo', 15: 'AuriGems cian ×15', 16: 'Plantilla de portada · oscura', 17: 'Ambiente por capítulo', 18: 'Sprite · borracho enamorado', 19: 'AuriGems moradas ×15', 20: 'Título · Rompecorazones · AuriCoins ×175' }
 };
 function shopView(tab) {
   if (!passOn()) return `<main class="page">${empty('Aquí pronto habrá algo nuevo', 'La tienda y los pases todavía no están abiertos.')}</main>`;
