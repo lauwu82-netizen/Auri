@@ -2557,4 +2557,9 @@ window.I18N = { en: {
   "Nueva historia": "New story",
   "Quitar el brillo del avatar": "Turn off avatar glow",
   "Quita el resplandor de color alrededor del avatar y de los cosméticos que llevas puestos.": "Removes the colored glow around your avatar and the cosmetics you wear.",
+  "Rosas y espinas": "Roses and thorns",
+  "San Valentín oscuro": "Dark Valentine",
+  "Separador · rosas y espinas": "Divider · roses and thorns",
+  "Fondos del editor · San Valentín dulce y oscuro": "Editor backgrounds · Valentine sweet and dark",
+  "Fondo de lectura · San Valentín oscuro": "Reading background · dark Valentine",
 } };
