@@ -2573,4 +2573,5 @@ window.I18N = { en: {
   "Separador · pluma": "Divider · quill",
   "Fondo del editor · papel": "Editor background · paper",
   "Fondo del editor · noche": "Editor background · night",
+  "Ambiente · corazones flotantes": "Ambient · floating hearts",
 } };

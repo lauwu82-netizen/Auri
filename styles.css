@@ -3191,3 +3191,7 @@ html.noglow:not(.dark) .pf-av .fr[data-shape]{filter:none!important}
 .ai-in .ai-send svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .ai-in .ai-send:active{transform:scale(.92)}
 .ai-in .ai-send:disabled{opacity:.5}
+
+/* ambiente: corazones flotantes (lentos, translúcidos, color del tema) */
+.amb-hearts i{left:var(--x);top:100%;width:calc(11px + 9px*var(--s));height:calc(11px + 9px*var(--s));background:hsl(var(--primary));opacity:0;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21C4 15.5 2 10.5 4.2 7.4C6.3 4.6 10.2 5.2 12 8.2C13.8 5.2 17.7 4.6 19.8 7.4C22 10.5 20 15.5 12 21Z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21C4 15.5 2 10.5 4.2 7.4C6.3 4.6 10.2 5.2 12 8.2C13.8 5.2 17.7 4.6 19.8 7.4C22 10.5 20 15.5 12 21Z'/%3E%3C/svg%3E") center/contain no-repeat;animation:ambHeart var(--d) linear infinite;animation-delay:var(--dl)}
+@keyframes ambHeart{0%{transform:translate3d(0,0,0);opacity:0}12%{opacity:.34}50%{transform:translate3d(14px,-56vh,0)}88%{opacity:.3}100%{transform:translate3d(-8px,-116vh,0);opacity:0}}

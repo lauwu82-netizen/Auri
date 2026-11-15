@@ -3037,14 +3037,14 @@ function openPets() {
   document.body.appendChild(m);
 }
 /* Ambientes de lectura (solo libros tradicionales): partículas suaves sobre el texto. Gratis o con pase; quien lee puede apagarlos */
-const AMBS = { off: ['Ninguno', 'free', '🚫'], rain: ['Lluvia', 'free', '🌧️'], snow: ['Nieve', 'free', '❄️'], fog: ['Niebla', 'free', '🌫️'], fireflies: ['Luciérnagas', 'pass', '✨'], stars: ['Estrellas', 'pass', '⭐'], petals: ['Pétalos', 'pass', '🌸'], stardust: ['Polvo de estrellas', 'founder', '✨'] };
-const AMB_N = { rain: 34, snow: 14, fog: 4, fireflies: 9, stars: 4, petals: 12, stardust: 11 };
-const ambOK = k => !AMBS[k] ? false : AMBS[k][1] === 'free' || (AMBS[k][1] === 'founder' ? isOwner() || !!(getUsers()[S.user] || {}).frameTop : isStaff(S.user));
+const AMBS = { off: ['Ninguno', 'free', '🚫'], rain: ['Lluvia', 'free', '🌧️'], snow: ['Nieve', 'free', '❄️'], fog: ['Niebla', 'free', '🌫️'], fireflies: ['Luciérnagas', 'pass', '✨'], stars: ['Estrellas', 'pass', '⭐'], petals: ['Pétalos', 'pass', '🌸'], stardust: ['Polvo de estrellas', 'founder', '✨'], hearts: ['Corazones flotantes', 'pass', '💗'] };
+const AMB_N = { rain: 34, snow: 14, fog: 4, fireflies: 9, stars: 4, petals: 12, stardust: 11, hearts: 9 };
+const ambOK = k => !AMBS[k] ? false : AMBS[k][1] === 'free' || (AMBS[k][1] === 'founder' ? isOwner() || !!(getUsers()[S.user] || {}).frameTop : isStaff(S.user) || hasItem(S.user, 'amb:' + k));
 const ambKey = () => ambOK(cfg('amb')) ? cfg('amb') : 'off';
 const STAR_POS = [[12, 17, 1.0], [83, 24, 0.6], [26, 63, 0.3], [78, 79, 0.9]];   // estrellas fijas: x%, y%, tamaño
 function ambHTML(s) {
   const k = ambKey(); if (k === 'off' || !s || s.mode === 'chat') return '';
-  const D = { rain: [2.6, 2.4], snow: [90, 60], fog: [60, 40], fireflies: [6, 5], petals: [55, 35], stardust: [55, 35] }[k] || [0, 0];   // [mínimo, variación] en segundos: todo va lento y calmado para no distraer
+  const D = { rain: [2.6, 2.4], snow: [90, 60], fog: [60, 40], fireflies: [6, 5], petals: [55, 35], stardust: [55, 35], hearts: [42, 26] }[k] || [0, 0];   // [mínimo, variación] en segundos: todo va lento y calmado para no distraer
   const r = (i, m) => { const x = Math.sin(i * 12.9898 + m * 78.233) * 43758.5453; return x - Math.floor(x); };
   let h = '';
   if (k === 'stars') STAR_POS.forEach(([x, y, z], i) => h += `<i style="--x:${x}%;--y:${y}%;--s:${z};--d:${16 + i * 3}s;--dl:-${i * 5}s"></i>`);
@@ -5948,7 +5948,7 @@ const PASS_FREE = {
   reader: { ...PASS_FREE_BASE, 2: 'Título · Corazón tímido', 3: 'Gemas moradas ×2', 6: 'Separador · corazón sencillo', 11: 'Gemas moradas ×2', 12: 'Gemas moradas ×2', 15: 'Sprite aleatorio', 18: 'Sprite aleatorio' },
   writer: { ...PASS_FREE_BASE, 2: 'Título · Pluma novata', 3: 'Fondo del editor · papel', 6: 'Separador · pluma', 11: 'Fondo del editor · noche', 12: 'Gemas moradas ×2', 15: 'Sprite aleatorio', 18: 'Sprite · corazón roto' } };
 const PASS_PAID = {
-  reader: { 1: 'Forma · corazón con alitas', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador · flecha y corazón', 4: 'AuriGems cian ×10', 5: 'Adorno · caja de bombones', 6: 'Adorno · corazones enamorados', 7: 'AuriGems moradas ×10', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'AuriGems cian ×15', 11: 'Adorno · corazón con encaje', 12: 'Mascota · Cupida', 13: 'AuriGems moradas ×15', 14: 'Chat San Valentín · lila', 15: 'Sprite aleatorio', 16: 'AuriGems cian ×20', 17: 'Mascota · Cupido', 18: 'Sprite aleatorio', 19: 'AuriGems moradas ×20', 20: 'Sprite a elección · Título · Corazón de biblioteca' },
+  reader: { 1: 'Forma · corazón con alitas', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador · flecha y corazón', 4: 'AuriGems cian ×10', 5: 'Adorno · caja de bombones', 6: 'Adorno · corazones enamorados', 7: 'AuriGems moradas ×10', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'AuriGems cian ×15', 11: 'Adorno · corazón con encaje', 12: 'Mascota · Cupida', 13: 'Ambiente · corazones flotantes', 14: 'Chat San Valentín · lila', 15: 'Sprite aleatorio', 16: 'AuriGems cian ×20', 17: 'Mascota · Cupido', 18: 'Sprite aleatorio', 19: 'AuriGems moradas ×20', 20: 'Sprite a elección · Título · Corazón de biblioteca' },
   writer: { 1: 'Título · Tinta y corazón', 2: 'AuriCoins ×50', 3: 'Forma · corazón partido', 4: 'AuriGems cian ×10', 5: 'Marco de portada 1', 6: 'AuriCoins ×50', 7: 'Separador · rosas y espinas', 8: 'Fondos del editor · San Valentín dulce y oscuro', 9: 'AuriGems moradas ×10', 10: 'Cosmético de perfil de creador', 11: 'Impulso a destacados ×1', 12: 'AuriCoins ×75', 13: 'Adornos · corona de rosas, corazón y collar oscuro', 14: 'Mascota · Diablillo', 15: 'AuriGems cian ×15', 16: 'Fondo de lectura · San Valentín oscuro', 17: 'Ambiente por capítulo', 18: 'Sprite · borracho enamorado', 19: 'AuriGems moradas ×15', 20: 'Título · Rompecorazones · AuriCoins ×175' }
 };
 function shopView(tab) {
