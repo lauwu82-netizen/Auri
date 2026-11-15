@@ -4312,14 +4312,14 @@ const likesReceived = e => publishedStories().filter(s => s.owner === e).reduce(
 /** Perfil: portada con desvanecimiento hacia abajo, foto circular con aro, cifras que se pueden tocar y la pestaña de libros publicados */
 let PFEDIT = false, EPD = null;                          // EPD: lo escrito en Editar perfil (no se pierde al cambiar una foto)
 document.addEventListener('input', ev => { if (ev.target && (ev.target.id === 'pf-name' || ev.target.id === 'pf-bio')) EPD = { name: ($('#pf-name') || {}).value || '', bio: ($('#pf-bio') || {}).value || '' }; const c = $('#pf-cnt'); if (c) c.textContent = EPD.bio.length + '/500'; });
-function profileHero(e, own, acts = '', corner = '') {
+function profileHero(e, own, acts = '', corner = '', tagExtra = '') {
   const u = getUsers()[e] || {}, pubs = publishedStories().filter(s => s.owner === e), has = safeImg(u.banner), role = ROLE_LABEL[roleOf(e)], sk = own ? strikesOf(e) : [];
   const lk = !own && (getUsers()[e] || {}).hideLists, stat = (n, l, act, kind) => act && !(lk && act === 'pf-list') ? `<button type="button" class="pfs" data-act="${act}" data-id="${esc(e)}" data-kind="${kind || ''}"><b>${n}</b><small>${l}</small></button>` : `<span class="pfs"><b>${n}</b><small>${l}</small></span>`;
   return `<section class="pf-hero"><div class="pf-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>
     ${sk.length && !cfg('hideStrikeBtn') ? `<button type="button" class="pf-warn" data-act="strike-info" aria-label="${esc(t('Aviso de strikes'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5"/><circle cx="12" cy="16.6" r=".6" fill="currentColor"/></svg></button>` : ''}
     ${rdPill(e)}<div class="pf-fade"></div></div>
   ${corner}<div class="pf-id"><div class="pf-av">${frWrap(e, 'xl', avatarHTML(u.avatar, u.name, 'xl'))}${stProfBubble(e)}</div>
-    <div class="pf-info"><div class="pf-namerow"><h1 class="pf-name serif ${nmCls(e)}"${nfAttr(e)}>${esc(u.name || t('Mi perfil'))}${onlineDot(e)}</h1>${petHTML(e)}</div>${unTag(e)}${fTitleHTML(e)}${role || mbtiOf(e) ? `<div class="pf-tags">${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}${mbtiBadge(e)}</div>` : ''}
+    <div class="pf-info"><div class="pf-namerow"><h1 class="pf-name serif ${nmCls(e)}"${nfAttr(e)}>${esc(u.name || t('Mi perfil'))}${onlineDot(e)}</h1>${petHTML(e)}</div>${unTag(e)}${fTitleHTML(e)}${role || mbtiOf(e) || tagExtra ? `<div class="pf-tags">${role ? `<span class="role-tag ${roleOf(e).toLowerCase()}">🛡 ${t(role)}</span>` : ''}${mbtiBadge(e)}${tagExtra}</div>` : ''}
 </div>
     ${acts ? `<div class="pf-acts">${acts}</div>` : ''}</div>
   <div class="pf-stats-row">${stat(followers(e).length, t('Seguidores'), 'pf-list', 'followers')}${stat(following(e).length, t('Seguidos'), 'pf-list', 'following')}${stat(pubs.length, t('Libros publicados'), 'pf-works')}${stat(likesReceived(e), t('Likes'))}</div>
@@ -4446,8 +4446,8 @@ const bioBlock = (e, u, own) => {                         // biografía: bloque 
 };
 function profileView() {
   const u = getUsers()[S.user] || {}, works = S.stories.filter(s => storyState(s) !== 'draft').map(s => ({ ...s, owner: S.user, author: u.name }));
-  const acts = `<a class="pf-edit" href="#/profile/edit" data-dir="next" aria-label="${esc(t('Editar perfil'))}"><span class="pen-c" aria-hidden="true"><span class="pen"></span></span><span>${t('Editar')}</span></a>`, edit = '';
-  return `<main class="page pf-page">${profileHero(S.user, true, acts)}${edit}
+  const acts = '', editBtn = `<a class="pf-edit mini" href="#/profile/edit" data-dir="next" aria-label="${esc(t('Editar perfil'))}"><span class="pen-c" aria-hidden="true"><span class="pen"></span></span><span>${t('Editar')}</span></a>`, edit = '';
+  return `<main class="page pf-page">${profileHero(S.user, true, acts, '', editBtn)}${edit}
   <div class="pf-tools"><a class="button ghost sm" href="#/stats" data-dir="next">${t('📊 Estadísticas')}</a><a class="button sm" href="#/write">${t('＋ Nueva')}</a></div>${worksSection(works, S.user)}
   ${charsSection()}${profileExtras()}</main>`;
 }

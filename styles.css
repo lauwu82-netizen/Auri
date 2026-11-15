@@ -3108,3 +3108,8 @@ html.lite .ms-row{animation:none;filter:none}
 .dark .button.secondary{background:hsl(var(--accent));color:hsl(var(--accent-foreground));box-shadow:inset 0 0 0 1px hsl(var(--primary)/.35)}
 .dark .chip.active{background:hsl(var(--primary)/.22);color:hsl(var(--accent-foreground))}
 .dark .pf-edit .pen-c{background:hsl(var(--primary)/.2);border-color:hsl(var(--primary)/.7)}
+
+/* Editar junto al MBTI: versión compacta */
+.pf-tags .pf-edit.mini{gap:2px;font-size:10px;margin-left:4px}
+.pf-tags .pf-edit.mini .pen-c{width:30px;height:30px}
+.pf-tags .pf-edit.mini .pen{transform:rotate(45deg) translateY(-1px) scale(.85)}
