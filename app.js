@@ -4445,7 +4445,7 @@ const bioBlock = (e, u, own) => {                         // biografía: bloque 
 };
 function profileView() {
   const u = getUsers()[S.user] || {}, works = S.stories.filter(s => storyState(s) !== 'draft').map(s => ({ ...s, owner: S.user, author: u.name }));
-  const acts = `<a class="button secondary sm" href="#/profile/edit" data-dir="next">✏️ ${t('Editar perfil')}</a>`, edit = '';
+  const acts = `<a class="pf-edit" href="#/profile/edit" data-dir="next" aria-label="${esc(t('Editar perfil'))}"><span class="pen" aria-hidden="true"></span><span>${t('Editar')}</span></a>`, edit = '';
   return `<main class="page pf-page">${profileHero(S.user, true, acts)}${edit}
   <div class="pf-tools"><a class="button ghost sm" href="#/stats" data-dir="next">${t('📊 Estadísticas')}</a><a class="button sm" href="#/write">${t('＋ Nueva')}</a></div>${worksSection(works, S.user)}
   ${charsSection()}${profileExtras()}</main>`;

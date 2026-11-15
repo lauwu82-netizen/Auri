@@ -3001,3 +3001,10 @@ html.lite .amb{display:none}
 /* 108 · Pack San Valentín oscuro: collar (abajo) */
 .orn-bot.bq.collardark{left:-22%;bottom:-40%;width:144%}
 .fr.sm .orn-bot.bq.collardark{left:-26%;bottom:-44%;width:152%}
+
+/* 109 · Botón Editar: lápiz dibujado en CSS y la palabra debajo */
+.pf-edit{display:inline-flex;flex-direction:column;align-items:center;gap:5px;padding:8px 14px 7px;min-width:64px;border-radius:14px;border:1.5px solid var(--line,#e5dcf2);background:var(--panel,#fff);color:inherit;font:inherit;font-size:12px;font-weight:700;line-height:1;text-decoration:none;cursor:pointer;transition:border-color .2s,background .2s}
+.pf-edit:hover,.pf-edit:focus-visible{border-color:#8c5fc1;background:rgba(140,95,193,.08)}
+.pf-edit .pen{position:relative;display:block;width:6px;height:15px;margin:3px 0 4px;border:1.6px solid currentColor;border-radius:1.5px 1.5px 0 0;transform:rotate(45deg)}
+.pf-edit .pen::before{content:"";position:absolute;left:-1.6px;top:100%;margin-top:.2px;border-left:4.7px solid transparent;border-right:4.7px solid transparent;border-top:5px solid currentColor}
+.pf-edit .pen::after{content:"";position:absolute;left:0;right:0;top:2px;height:1.6px;background:currentColor}
