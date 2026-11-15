@@ -3118,3 +3118,7 @@ html.lite .ms-row{animation:none;filter:none}
 .pf-tags{align-items:flex-start}
 .pf-tags .role-tag,.pf-tags .mbti-chip{align-self:flex-start}
 .pf-tags .pf-edit.mini{margin-top:-2px;margin-left:2px}
+
+/* la mascota ya no ensancha la página al llegar al borde derecho (en iPhone hacía zoom) */
+.pet-strip{overflow-x:clip}
+.pet-hi{left:50%;translate:-50% 0;bottom:50px}
