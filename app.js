@@ -4376,8 +4376,7 @@ function flowInit() {
   const hold = () => { PFS.stop = true; PFS.touch = true; PFS.t = Date.now(); clearInterval(PFTIMER); PFTIMER = null; }, free = () => { setTimeout(() => { PFS.touch = false; }, 350); };
   ['pointerdown', 'touchstart', 'wheel'].forEach(ev => fl.addEventListener(ev, hold, { passive: true }));      // al deslizar tú, deja de cambiar sola
   ['pointerup', 'pointercancel', 'touchend', 'touchcancel'].forEach(ev => fl.addEventListener(ev, free, { passive: true }));
-  if (cs.length < 2 || reduceMotion() || PFS.stop) return; let i = 0;
-  PFTIMER = setInterval(() => { if (PFS.stop || PFS.touch || !document.body.contains(fl)) { clearInterval(PFTIMER); PFTIMER = null; return; } if (document.hidden) return; i = (i + 1) % cs.length; fl.scrollTo({ left: cs[i].offsetLeft + cs[i].offsetWidth / 2 - fl.clientWidth / 2, behavior: 'smooth' }); }, 5000);
+  // sin cambio automático: el carrusel solo se mueve cuando tú lo deslizas (más calmado y sin saltos)
 }
 function openAllBooks(e) {
   const list = PF_LIST[e] || [], u = getUsers()[e] || {}; if (!list.length) return;

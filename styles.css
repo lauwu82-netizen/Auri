@@ -693,7 +693,7 @@ img{max-width:100%}
 .auri-loader{display:inline-block;width:56px;height:auto;vertical-align:middle}
 .auri-loader svg{display:block;width:100%;height:auto;overflow:visible}
 .auri-loader .face{fill:hsl(var(--primary));animation:faceGlow 1.2s ease-in-out infinite}
-.auri-loader .ear{fill:hsl(var(--primary));stroke:var(--silver);stroke-width:2;stroke-linejoin:round}
+.auri-loader .ear{fill:hsl(var(--primary));stroke:color-mix(in srgb,hsl(var(--primary)) 72%,#000);stroke-width:2;stroke-linejoin:round}
 .auri-loader .ear.l{transform-origin:20px 30px;animation:earL 1.2s ease-in-out infinite}
 .auri-loader .ear.r{transform-origin:44px 30px;animation:earR 1.2s ease-in-out infinite}
 .auri-loader .eye{fill:#fff}
@@ -2147,8 +2147,8 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .mini-meta{display:flex;align-items:center;gap:6px}.mini-meta a,.mini-meta>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .detail-views{display:inline-flex;align-items:center;gap:5px;margin-left:12px;color:var(--soft);font-size:14px}
 .pf-feat{margin:18px -16px 6px}.pf-h{margin:0 16px 2px;font:700 17px var(--serif)}
-.pf-flow{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x mandatory;padding:22px calc(50% - 64px) 16px;scrollbar-width:none;-webkit-overflow-scrolling:touch}.pf-flow::-webkit-scrollbar{display:none}
-.pf-fc{flex:none;width:128px;scroll-snap-align:center;display:flex;flex-direction:column;gap:6px;text-decoration:none;color:inherit;transition:transform .18s ease-out,opacity .18s ease-out;will-change:transform}
+.pf-flow{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x proximity;overscroll-behavior-x:contain;padding:22px calc(50% - 64px) 16px;scrollbar-width:none;-webkit-overflow-scrolling:touch}.pf-flow::-webkit-scrollbar{display:none}
+.pf-fc{flex:none;width:128px;scroll-snap-align:center;display:flex;flex-direction:column;gap:6px;text-decoration:none;color:inherit;will-change:transform}
 .pf-fcv{display:block;border-radius:6px 12px 12px 6px;overflow:hidden;box-shadow:0 10px 22px -10px hsl(var(--primary)/.55)}
 .pf-fc b{font:700 13.5px/1.25 var(--sans);text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .pf-fc .views-tag{margin:0 auto}
@@ -3113,3 +3113,8 @@ html.lite .ms-row{animation:none;filter:none}
 .pf-tags .pf-edit.mini{gap:2px;font-size:10px;margin-left:4px}
 .pf-tags .pf-edit.mini .pen-c{width:30px;height:30px}
 .pf-tags .pf-edit.mini .pen{transform:rotate(45deg) translateY(-1px) scale(.85)}
+
+/* fila de etiquetas del perfil: todo alineado arriba, el círculo del lápiz a la altura de las etiquetas */
+.pf-tags{align-items:flex-start}
+.pf-tags .role-tag,.pf-tags .mbti-chip{align-self:flex-start}
+.pf-tags .pf-edit.mini{margin-top:-2px;margin-left:2px}
