@@ -3144,3 +3144,7 @@ html.lite .ms-row{animation:none;filter:none}
 .pf-fc{will-change:auto;scroll-snap-align:none;-webkit-user-drag:none;touch-action:pan-x pan-y}
 .pf-fc *{-webkit-user-drag:none;-webkit-touch-callout:none}
 .pf-fcv img{pointer-events:none}
+
+/* opción: quitar el brillo de color del avatar y los cosméticos */
+html.noglow .pf-av .fr,html.noglow .pf-av .fr[data-shape],html.noglow .fr .orn,html.noglow .fr .orn img,html.noglow .fr .orn svg,html.noglow .orn-bot,html.noglow .st-av{filter:none!important}
+html.noglow .pf-av .fr .avatar,html.noglow .pf-av>.avatar,html.noglow .fr .avatar{box-shadow:none!important}

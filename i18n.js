@@ -2555,4 +2555,6 @@ window.I18N = { en: {
   "Dejar de seguir": "Unfollow",
   "Estadísticas": "Statistics",
   "Nueva historia": "New story",
+  "Quitar el brillo del avatar": "Turn off avatar glow",
+  "Quita el resplandor de color alrededor del avatar y de los cosméticos que llevas puestos.": "Removes the colored glow around your avatar and the cosmetics you wear.",
 } };
