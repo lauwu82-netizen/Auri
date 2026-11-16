@@ -789,10 +789,10 @@ const cBack = u => { const h = String(u).replace(/-/g, ''); return parseInt(h.sl
 const remoteKey = uid => 'u-' + uid + '@cloud.auri';
 const hsh = s => { s = String(s); let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h + ':' + s.length; };
 const PHASES = ['ongoing', 'paused', 'finished'], CH_ST = ['draft', 'pending', 'rejected', 'approved'];
-const infoSig = l => hsh(JSON.stringify([l.title || '', l.synopsis || '', l.genre || '', l.fandom || '', l.tags || [], l.cover || '', !!l.mature, l.phase || 'ongoing', l.prev || '', l.useReaderCharacter !== false, !!l.private, ...(l.mode === 'chat' ? ['chat'] : [])]));
+const infoSig = l => hsh(JSON.stringify([l.title || '', l.synopsis || '', l.genre || '', l.fandom || '', l.tags || [], l.cover || '', !!l.mature, l.cf || '', l.phase || 'ongoing', l.prev || '', l.useReaderCharacter !== false, !!l.private, ...(l.mode === 'chat' ? ['chat'] : [])]));
 const contSig = c => hsh([c.title || '', c.text || '', c.cover || '', c.music || ''].join('\u0001'));
 const sameCont = (c, r) => (c.title || '') === (r.title || '') && (c.text || '') === (r.text || '') && (c.cover || '') === (r.cover || '') && (c.music || '') === (r.music || '');
-const infoFromRow = r => ({ title: r.title, synopsis: r.synopsis || '', genre: r.genre || '', fandom: r.fandom || '', tags: r.tags || [], warns: Array.isArray(r.warnings) ? r.warnings : [], cover: r.cover || '', mature: !!r.mature, phase: r.phase || 'ongoing', prev: r.prev ? sBack(r.prev) : '', useReaderCharacter: r.use_reader_character !== false, private: !!r.private, mode: r.mode === 'chat' ? 'chat' : 'trad', vn: !!r.vn, views: r.views | 0 });
+const infoFromRow = r => ({ title: r.title, synopsis: r.synopsis || '', genre: r.genre || '', fandom: r.fandom || '', tags: r.tags || [], warns: Array.isArray(r.warnings) ? r.warnings : [], cover: r.cover || '', mature: !!r.mature, cf: COVER_FRAMES[r.cover_frame] ? r.cover_frame : '', phase: r.phase || 'ongoing', prev: r.prev ? sBack(r.prev) : '', useReaderCharacter: r.use_reader_character !== false, private: !!r.private, mode: r.mode === 'chat' ? 'chat' : 'trad', vn: !!r.vn, views: r.views | 0 });
 const day = v => String(v || '').slice(0, 10);
 let SB_BUSY = false, SB_ST, SB_QUIET = false, SB_Q = { all: false, st: false, soc: new Set() };
 function sbStoriesSoon() { if (!cloud() || !sbSes() || SB_QUIET) return; SB_Q.st = true; clearTimeout(SB_ST); SB_ST = setTimeout(() => sbRefresh({ st: true }), 1500); }
@@ -837,7 +837,7 @@ async function sbSyncOwn() {
     if (!su) { out.push(l); continue; }                                       // ids que no son de la nube (pruebas): se quedan solo aquí
     const R = cs.get(su);
     if (!R && stS.has(su)) { changed = true; continue; }                      // la borraste en otro lugar
-    const row = { id: su, owner: uid, community: comm, title: l.title || '', synopsis: l.synopsis || '', genre: l.genre || '', fandom: l.fandom || '', tags: l.tags || [], cover: l.cover || '', mature: !!l.mature,
+    const row = { id: su, owner: uid, community: comm, title: l.title || '', synopsis: l.synopsis || '', genre: l.genre || '', fandom: l.fandom || '', tags: l.tags || [], cover: l.cover || '', cover_frame: COVER_FRAMES[l.cf] ? l.cf : null, mature: !!l.mature,
       phase: PHASES.includes(l.phase) ? l.phase : 'ongoing', prev: l.prev && sUuid(l.prev) ? sUuid(l.prev) : null, use_reader_character: l.useReaderCharacter !== false, terms: false, ...(l.mode === 'chat' || (R && R.mode === 'chat') ? { mode: l.mode === 'chat' ? 'chat' : 'trad' } : {}), ...(l.private || (R && R.private) ? { private: !!l.private } : {}), ...((l.warns && l.warns.length) || (R && R.warnings && R.warnings.length) ? { warnings: l.warns || [] } : {}) };
     if (!R) putS.push(row);
     else if (sigS[su] === infoSig(l)) { const ni = infoFromRow(R); if (infoSig({ ...l, ...ni }) !== infoSig(l)) { Object.assign(l, ni); changed = true; } else if ((l.views | 0) !== ni.views) { l.views = ni.views; changed = true; } }   // no la tocaste: manda la nube (p. ej. cambio de moderación)
@@ -1734,11 +1734,11 @@ const nfAttr = e => { const k = nameFontOf(e); if (!k) return ''; nfLoad(k); ret
 const FSEAL = '<svg viewBox="0 0 32 40" aria-hidden="true"><defs><radialGradient id="fsb" cx=".35" cy=".28" r=".85"><stop offset="0" stop-color="#fff3bf"/><stop offset=".45" stop-color="#f2c24c"/><stop offset="1" stop-color="#bf8416"/></radialGradient><radialGradient id="fsi" cx=".62" cy=".72" r=".9"><stop offset="0" stop-color="#fbe08a"/><stop offset="1" stop-color="#d9a229"/></radialGradient><linearGradient id="fss" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fffdf0"/><stop offset="1" stop-color="#f1cd62"/></linearGradient><linearGradient id="fsr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a97be0"/><stop offset="1" stop-color="#6a3fae"/></linearGradient></defs><path d="M9 23L16.5 26L12.2 39.2L9.6 35L5 37Z" fill="url(#fsr)"/><path d="M23 23L15.5 26L19.8 39.2L22.4 35L27 37Z" fill="url(#fsr)" opacity=".92"/><path d="M16.00 0.80L18.24 2.30L20.86 1.66L22.45 3.83L25.13 4.12L25.88 6.71L28.30 7.90L28.12 10.59L29.98 12.53L28.90 15.00L29.98 17.47L28.12 19.41L28.30 22.10L25.88 23.29L25.13 25.88L22.45 26.17L20.86 28.34L18.24 27.70L16.00 29.20L13.76 27.70L11.14 28.34L9.55 26.17L6.87 25.88L6.12 23.29L3.70 22.10L3.88 19.41L2.02 17.47L3.10 15.00L2.02 12.53L3.88 10.59L3.70 7.90L6.12 6.71L6.87 4.12L9.55 3.83L11.14 1.66L13.76 2.30z" fill="url(#fsb)" stroke="#a46d0e" stroke-width=".7" stroke-linejoin="round"/><circle cx="16" cy="15" r="10.3" fill="none" stroke="#fff3bf" stroke-opacity=".75" stroke-width=".7"/><circle cx="16" cy="15" r="9.2" fill="url(#fsi)" stroke="#a46d0e" stroke-width=".6"/><path d="M16.00 9.00L17.70 13.25L22.28 13.56L18.76 16.50L19.88 20.94L16.00 18.50L12.12 20.94L13.24 16.50L9.72 13.56L14.30 13.25z" fill="#7a4a00" opacity=".35" transform="translate(.35 .7)"/><path d="M16.00 9.00L17.70 13.25L22.28 13.56L18.76 16.50L19.88 20.94L16.00 18.50L12.12 20.94L13.24 16.50L9.72 13.56L14.30 13.25z" fill="url(#fss)" stroke="#a46d0e" stroke-width=".5" stroke-linejoin="round"/><ellipse cx="11.2" cy="7.6" rx="5" ry="2.3" fill="#fff" opacity=".38" transform="rotate(-32 11.2 7.6)"/></svg>';
 const FSEAL_DEF = { x: 15, y: 90, s: 24 };                 // posición (centro, en pct de la portada) y tamaño (pct del ancho); puede salirse del libro
 const fsealAdj = u => { const a = (u && u.sealAdj) || {}, n = (v, d, lo, hi) => Number.isFinite(+v) && v !== null && v !== '' ? Math.min(hi, Math.max(lo, +v)) : d; return { x: n(a.x, FSEAL_DEF.x, -30, 130), y: n(a.y, FSEAL_DEF.y, -30, 130), s: n(a.s, FSEAL_DEF.s, 10, 50) }; };
-const fSeal = s => { const u = getUsers()[s.owner]; if (!u || !u.frameTop) return ''; const a = fsealAdj(u); return `<span class="f-seal" style="--sx:${a.x}%;--sy:${a.y}%;--ss:${a.s}%" title="${esc(t('Libro fundador'))}" role="img" aria-label="${esc(t('Libro fundador'))}">${FSEAL}</span>`; };
+const fSeal = s => { return ''; const a = fsealAdj(u); return `<span class="f-seal" style="--sx:${a.x}%;--sy:${a.y}%;--ss:${a.s}%" title="${esc(t('Libro fundador'))}" role="img" aria-label="${esc(t('Libro fundador'))}">${FSEAL}</span>`; };
 const bmRib = s => bmOf(s.id) ? '<span class="bm-rib" aria-hidden="true"></span>' : '';
 const COVER_FRAMES = { sweet: ['Sweet love', 'https://i.postimg.cc/Dfj0Td61/IMG-3399.png'], dark: ['Dark San Valentín', 'https://i.postimg.cc/3wYYpd1P/IMG-3400.png'] };
-const cfOf = u => { const k = u && u.sealAdj && u.sealAdj.frame; return COVER_FRAMES[k] ? k : ''; };
-const cfSpan = s => { const k = cfOf(getUsers()[s.owner]); return k ? `<span class="cv-fr" style="background-image:url('${COVER_FRAMES[k][1]}')" aria-hidden="true"></span>` : ''; };
+const cfKey = s => s && COVER_FRAMES[s.cf] ? s.cf : '';
+const cfSpan = s => { const k = cfKey(s); return k ? `<span class="cv-fr" style="background-image:url('${COVER_FRAMES[k][1]}')" aria-hidden="true"></span>` : ''; };
 const coverHTML = (s, i) => `<div class="cover c${(i % 5) + 1}">${bmRib(s)}${fSeal(s)}${cfSpan(s)}${s.cover ? `<img class="cover-img" src="${esc(s.cover)}" alt="${esc(t('Portada de {title}', { title: s.title }))}" loading="lazy" data-t="${esc(s.title || t('Sin título'))}">` : `<span class="cover-title">${esc(s.title || t('Sin título'))}</span>`}</div>`;
 
 /* --- Auth --- */
@@ -2346,7 +2346,8 @@ function collect() {                                   // lee solo los campos de
     if (ch) { ch.title = ($('#w-ch-title') || { value: ch.title }).value; ch.text = chFromView(t.value); ch.music = ($('#w-ch-music') || { value: '' }).value.trim(); }
   }
 }
-const coverPrev = () => W.cover ? `<img src="${esc(W.cover)}" alt="${esc(t('Vista previa de la portada'))}">` : t('Sin portada');
+const cfPicker = () => { const own = Object.keys(COVER_FRAMES).filter(k => hasItem(S.user, 'cf:' + k)); return own.length ? `<span class="helper nb-help">${t('Marco de portada')}</span><div class="nb-cf-row"><button type="button" class="pill ${W.cf ? '' : 'on'}" data-act="cf-pick" data-id="">${t('Ninguno')}</button>${own.map(k => `<button type="button" class="pill ${W.cf === k ? 'on' : ''}" data-act="cf-pick" data-id="${k}">${t(COVER_FRAMES[k][0])}</button>`).join('')}</div>` : ''; };
+const coverPrev = () => (W.cover ? `<img src="${esc(W.cover)}" alt="${esc(t('Vista previa de la portada'))}">` : t('Sin portada')) + cfSpan(W);
 const TN_RE = /[\[(]\s*(?:T\/N|Y\/N|TN|YN)\s*[\])]|\b(?:T\/N|Y\/N)\b|\b(?:TN|YN)\b/gi;
 /** TN / T/N / [TN] / (T/N) → nombre del personaje. "TN" en MAYÚSCULAS da el nombre en MAYÚSCULAS; "tn" o "Tn" lo dan tal cual */
 /** Color de cabello y de ojos: T/P, T/C, T/CP, T/C/P, T/O, T/CO, T/C/O… (español) y H/C, Y/H/C, E/C, Y/E/C (inglés). Se reemplazan con los datos del personaje; si no hay dato, queda tal cual. */
@@ -2903,6 +2904,7 @@ function infoView(existing) {
     <p>${existing ? t('Cambia lo que quieras: se guarda al tocar el botón de abajo.') : t('Dale cara a tu libro. Después escribirás el capítulo 1.')}</p>
     <div class="nb-stage"><div class="nb-book" data-g="${esc(g0)}"><div class="cover-prev" id="cover-prev">${coverPrev()}</div><span class="nb-bt" id="nb-bt">${esc(W.title)}</span></div></div>
     <div class="nb-cover-btns"><label class="button secondary sm" style="cursor:pointer">${t('Subir imagen')}<input id="cover-file" type="file" accept="image/*" hidden></label><button class="button ghost sm" data-act="cover-adjust" type="button">${t('Ajustar imagen')}</button><button class="button ghost sm" data-act="clear-cover" type="button">${t('Quitar portada')}</button></div>
+    <div class="nb-cf" id="nb-cf">${cfPicker()}</div>
     <input id="cover-url" class="field nb-url" placeholder="${esc(t('…o pega la URL de una imagen'))}" value="${W.cover.startsWith('data:') ? '' : esc(W.cover)}">
     <span class="helper nb-help">${t('Puedes subir cualquier tamaño: después la ajustas (mover y zoom) a la proporción 2:3 de las tarjetas.')}</span>
   </section>
@@ -2994,25 +2996,13 @@ function openSeal() {
   const up = () => { drag = false; }; sealEl.addEventListener('pointerup', up); sealEl.addEventListener('pointercancel', up);
   m.querySelector('[data-size]').addEventListener('input', ev => { a.s = +ev.target.value; paint(); });
   m.querySelector('[data-reset]').onclick = () => { a = { ...FSEAL_DEF }; m.querySelector('[data-size]').value = a.s; paint(); };
-  m.querySelector('[data-save]').onclick = () => { const us = getUsers(); if (!us[me]) return; us[me].sealAdj = { ...(cfOf(us[me]) ? { frame: cfOf(us[me]) } : {}), x: a.x, y: a.y, s: a.s }; G.set('users', us); sbPushSeal(); toast(t('Sello guardado')); m.remove(); render(); };
+  m.querySelector('[data-save]').onclick = () => { const us = getUsers(); if (!us[me]) return; us[me].sealAdj = { x: a.x, y: a.y, s: a.s }; G.set('users', us); sbPushSeal(); toast(t('Sello guardado')); m.remove(); render(); };
   m.addEventListener('click', ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); });
   document.body.appendChild(m);
 }
 async function sbPushTitle() {
   const s = sbSes(); if (!cloud() || !s || PRES_OFF) return; const u = LS.get('auri.users', {})[String(s.email).toLowerCase()]; if (!u) return;
   await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { title_sel: u.titleSel === undefined ? null : u.titleSel, name_font: u.nameFont || null } });
-}
-function openCoverFrames() {
-  const me = S.user, cur = cfOf(getUsers()[me]), own = Object.keys(COVER_FRAMES).filter(k => hasItem(me, 'cf:' + k));
-  const m = document.createElement('div'); m.className = 'modal sheet';
-  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Marco de portada')}</h2><p class="helper">${t('Se ve sobre la portada de todos tus libros.')}</p>
-    <div class="cf-list"><button type="button" class="cf-opt ${cur ? '' : 'on'}" data-cf=""><span class="cf-th cf-none"></span><b>${t('Ninguno')}</b></button>${own.map(k => `<button type="button" class="cf-opt ${cur === k ? 'on' : ''}" data-cf="${k}"><span class="cf-th"><i style="background-image:url('${COVER_FRAMES[k][1]}')"></i></span><b>${t(COVER_FRAMES[k][0])}</b></button>`).join('')}</div></div>`;
-  m.addEventListener('click', ev => {
-    const b = ev.target.closest('[data-cf]');
-    if (b) { const us = getUsers(); if (!us[me]) return; const sa = { ...(us[me].sealAdj || {}) }; if (b.dataset.cf) sa.frame = b.dataset.cf; else delete sa.frame; us[me].sealAdj = Object.keys(sa).length ? sa : null; G.set('users', us); sbPushSeal(); toast(t('Marco guardado')); m.remove(); KEEP = true; render(); return; }
-    if (ev.target === m || ev.target.closest('[data-no]')) m.remove();
-  });
-  document.body.appendChild(m);
 }
 function openTitles() {
   const me = S.user, own = titlesOf(me), cur = titleKey(me);
@@ -3096,7 +3086,7 @@ function chapterView(cid) {
 }
 /** Lee las historias tal como están guardadas AHORA (moderación puede haber cambiado estados mientras tenías la pantalla abierta) */
 const freshStories = () => LS.get(uk('stories'), []).map(norm);
-const INFO_FIELDS = ['title', 'synopsis', 'genre', 'fandom', 'tags', 'cover', 'mature', 'phase', 'prev', 'useReaderCharacter', 'mode'];
+const INFO_FIELDS = ['title', 'synopsis', 'genre', 'fandom', 'tags', 'cover', 'mature', 'phase', 'prev', 'useReaderCharacter', 'mode', 'cf'];
 /** Guarda SOLO los datos generales (título, sinopsis, portada, género, etiquetas…). Parte del libro tal como está guardado: no toca los capítulos
  *  ni su estado de moderación, y no pide capítulos nuevos ni términos. Devuelve true si guardó. */
 function requestUnmature(sid, title) {                  // la autoría pide quitar +18 de una obra ya publicada: queda en Reportes para moderación
@@ -4511,8 +4501,6 @@ function editProfileView() {
     <button type="button" class="ep-row" data-act="mbti"><span><b>MBTI</b><small>${mbtiOf(S.user) ? `${mbtiOf(S.user)} · ${t(mbtiGroup(mbtiOf(S.user))[1])}` : t('Elige tu tipo de personalidad')}</small></span><i aria-hidden="true">›</i></button>
     <h3 class="ep-h">${EPI.frame}<span>${t('Insignias y adornos')}</span></h3>
     <button type="button" class="ep-row" data-act="frames"><span><b>${t('Marcos')}</b><small>${frameLine}</small></span><i aria-hidden="true">›</i></button>
-    ${isOwner() || Object.keys(COVER_FRAMES).some(k => hasItem(S.user, 'cf:' + k)) ? `<button type="button" class="ep-row" data-act="cframe"><span><b>${t('Marco de portada')}</b><small>${t(COVER_FRAMES[cfOf(u)] ? COVER_FRAMES[cfOf(u)][0] : 'Ninguno')}</small></span><i aria-hidden="true">›</i></button>` : ''}
-    ${u.frameTop || isOwner() ? `<button type="button" class="ep-row" data-act="seal"><span><b>${t('Sello de portada')}</b><small>${t('Mueve y ajusta el sello dorado de tus libros')}</small></span><i aria-hidden="true">›</i></button>` : ''}
     ${titlesOf(S.user).length ? `<button type="button" class="ep-row" data-act="titles"><span><b>${t('Título')}</b><small>${titleKey(S.user) ? esc(titleText(S.user, titleKey(S.user))) : t('Ninguno')}</small></span><i aria-hidden="true">›</i></button>` : ''}
     ${fontsOf(S.user).length ? `<button type="button" class="ep-row" data-act="nfont"><span><b>${t('Fuente del nombre')}</b><small>${nameFontOf(S.user) ? t(NAME_FONTS[nameFontOf(S.user)][0]) : t('Clásica')}</small></span><i aria-hidden="true">›</i></button>` : ''}
     ${isOwner() || u.petF || ['cupida', 'cupido', 'diablillo'].some(k => hasItem(S.user, 'pet:' + k)) ? `<button type="button" class="ep-row" data-act="pets"><span><b>${t('Mascota 8-bit')}</b><small>${PETS[u.pet] ? t(PETS[u.pet][0]) : t('Ninguna')}</small></span><i aria-hidden="true">›</i></button>` : ''}
@@ -5680,7 +5668,7 @@ document.addEventListener('click', e => {
     delete: () => { if (confirm(t('¿Eliminar este borrador? No se puede deshacer.'))) { S.stories = S.stories.filter(s => s.id !== id); persist('stories', S.stories); render(); } },
     'resume-read': () => { const p = VISIT && VISIT.pos; VISIT = null; if (p) { NAVDIR = 'next'; go('/story/' + id + '/' + (p.idx + 1)); } },
     'pf-list': () => openUserList(id, el.dataset.kind), 'pf-works': () => { const w = document.getElementById('pf-works'); if (w && w.scrollIntoView) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
-    'frames': () => openFrames(), 'pets': () => openPets(), 'seal': () => openSeal(), 'cframe': () => openCoverFrames(), 'titles': () => openTitles(), 'nfont': () => openNameFont(), 'look': () => openLook(),
+    'frames': () => openFrames(), 'pets': () => openPets(), 'seal': () => openSeal(), 'titles': () => openTitles(), 'nfont': () => openNameFont(), 'look': () => openLook(),
     'ep-shape': () => { if (id && !hasItem(S.user, 'shape:' + id)) return; const us = getUsers(); us[S.user].shape = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
     'ep-halo': () => { const us = getUsers(); us[S.user].halo = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
     'avoid-add': () => avoidAdd(), 'avoid-del': () => { setCfg('avoidTags', avoidList().filter(x => x !== tagKey(id))); KEEP = true; render(); }, 'theme-colors': () => openThemes(), 'mod-order': () => { setCfg('modShuffle', cfg('modShuffle') === false); KEEP = true; render(); }, 'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
@@ -5738,6 +5726,7 @@ document.addEventListener('click', e => {
     preview: () => { collect(); WPREVIEW = true; render(); }, 'back-edit': () => { WPREVIEW = false; render(); },
     'save-draft': () => saveStory(false), publish: () => saveStory(true),
     'cover-adjust': () => { const src = COVSRC || (safeImg(W.cover) || /^https?:\/\//i.test(W.cover || '') ? W.cover : ''); if (!src) return toast(t('Sube una imagen para poder ajustarla.')); coverEditor(src, applyCover); },
+    'cf-pick': () => { W.cf = id || ''; $('#cover-prev').innerHTML = coverPrev(); $('#nb-cf').innerHTML = cfPicker(); },
     'clear-cover': () => { COVSRC = null; W.cover = ''; $('#cover-url').value = ''; $('#cover-prev').innerHTML = coverPrev(); }
   };
   actions[act] && actions[act]();
