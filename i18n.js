@@ -2601,4 +2601,11 @@ window.I18N = { en: {
   "Marco de página · corazones": "Page frame · hearts",
   "Marco de página · puntitos": "Page frame · dots",
   "Barra de progreso · corazón": "Progress bar · heart",
+  "Sweet love": "Sweet love",
+  "Dark San Valentín": "Dark Valentine",
+  "Marco de portada": "Cover frame",
+  "Se ve sobre la portada de todos tus libros.": "Shows over the cover of all your books.",
+  "Marco guardado": "Frame saved",
+  "Marco de portada · sweet love": "Cover frame · sweet love",
+  "Marco de portada · dark San Valentín": "Cover frame · dark Valentine",
 } };

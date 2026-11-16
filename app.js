@@ -1736,7 +1736,10 @@ const FSEAL_DEF = { x: 15, y: 90, s: 24 };                 // posición (centro,
 const fsealAdj = u => { const a = (u && u.sealAdj) || {}, n = (v, d, lo, hi) => Number.isFinite(+v) && v !== null && v !== '' ? Math.min(hi, Math.max(lo, +v)) : d; return { x: n(a.x, FSEAL_DEF.x, -30, 130), y: n(a.y, FSEAL_DEF.y, -30, 130), s: n(a.s, FSEAL_DEF.s, 10, 50) }; };
 const fSeal = s => { const u = getUsers()[s.owner]; if (!u || !u.frameTop) return ''; const a = fsealAdj(u); return `<span class="f-seal" style="--sx:${a.x}%;--sy:${a.y}%;--ss:${a.s}%" title="${esc(t('Libro fundador'))}" role="img" aria-label="${esc(t('Libro fundador'))}">${FSEAL}</span>`; };
 const bmRib = s => bmOf(s.id) ? '<span class="bm-rib" aria-hidden="true"></span>' : '';
-const coverHTML = (s, i) => `<div class="cover c${(i % 5) + 1}">${bmRib(s)}${fSeal(s)}${s.cover ? `<img class="cover-img" src="${esc(s.cover)}" alt="${esc(t('Portada de {title}', { title: s.title }))}" loading="lazy" data-t="${esc(s.title || t('Sin título'))}">` : `<span class="cover-title">${esc(s.title || t('Sin título'))}</span>`}</div>`;
+const COVER_FRAMES = { sweet: ['Sweet love', 'https://i.postimg.cc/Dfj0Td61/IMG-3399.png'], dark: ['Dark San Valentín', 'https://i.postimg.cc/3wYYpd1P/IMG-3400.png'] };
+const cfOf = u => { const k = u && u.sealAdj && u.sealAdj.frame; return COVER_FRAMES[k] ? k : ''; };
+const cfSpan = s => { const k = cfOf(getUsers()[s.owner]); return k ? `<span class="cv-fr" style="background-image:url('${COVER_FRAMES[k][1]}')" aria-hidden="true"></span>` : ''; };
+const coverHTML = (s, i) => `<div class="cover c${(i % 5) + 1}">${bmRib(s)}${fSeal(s)}${cfSpan(s)}${s.cover ? `<img class="cover-img" src="${esc(s.cover)}" alt="${esc(t('Portada de {title}', { title: s.title }))}" loading="lazy" data-t="${esc(s.title || t('Sin título'))}">` : `<span class="cover-title">${esc(s.title || t('Sin título'))}</span>`}</div>`;
 
 /* --- Auth --- */
 function authView(mode) {
@@ -2991,13 +2994,25 @@ function openSeal() {
   const up = () => { drag = false; }; sealEl.addEventListener('pointerup', up); sealEl.addEventListener('pointercancel', up);
   m.querySelector('[data-size]').addEventListener('input', ev => { a.s = +ev.target.value; paint(); });
   m.querySelector('[data-reset]').onclick = () => { a = { ...FSEAL_DEF }; m.querySelector('[data-size]').value = a.s; paint(); };
-  m.querySelector('[data-save]').onclick = () => { const us = getUsers(); if (!us[me]) return; us[me].sealAdj = { x: a.x, y: a.y, s: a.s }; G.set('users', us); sbPushSeal(); toast(t('Sello guardado')); m.remove(); render(); };
+  m.querySelector('[data-save]').onclick = () => { const us = getUsers(); if (!us[me]) return; us[me].sealAdj = { ...(cfOf(us[me]) ? { frame: cfOf(us[me]) } : {}), x: a.x, y: a.y, s: a.s }; G.set('users', us); sbPushSeal(); toast(t('Sello guardado')); m.remove(); render(); };
   m.addEventListener('click', ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); });
   document.body.appendChild(m);
 }
 async function sbPushTitle() {
   const s = sbSes(); if (!cloud() || !s || PRES_OFF) return; const u = LS.get('auri.users', {})[String(s.email).toLowerCase()]; if (!u) return;
   await sbApi('/rest/v1/profiles?id=eq.' + s.uid, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { title_sel: u.titleSel === undefined ? null : u.titleSel, name_font: u.nameFont || null } });
+}
+function openCoverFrames() {
+  const me = S.user, cur = cfOf(getUsers()[me]), own = Object.keys(COVER_FRAMES).filter(k => hasItem(me, 'cf:' + k));
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Marco de portada')}</h2><p class="helper">${t('Se ve sobre la portada de todos tus libros.')}</p>
+    <div class="cf-list"><button type="button" class="cf-opt ${cur ? '' : 'on'}" data-cf=""><span class="cf-th cf-none"></span><b>${t('Ninguno')}</b></button>${own.map(k => `<button type="button" class="cf-opt ${cur === k ? 'on' : ''}" data-cf="${k}"><span class="cf-th"><i style="background-image:url('${COVER_FRAMES[k][1]}')"></i></span><b>${t(COVER_FRAMES[k][0])}</b></button>`).join('')}</div></div>`;
+  m.addEventListener('click', ev => {
+    const b = ev.target.closest('[data-cf]');
+    if (b) { const us = getUsers(); if (!us[me]) return; const sa = { ...(us[me].sealAdj || {}) }; if (b.dataset.cf) sa.frame = b.dataset.cf; else delete sa.frame; us[me].sealAdj = Object.keys(sa).length ? sa : null; G.set('users', us); sbPushSeal(); toast(t('Marco guardado')); m.remove(); KEEP = true; render(); return; }
+    if (ev.target === m || ev.target.closest('[data-no]')) m.remove();
+  });
+  document.body.appendChild(m);
 }
 function openTitles() {
   const me = S.user, own = titlesOf(me), cur = titleKey(me);
@@ -4496,6 +4511,7 @@ function editProfileView() {
     <button type="button" class="ep-row" data-act="mbti"><span><b>MBTI</b><small>${mbtiOf(S.user) ? `${mbtiOf(S.user)} · ${t(mbtiGroup(mbtiOf(S.user))[1])}` : t('Elige tu tipo de personalidad')}</small></span><i aria-hidden="true">›</i></button>
     <h3 class="ep-h">${EPI.frame}<span>${t('Insignias y adornos')}</span></h3>
     <button type="button" class="ep-row" data-act="frames"><span><b>${t('Marcos')}</b><small>${frameLine}</small></span><i aria-hidden="true">›</i></button>
+    ${isOwner() || Object.keys(COVER_FRAMES).some(k => hasItem(S.user, 'cf:' + k)) ? `<button type="button" class="ep-row" data-act="cframe"><span><b>${t('Marco de portada')}</b><small>${t(COVER_FRAMES[cfOf(u)] ? COVER_FRAMES[cfOf(u)][0] : 'Ninguno')}</small></span><i aria-hidden="true">›</i></button>` : ''}
     ${u.frameTop || isOwner() ? `<button type="button" class="ep-row" data-act="seal"><span><b>${t('Sello de portada')}</b><small>${t('Mueve y ajusta el sello dorado de tus libros')}</small></span><i aria-hidden="true">›</i></button>` : ''}
     ${titlesOf(S.user).length ? `<button type="button" class="ep-row" data-act="titles"><span><b>${t('Título')}</b><small>${titleKey(S.user) ? esc(titleText(S.user, titleKey(S.user))) : t('Ninguno')}</small></span><i aria-hidden="true">›</i></button>` : ''}
     ${fontsOf(S.user).length ? `<button type="button" class="ep-row" data-act="nfont"><span><b>${t('Fuente del nombre')}</b><small>${nameFontOf(S.user) ? t(NAME_FONTS[nameFontOf(S.user)][0]) : t('Clásica')}</small></span><i aria-hidden="true">›</i></button>` : ''}
@@ -5664,7 +5680,7 @@ document.addEventListener('click', e => {
     delete: () => { if (confirm(t('¿Eliminar este borrador? No se puede deshacer.'))) { S.stories = S.stories.filter(s => s.id !== id); persist('stories', S.stories); render(); } },
     'resume-read': () => { const p = VISIT && VISIT.pos; VISIT = null; if (p) { NAVDIR = 'next'; go('/story/' + id + '/' + (p.idx + 1)); } },
     'pf-list': () => openUserList(id, el.dataset.kind), 'pf-works': () => { const w = document.getElementById('pf-works'); if (w && w.scrollIntoView) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
-    'frames': () => openFrames(), 'pets': () => openPets(), 'seal': () => openSeal(), 'titles': () => openTitles(), 'nfont': () => openNameFont(), 'look': () => openLook(),
+    'frames': () => openFrames(), 'pets': () => openPets(), 'seal': () => openSeal(), 'cframe': () => openCoverFrames(), 'titles': () => openTitles(), 'nfont': () => openNameFont(), 'look': () => openLook(),
     'ep-shape': () => { if (id && !hasItem(S.user, 'shape:' + id)) return; const us = getUsers(); us[S.user].shape = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
     'ep-halo': () => { const us = getUsers(); us[S.user].halo = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
     'avoid-add': () => avoidAdd(), 'avoid-del': () => { setCfg('avoidTags', avoidList().filter(x => x !== tagKey(id))); KEEP = true; render(); }, 'theme-colors': () => openThemes(), 'mod-order': () => { setCfg('modShuffle', cfg('modShuffle') === false); KEEP = true; render(); }, 'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
@@ -5957,7 +5973,7 @@ const PASS_FREE = {
   writer: { ...PASS_FREE_BASE, 2: 'Título · Pluma novata', 3: 'Fondo del editor · papel', 6: 'Separador · pluma', 11: 'Fondo del editor · noche', 15: 'Sprite aleatorio', 18: 'Sprite · corazón roto' } };
 const PASS_PAID = {
   reader: { 1: 'Forma · corazón con alitas', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador · flecha y corazón', 4: 'AuriGems cian ×10', 5: 'Adorno · caja de bombones', 6: 'Adorno · corazones enamorados', 7: 'Marco de página · rosas', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'Cinta de marcapáginas · seda', 11: 'Adorno · corazón con encaje', 12: 'Mascota · Cupida', 13: 'Ambiente · corazones flotantes', 14: 'Chat San Valentín · lila', 15: 'Sprite aleatorio', 16: 'Tarjeta de fin de capítulo · carta con sello', 17: 'Mascota · Cupido', 18: 'Sprite aleatorio', 19: 'Marco de página · corazones', 20: 'Sprite a elección · Título · Corazón de biblioteca' },
-  writer: { 1: 'Título · Tinta y corazón', 2: 'AuriCoins ×50', 3: 'Forma · corazón partido', 4: 'AuriGems cian ×10', 5: 'Marco de portada 1', 6: 'AuriCoins ×50', 7: 'Separador · rosas y espinas', 8: 'Fondos del editor · San Valentín dulce y oscuro', 9: 'AuriGems moradas ×10', 10: 'Cosmético de perfil de creador', 11: 'Impulso a destacados ×1', 12: 'AuriCoins ×75', 13: 'Adornos · corona de rosas, corazón y collar oscuro', 14: 'Mascota · Diablillo', 15: 'AuriGems cian ×15', 16: 'Fondo de lectura · San Valentín oscuro', 17: 'Ambiente por capítulo', 18: 'Sprite · borracho enamorado', 19: 'AuriGems moradas ×15', 20: 'Título · Rompecorazones · AuriCoins ×175' }
+  writer: { 1: 'Título · Tinta y corazón', 2: 'AuriCoins ×50', 3: 'Forma · corazón partido', 4: 'AuriGems cian ×10', 5: 'Marco de portada · sweet love', 6: 'AuriCoins ×50', 7: 'Separador · rosas y espinas', 8: 'Fondos del editor · San Valentín dulce y oscuro', 9: 'AuriGems moradas ×10', 10: 'Marco de portada · dark San Valentín', 11: 'Impulso a destacados ×1', 12: 'AuriCoins ×75', 13: 'Adornos · corona de rosas, corazón y collar oscuro', 14: 'Mascota · Diablillo', 15: 'AuriGems cian ×15', 16: 'Fondo de lectura · San Valentín oscuro', 17: 'Ambiente por capítulo', 18: 'Sprite · borracho enamorado', 19: 'AuriGems moradas ×15', 20: 'Título · Rompecorazones · AuriCoins ×175' }
 };
 function shopView(tab) {
   if (!passOn()) return `<main class="page">${empty('Aquí pronto habrá algo nuevo', 'La tienda y los pases todavía no están abiertos.')}</main>`;
