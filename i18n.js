@@ -2592,4 +2592,13 @@ window.I18N = { en: {
   "Letra capital · encaje": "Drop cap · lace",
   "Cinta de marcapáginas · llavecita": "Bookmark ribbon · little key",
   "Cinta de marcapáginas · corazón colgante": "Bookmark ribbon · hanging heart",
+  "Puntitos": "Dots",
+  "Corazones": "Hearts",
+  "Rosas": "Roses",
+  "Marco de página": "Page frame",
+  "Barra de progreso": "Progress bar",
+  "Marco de página · rosas": "Page frame · roses",
+  "Marco de página · corazones": "Page frame · hearts",
+  "Marco de página · puntitos": "Page frame · dots",
+  "Barra de progreso · corazón": "Progress bar · heart",
 } };
