@@ -1055,7 +1055,6 @@ button.ai-pill{border:0;cursor:pointer;font:inherit}
 .pf-acts .pf-more{justify-content:flex-start}
 .pf-stats-row{margin:10px 12px 2px}
 .pf-tab{margin-top:8px}
-.pf-on{display:inline-block;width:11px;height:11px;border-radius:50%;background:#34c759;margin-left:8px;vertical-align:middle;box-shadow:0 0 0 2px hsl(var(--background))}
 .pf-edit .toggle-line{margin:6px 0 14px}
 /* 37. Editar perfil (pantalla propia) y marcos */
 .ep-page{padding-top:8px}
@@ -3217,18 +3216,6 @@ html.lite .ch-letter{animation:none}
 [data-rib=corazon] .bm-p::after,[data-rib=corazon] .bm-rib{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 44'%3E%3Crect x='10.8' y='0' width='2.4' height='19'/%3E%3Cpath d='M12 43C3 37 1 31.5 3.4 28.2C5.7 25.2 10 25.8 12 29C14 25.8 18.3 25.2 20.6 28.2C23 31.5 21 37 12 43Z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 44'%3E%3Crect x='10.8' y='0' width='2.4' height='19'/%3E%3Cpath d='M12 43C3 37 1 31.5 3.4 28.2C5.7 25.2 10 25.8 12 29C14 25.8 18.3 25.2 20.6 28.2C23 31.5 21 37 12 43Z'/%3E%3C/svg%3E")}
 [data-rib=corazon] .bm-p::after{width:22px;height:40px}
 
-/* marcos de página: puntitos, corazones, rosas */
-[data-pf]:not([data-pf=none]) article.rf-body{position:relative;padding-left:max(var(--read-pad,20px),28px);padding-right:max(var(--read-pad,20px),28px)}
-.pf-o{position:absolute;inset:8px 8px 2px;pointer-events:none;border-radius:12px;z-index:0}
-.pf-o i{position:absolute;display:none;width:18px;height:18px;background:hsl(var(--primary));-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21C4 15.5 2 10.5 4.2 7.4C6.3 4.6 10.2 5.2 12 8.2C13.8 5.2 17.7 4.6 19.8 7.4C22 10.5 20 15.5 12 21Z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21C4 15.5 2 10.5 4.2 7.4C6.3 4.6 10.2 5.2 12 8.2C13.8 5.2 17.7 4.6 19.8 7.4C22 10.5 20 15.5 12 21Z'/%3E%3C/svg%3E") center/contain no-repeat}
-[data-pf=puntitos] .pf-o{border:2px dotted hsl(var(--primary)/.65);box-shadow:inset 0 0 0 6px hsl(var(--background)),inset 0 0 0 7px hsl(var(--primary)/.3)}
-[data-pf=corazones] .pf-o{border:1.5px solid hsl(var(--primary)/.6);box-shadow:inset 0 0 0 5px hsl(var(--background)),inset 0 0 0 6px hsl(var(--primary)/.28)}
-[data-pf=corazones] .pf-o i{display:block;background:hsl(var(--primary));outline:0}
-[data-pf=corazones] .pf-o .a{left:-10px;top:-10px}[data-pf=corazones] .pf-o .b{right:-10px;top:-10px}[data-pf=corazones] .pf-o .c{left:-10px;bottom:-10px}[data-pf=corazones] .pf-o .d{right:-10px;bottom:-10px}
-[data-pf=rosas] .pf-o{border:1.2px solid hsl(var(--primary)/.5)}
-[data-pf=rosas] .pf-o i{display:none;width:26px;height:26px;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20zM12 5.2a6.8 6.8 0 1 1 0 13.6a6.8 6.8 0 0 1 0-13.6zM12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8zM12 10.6a1.4 1.4 0 1 1 0 2.8a1.4 1.4 0 0 1 0-2.8z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20zM12 5.2a6.8 6.8 0 1 1 0 13.6a6.8 6.8 0 0 1 0-13.6zM12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8zM12 10.6a1.4 1.4 0 1 1 0 2.8a1.4 1.4 0 0 1 0-2.8z'/%3E%3C/svg%3E")}
-[data-pf=rosas] .pf-o .a,[data-pf=rosas] .pf-o .c{display:block;left:50%;translate:-50% 0}
-[data-pf=rosas] .pf-o .a{top:-13px}[data-pf=rosas] .pf-o .c{bottom:-13px}
 /* barra de progreso con corazón */
 [data-prog=corazon] .rf-bar{overflow:visible}
 [data-prog=corazon] .rf-bar i{position:relative;overflow:visible}
