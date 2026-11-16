@@ -5636,7 +5636,13 @@ document.addEventListener('click', e => {
       $('#ip-msg').value = ''; toast(t('Recibido. Lo revisaremos.'));
     },
     'rw-tab': () => { RW_TAB = el.dataset.v === 'hist' ? 'hist' : 'pending'; KEEP = true; render(); },
-    'pass-claim': async () => { const [tier, lv] = (el.dataset.id || '').split(':'); el.disabled = true; const r = await sbApi('/rest/v1/rpc/pass_claim', { method: 'POST', body: { p_track: MS.track, p_tier: tier, p_level: +lv } }); const sp = r.ok && r.data && Array.isArray(r.data.sprites) ? r.data.sprites : []; toast(r.ok ? t('¡Premio reclamado!') : rpcMsg(r)); if (r.ok) await passRefresh(); else { KEEP = true; render(); } vnReveal(sp); },
+    'pass-tile': () => { const [tier, lv] = (el.dataset.id || '').split(':'), n = +lv, st = MS[MS.track], rows = rwRows(tier, n); if (!st || !rows.length) return;
+      const open = st.level >= n && (tier === 'free' || st.owned), pk = rows.find(x => x.kind === 'sprite_pick');
+      if (open && pk && !pk.claimed && !rows.some(x => !x.claimed && x.kind !== 'sprite_pick')) return vnPick();
+      if (open && rows.some(x => !x.claimed && x.kind !== 'sprite_pick')) return passClaimMany([[tier, n]]);
+      const lab = (tier === 'paid' ? PASS_PAID : PASS_FREE)[MS.track][n] || '', done = rows.every(x => x.claimed);
+      rwModal(rows.filter(x => x.kind !== 'sprite_pick' && x.kind !== 'sprite_random'), t('Nivel {n}', { n }), `<p class="rw-lab">${esc(t(lab))}</p><p class="helper">${esc(t(done ? 'Ya lo reclamaste.' : st.level < n ? 'Todavía no llegas a este nivel.' : 'Necesitas el pase para reclamar esto.'))}</p>`); },
+    'pass-all': () => { const st = MS[MS.track]; if (!st) return; el.disabled = true; passClaimMany(rwReady(st)); },
     'pass-pick': () => vnPick(),
     'rw-voucher': async () => { el.disabled = true; const r = await sbApi('/rest/v1/rpc/voucher_redeem', { method: 'POST', body: { p_id: el.dataset.id } }); toast(r.ok ? t('¡Pase activado por 1 mes!') : rpcMsg(r)); await walletLoad(); KEEP = true; render(); },
     'rw-claim': async () => { el.disabled = true; const r = await sbApi('/rest/v1/rpc/reward_claim', { method: 'POST', body: { p_id: el.dataset.id } });
@@ -5986,21 +5992,69 @@ function missionsTab() {
   return `${msLevel(st)}<div class="section-head"><div><h2>${t('Diarias')}</h2><p>${t('Cambian cada día (hora UTC).')}</p></div></div><div class="ms-list">${dl.map(row).join('')}</div>
   <div class="section-head"><div><h2>${t('De temporada')}</h2><p>${t('Duran toda la temporada.')}</p></div></div><div class="ms-list">${sn.map(row).join('')}</div>`;
 }
-function lvClaim(tier, n, st) {                      // botón Reclamar de cada casilla (solo gemas, monedas y títulos por ahora)
-  const it = (MS.rw[MS.track] || []).filter(x => x.tier === tier && x.level === n); if (!it.length || st.level < n || (tier === 'paid' && !st.owned)) return '';
-  const pk = it.find(x => x.kind === 'sprite_pick'), rest = it.filter(x => x.kind !== 'sprite_pick');
-  const pkb = pk ? (pk.claimed ? '' : `<button type="button" class="button sm lv-claim" data-act="pass-pick">${t('Elegir sprite')}</button>`) : '';
-  if (pk && !rest.length) return pk.claimed ? `<small class="lv-done">✓ ${t('Reclamado')}</small>` : pkb;
-  if (pk) return (rest.some(x => !x.claimed) ? `<button type="button" class="button sm lv-claim" data-act="pass-claim" data-id="${tier}:${n}">${t('Reclamar')}</button>` : `<small class="lv-done">✓ ${t('Reclamado')}</small>`) + pkb;
-  return it.some(x => !x.claimed) ? `<button type="button" class="button sm lv-claim" data-act="pass-claim" data-id="${tier}:${n}">${t('Reclamar')}</button>` : `<small class="lv-done">✓ ${t('Reclamado')}</small>`;
+/* ---------- Pase vertical: gratis | nivel | pase, con el dibujo real de cada premio ---------- */
+const rwRows = (tier, n) => (MS.rw[MS.track] || []).filter(x => x.tier === tier && x.level === n);
+const RW_CFG = { sep: 'sepStyle', ebg: 'ebg', rbg: 'rbg', rib: 'ribStyle', prog: 'progStyle', amb: 'amb' };
+const rwEq = r => { const [p, k] = String(r.item || '').split(':'); return RW_CFG[p] && k ? [RW_CFG[p], k] : null; };
+const rwGem = (c, n) => `<span class="rw-ic"><i class="gem ${c}"></i>${n ? `<b>×${n}</b>` : ''}</span>`;
+function rwVis(r) {                                      // el dibujo del premio, igual a como se ve ya puesto
+  const it = String(r.item || ''), [p, k] = [it.split(':')[0], it.split(':').slice(1).join(':')], u = getUsers()[S.user] || {};
+  if (r.kind === 'cyan') return rwGem('', Math.round(r.amount / 4));
+  if (r.kind === 'purple') return rwGem('p', Math.round(r.amount / 4));
+  if (r.kind === 'coins') return `<span class="rw-ic"><i class="coin"></i><b>×${r.amount}</b></span>`;
+  if (r.kind === 'title') { const tk = r.key || it; return titleHTML(tk, TITLES[tk] || tk); }
+  if (r.kind === 'sprite_random' || r.kind === 'sprite_pick') return `<span class="rw-mys">?</span>`;
+  if (p === 'sprite') return `<div class="rw-spr">${vnSil(k)}</div>`;
+  if (p === 'pet') return `<span class="rw-pet" style="background-image:url('pets/${esc(k)}.png')"></span>`;
+  if (p === 'shape') return `<span class="fr"${k ? ` data-shape="${esc(k)}"` : ''}>${avatarHTML(u.avatar, S.user, '')}</span>`;
+  if (p === 'sep') return SEPS[k] ? sepHTML('sep-mini rw-sep sp-' + k, k) : '';
+  if (p === 'cq') return COS_IMG[it] ? cosOne(it) : '';
+  if (p === 'cf') return COVER_FRAMES[k] ? `<span class="rw-cf" style="background-image:url('${esc(COVER_FRAMES[k][1])}')"></span>` : '';
+  if (p === 'ebg' || p === 'rbg') { const d = { papel: 'paper', noche: 'night' }[k] || k; return `<span class="rbg-opt rw-bgw" data-rbg="${d}"><i class="rbg-sw"></i></span>`; }
+  if (p === 'amb') return `<span class="rw-emo">${AMBS[k] ? AMBS[k][2] : '✨'}</span>`;
+  if (p === 'skin') return `<span class="rw-chat"><i></i><i class="me"></i></span>`;
+  if (p === 'hue') return `<span class="rw-chat hue-${esc(k)}"><i></i><i class="me"></i></span>`;
+  if (p === 'rib') return `<span class="rw-rib rib-${esc(k)}"></span>`;
+  if (p === 'prog') return `<span class="rw-prog prog-${esc(k)}"><i></i></span>`;
+  if (p === 'fin') return `<svg class="ch-letter rw-let" viewBox="0 0 64 44" style="margin:0;animation:none"><rect x="4" y="6" width="56" height="34" rx="4" class="lt-b"/><path d="M5 8l27 18L59 8" class="lt-f"/><circle cx="32" cy="26" r="8" class="lt-s"/></svg>`;
+  return `<span class="rw-emo">🎁</span>`;
 }
+function rwTile(tier, n, st) {
+  const rows = rwRows(tier, n), label = (tier === 'paid' ? PASS_PAID : PASS_FREE)[MS.track][n] || '';
+  if (!rows.length) return `<div class="rw-t empty"><i>${label ? '?' : '—'}</i></div>`;
+  const reached = st.level >= n, open = reached && (tier === 'free' || st.owned), done = rows.every(x => x.claimed) && !(rows.some(x => x.kind === 'sprite_pick' && !x.claimed));
+  const cls = done ? 'done' : open ? 'ready' : 'lock', main = rows.find(x => x.kind !== 'cyan' && x.kind !== 'purple' && x.kind !== 'coins') || rows[0];
+  return `<button type="button" class="rw-t ${cls}" data-act="pass-tile" data-id="${tier}:${n}" aria-label="${esc(t(label || 'Premio'))}"><span class="rw-v">${rwVis(main)}</span>${rows.length > 1 ? `<em class="rw-more">+${rows.length - 1}</em>` : ''}<small>${esc(t(label))}</small>${done ? '<u class="rw-ck">✓</u>' : open ? '' : '<u class="rw-lk"><svg viewBox="0 0 24 24" width="14" height="14"><rect x="5" y="11" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></u>'}</button>`;
+}
+const rwReady = st => { const l = []; for (let n = 1; n <= 20; n++) for (const tier of ['free', 'paid']) { const rows = rwRows(tier, n); if (rows.length && st.level >= n && (tier === 'free' || st.owned) && rows.some(x => !x.claimed && x.kind !== 'sprite_pick')) l.push([tier, n]); } return l; };
 function passTab() {
   const st = MS[MS.track]; if (!st) return `<p class="helper">${t('Cargando tus misiones…')}</p>`;
   if (!st.season) return `<p class="helper">${t('No hay una temporada activa ahora.')}</p>`;
-  const paid = PASS_PAID[MS.track] || {};
-  return `${msLevel(st)}<p class="helper" style="margin:6px 2px 10px">${t('Reclama tus premios cuando llegues al nivel. Los sprites se usan en el editor de personajes de las novelas visuales.')}</p>
-  <div class="lv-head"><span></span><b>${t('Gratis')}</b><b>${t('Pase')}</b></div>
-  <div class="lv-list">${Array.from({ length: 20 }, (_, i) => i + 1).map(n => `<div class="lv ${st.level >= n ? 'reached' : ''}"><span class="lv-n">${n}<small>${lvXp(n)} XP</small></span><div class="lv-c">${PASS_FREE[MS.track][n] ? esc(t(PASS_FREE[MS.track][n])) : '<i>—</i>'}${lvClaim('free', n, st)}</div><div class="lv-c paid ${st.owned ? '' : 'lock'}">${paid[n] ? esc(t(paid[n])) : '<i>—</i>'}${lvClaim('paid', n, st)}</div></div>`).join('')}</div>`;
+  const span = st.next == null ? 1 : st.next - st.floor, got = st.next == null ? 1 : st.xp - st.floor, pct = Math.round(Math.min(1, got / span) * 100), rd = rwReady(st).length;
+  const days = Math.max(0, Math.ceil((new Date(st.season.ends + 'T23:59:59Z') - Date.now()) / 864e5));
+  return `<div class="pv-bar"><div class="pv-top"><b>${t('Nivel {n}', { n: st.level })}</b><small>${esc(st.season.name)} · ${t('{n} días', { n: days })}</small>${rd ? `<button type="button" class="button sm pv-all" data-act="pass-all">${t('Reclamar {n}', { n: rd })}</button>` : ''}</div><span class="ms-bar big"><i style="width:${pct}%"></i></span><small class="helper">${st.next == null ? t('¡Nivel máximo!') : t('{a} de {b} XP para el nivel {n}', { a: st.xp - st.floor, b: st.next - st.floor, n: st.level + 1 })}</small></div>
+  <div class="pv-head"><b>${t('Gratis')}</b><span></span><b>${t('Pase')}</b></div>
+  <div class="pv-list" data-pv="${st.level}">${Array.from({ length: 20 }, (_, i) => i + 1).map(n => `<div class="pv-row ${st.level >= n ? 'reached' : ''} ${st.level === n ? 'now' : ''}">${rwTile('free', n, st)}<span class="pv-n">${n}</span><div class="pv-p ${st.owned ? '' : 'nopass'}">${rwTile('paid', n, st)}</div></div>`).join('')}</div>`;
+}
+function rwModal(rows, title, extra) {                  // recompensa reclamada / detalle: dibujo grande + Equipar + X
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  const one = r => { const eq = rwEq(r); return `<div class="rw-got"><div class="rw-big">${rwVis(r)}</div>${eq ? `<button type="button" class="button sm" data-eq="${esc(eq[0])}|${esc(eq[1])}">${t('Equipar')}</button>` : ''}</div>`; };
+  m.innerHTML = `<div class="modal-box rw-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${esc(title)}</h2><div class="rw-gots">${rows.map(one).join('')}</div>${extra || ''}<p class="helper">${t('No se equipa nada solo: tú eliges cuándo ponerlo.')}</p></div>`;
+  m.addEventListener('click', ev => {
+    const b = ev.target.closest('[data-eq]');
+    if (b) { const [k, v] = b.dataset.eq.split('|'); setCfg(k, v); b.textContent = '✓ ' + t('Equipado'); b.disabled = true; return; }
+    if (ev.target === m || ev.target.closest('[data-no]')) m.remove();
+  });
+  document.body.appendChild(m);
+}
+async function passClaimMany(list) {                    // reclama varios niveles seguidos y muestra lo ganado
+  const before = list.flatMap(([tier, n]) => rwRows(tier, n).filter(x => !x.claimed && x.kind !== 'sprite_pick')), sprites = []; let ok = 0, err = '';
+  for (const [tier, n] of list) { const r = await sbApi('/rest/v1/rpc/pass_claim', { method: 'POST', body: { p_track: MS.track, p_tier: tier, p_level: n } }); if (r.ok) { ok++; if (r.data && Array.isArray(r.data.sprites)) sprites.push(...r.data.sprites); } else { err = rpcMsg(r); break; } }
+  if (err) toast(err);
+  await passRefresh();
+  const shown = before.filter(x => x.kind !== 'sprite_random' && !String(x.item || '').startsWith('sprite:'));
+  if (ok && shown.length) rwModal(shown, t('¡Recompensa reclamada!'));
+  if (sprites.length) setTimeout(() => vnReveal(sprites), shown.length ? 300 : 0);
 }
 
 /* ---------- Novela visual · pantalla de la autoría (por ahora solo la Owner) ----------
@@ -6068,6 +6122,13 @@ function vnReveal(keys) {                               // aviso tranquilo al ga
     m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('¡Nuevo sprite!')}</h2><div class="vn-rev">${keys.map(k => { const e = list.find(x => x.key === k) || { key: k, name: k }; return `<div class="vn-rev-c"><div class="vn-spr">${vnSil(k)}</div><b>${esc(t(e.name))}</b>${vnTag(e)}</div>`; }).join('')}</div><p class="helper">${t('Ya está en tus editores de personajes. Ahí le pones tu dibujo.')}</p><button type="button" class="button" data-no>${t('Listo')}</button></div>`;
     m.addEventListener('click', ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); });
     document.body.appendChild(m);
+    if (reduceMotion() || document.documentElement.classList.contains('lite')) return;
+    const pool = (VN_EM && VN_EM.length ? VN_EM.map(e => e.key) : VN_KEYS.map(e => e[0])).filter(Boolean);                    // ruleta tranquila: empieza rápida y se frena hasta el sprite ganado
+    m.querySelectorAll('.vn-rev-c').forEach((c, i) => {
+      const box = c.querySelector('.vn-spr'), fin = box.innerHTML, name = c.querySelector('b'), nm = name.innerHTML; let step = 0, d = 70; c.classList.add('rolling'); name.innerHTML = '&nbsp;';
+      const tick = () => { if (!m.isConnected) return; if (step >= 16) { box.innerHTML = fin; name.innerHTML = nm; c.classList.remove('rolling'); return; } box.innerHTML = vnSil(pool[Math.floor(Math.random() * pool.length)]); step++; d = Math.round(d * 1.17); setTimeout(tick, d); };
+      setTimeout(tick, 200 + i * 150);
+    });
   };
   vnEmosLoad().then(go, go);
 }
