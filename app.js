@@ -4608,12 +4608,16 @@ function openBadgePick() {
   paint(); document.body.appendChild(m);
 }
 /* Regalo de fundador: insignia + paquete de chat Retro 2000 (solo mientras dura la ventana; luego se entregará al terminar el recorrido) */
-let FND = null;
-async function founderLoad() { if (FND || !cloud() || !sbSes() || isGuest()) return; FND = { open: false }; const r = await sbApi('/rest/v1/rpc/founder_status', { method: 'POST', body: {} }); if (r.ok && r.data && typeof r.data === 'object') { FND = r.data; if (FND.open && /^#\/profile\/edit/.test(location.hash)) { KEEP = true; render(); } } }
-const founderRow = () => { founderLoad(); return FND && FND.open && !hasItem(S.user, 'badge:fundador') ? `<button type="button" class="ep-row" data-act="founder-gift"><span><b>${t('Regalo de fundador')}</b><small>${t('Insignia y paquete de chat Retro 2000')}</small></span><i aria-hidden="true">›</i></button>` : ''; };
-async function founderClaim() {
+let FND = null, FND_TRY = false;
+async function founderLoad() { if (FND || !cloud() || !sbSes() || isGuest()) return; FND = { open: false }; const r = await sbApi('/rest/v1/rpc/founder_status', { method: 'POST', body: {} }); if (r.ok && r.data && typeof r.data === 'object') FND = r.data; }
+const founderRow = () => (FND && FND.open && !hasItem(S.user, 'badge:fundador') ? `<button type="button" class="ep-row" data-act="founder-gift"><span><b>${t('Regalo de fundador')}</b><small>${t('Insignia y paquete de chat Retro 2000')}</small></span><i aria-hidden="true">›</i></button>` : '');   // por si falla la entrega automática
+async function founderAuto() {                           // durante la ventana, cada cuenta recibe el regalo sola, una vez
+  if (FND_TRY || !S.user || isGuest() || hasItem(S.user, 'badge:fundador')) return; FND_TRY = true;
+  await founderLoad(); if (FND && FND.open && !hasItem(S.user, 'badge:fundador')) founderClaim(true);
+}
+async function founderClaim(silent) {
   const r = await sbApi('/rest/v1/rpc/founder_claim', { method: 'POST', body: {} });
-  if (!r.ok) return toast(rpcMsg(r));
+  if (!r.ok) return silent ? passRefresh() : toast(rpcMsg(r));
   await passRefresh();
   const m = document.createElement('div'); m.className = 'modal sheet';
   m.innerHTML = `<div class="modal-box rw-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('¡Eres fundador de Auri!')}</h2><div class="rw-gots"><div class="rw-got"><div class="rw-big">${badgeImg('fundador')}</div><b>${esc(BADGES.fundador[0])}</b></div><div class="rw-got"><div class="rw-big"><span class="rw-chat"><i></i><i class="me"></i></span></div><b>${t('Chat Retro 2000')}</b></div></div><p class="helper">${t('Gracias por estar desde el principio. Ya están en tu cuenta para siempre.')}</p><button type="button" class="button" data-no>${t('Listo')}</button></div>`;
@@ -5508,7 +5512,7 @@ function render() {
   if (nav && a === 'story' && c && c !== 'fin') { pcHintOnce(); readingPing(b); viewPing(b); chtStart(b, c); }
   if (nav && a === 'vnr') vnrBoot(b, c);
   if (passOn()) msAll();
-  if (S.user) { showModOverlay(); showGiftOverlay(); }                                      // moderador/a sin marco puesto: el aviso reaparece hasta que se lo ponga
+  if (S.user) { showModOverlay(); showGiftOverlay(); founderAuto(); }                                      // moderador/a sin marco puesto: el aviso reaparece hasta que se lo ponga
   if (nav) { const m = from.match(/^\/story\/([^/]+)\/\d+$/); if (m && !(path + '/').startsWith('/story/' + m[1] + '/')) askSaveLib(decodeURIComponent(m[1])); }   // saliste de un capítulo por otro camino (p. ej. "atrás")
 }
 window.addEventListener('hashchange', render);
