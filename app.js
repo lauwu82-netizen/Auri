@@ -4577,7 +4577,8 @@ function bioFit() {                                      // biografía larga: 3 
 window.addEventListener('resize', () => bioFit());
 /* Insignias de temporada (pase gratis, niveles 4, 8, 17 y 20): se ven bajo la biografía del perfil */
 const BADGES = { firstblush: ['First blush', 'reader', 'https://i.postimg.cc/XJkDPv43/Photoroom-20261117-011851.png'], loveletter: ['Love letter', 'reader', 'https://i.postimg.cc/ZngPskBy/Photoroom-20261117-011906.png'], eternalbloom: ['Eternal bloom', 'reader', 'https://i.postimg.cc/CxCDknNp/Photoroom-20261117-011919.png'], everafter: ['Ever after', 'reader', 'https://i.postimg.cc/85fLFKXt/Photoroom-20261117-011943.png'],
-  forbiddenpact: ['Forbidden pact', 'writer', 'https://i.postimg.cc/dQXSSgKV/Photoroom-20261117-012533.png'], crimsonelixir: ['Crimson elixir', 'writer', 'https://i.postimg.cc/rF130gvp/Photoroom-20261117-012553.png'], crimsonmuse: ['Crimson muse', 'writer', 'https://i.postimg.cc/CKzcN46z/Photoroom-20261117-012611.png'], devilsmasterpiece: ["Devil's Masterpiece", 'writer', 'https://i.postimg.cc/C1bHPrCQ/Photoroom-20261117-012633.png'] };
+  forbiddenpact: ['Forbidden pact', 'writer', 'https://i.postimg.cc/dQXSSgKV/Photoroom-20261117-012533.png'], crimsonelixir: ['Crimson elixir', 'writer', 'https://i.postimg.cc/rF130gvp/Photoroom-20261117-012553.png'], crimsonmuse: ['Crimson muse', 'writer', 'https://i.postimg.cc/CKzcN46z/Photoroom-20261117-012611.png'], devilsmasterpiece: ["Devil's Masterpiece", 'writer', 'https://i.postimg.cc/C1bHPrCQ/Photoroom-20261117-012633.png'],
+  fundador: ['Fundador de Auri', 'founder', 'https://i.postimg.cc/1Rv2pMBN/IMG-3427.png'] };
 const badgesOf = e => Object.keys(BADGES).filter(k => hasItem(e, 'badge:' + k)).reverse();      // la más especial primero
 const badgesPick = e => { const u = getUsers()[e] || {}, all = badgesOf(e); return Array.isArray(u.badgesShown) ? u.badgesShown.filter(k => all.includes(k)).slice(0, 5) : all.slice(0, 5); };      // las que eligió (o las 5 más especiales)
 const badgeImg = (k, c = '') => `<img class="${c}" src="${esc(BADGES[k][2])}" alt="${esc(BADGES[k][0])}" referrerpolicy="no-referrer" loading="lazy" decoding="async">`;
@@ -4606,9 +4607,22 @@ function openBadgePick() {
   });
   paint(); document.body.appendChild(m);
 }
+/* Regalo de fundador: insignia + paquete de chat Retro 2000 (solo mientras dura la ventana; luego se entregará al terminar el recorrido) */
+let FND = null;
+async function founderLoad() { if (FND || !cloud() || !sbSes() || isGuest()) return; FND = { open: false }; const r = await sbApi('/rest/v1/rpc/founder_status', { method: 'POST', body: {} }); if (r.ok && r.data && typeof r.data === 'object') { FND = r.data; if (FND.open && /^#\/profile\/edit/.test(location.hash)) { KEEP = true; render(); } } }
+const founderRow = () => { founderLoad(); return FND && FND.open && !hasItem(S.user, 'badge:fundador') ? `<button type="button" class="ep-row" data-act="founder-gift"><span><b>${t('Regalo de fundador')}</b><small>${t('Insignia y paquete de chat Retro 2000')}</small></span><i aria-hidden="true">›</i></button>` : ''; };
+async function founderClaim() {
+  const r = await sbApi('/rest/v1/rpc/founder_claim', { method: 'POST', body: {} });
+  if (!r.ok) return toast(rpcMsg(r));
+  await passRefresh();
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  m.innerHTML = `<div class="modal-box rw-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('¡Eres fundador de Auri!')}</h2><div class="rw-gots"><div class="rw-got"><div class="rw-big">${badgeImg('fundador')}</div><b>${esc(BADGES.fundador[0])}</b></div><div class="rw-got"><div class="rw-big"><span class="rw-chat"><i></i><i class="me"></i></span></div><b>${t('Chat Retro 2000')}</b></div></div><p class="helper">${t('Gracias por estar desde el principio. Ya están en tu cuenta para siempre.')}</p><button type="button" class="button" data-no>${t('Listo')}</button></div>`;
+  m.addEventListener('click', ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); });
+  document.body.appendChild(m);
+}
 function badgeModal(keys, one) {
   const m = document.createElement('div'); m.className = 'modal sheet';
-  m.innerHTML = `<div class="modal-box rw-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t(one ? 'Insignia' : 'Insignias')}</h2><div class="bd-grid ${one ? 'one' : ''}">${keys.map(k => `<div class="bd-c">${badgeImg(k)}<b>${esc(BADGES[k][0])}</b><small>${t(BADGES[k][1] === 'reader' ? 'Pase de lector' : 'Pase de escritor')} · ${t('San Valentín')}</small></div>`).join('')}</div></div>`;
+  m.innerHTML = `<div class="modal-box rw-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t(one ? 'Insignia' : 'Insignias')}</h2><div class="bd-grid ${one ? 'one' : ''}">${keys.map(k => `<div class="bd-c">${badgeImg(k)}<b>${esc(BADGES[k][0])}</b><small>${BADGES[k][1] === 'founder' ? t('Regalo de fundador') : `${t(BADGES[k][1] === 'reader' ? 'Pase de lector' : 'Pase de escritor')} · ${t('San Valentín')}`}</small></div>`).join('')}</div></div>`;
   m.addEventListener('click', ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); });
   document.body.appendChild(m);
 }
@@ -4659,6 +4673,7 @@ function editProfileView() {
     <h3 class="ep-h">${EPI.frame}<span>${t('Insignias y adornos')}</span></h3>
     <button type="button" class="ep-row" data-act="frames"><span><b>${t('Marcos')}</b><small>${frameLine}</small></span><i aria-hidden="true">›</i></button>
     ${titlesOf(S.user).length ? `<button type="button" class="ep-row" data-act="titles"><span><b>${t('Título')}</b><small>${titleKey(S.user) ? esc(titleText(S.user, titleKey(S.user))) : t('Ninguno')}</small></span><i aria-hidden="true">›</i></button>` : ''}
+    ${founderRow()}
     ${badgesOf(S.user).length ? `<button type="button" class="ep-row" data-act="badges-pick"><span><b>${t('Insignias')}</b><small>${tn(badgesPick(S.user).length, '{n} visible', '{n} visibles')}</small></span><i aria-hidden="true">›</i></button>` : ''}
     ${fontsOf(S.user).length ? `<button type="button" class="ep-row" data-act="nfont"><span><b>${t('Fuente del nombre')}</b><small>${nameFontOf(S.user) ? t(NAME_FONTS[nameFontOf(S.user)][0]) : t('Clásica')}</small></span><i aria-hidden="true">›</i></button>` : ''}
     ${isOwner() || u.petF || ['cupida', 'cupido', 'diablillo', 'pinguino'].some(k => hasItem(S.user, 'pet:' + k)) ? `<button type="button" class="ep-row" data-act="pets"><span><b>${t('Mascota 8-bit')}</b><small>${PETS[u.pet] ? t(PETS[u.pet][0]) : t('Ninguna')}</small></span><i aria-hidden="true">›</i></button>` : ''}
@@ -5804,6 +5819,7 @@ document.addEventListener('click', e => {
       const lab = (tier === 'paid' ? PASS_PAID : PASS_FREE)[MS.track][n] || '', done = rows.every(x => x.claimed);
       rwModal(rows.filter(x => x.kind !== 'sprite_pick' && x.kind !== 'sprite_random'), t('Nivel {n}', { n }), `<p class="rw-lab">${esc(t(lab))}</p><p class="helper">${esc(t(done ? 'Ya lo reclamaste.' : st.level < n ? 'Todavía no llegas a este nivel.' : 'Necesitas el pase para reclamar esto.'))}</p>`); },
     'badges-pick': () => openBadgePick(),
+    'founder-gift': () => founderClaim(),
     'share-open': () => { const st = findStory(id); if (st) openShare(st); },
     'badge-one': () => { if (BADGES[id]) badgeModal([id], true); },
     'badge-all': () => badgeModal(badgesOf(id)),

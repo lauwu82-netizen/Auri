@@ -2648,4 +2648,9 @@ window.I18N = { en: {
   '{n} visitas por enlace': '{n} visits from the link',
   '{n} visible': '{n} shown',
   '{n} visibles': '{n} shown',
+  'Regalo de fundador': 'Founder gift',
+  'Insignia y paquete de chat Retro 2000': 'Badge and Retro 2000 chat pack',
+  '¡Eres fundador de Auri!': 'You are a founder of Auri!',
+  'Chat Retro 2000': 'Retro 2000 chat',
+  'Gracias por estar desde el principio. Ya están en tu cuenta para siempre.': "Thank you for being here from the start. They're in your account forever.",
 } };
