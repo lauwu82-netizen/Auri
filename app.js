@@ -2012,15 +2012,30 @@ function tasteTags(pool) {                             // etiquetas de lo que le
   return Object.entries(w).sort((a, b) => b[1] - a[1]).map(x => x[0]);
 }
 const feedScore = s => likes(s.id).length * 2 + (G.get('comments', {})[s.id] || []).length;
-const feedRow = (title, sub, list, more) => `<section class="feed-sec"><div class="feed-head"><div><h3>${title}</h3>${sub ? `<p>${sub}</p>` : ''}</div>${more ? `<a class="feed-more" href="#/explore/${encodeURIComponent(more)}">${t('Ver todo')}</a>` : ''}</div><div class="feed-row">${list.map(storyCard).join('')}</div></section>`;
+let MOSQ = [], ROWN = 0;                               // cola de mosaicos: van en la 2.ª fila en adelante
+const feedRow = (title, sub, list, more) => { const mos = list.length >= 3 && ROWN++ >= 1 && MOSQ.length ? MOSQ.shift() : ''; return `<section class="feed-sec"><div class="feed-head"><div><h3>${title}</h3>${sub ? `<p>${sub}</p>` : ''}</div>${more ? `<a class="feed-more" href="#/explore/${encodeURIComponent(more)}">${t('Ver todo')}</a>` : ''}</div><div class="feed-row">${list.map((x, i) => (mos && i === 3 ? mos : '') + storyCard(x)).join('')}${mos && list.length <= 3 ? mos : ''}</div></section>`; };
 function groupCard(k, pool, tags) {                    // cuadro con portadas pequeñas: «Explorar dark romance»
   const l = pool.filter(s => tagsOf(s).some(x => tagKey(x) === k)).sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 4), lab = (tags[k] || { label: k }).label;
   return `<a class="feed-group" href="#/explore/${encodeURIComponent(k)}" aria-label="${esc(t('Explorar {tag}', { tag: lab }))}"><div class="fg-top"><b>${esc(t('Explorar {tag}', { tag: lab }))}</b><span>›</span></div><div class="fg-covers">${l.map((s, i) => coverHTML(s, i)).join('')}</div></a>`;
 }
+function mosCard(k, pool, tags) {                      // collage dentro de la fila: 1 portada grande + 4 pequeñas
+  const l = pool.filter(s => tagsOf(s).some(x => tagKey(x) === k)).sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 5), lab = (tags[k] || { label: k }).label;
+  if (l.length < 3) return '';
+  const tl = t('Explorar {tag}', { tag: lab });
+  return `<a class="feed-mos" href="#/explore/${encodeURIComponent(k)}" aria-label="${esc(tl)}"><div class="fm-top"><b>${esc(tl)}</b><span>›</span></div><div class="fm-grid">${l.map((s, i) => `<div class="fm-c${i === 0 ? ' big' : ''}">${coverHTML(s, i)}</div>`).join('')}</div></a>`;
+}
+function continueRow() {                               // «Seguir leyendo»: libros de tu biblioteca con barra de progreso
+  const l = feedPool().filter(s => (S.lib.includes(s.id) || S.progress[s.id]) && !bookProgress(s).finished);
+  if (!l.length) return '';
+  const card = s => { const pr = bookProgress(s);
+    return `<article class="mini fc-card"><a href="#/story/${esc(s.id)}" aria-label="${esc(s.title)}">${coverHTML(s, 0)}</a><div class="fc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pr.pct}"><i style="width:${pr.pct}%"></i></div><div class="fc-pct">${pr.pct}%</div><a class="mini-title" href="#/story/${esc(s.id)}">${esc(s.title)}</a></article>`; };
+  return `<section class="feed-sec"><div class="feed-head"><div><h3>${t('Seguir leyendo')}</h3><p>${t('Los libros de tu biblioteca')}</p></div><a class="feed-more" href="#/library">${t('Ver todo')}</a></div><div class="feed-row">${l.slice(0, 12).map(card).join('')}</div></section>`;
+}
 function feedHTML() {
   const pool = feedPool(); if (pool.length < FEED.row) return '';
-  const tags = feedTags(pool), taste = tasteTags(pool), out = [], used = new Set();
+  const tags = feedTags(pool), taste = tasteTags(pool), out = [], used = new Set(); ROWN = 0; MOSQ = [];
   const rowOK = l => l.length >= FEED.row;
+  { const g0 = Object.keys(tags).filter(k => tags[k].n >= FEED.group).sort((a, b) => ((tasteTags(pool).indexOf(b) + 1) || 0) - ((tasteTags(pool).indexOf(a) + 1) || 0) || tags[b].n - tags[a].n); MOSQ = g0.slice(0, 2).map(k => mosCard(k, pool, tags)).filter(Boolean); }
   const featIds = new Set(crPub().filter(b => b.kind === 'book').map(b => b.storyId)), feat = pool.filter(s => featIds.has(s.id)).slice(0, 12);
   if (rowOK(feat)) out.push(feedRow(t('Destacados'), '', feat));
   const chb = pool.filter(s => s.mode === 'chat').sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12);
@@ -2034,13 +2049,12 @@ function feedHTML() {
   const day = today(), hash = [...day].reduce((a, ch) => a + ch.charCodeAt(0), 0);
   const pickG = groups.length ? groups[hash % groups.length] : '';
   const rnd = Object.keys(tags).filter(k => tags[k].n >= FEED.row && k !== pickG); const rk = rnd.length ? rnd[(hash * 7) % rnd.length] : '';
-  if (groups[0]) out.push(groupCard(groups[0], pool, tags));
   if (rk) out.push(feedRow('#' + esc(tags[rk].label), t('Una etiqueta para explorar hoy'), pool.filter(s => tagsOf(s).some(x => tagKey(x) === rk)).slice(0, 12), rk));
   const recent = Date.now() - 30 * 864e5, scored = pool.filter(s => feedScore(s) > 0);
   const hot = scored.filter(s => new Date(s.updatedAt || 0).getTime() >= recent).sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12), all = scored.sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12);
   if (rowOK(hot)) out.push(feedRow(t('Lo más famoso del momento'), '', hot));
-  if (pickG && pickG !== groups[0]) out.push(groupCard(pickG, pool, tags));
   if (rowOK(all) && all.map(s => s.id).join() !== hot.map(s => s.id).join()) out.push(feedRow(t('Lo más famoso de Auri'), '', all));
+  const cr = continueRow(); if (cr) out.push(cr);
   return out.length ? out.join('') + `<div class="section-head feed-all"><div><h2>${t('Todas las historias')}</h2></div></div>` : '';
 }
 function exploreView(k) {

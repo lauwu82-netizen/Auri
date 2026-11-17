@@ -2657,4 +2657,5 @@ window.I18N = { en: {
   'Novela visual': 'Visual novel',
   'Lee tus historias como una novela visual': 'Read your stories like a visual novel',
   'Personajes con emociones, fondos a pantalla completa y diálogos, dentro de la misma app. Se activa en los libros compatibles.': 'Characters with emotions, full-screen backgrounds and dialogue, inside the same app. It turns on in compatible books.',
+  'Los libros de tu biblioteca': 'Books from your library',
 } };
