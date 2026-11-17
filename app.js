@@ -1920,6 +1920,8 @@ const WL_SLIDES = [
   () => `<div class="wl-art"><div class="wl-demo"><div class="wl-oc"><span class="wl-av">L</span><span class="wl-ocx"><b>Luna</b><small>${t('OC · cabello plateado · ojos violetas')}</small></span></div>
     <p class="wl-from">«${t('TN sonrió bajo la luna…')}»</p><span class="wl-ic wl-down">${WI.down}</span><p class="wl-to">«<mark>Luna</mark> ${t('sonrió bajo la luna…')}»</p></div></div>
     <span class="eyebrow">${t('Función estrella')}</span><h1>${t('Usa tu OC como protagonista de tus historias favoritas')}</h1><p>${t('Nombre, apodo y personalidad de tu OC reemplazan al TN en fanfics compatibles, sin cambiar la historia original.')}</p>`,
+  () => `<div class="wl-art"><div class="wl-vn"><span class="wl-vn-s">${vnSil('feliz')}</span><span class="wl-vn-s b">${vnSil('sonrojado')}</span><div class="wl-vn-box"><b>Luna</b><small>${t('¡Mira, el cielo está lleno de estrellas!')}</small></div></div></div>
+    <span class="eyebrow">${t('Novela visual')}</span><h1>${t('Lee tus historias como una novela visual')}</h1><p>${t('Personajes con emociones, fondos a pantalla completa y diálogos, dentro de la misma app. Se activa en los libros compatibles.')}</p>`,
   () => `<h1>${t('Pensada para disfrutar cada capítulo')}</h1><div class="wl-feats">${[
     ['book', 'Biblioteca y progreso', 'Cada historia recuerda en qué capítulo quedó la lectura.'],
     ['chat', 'Comentarios por párrafo', 'Reacciona en momentos exactos, con spoilers difuminados.'],

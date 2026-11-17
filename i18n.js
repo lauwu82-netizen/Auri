@@ -2653,4 +2653,8 @@ window.I18N = { en: {
   '¡Eres fundador de Auri!': 'You are a founder of Auri!',
   'Chat Retro 2000': 'Retro 2000 chat',
   'Gracias por estar desde el principio. Ya están en tu cuenta para siempre.': "Thank you for being here from the start. They're in your account forever.",
+  '¡Mira, el cielo está lleno de estrellas!': 'Look, the sky is full of stars!',
+  'Novela visual': 'Visual novel',
+  'Lee tus historias como una novela visual': 'Read your stories like a visual novel',
+  'Personajes con emociones, fondos a pantalla completa y diálogos, dentro de la misma app. Se activa en los libros compatibles.': 'Characters with emotions, full-screen backgrounds and dialogue, inside the same app. It turns on in compatible books.',
 } };
