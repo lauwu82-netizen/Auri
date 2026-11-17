@@ -3284,3 +3284,11 @@ html.lite .ch-letter{animation:none}
 .vn-rev-c.rolling .vn-spr{opacity:.85}.vn-rev-c.rolling .vn-spr .vn-sil{animation:none}
 @media (prefers-reduced-motion:reduce){.pv-all,.rw-t.ready,.rw-big{animation:none}}
 html.lite .pv-all,html.lite .rw-t.ready,html.lite .rw-big{animation:none}
+
+/* Insignias */
+.pf-badges{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:10px 0 2px}
+.pf-badge{width:46px;height:46px;padding:2px;border:0;background:none;cursor:pointer}.pf-badge img{width:100%;height:100%;object-fit:contain;display:block}
+.pf-badge-all{border:1px solid hsl(var(--border));background:hsl(var(--card));color:var(--soft);border-radius:999px;padding:6px 12px;font:600 12px var(--sans);cursor:pointer}
+.rw-v img.rw-badge,.rw-big img{max-width:100%;max-height:100%;object-fit:contain}
+.bd-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:12px 0}.bd-grid.one{grid-template-columns:1fr}
+.bd-c{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}.bd-c img{width:96px;height:96px;object-fit:contain}.bd-grid.one .bd-c img{width:140px;height:140px}.bd-c small{opacity:.7;font-size:11.5px}

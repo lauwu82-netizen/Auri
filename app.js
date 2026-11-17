@@ -4338,7 +4338,7 @@ function profileHero(e, own, acts = '', corner = '', tagExtra = '') {
 </div>
     ${acts ? `<div class="pf-acts">${acts}</div>` : ''}</div>
   <div class="pf-stats-row">${stat(followers(e).length, t('Seguidores'), 'pf-list', 'followers')}${stat(following(e).length, t('Seguidos'), 'pf-list', 'following')}${stat(pubs.length, t('Libros publicados'), 'pf-works')}${stat(likesReceived(e), t('Likes'))}</div>
-  ${bioBlock(e, u, own)}
+  ${bioBlock(e, u, own)}${badgesBlock(e)}
   <div class="pf-tab" id="pf-works"><span>${ICON.books} ${t('Libros publicados')}</span></div></section>`;
 }
 /** Lista de seguidores o de seguidos (al tocar la cifra) */
@@ -4452,6 +4452,21 @@ function bioFit() {                                      // biografía larga: 3 
   });
 }
 window.addEventListener('resize', () => bioFit());
+/* Insignias de temporada (pase gratis, niveles 4, 8, 17 y 20): se ven bajo la biografía del perfil */
+const BADGES = { firstblush: ['First blush', 'reader', 'https://i.postimg.cc/XJkDPv43/Photoroom-20261117-011851.png'], loveletter: ['Love letter', 'reader', 'https://i.postimg.cc/ZngPskBy/Photoroom-20261117-011906.png'], eternalbloom: ['Eternal bloom', 'reader', 'https://i.postimg.cc/CxCDknNp/Photoroom-20261117-011919.png'], everafter: ['Ever after', 'reader', 'https://i.postimg.cc/85fLFKXt/Photoroom-20261117-011943.png'],
+  forbiddenpact: ['Forbidden pact', 'writer', 'https://i.postimg.cc/dQXSSgKV/Photoroom-20261117-012533.png'], crimsonelixir: ['Crimson elixir', 'writer', 'https://i.postimg.cc/rF130gvp/Photoroom-20261117-012553.png'], crimsonmuse: ['Crimson muse', 'writer', 'https://i.postimg.cc/CKzcN46z/Photoroom-20261117-012611.png'], devilsmasterpiece: ["Devil's Masterpiece", 'writer', 'https://i.postimg.cc/C1bHPrCQ/Photoroom-20261117-012633.png'] };
+const badgesOf = e => Object.keys(BADGES).filter(k => hasItem(e, 'badge:' + k)).reverse();      // la más especial primero
+const badgeImg = (k, c = '') => `<img class="${c}" src="${esc(BADGES[k][2])}" alt="${esc(BADGES[k][0])}" referrerpolicy="no-referrer" loading="lazy" decoding="async">`;
+const badgesBlock = e => {
+  const l = badgesOf(e); if (!l.length) return '';
+  return `<section class="pf-badges" aria-label="${esc(t('Insignias'))}">${l.slice(0, 5).map(k => `<button type="button" class="pf-badge" data-act="badge-one" data-id="${k}" aria-label="${esc(BADGES[k][0])}">${badgeImg(k)}</button>`).join('')}${l.length > 5 ? `<button type="button" class="pf-badge-all" data-act="badge-all" data-id="${esc(e)}">${t('Ver todas')}</button>` : ''}</section>`;
+};
+function badgeModal(keys, one) {
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  m.innerHTML = `<div class="modal-box rw-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t(one ? 'Insignia' : 'Insignias')}</h2><div class="bd-grid ${one ? 'one' : ''}">${keys.map(k => `<div class="bd-c">${badgeImg(k)}<b>${esc(BADGES[k][0])}</b><small>${t(BADGES[k][1] === 'reader' ? 'Pase de lector' : 'Pase de escritor')} · ${t('San Valentín')}</small></div>`).join('')}</div></div>`;
+  m.addEventListener('click', ev => { if (ev.target === m || ev.target.closest('[data-no]')) m.remove(); });
+  document.body.appendChild(m);
+}
 const bioBlock = (e, u, own) => {                         // biografía: bloque suave bajo las cifras, con "Ver más" si es larga
   const b = String(u.bio || '').trim();
   if (!b) return own ? `<a class="pf-bio-add" href="#/profile/edit" data-dir="next">${t('Añadir una biografía')}</a>` : '';
@@ -5642,6 +5657,8 @@ document.addEventListener('click', e => {
       if (open && rows.some(x => !x.claimed && x.kind !== 'sprite_pick')) return passClaimMany([[tier, n]]);
       const lab = (tier === 'paid' ? PASS_PAID : PASS_FREE)[MS.track][n] || '', done = rows.every(x => x.claimed);
       rwModal(rows.filter(x => x.kind !== 'sprite_pick' && x.kind !== 'sprite_random'), t('Nivel {n}', { n }), `<p class="rw-lab">${esc(t(lab))}</p><p class="helper">${esc(t(done ? 'Ya lo reclamaste.' : st.level < n ? 'Todavía no llegas a este nivel.' : 'Necesitas el pase para reclamar esto.'))}</p>`); },
+    'badge-one': () => { if (BADGES[id]) badgeModal([id], true); },
+    'badge-all': () => badgeModal(badgesOf(id)),
     'pass-all': () => { const st = MS[MS.track]; if (!st) return; el.disabled = true; passClaimMany(rwReady(st)); },
     'pass-pick': () => vnPick(),
     'rw-voucher': async () => { el.disabled = true; const r = await sbApi('/rest/v1/rpc/voucher_redeem', { method: 'POST', body: { p_id: el.dataset.id } }); toast(r.ok ? t('¡Pase activado por 1 mes!') : rpcMsg(r)); await walletLoad(); KEEP = true; render(); },
@@ -5961,8 +5978,8 @@ function chtCheck() {
 /* Premios de ejemplo de cada pase (se cambian por los definitivos cuando estén los diseños) */
 const PASS_FREE_BASE = { 4: 'Insignia de temporada', 8: 'Insignia de temporada', 10: 'Gemas moradas ×3', 14: 'Separador · carta de amor', 17: 'Insignia de temporada', 19: 'Gemas moradas ×3', 20: 'Insignia final de temporada' };
 const PASS_FREE = {
-  reader: { ...PASS_FREE_BASE, 2: 'Título · Corazón tímido', 6: 'Separador · corazón sencillo', 9: 'Barra de progreso · corazón', 13: 'Cinta de marcapáginas · corazón colgante', 15: 'Sprite aleatorio', 18: 'Sprite aleatorio' },
-  writer: { ...PASS_FREE_BASE, 2: 'Título · Pluma novata', 3: 'Fondo del editor · papel', 6: 'Separador · pluma', 11: 'Fondo del editor · noche', 15: 'Sprite aleatorio', 18: 'Sprite · corazón roto' } };
+  reader: { ...PASS_FREE_BASE, 4: 'Insignia · First blush', 8: 'Insignia · Love letter', 17: 'Insignia · Eternal bloom', 20: 'Insignia · Ever after', 2: 'Título · Corazón tímido', 6: 'Separador · corazón sencillo', 9: 'Barra de progreso · corazón', 13: 'Cinta de marcapáginas · corazón colgante', 15: 'Sprite aleatorio', 18: 'Sprite aleatorio' },
+  writer: { ...PASS_FREE_BASE, 4: 'Insignia · Forbidden pact', 8: 'Insignia · Crimson elixir', 17: 'Insignia · Crimson muse', 20: "Insignia · Devil's Masterpiece", 2: 'Título · Pluma novata', 3: 'Fondo del editor · papel', 6: 'Separador · pluma', 11: 'Fondo del editor · noche', 15: 'Sprite aleatorio', 18: 'Sprite · corazón roto' } };
 const PASS_PAID = {
   reader: { 1: 'Forma · corazón con alitas', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador · flecha y corazón', 4: 'AuriGems cian ×10', 5: 'Adorno · caja de bombones', 6: 'Adorno · corazones enamorados', 7: 'AuriCoins ×200', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'Cinta de marcapáginas · seda', 11: 'Adorno · corazón con encaje', 12: 'Mascota · Cupida', 13: 'Ambiente · corazones flotantes', 14: 'Chat San Valentín · lila', 15: 'Sprite aleatorio', 16: 'Tarjeta de fin de capítulo · carta con sello', 17: 'Mascota · Cupido', 18: 'Sprite aleatorio', 19: 'AuriCoins ×200', 20: 'Sprite a elección · Título · Corazón de biblioteca' },
   writer: { 1: 'Título · Tinta y corazón', 2: 'AuriCoins ×50', 3: 'Forma · corazón partido', 4: 'AuriGems cian ×10', 5: 'Marco de portada · sweet love', 6: 'AuriCoins ×50', 7: 'Separador · rosas y espinas', 8: 'Fondos del editor · San Valentín dulce y oscuro', 9: 'AuriGems moradas ×10', 10: 'Marco de portada · dark San Valentín', 11: 'Impulso a destacados ×1', 12: 'AuriCoins ×75', 13: 'Adornos · corona de rosas, corazón y collar oscuro', 14: 'Mascota · Diablillo', 15: 'AuriGems cian ×15', 16: 'Fondo de lectura · San Valentín oscuro', 17: 'Ambiente por capítulo', 18: 'Sprite · borracho enamorado', 19: 'AuriGems moradas ×15', 20: 'Título · Rompecorazones · AuriCoins ×175' }
@@ -6004,6 +6021,7 @@ function rwVis(r) {                                      // el dibujo del premio
   if (r.kind === 'coins') return `<span class="rw-ic"><i class="coin"></i><b>×${r.amount}</b></span>`;
   if (r.kind === 'title') { const tk = r.key || it; return titleHTML(tk, TITLES[tk] || tk); }
   if (r.kind === 'sprite_random' || r.kind === 'sprite_pick') return `<span class="rw-mys">?</span>`;
+  if (p === 'badge') return BADGES[k] ? badgeImg(k, 'rw-badge') : '';
   if (p === 'sprite') return `<div class="rw-spr">${vnSil(k)}</div>`;
   if (p === 'pet') return `<span class="rw-pet" style="background-image:url('pets/${esc(k)}.png')"></span>`;
   if (p === 'shape') return `<span class="fr"${k ? ` data-shape="${esc(k)}"` : ''}>${avatarHTML(u.avatar, S.user, '')}</span>`;

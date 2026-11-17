@@ -2610,4 +2610,6 @@ window.I18N = { en: {
   "Marco de portada · dark San Valentín": "Cover frame · dark Valentine",
   'Reclamar {n}': 'Claim {n}', 'Equipar': 'Equip', 'No se equipa nada solo: tú eliges cuándo ponerlo.': 'Nothing is equipped on its own: you choose when to put it on.', 'Equipado': 'Equipped', '¡Recompensa reclamada!': 'Reward claimed!',
   'Pingüino': 'Penguin', 'Hola, travesti': 'Hi, travesti',
+  'Insignias': 'Badges', 'Insignia': 'Badge', 'Pase de lector': 'Reader pass', 'Pase de escritor': 'Writer pass', 'Insignia · First blush': 'Badge · First blush', 'Insignia · Love letter': 'Badge · Love letter', 'Insignia · Eternal bloom': 'Badge · Eternal bloom', 'Insignia · Ever after': 'Badge · Ever after', 'Insignia · Forbidden pact': 'Badge · Forbidden pact', 'Insignia · Crimson elixir': 'Badge · Crimson elixir', 'Insignia · Crimson muse': 'Badge · Crimson muse', "Insignia · Devil's Masterpiece": "Badge · Devil's Masterpiece",
+  'Ver todas': 'See all',
 } };
