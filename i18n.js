@@ -2642,4 +2642,10 @@ window.I18N = { en: {
   'Elige hasta 5 y el orden en que las tocas es el orden en que salen.': 'Pick up to 5; the order you tap them is the order they show.',
   'Máximo 5 insignias.': 'Up to 5 badges.',
   'Insignias guardadas': 'Badges saved',
+  'Compartido {n} vez': 'Shared {n} time',
+  'Compartido {n} veces': 'Shared {n} times',
+  '{n} visita por enlace': '{n} visit from the link',
+  '{n} visitas por enlace': '{n} visits from the link',
+  '{n} visible': '{n} shown',
+  '{n} visibles': '{n} shown',
 } };

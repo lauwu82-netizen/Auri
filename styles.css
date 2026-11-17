@@ -3314,3 +3314,4 @@ html.lite .pv-all,html.lite .rw-t.ready,html.lite .rw-big{animation:none}
 .bd-opt{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:16px;border:1.5px solid hsl(var(--border));background:hsl(var(--card));color:inherit;font:600 12px var(--sans);cursor:pointer}
 .bd-opt img{width:64px;height:64px;object-fit:contain}.bd-opt.on{border-color:hsl(var(--primary));box-shadow:0 0 0 3px hsl(var(--primary)/.18)}
 .bd-opt em{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:11px;background:hsl(var(--primary));color:#fff}
+.detail-share{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:6px;font-size:12px;opacity:.75}.detail-share svg{flex:none}

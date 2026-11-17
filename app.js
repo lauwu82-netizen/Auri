@@ -3277,7 +3277,7 @@ const staffBar = (s, mine) => {
   return `<div class="panel staff-bar"><b>${td ? t('🚩 Retirada de Descubrir por moderación') : t('🛡 Herramientas de moderación')}</b>${isStaff() && !mine ? `<div class="row-btns">${td ? `<button class="button secondary sm" data-act="td-off" data-id="${esc(s.id)}">${t('Restaurar en Descubrir')}</button>` : `<button class="button danger sm" data-act="td-on" data-id="${esc(s.id)}">${t('Retirar de Descubrir')}</button>`}${canAct(s.owner) ? `<button class="button ghost sm" data-act="adm-strike" data-id="${esc(s.owner)}">${t('⚠️ Dar strike')}</button>` : ''}<a class="button ghost sm" href="#/user/${encodeURIComponent(s.owner)}">${t('👤 Perfil')}</a><a class="button ghost sm" href="#/moderation/reports">${t('🚩 Reportes')}</a></div>` : ''}</div>`;
 };
 /* ---------- Compartir un libro: enlace, chat de Auri y tarjeta con QR ---------- */
-const shareURL = s => location.origin + location.pathname + '#/story/' + encodeURIComponent(s.id);
+const shareURL = s => location.origin + location.pathname + '?r=1#/story/' + encodeURIComponent(s.id);      // ?r=1 marca la visita por enlace (se quita al abrir)
 const shareable = s => storyState(s) === 'published' && !takedown().includes(s.id);
 const SH_ICO = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7.5 7.5L12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
 const shareBtn = s => shareable(s) ? `<div class="act-i"><button type="button" class="ic-btn" data-act="share-open" data-id="${esc(s.id)}" aria-label="${esc(t('Compartir'))}" title="${esc(t('Compartir'))}">${SH_ICO}</button><small>${t('Compartir')}</small></div>` : '';
@@ -3285,6 +3285,26 @@ async function copyText(txt) {
   try { await navigator.clipboard.writeText(txt); return true; } catch (e) { /* se prueba el método antiguo */ }
   try { const a = document.createElement('textarea'); a.value = txt; a.setAttribute('readonly', ''); a.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(a); a.select(); const ok = document.execCommand('copy'); a.remove(); return ok; } catch (e) { return false; }
 }
+const SHC = {};                                          // conteo de compartidos por libro (solo se carga para la autoría)
+function shareLog(s, kind) { const u = sUuid(s.id); if (!u || !cloud()) return; sbApi('/rest/v1/rpc/share_log', { method: 'POST', body: { p_story: u, p_kind: kind } }).catch(() => {}); }
+async function shareLoad(s) {
+  const u = sUuid(s.id); if (!u || !cloud() || !sbSes() || SHC[s.id] !== undefined) return; SHC[s.id] = null;
+  const r = await sbApi('/rest/v1/rpc/share_stats', { method: 'POST', body: { p_story: u } });
+  if (r.ok && r.data && typeof r.data === 'object') { SHC[s.id] = r.data; if (location.hash === '#/story/' + s.id || location.hash.startsWith('#/story/' + encodeURIComponent(s.id))) { KEEP = true; render(); } }
+}
+const shareStat = (s, mine) => {
+  if (!mine || !shareable(s)) return ''; shareLoad(s); const c = SHC[s.id]; if (!c) return '';
+  const sh = (c.native | 0) + (c.copy | 0) + (c.friend | 0) + (c.qr | 0), v = c.visit | 0;
+  return `<div class="detail-share">${SH_ICO.replace('width="22" height="22"', 'width="14" height="14"')} ${tn(sh, 'Compartido {n} vez', 'Compartido {n} veces')} · ${tn(v, '{n} visita por enlace', '{n} visitas por enlace')}</div>`;
+};
+(function visitFromLink() {                              // quien llega por un enlace compartido: se cuenta una vez por sesión y se limpia la dirección
+  try {
+    const q = new URLSearchParams(location.search), m = location.hash.match(/^#\/story\/([^/?]+)/); if (q.get('r') !== '1') return;
+    history.replaceState(null, '', location.pathname + location.hash);
+    if (!m) return; const id = decodeURIComponent(m[1]), k = 'auri.vis.' + id; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1');
+    setTimeout(() => shareLog({ id }, 'visit'), 2500);
+  } catch (e) { /* sin sesión de navegador: no se cuenta */ }
+})();
 function openShare(s) {
   const url = shareURL(s), m = document.createElement('div'), can = !!(S.user && !isGuest()); m.className = 'modal sheet';
   const opt = (k, ico, name, sub) => `<button type="button" class="sh-opt" data-o="${k}"><span class="sh-ic">${ico}</span><span><b>${t(name)}</b><small>${t(sub)}</small></span></button>`;
@@ -3294,8 +3314,8 @@ function openShare(s) {
   m.addEventListener('click', async ev => {
     if (ev.target === m || ev.target.closest('[data-no]')) return m.remove();
     const b = ev.target.closest('[data-o]'); if (!b) return;
-    if (b.dataset.o === 'native') { try { await navigator.share({ title: s.title, text: t('Lee «{x}» en Auri', { x: s.title }), url }); } catch (e) { /* se canceló */ } return; }
-    if (b.dataset.o === 'copy') { toast(t((await copyText(url)) ? 'Enlace copiado' : 'No se pudo copiar el enlace')); return; }
+    if (b.dataset.o === 'native') { try { await navigator.share({ title: s.title, text: t('Lee «{x}» en Auri', { x: s.title }), url }); shareLog(s, 'native'); } catch (e) { /* se canceló */ } return; }
+    if (b.dataset.o === 'copy') { const ok = await copyText(url); if (ok) shareLog(s, 'copy'); toast(t(ok ? 'Enlace copiado' : 'No se pudo copiar el enlace')); return; }
     if (b.dataset.o === 'friend') { m.remove(); return openShareFriends(s); }
     if (b.dataset.o === 'qr') { m.remove(); return openShareQR(s); }
   });
@@ -3310,7 +3330,7 @@ function openShareFriends(s) {
     if (ev.target === m || ev.target.closest('[data-no]')) return m.remove();
     const b = ev.target.closest('[data-e]'); if (!b) return;
     const r = dmSend(b.dataset.e, { sid: s.id }); if (r) return toast(r);
-    m.remove(); toast(t('Libro enviado'));
+    shareLog(s, 'friend'); m.remove(); toast(t('Libro enviado'));
   });
   document.body.appendChild(m);
 }
@@ -3372,8 +3392,8 @@ function openShareQR(s) {
     if (ev.target.closest('[data-save]')) {
       if (!blob) return toast(t('Un momento, se está preparando la imagen.'));
       const f = new File([blob], 'auri-' + (String(s.title || 'libro').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'libro') + '.png', { type: 'image/png' });
-      if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], title: s.title }); } catch (e) { /* se canceló */ } return; }
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast(t('Imagen guardada'));
+      if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], title: s.title }); shareLog(s, 'qr'); } catch (e) { /* se canceló */ } return; }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); shareLog(s, 'qr'); toast(t('Imagen guardada'));
     }
   });
   document.body.appendChild(m); paint();
@@ -3388,7 +3408,7 @@ function storyDetail(s, mine) {
   <section class="detail">${sagaNav(s)}
   <div class="bk-hero${sagaVisible(s).length > 1 ? ' saga' : ''}"><div class="bk-cover">${sagaCovers(s)}</div>
   <div class="bk-info"><span class="eyebrow">${esc(genreName(s.genre))} · ${esc(s.fandom)}</span><h1>${esc(s.title)}</h1>${s.owner ? `<a class="by-chip" href="#/user/${encodeURIComponent(s.owner)}" data-dir="next" aria-label="${esc(s.author)}">${framedAvatar(s.owner, 'sm')}<span class="by-tx"><small>${t('por')}</small><b>${esc(uName(s.owner) || s.author)}</b></span><i aria-hidden="true">›</i></a>` : `<div class="detail-by">${t('por')} ${esc(userName())}</div>`}${s.publishedAt ? `<div class="detail-date">📅 ${t('Publicado el {d}', { d: fmtDate(s.publishedAt) })}</div>` : ''}
-  <div class="detail-likes"><span class="hrt-i">${HEART}</span> ${tn(n, '{n} like', '{n} likes')}<span class="detail-views">${eyeIco} ${tn(s.views | 0, '{n} visualización', '{n} visualizaciones')}</span></div>${s.mode === 'chat' ? `<div class="chat-pill">💬 ${t('Libro de chat')}</div>` : ''}</div></div>
+  <div class="detail-likes"><span class="hrt-i">${HEART}</span> ${tn(n, '{n} like', '{n} likes')}<span class="detail-views">${eyeIco} ${tn(s.views | 0, '{n} visualización', '{n} visualizaciones')}</span></div>${s.mode === 'chat' ? `<div class="chat-pill">💬 ${t('Libro de chat')}</div>` : ''}${shareStat(s, mine)}</div></div>
   <div class="bk-cta">${bookState(s)}
   <a class="button read-cta" data-replace data-dir="next" ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} href="#/story/${esc(s.id)}/${next.idx + 1}">${!read.length && !at ? t('Empezar a leer') : all ? t('Leer otra vez') : t('Continuar: cap. {n}', { n: next.idx + 1 })}</a>
   ${vnReadBtn(s, next)}
