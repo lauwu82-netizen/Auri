@@ -2638,4 +2638,8 @@ window.I18N = { en: {
   'No se pudo copiar el enlace': 'Could not copy the link',
   'Por el chat de Auri': "Through Auri's chat",
   'Una tarjeta bonita para guardar': 'A pretty card to save',
+  'Insignias del perfil': 'Profile badges',
+  'Elige hasta 5 y el orden en que las tocas es el orden en que salen.': 'Pick up to 5; the order you tap them is the order they show.',
+  'Máximo 5 insignias.': 'Up to 5 badges.',
+  'Insignias guardadas': 'Badges saved',
 } };
