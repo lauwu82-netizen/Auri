@@ -2609,4 +2609,5 @@ window.I18N = { en: {
   "Marco de portada · sweet love": "Cover frame · sweet love",
   "Marco de portada · dark San Valentín": "Cover frame · dark Valentine",
   'Reclamar {n}': 'Claim {n}', 'Equipar': 'Equip', 'No se equipa nada solo: tú eliges cuándo ponerlo.': 'Nothing is equipped on its own: you choose when to put it on.', 'Equipado': 'Equipped', '¡Recompensa reclamada!': 'Reward claimed!',
+  'Pingüino': 'Penguin', 'Hola, travesti': 'Hi, travesti',
 } };
