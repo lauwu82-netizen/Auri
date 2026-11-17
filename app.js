@@ -3276,6 +3276,109 @@ const staffBar = (s, mine) => {
   const td = takedown().includes(s.id); if (!(isStaff() && !mine) && !(td && mine)) return '';
   return `<div class="panel staff-bar"><b>${td ? t('🚩 Retirada de Descubrir por moderación') : t('🛡 Herramientas de moderación')}</b>${isStaff() && !mine ? `<div class="row-btns">${td ? `<button class="button secondary sm" data-act="td-off" data-id="${esc(s.id)}">${t('Restaurar en Descubrir')}</button>` : `<button class="button danger sm" data-act="td-on" data-id="${esc(s.id)}">${t('Retirar de Descubrir')}</button>`}${canAct(s.owner) ? `<button class="button ghost sm" data-act="adm-strike" data-id="${esc(s.owner)}">${t('⚠️ Dar strike')}</button>` : ''}<a class="button ghost sm" href="#/user/${encodeURIComponent(s.owner)}">${t('👤 Perfil')}</a><a class="button ghost sm" href="#/moderation/reports">${t('🚩 Reportes')}</a></div>` : ''}</div>`;
 };
+/* ---------- Compartir un libro: enlace, chat de Auri y tarjeta con QR ---------- */
+const shareURL = s => location.origin + location.pathname + '#/story/' + encodeURIComponent(s.id);
+const shareable = s => storyState(s) === 'published' && !takedown().includes(s.id);
+const SH_ICO = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7.5 7.5L12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
+const shareBtn = s => shareable(s) ? `<div class="act-i"><button type="button" class="ic-btn" data-act="share-open" data-id="${esc(s.id)}" aria-label="${esc(t('Compartir'))}" title="${esc(t('Compartir'))}">${SH_ICO}</button><small>${t('Compartir')}</small></div>` : '';
+async function copyText(txt) {
+  try { await navigator.clipboard.writeText(txt); return true; } catch (e) { /* se prueba el método antiguo */ }
+  try { const a = document.createElement('textarea'); a.value = txt; a.setAttribute('readonly', ''); a.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(a); a.select(); const ok = document.execCommand('copy'); a.remove(); return ok; } catch (e) { return false; }
+}
+function openShare(s) {
+  const url = shareURL(s), m = document.createElement('div'), can = !!(S.user && !isGuest()); m.className = 'modal sheet';
+  const opt = (k, ico, name, sub) => `<button type="button" class="sh-opt" data-o="${k}"><span class="sh-ic">${ico}</span><span><b>${t(name)}</b><small>${t(sub)}</small></span></button>`;
+  m.innerHTML = `<div class="modal-box sh-box" role="dialog" aria-modal="true" aria-label="${esc(t('Compartir'))}"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Compartir')}</h2>
+  <div class="sh-book"><span class="sh-cv">${coverHTML(s, 0)}</span><span><b>${esc(s.title)}</b><small>${t('por {a}', { a: esc(s.author || uName(s.owner)) })}</small></span></div>
+  <div class="sh-opts">${navigator.share ? opt('native', SH_ICO, 'Compartir con otras apps', 'WhatsApp, mensajes, redes…') : ''}${opt('copy', '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/></svg>', 'Copiar enlace', 'Lleva directo a este libro')}${can ? opt('friend', ICON.news ? '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>' : '', 'Enviar a un amigo', 'Por el chat de Auri') : ''}${opt('qr', '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 14v1M14 20h1M18 18h3v3h-3z"/></svg>', 'Abrir QR', 'Una tarjeta bonita para guardar')}</div></div>`;
+  m.addEventListener('click', async ev => {
+    if (ev.target === m || ev.target.closest('[data-no]')) return m.remove();
+    const b = ev.target.closest('[data-o]'); if (!b) return;
+    if (b.dataset.o === 'native') { try { await navigator.share({ title: s.title, text: t('Lee «{x}» en Auri', { x: s.title }), url }); } catch (e) { /* se canceló */ } return; }
+    if (b.dataset.o === 'copy') { toast(t((await copyText(url)) ? 'Enlace copiado' : 'No se pudo copiar el enlace')); return; }
+    if (b.dataset.o === 'friend') { m.remove(); return openShareFriends(s); }
+    if (b.dataset.o === 'qr') { m.remove(); return openShareQR(s); }
+  });
+  document.body.appendChild(m);
+}
+function openShareFriends(s) {
+  const minor = ageGroup(S.user) === 'minor', list = minor && s.mature ? [] : Object.keys(getUsers()).filter(e => e !== S.user && !dmWhy(S.user, e) && dmMode(S.user, e) === 'ok' && (dmThread(e).length || mutual(S.user, e)));
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  m.innerHTML = `<div class="modal-box sh-box" role="dialog" aria-modal="true" aria-label="${esc(t('Enviar a un amigo'))}"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Enviar a un amigo')}</h2>
+  ${list.length ? `<p class="helper">${t('Le llega como una tarjeta del libro en el chat.')}</p><div class="sh-friends">${list.map(e => `<button type="button" class="sh-fr" data-e="${esc(e)}">${framedAvatar(e, 'sm')}<b>${esc(uName(e))}</b></button>`).join('')}</div>` : `<p class="helper" style="margin:14px 0">${t('Aún no tienes con quién chatear. Para enviar un libro, primero ten una conversación con alguien en Auri.')}</p>`}</div>`;
+  m.addEventListener('click', ev => {
+    if (ev.target === m || ev.target.closest('[data-no]')) return m.remove();
+    const b = ev.target.closest('[data-e]'); if (!b) return;
+    const r = dmSend(b.dataset.e, { sid: s.id }); if (r) return toast(r);
+    m.remove(); toast(t('Libro enviado'));
+  });
+  document.body.appendChild(m);
+}
+/* Tarjeta con QR: se dibuja en un canvas y se guarda como imagen */
+const shLoad = src => new Promise(res => { if (!src) return res(null); const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+function shWrap(ctx, text, maxW, maxLines) {
+  const lines = []; let cur = '';
+  for (const w of String(text).split(/\s+/).filter(Boolean)) { const tst = cur ? cur + ' ' + w : w; if (ctx.measureText(tst).width > maxW && cur) { lines.push(cur); cur = w; } else cur = tst; }
+  if (cur) lines.push(cur);
+  if (lines.length > maxLines) { lines.length = maxLines; let l = lines[maxLines - 1]; while (l.length && ctx.measureText(l + '…').width > maxW) l = l.slice(0, -1); lines[maxLines - 1] = l + '…'; }
+  return lines;
+}
+const shRR = (ctx, x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+const SH_STY = { claro: ['Claro', '#fbf8ff', '#f1e9fb', '#2b2140', '#6d6385'], oscuro: ['Oscuro', '#17122a', '#261c42', '#f4eefc', '#b9afd1'], valentin: ['San Valentín', '#fff0f4', '#fad2de', '#5a1d33', '#9a5670'] };
+async function shDraw(cv, s, st, imgs) {
+  const W = 1080, H = 1920, ctx = cv.getContext('2d'), pr = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '262 83% 58%', acc = `hsl(${pr})`;
+  const serif = (getComputedStyle(document.documentElement).getPropertyValue('--serif') || '').trim() || 'Georgia, serif', sans = (getComputedStyle(document.documentElement).getPropertyValue('--sans') || '').trim() || 'system-ui, sans-serif';
+  const [, c1, c2, ink, soft] = SH_STY[st.style] || SH_STY.claro;
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, c1); g.addColorStop(1, c2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = `hsl(${pr} / .10)`; ctx.beginPath(); ctx.arc(W - 120, 260, 360, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(80, H - 300, 300, 0, 7); ctx.fill();
+  if (st.style === 'valentin') {                                              // corazoncitos suaves de fondo
+    ctx.fillStyle = 'rgba(216,69,111,.16)'; [[110, 330, 46], [980, 640, 36], [150, 1010, 30], [940, 1210, 52], [90, 1480, 40], [990, 1720, 34], [520, 120, 28]].forEach(([x, y, r]) => { ctx.save(); ctx.translate(x, y); ctx.scale(r / 20, r / 20); ctx.beginPath(); ctx.moveTo(0, 8); ctx.bezierCurveTo(-24, -8, -10, -22, 0, -10); ctx.bezierCurveTo(10, -22, 24, -8, 0, 8); ctx.fill(); ctx.restore(); });
+  }
+  if (imgs.logo) { ctx.save(); shRR(ctx, W / 2 - 150, 56, 84, 84, 22); ctx.clip(); ctx.drawImage(imgs.logo, W / 2 - 150, 56, 84, 84); ctx.restore(); }
+  ctx.fillStyle = ink; ctx.font = `700 64px ${serif}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('Auri', W / 2 - 50, 100);
+  const cw = 480, ch = 720, cx = (W - cw) / 2, cy = 190;                         // portada
+  ctx.save(); ctx.shadowColor = 'rgba(40,20,70,.35)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 22; shRR(ctx, cx, cy, cw, ch, 28); ctx.fillStyle = acc; ctx.fill(); ctx.restore();
+  ctx.save(); shRR(ctx, cx, cy, cw, ch, 28); ctx.clip();
+  if (imgs.cover) { const k = Math.max(cw / imgs.cover.width, ch / imgs.cover.height), w = imgs.cover.width * k, h = imgs.cover.height * k; ctx.drawImage(imgs.cover, cx + (cw - w) / 2, cy + (ch - h) / 2, w, h); }
+  else { const gg = ctx.createLinearGradient(cx, cy, cx + cw, cy + ch); gg.addColorStop(0, `hsl(${pr} / .55)`); gg.addColorStop(1, `hsl(${pr})`); ctx.fillStyle = gg; ctx.fillRect(cx, cy, cw, ch); ctx.fillStyle = '#fff'; ctx.font = `700 52px ${serif}`; ctx.textAlign = 'center'; shWrap(ctx, s.title || '', cw - 80, 5).forEach((l, i, a) => ctx.fillText(l, W / 2, cy + ch / 2 + (i - (a.length - 1) / 2) * 66)); }
+  if (imgs.frame) ctx.drawImage(imgs.frame, cx, cy, cw, ch);
+  ctx.restore();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = ink; ctx.font = `700 70px ${serif}`;
+  const tl = shWrap(ctx, s.title || '', W - 200, 2); tl.forEach((l, i) => ctx.fillText(l, W / 2, 990 + i * 80));
+  let y = 990 + (tl.length - 1) * 80 + 64; ctx.fillStyle = soft; ctx.font = `500 40px ${sans}`; ctx.fillText(t('por {a}', { a: s.author || uName(s.owner) }), W / 2, y);
+  if (st.msg.trim()) { ctx.font = `italic 600 44px ${serif}`; const ml = shWrap(ctx, st.msg.trim(), W - 280, 2), bh = ml.length * 58 + 44, by = y + 42; ctx.fillStyle = `hsl(${pr} / .14)`; shRR(ctx, 100, by, W - 200, bh, 34); ctx.fill(); ctx.fillStyle = ink; ml.forEach((l, i) => ctx.fillText(l, W / 2, by + 22 + 44 + i * 58 - 6)); }
+  const qm = auriQR(shareURL(s)), qx = (W - 460) / 2, qy = 1385;                // QR
+  ctx.save(); ctx.shadowColor = 'rgba(40,20,70,.25)'; ctx.shadowBlur = 36; ctx.shadowOffsetY = 12; shRR(ctx, qx, qy, 460, 460, 40); ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore();
+  if (qm) { const n = qm.length, ms = Math.floor(380 / n), off = (460 - ms * n) / 2; ctx.fillStyle = '#241a3a'; for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qm[r][c]) { shRR(ctx, qx + off + c * ms, qy + off + r * ms, ms, ms, ms * .22); ctx.fill(); } }
+  ctx.fillStyle = soft; ctx.font = `600 36px ${sans}`; ctx.fillText(t('Escanea para leer'), W / 2, 1888);
+}
+function openShareQR(s) {
+  if (typeof auriQR !== 'function') return toast(t('No se pudo crear el QR.'));
+  const st = { style: 'claro', msg: t('¡Léelo en Auri!') }, imgs = { cover: null, frame: null, logo: null }; let blob = null, tm = 0;
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  m.innerHTML = `<div class="modal-box sh-box qr-box" role="dialog" aria-modal="true" aria-label="${esc(t('Abrir QR'))}"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Tarjeta con QR')}</h2>
+  <canvas class="qr-cv" width="1080" height="1920" aria-label="${esc(t('Vista previa de la tarjeta'))}"></canvas>
+  <label class="helper" for="qr-msg">${t('Mensaje en la tarjeta')}</label><input id="qr-msg" class="field" maxlength="80" value="${esc(st.msg)}" placeholder="${esc(t('Escribe un mensaje bonito'))}">
+  <div class="rbg-grid qr-sty">${Object.entries(SH_STY).map(([k, v]) => `<button type="button" class="chip ${st.style === k ? 'active' : ''}" data-sty="${k}">${t(v[0])}</button>`).join('')}</div>
+  <p class="helper qr-note" hidden>${t('No se pudo incluir la portada en la imagen.')}</p>
+  <div class="row-btns"><button type="button" class="button" data-save>${t('Guardar imagen')}</button></div></div>`;
+  const cv = m.querySelector('.qr-cv'), note = m.querySelector('.qr-note');
+  const paint = async () => { await shDraw(cv, s, st, imgs); cv.toBlob(b => { blob = b; }, 'image/png'); };
+  const later = () => { clearTimeout(tm); tm = setTimeout(paint, 160); };
+  m.addEventListener('input', ev => { if (ev.target.id === 'qr-msg') { st.msg = ev.target.value; later(); } });
+  m.addEventListener('click', async ev => {
+    if (ev.target === m || ev.target.closest('[data-no]')) return m.remove();
+    const sb = ev.target.closest('[data-sty]'); if (sb) { st.style = sb.dataset.sty; m.querySelectorAll('[data-sty]').forEach(x => x.classList.toggle('active', x === sb)); return later(); }
+    if (ev.target.closest('[data-save]')) {
+      if (!blob) return toast(t('Un momento, se está preparando la imagen.'));
+      const f = new File([blob], 'auri-' + (String(s.title || 'libro').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'libro') + '.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], title: s.title }); } catch (e) { /* se canceló */ } return; }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast(t('Imagen guardada'));
+    }
+  });
+  document.body.appendChild(m); paint();
+  Promise.all([shLoad(s.cover), shLoad(cfKey(s) ? COVER_FRAMES[cfKey(s)][1] : ''), shLoad('icons/icon-192.png'), document.fonts && document.fonts.ready]).then(([c, f, l]) => { imgs.cover = c; imgs.frame = f; imgs.logo = l; if (s.cover && !c) note.hidden = false; paint(); });
+}
 /* Pantalla 1: portada, título, autoría, likes y sinopsis (sin el texto) */
 function storyDetail(s, mine) {
   const read = readList(s.id), fav = S.favs.includes(s.id), n = likes(s.id).length, first = s.chapters[0];
@@ -3289,7 +3392,7 @@ function storyDetail(s, mine) {
   <div class="bk-cta">${bookState(s)}
   <a class="button read-cta" data-replace data-dir="next" ${s.useReaderCharacter ? `data-readas="${esc(s.id)}"` : ''} href="#/story/${esc(s.id)}/${next.idx + 1}">${!read.length && !at ? t('Empezar a leer') : all ? t('Leer otra vez') : t('Continuar: cap. {n}', { n: next.idx + 1 })}</a>
   ${vnReadBtn(s, next)}
-  <div class="act-wrap"><div class="row-btns act"><div class="act-i"><button type="button" class="ic-btn like-btn ${likes(s.id).includes(S.user) ? 'on' : ''}" data-act="like" data-id="${esc(s.id)}" aria-pressed="${likes(s.id).includes(S.user)}" aria-label="${esc(likes(s.id).includes(S.user) ? t('Quitar me gusta') : t('Me gusta'))}" title="${esc(t('Me gusta'))}">${HEART}</button><small>${t('Like')}</small></div><div class="act-i"><button type="button" class="ic-btn fav-btn ${fav ? 'on' : ''}" data-act="fav" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(fav ? t('En favoritos') : t('Favorito'))}" title="${esc(t('Favorito'))}"><svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.85 5.78 6.38.93-4.62 4.5 1.09 6.35L12 17.36l-5.7 3 1.09-6.35-4.62-4.5 6.38-.93L12 2.8z"/></svg></button><small>${t('Favorito')}</small></div><div class="act-i"><button type="button" class="ic-btn lib-btn ${S.lib.includes(s.id) ? 'on' : ''}" data-act="lib-toggle" data-id="${esc(s.id)}" aria-pressed="${S.lib.includes(s.id)}" aria-label="${esc(S.lib.includes(s.id) ? t('En tu biblioteca') : t('Guardar en biblioteca'))}" title="${esc(t('Biblioteca'))}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/>${S.lib.includes(s.id) ? '<path d="M9.3 10l2 2 3.4-3.6"/>' : '<path d="M12 7v6M9 10h6"/>'}</svg></button><small>${t('Biblioteca')}</small></div>${mine ? `<div class="act-i"><a class="ic-btn edit-btn" href="#/write/${esc(s.id)}" aria-label="${esc(t('Editar'))}" title="${esc(t('Editar'))}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19l-4 1z"/><path d="m14.5 6.5 3 3"/></svg></a><small>${t('Editar')}</small></div>` : ''}</div><p class="act-cap">${t('Like')} · ${t('Favorito')} · ${t('Biblioteca')}${mine ? ' · ' + t('Editar') : ''}</p></div></div>
+  <div class="act-wrap"><div class="row-btns act"><div class="act-i"><button type="button" class="ic-btn like-btn ${likes(s.id).includes(S.user) ? 'on' : ''}" data-act="like" data-id="${esc(s.id)}" aria-pressed="${likes(s.id).includes(S.user)}" aria-label="${esc(likes(s.id).includes(S.user) ? t('Quitar me gusta') : t('Me gusta'))}" title="${esc(t('Me gusta'))}">${HEART}</button><small>${t('Like')}</small></div><div class="act-i"><button type="button" class="ic-btn fav-btn ${fav ? 'on' : ''}" data-act="fav" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(fav ? t('En favoritos') : t('Favorito'))}" title="${esc(t('Favorito'))}"><svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.85 5.78 6.38.93-4.62 4.5 1.09 6.35L12 17.36l-5.7 3 1.09-6.35-4.62-4.5 6.38-.93L12 2.8z"/></svg></button><small>${t('Favorito')}</small></div><div class="act-i"><button type="button" class="ic-btn lib-btn ${S.lib.includes(s.id) ? 'on' : ''}" data-act="lib-toggle" data-id="${esc(s.id)}" aria-pressed="${S.lib.includes(s.id)}" aria-label="${esc(S.lib.includes(s.id) ? t('En tu biblioteca') : t('Guardar en biblioteca'))}" title="${esc(t('Biblioteca'))}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/>${S.lib.includes(s.id) ? '<path d="M9.3 10l2 2 3.4-3.6"/>' : '<path d="M12 7v6M9 10h6"/>'}</svg></button><small>${t('Biblioteca')}</small></div>${shareBtn(s)}${mine ? `<div class="act-i"><a class="ic-btn edit-btn" href="#/write/${esc(s.id)}" aria-label="${esc(t('Editar'))}" title="${esc(t('Editar'))}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19l-4 1z"/><path d="m14.5 6.5 3 3"/></svg></a><small>${t('Editar')}</small></div>` : ''}</div><p class="act-cap">${t('Like')} · ${t('Favorito')} · ${t('Biblioteca')}${mine ? ' · ' + t('Editar') : ''}</p></div></div>
   ${s.vn || VNF[s.id] ? `<div class="vn-badge" role="note"><span class="vn-badge-ic" aria-hidden="true">✦</span><span><b>${t('Compatible con novela visual')}</b><small>${t('Léelo con personajes, fondos y reacciones')}</small></span></div>` : ''}
   <p class="detail-syn">${esc(s.synopsis)}</p>
   ${s.mature ? `<div class="adult-box"><span class="adult-badge">+18</span><div><b>${t('Contenido para adultos')}</b><small>${t('Esta historia es solo para mayores de 18 años.')}</small></div></div>` : ''}
@@ -5657,6 +5760,7 @@ document.addEventListener('click', e => {
       if (open && rows.some(x => !x.claimed && x.kind !== 'sprite_pick')) return passClaimMany([[tier, n]]);
       const lab = (tier === 'paid' ? PASS_PAID : PASS_FREE)[MS.track][n] || '', done = rows.every(x => x.claimed);
       rwModal(rows.filter(x => x.kind !== 'sprite_pick' && x.kind !== 'sprite_random'), t('Nivel {n}', { n }), `<p class="rw-lab">${esc(t(lab))}</p><p class="helper">${esc(t(done ? 'Ya lo reclamaste.' : st.level < n ? 'Todavía no llegas a este nivel.' : 'Necesitas el pase para reclamar esto.'))}</p>`); },
+    'share-open': () => { const st = findStory(id); if (st) openShare(st); },
     'badge-one': () => { if (BADGES[id]) badgeModal([id], true); },
     'badge-all': () => badgeModal(badgesOf(id)),
     'pass-all': () => { const st = MS[MS.track]; if (!st) return; el.disabled = true; passClaimMany(rwReady(st)); },
