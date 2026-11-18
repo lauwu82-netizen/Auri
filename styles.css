@@ -1685,6 +1685,9 @@ textarea.ep-input{border-bottom:0;min-height:76px;line-height:1.5}
 .sep-mini{display:flex;align-items:center;gap:6px;width:100%}
 .sep-mini i{flex:1;height:1px;background:linear-gradient(90deg,transparent,hsl(var(--primary)/.5))}.sep-mini i:last-child{background:linear-gradient(270deg,transparent,hsl(var(--primary)/.5))}
 .sep-mini.sp-dots i{display:none}.sep-mini .sp-mid svg{width:34px;height:20px}
+.sp-leaves .sp-mid svg,.sp-pluma .sp-mid svg{height:32px}
+.ch-orn.sp-leaves .sp-mid svg,.ch-orn.sp-pluma .sp-mid svg{height:22px}
+.sep-mini.sp-leaves .sp-mid svg,.sep-mini.sp-pluma .sp-mid svg{height:26px}
 
 .bm-para{background:hsl(var(--primary)/.07);box-shadow:0 0 0 7px hsl(var(--primary)/.07);border-radius:8px}
 .bm-sepx{margin:1.6em auto .6em!important;flex-direction:row;flex-wrap:wrap;animation:bmIn .5s ease-out}
