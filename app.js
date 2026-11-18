@@ -34,7 +34,7 @@ const LS = {
 };
 const S = { user: LS.get('auri.session', null), theme: LS.get('auri.themeSet', false) ? LS.get('auri.theme', 'auto') : 'auto', stories: [], favs: [], progress: {}, character: {} };
 const uk = n => `auri.u.${S.user}.${n}`;           // datos separados por cuenta
-const emptyChar = () => ({ name: '', nickname: '', hair: '', eyes: '', personality: '' });
+const emptyChar = () => ({ name: '', surname: '', nickname: '', hair: '', eyes: '', personality: '' });
 const saveChars = () => LS.set(uk('chars'), { list: S.chars, active: S.activeId });
 const MAX_CHARS = 10;                                  // cuántos personajes puede guardar cada persona
 function loadChars() {
@@ -2369,7 +2369,13 @@ const HE_TOK = { h: ['T/C/P', 'T/C/C', 'T/CP', 'T/CC', 'T/P', 'T/C', 'Y/H/C', 'H
 const HE_KEY = Object.fromEntries([...HE_TOK.h.map(k => [k, 'hair']), ...HE_TOK.e.map(k => [k, 'eyes']), ['TP', 'hair'], ['HC', 'hair'], ['TO', 'eyes'], ['EC', 'eyes']]);
 const HE_ALL = [...HE_TOK.h, ...HE_TOK.e].sort((a, b) => b.length - a.length).map(k => k.replace(/\//g, '\\/')).join('|');
 const HE_RE = new RegExp('(^|[^\\w/])(' + HE_ALL + ')(?![\\w/])|[\\[(]\\s*(' + HE_ALL + '|TP|TO|HC|EC)\\s*[\\])]', 'gi');
-const fillHE = (text, ch) => { const v = { hair: String((ch && ch.hair) || '').trim(), eyes: String((ch && ch.eyes) || '').trim() }; if (!v.hair && !v.eyes) return text;
+/** TA / T/A / [TA] / (T/A) (ES) y YLN / Y/L/N (EN) → apellido del personaje. MAYÚSCULAS → apellido en MAYÚSCULAS; minúsculas → en minúsculas; si no, tal cual. Sin apellido guardado queda el marcador. "ta" suelto en minúsculas no se toca (es una palabra coloquial); con corchetes o T/A sí */
+const TA_RE = /[\[(]\s*(?:T\/A|Y\/L\/N|TA|YLN)\s*[\])]|\b(?:T\/A|Y\/L\/N)\b|\b(?:TA|YLN)\b/gi;
+const fillTA = (text, ch) => { const sn = String((ch && ch.surname) || '').trim(); if (!sn) return text;
+  return text.replace(TA_RE, m => { const bare = !/[\[(\/]/.test(m), L = m.replace(/[^A-Za-z]/g, ''); if (bare && /^ta$/i.test(L) && L !== 'TA') return m;
+    return L === L.toUpperCase() ? sn.toLocaleUpperCase(LOC()) : L === L.toLowerCase() ? sn.toLocaleLowerCase(LOC()) : sn; }); };
+const fillHE = (text, ch) => fillHE0(fillTA(text, ch), ch);
+const fillHE0 = (text, ch) => { const v = { hair: String((ch && ch.hair) || '').trim(), eyes: String((ch && ch.eyes) || '').trim() }; if (!v.hair && !v.eyes) return text;
   return text.replace(HE_RE, (m, pre, bare, br) => { const tok = (bare || br).replace(/\s/g, ''), up = tok.toUpperCase(), k = HE_KEY[up];
     if (!k || !v[k]) return m; if (br && /^(TP|TO|HC|EC)$/i.test(tok) && tok !== up) return m;      // «(to)» en minúsculas es la palabra inglesa, no un marcador
     return (bare ? pre : '') + v[k]; }); };
@@ -2938,7 +2944,7 @@ function infoView(existing) {
   ${sagaBox()}
   </div></section>
   <section class="panel nb-sec nb-tg"><h3 class="nb-h"><b>4</b>${t('Ajustes del libro')}</h3>
-  <div class="toggle-line"><div><strong>${t('Tarjeta de personaje lector')}</strong><div class="helper">${t('Reemplaza TN / T/N por el nombre de tu personaje.')}</div></div>
+  <div class="toggle-line"><div><strong>${t('Tarjeta de personaje lector')}</strong><div class="helper">${t('Reemplaza TN / T/N por el nombre de tu personaje y TA / T/A por su apellido.')}</div></div>
   <button type="button" role="switch" class="switch" aria-checked="${W.useReaderCharacter}" data-act="toggle-tn" aria-label="${esc(t('Usar tarjeta de personaje lector'))}"></button></div>
   <div class="toggle-line"><div><strong>${t('Historia privada')}</strong><div class="helper">${t('Solo tú la ves: no aparece en Descubrir, búsquedas ni tu perfil público, y no pasa por moderación.')}</div></div>
   <button type="button" role="switch" class="switch" aria-checked="${!!W.private}" data-act="toggle-priv" aria-label="${esc(t('Historia privada'))}"></button></div>
@@ -5239,6 +5245,7 @@ function openCharForm(id, after) {
   m.innerHTML = `<div class="modal-box char-form" role="dialog" aria-modal="true" aria-label="${cur ? t('Editar personaje') : t('Crear personaje')}"><button class="icon-btn close-x" data-x aria-label="${esc(t('Cerrar'))}">✕</button><h2>${cur ? t('Editar personaje') : t('Nuevo personaje')}</h2>
   <div class="cf-photo"><span class="cf-prev" data-prev>${photo ? `<img src="${esc(photo)}" alt="">` : '🐱'}</span><div class="cover-fields"><label class="button secondary sm" style="cursor:pointer">${t('📷 Subir foto (opcional)')}<input type="file" accept="image/*" hidden data-file></label><button type="button" class="button ghost sm" data-nophoto ${photo ? '' : 'hidden'}>${t('Quitar foto')}</button></div></div>
   <div class="form-group"><label>${t('Nombre del personaje')}</label><input class="field" data-name maxlength="30" placeholder="${esc(t('Ej: Aiko'))}" value="${esc(cur ? cur.name : '')}"></div>
+  <div class="form-group"><label>${t('Apellido (opcional)')}</label><input class="field" data-surname maxlength="30" placeholder="${esc(t('Ej: Tanaka'))}" value="${esc(cur ? cur.surname || '' : '')}"><p class="helper">${t('En las historias que lo permiten, TA (apellido) se reemplaza con este dato. En mayúsculas sale en mayúsculas.')}</p></div>
   <div class="cf-two"><div class="form-group"><label>${t('Color de cabello')}</label><input class="field" data-hair maxlength="40" placeholder="${esc(t('Ej: castaño oscuro'))}" value="${esc(cur ? cur.hair || '' : '')}"></div><div class="form-group"><label>${t('Color de ojos')}</label><input class="field" data-eyes maxlength="40" placeholder="${esc(t('Ej: verdes'))}" value="${esc(cur ? cur.eyes || '' : '')}"></div></div>
   <p class="helper">${t('En las historias que lo permiten, T/P (cabello) y T/O (ojos) se reemplazan con estos datos.')}</p>
   ${vnOn() ? `<details class="cf-vn"><summary>${t('Sprites para novela visual')}</summary><p class="helper">${t('Sube un PNG con fondo transparente por cada emoción. Se usan cuando lees una novela visual como este personaje.')}</p><div class="vn-cells" data-vncells></div><fieldset class="vn-decl"><legend>🛡 ${t('Declaración de uso de recursos')}</legend><p class="helper">${t('Antes de importar imágenes a tu novela visual:')}</p>
@@ -5258,12 +5265,12 @@ function openCharForm(id, after) {
   q('[data-file]').onchange = () => fitPhoto(q('[data-file]').files[0], 600, 800, d => { photo = d; setPrev(); });
   q('[data-nophoto]').onclick = () => { photo = ''; setPrev(); };
   q('[data-save]').onclick = () => {
-    const name = q('[data-name]').value.trim(), hair = q('[data-hair]').value.trim(), eyes = q('[data-eyes]').value.trim(); if (!name) { q('[data-err]').textContent = t('Escribe un nombre para tu personaje.'); return; }
+    const name = q('[data-name]').value.trim(), hair = q('[data-hair]').value.trim(), eyes = q('[data-eyes]').value.trim(), surname = q('[data-surname]').value.trim(); if (!name) { q('[data-err]').textContent = t('Escribe un nombre para tu personaje.'); return; }
     const sprRights = [...m.querySelectorAll('[data-sdecl]')].length > 0 && [...m.querySelectorAll('[data-sdecl]')].every(x => x.checked);
     if (Object.keys(sp).length && !sprRights) { q('[data-err]').textContent = t('Para guardar sprites marca la declaración de uso de recursos.'); return; }
-    if (cur) { S.chars = S.chars.map(c => c.id === cur.id ? { ...c, name, photo, hair, eyes, sprites: sp, sprRights } : c); if (cur.id === S.activeId) setActive(cur.id); saveChars(); close(); toast('Personaje actualizado'); return render(); }
+    if (cur) { S.chars = S.chars.map(c => c.id === cur.id ? { ...c, name, surname, photo, hair, eyes, sprites: sp, sprRights } : c); if (cur.id === S.activeId) setActive(cur.id); saveChars(); close(); toast('Personaje actualizado'); return render(); }
     let nid; do { nid = chapId(); } while (S.chars.some(c => c.id === nid));
-    S.chars = [...S.chars, { id: nid, ...emptyChar(), name, photo, hair, eyes, sprites: sp, sprRights }];
+    S.chars = [...S.chars, { id: nid, ...emptyChar(), name, surname, photo, hair, eyes, sprites: sp, sprRights }];
     if (S.chars.length === 1) setActive(nid); else saveChars();                 // el primero queda en uso automáticamente
     close(); toast('Personaje creado ✨'); if (after) after(nid); else { KEEP = true; render(); }
   };
@@ -6789,7 +6796,7 @@ function vnCutBg(url) {
 /** Datos del OC de quien lee (nombre, foto o sprite con enlace https, cabello y ojos) para que el CG lo dibuje como es. */
 function vnrOc() {
   const c = S.character || {}, sp = c.sprites || {}, img = [sp.neutral, c.photo, ...Object.values(sp)].find(u => /^https:\/\//.test(String(u || ''))) || '';
-  return c.name ? { name: c.name, img, hair: c.hair || '', eyes: c.eyes || '' } : null;
+  return c.name ? { name: c.name, surname: c.surname || '', img, hair: c.hair || '', eyes: c.eyes || '' } : null;
 }
 async function vnrCgLoad(slot, desc) {
   if (!VNR) return; const c = VNR.cgs[slot] = VNR.cgs[slot] || {}; if (c.state) return; c.state = 'loading';

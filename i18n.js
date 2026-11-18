@@ -390,7 +390,7 @@ window.I18N = { en: {
  "Escribe cada etiqueta con # al inicio. Ej: #romance lento #magia. Así la gente te encuentra al buscar por etiquetas.": "Write each tag starting with #. E.g.: #slow burn #magic. That way people can find you when searching by tags.",
  "Estado del libro": "Book status",
  "Tarjeta de personaje lector": "Reader character card",
- "Reemplaza TN / T/N por el nombre de tu personaje.": "Replaces YN / Y/N with your character's name.",
+ "Reemplaza TN / T/N por el nombre de tu personaje y TA / T/A por su apellido.": "Replaces YN / Y/N with your character's name and YLN / Y/L/N with their last name.",
  "Usar tarjeta de personaje lector": "Use reader character card",
  "Historia +18": "+18 story",
  "Actívalo si tiene contenido sugerente o temas para mayores de edad. Una vez publicada, quitar la marca +18 necesita aprobación de moderación.": "Turn it on if it has suggestive content or themes for adults. Once published, removing the +18 mark needs moderation approval.",
@@ -2658,4 +2658,7 @@ window.I18N = { en: {
   'Lee tus historias como una novela visual': 'Read your stories like a visual novel',
   'Personajes con emociones, fondos a pantalla completa y diálogos, dentro de la misma app. Se activa en los libros compatibles.': 'Characters with emotions, full-screen backgrounds and dialogue, inside the same app. It turns on in compatible books.',
   'Los libros de tu biblioteca': 'Books from your library',
+  'Apellido (opcional)': 'Last name (optional)',
+  'Ej: Tanaka': 'E.g.: Tanaka',
+  'En las historias que lo permiten, TA (apellido) se reemplaza con este dato. En mayúsculas sale en mayúsculas.': 'In stories that allow it, YLN (last name) is replaced with this. In capitals it comes out in capitals.',
 } };
