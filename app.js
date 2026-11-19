@@ -802,6 +802,7 @@ async function sbRefresh(only) {                          // sube lo tuyo, trae 
     while (SB_Q.all || SB_Q.st || SB_Q.soc.size) {
       const q = SB_Q; SB_Q = { all: false, st: false, soc: new Set() }; let ch = false; const me = sbSes() && S.user && !isGuest();
       if (me && (q.all || q.st)) ch = (await sbSyncOwn()) || ch;
+      if (me && (q.all || q.st)) ntSyncPending();
       if (q.all || q.st) ch = (await sbPullPublic()) || ch;
       if (me && (q.all || q.soc.has('dm'))) ch = (await sbSyncMsgs()) || ch;
       if (me && q.all) ch = (await sbSyncMod()) || ch;
@@ -2898,7 +2899,7 @@ function writeRoute(editId, sub, cid) {
   ensureW(editId);
   if (!W) return `<main class="page">${empty(t('Historia no encontrada'), t('Puede que se haya eliminado.'), '<a class="button" href="#/library">' + t('Ir a mi biblioteca') + '</a>')}</main>`;
   if (!editId) return infoView(false);
-  return sub === 'chapters' ? chaptersView() : sub === 'ch' ? chapterView(+cid) : infoView(true);
+  return sub === 'chapters' ? chaptersView() : sub === 'notes' ? notesBoardView() : sub === 'ch' ? chapterView(+cid) : infoView(true);
 }
 const needTerms = () => !(getUsers()[S.user] || {}).termsAccepted;     // cuentas anteriores al nuevo registro: aceptan una sola vez aquí
 const submitBlock = () => W.private ? `<div class="panel" style="margin-top:16px"><p class="notice" style="margin:0 0 4px">🔒 ${t('Historia privada: solo tú la ves y no pasa por moderación.')}</p><button class="button" style="margin-top:12px;width:100%" data-act="save-draft">${t('Guardar')}</button></div>` : `<div class="panel" style="margin-top:16px">${needTerms() ? `<label class="check"><input type="checkbox" id="w-terms" ${W.terms ? 'checked' : ''}><span>${t('Acepto los {terms} de Auri.', { terms: '<button type="button" class="link-btn" data-act="terms">' + t('términos y condiciones') + '</button>' })}</span></label>` : ''}
@@ -2954,13 +2955,456 @@ function infoView(existing) {
   <div class="nb-go">${existing ? '<button class="button" data-act="info-save">' + t('Guardar cambios') + '</button>' : '<button class="button" data-act="save-next">' + t('Guardar y siguiente ›') + '</button>'}</div>${existing ? chaptersEntry() + vnEntry() : ''}</main>`;
 }
 
+/* ---------- NOTAS PRIVADAS: tarjetas por historia, dentro del editor ----------
+   Gratis para todas las cuentas y privadas (solo la autoría). Tabla story_notes + funciones note_* (supabase/76).
+   Borrador local por cuenta/historia/nota; se sincroniza con control de versión (si hay conflicto se conservan las dos versiones).
+   El orden es lógico (una lista), nunca coordenadas. Las skins solo cambian la apariencia (data-note-skin): el contenido es el mismo. */
+const NT_T = 80, NT_B = 5000, NT_MAX = 300, NT_CHMAX = 150000, NT_SKINS = ['basic'];
+const NT = { user: '', sid: '', st: null, rt: {}, open: '', sel: null, undo: null, drag: null, p: null, busy: {}, again: {}, tm: 0, sy: 0, dirty: false, noclick: 0, lock: 0, snack: 0, wide: false, route: '', off: false };
+const ntKey = sid => uk('notes.' + sid);
+const ntUuid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = (window.crypto && crypto.getRandomValues ? crypto.getRandomValues(new Uint8Array(1))[0] : Math.floor(Math.random() * 256)) & 15; return (c === 'x' ? r : (r & 3) | 8).toString(16); });
+const ntNorm = x => ({ id: String(x.id), t: String(x.t || ''), b: String(x.b || ''), v: x.v | 0, d: !!x.d, dd: x.dd | 0, seq: x.seq | 0, del: +x.del || 0 });
+const ntRead = sid => { const raw = LS.get(ntKey(sid), null) || {}; return { items: (Array.isArray(raw.items) ? raw.items : []).filter(x => x && x.id).map(ntNorm), od: !!raw.od, split: raw.split == null ? -1 : raw.split | 0, show: raw.show == null ? null : !!raw.show, skin: NT_SKINS.includes(raw.skin) ? raw.skin : 'basic' }; };
+const ntLive = st => st.items.filter(x => !x.del);
+const ntOver = it => it.t.length > NT_T || it.b.length > NT_B;
+function ntFlush() { clearTimeout(NT.tm); NT.tm = 0; if (NT.sid && NT.st && NT.dirty) { NT.dirty = false; LS.set(ntKey(NT.sid), NT.st); } }
+function ntSave(now) { NT.dirty = true; clearTimeout(NT.tm); if (now) return ntFlush(); NT.tm = setTimeout(ntFlush, 300); }
+function ntLoad(sid) {
+  if (NT.user === S.user && NT.sid === sid && NT.st) return NT.st;
+  ntFlush(); NT.user = S.user; NT.sid = sid; NT.rt = {}; NT.open = ''; NT.st = ntRead(sid); return NT.st;
+}
+const ntStore = sid => sid === NT.sid && NT.st ? NT.st : ntRead(sid);
+const ntPut = (sid, st) => { if (sid === NT.sid && NT.st) ntSave(true); else LS.set(ntKey(sid), st); };
+/** ¿Esta cuenta puede guardar las notas en la nube? Si no, quedan solo en este dispositivo */
+const ntCan = sid => { const s = sbSes(); return !!(cloud() && s && S.user && !isGuest() && S.user === String(s.email || '').toLowerCase() && sUuid(sid) && (getUsers()[S.user] || {}).cloud); };
+const ntSkin = () => (NT.st && NT_SKINS.includes(NT.st.skin) ? NT.st.skin : 'basic');   // futuro: una skin extra solo si hasItem(S.user, 'nskin:<clave>')
+
+/* --- estado visible: solo dice «Guardado» cuando el servidor lo confirmó --- */
+function ntStatOf(items) {
+  if (!NT.sid || !ntCan(NT.sid)) return { k: 'local', txt: t('Solo en este dispositivo') };
+  if (items.some(ntOver)) return { k: 'long', txt: t('Pasa del límite: no se guardará hasta que la recortes') };
+  let busy = false, pend = false, net = false, nos = false, err = false;
+  for (const it of items) { const r = NT.rt[it.id] || {}; if (r.busy) busy = true; if (it.d || it.dd) { pend = true; if (r.err === 'net') net = true; else if (r.err === 'nostory') nos = true; else if (r.err) err = true; } }
+  if (busy) return { k: 'busy', txt: t('Guardando…') };
+  if (!pend) return { k: 'ok', txt: t('Guardado') };
+  if (net || NT.off || (typeof navigator !== 'undefined' && navigator.onLine === false)) return { k: 'net', txt: t('Sin conexión · queda pendiente') };
+  if (nos) return { k: 'pend', txt: t('Pendiente · se guardará con la historia') };
+  if (err) return { k: 'err', txt: t('No se pudo guardar'), retry: true };
+  return { k: 'busy', txt: t('Guardando…') };
+}
+function ntPaint() {
+  if (!NT.st) return;
+  const all = ntStatOf(ntLive(NT.st).concat(NT.st.items.filter(x => x.del && x.dd)));
+  const html = s => `<span class="nt-sd nt-sd-${s.k}">${esc(s.txt)}</span>${s.retry ? ` <button type="button" class="nt-retry" data-nt="retry">${esc(t('Reintentar'))}</button>` : ''}`;
+  document.querySelectorAll('.nt-ds').forEach(el => { el.innerHTML = html(all); });
+  const it = NT.open && NT.st.items.find(x => x.id === NT.open), el = $('#nt-stat');
+  if (el && it) el.innerHTML = html(ntStatOf([it]));
+  const tg = $('.nt-tog'); if (tg) tg.setAttribute('data-nt-st', all.k);
+}
+
+/* --- sincronización --- */
+function ntSyncSoon(ms) { clearTimeout(NT.sy); const sid = NT.sid; NT.sy = setTimeout(() => ntSync(sid), ms == null ? 1400 : ms); }
+async function ntSync(sid, round) {
+  if (!sid || !ntCan(sid)) { ntPaint(); return; }
+  if (NT.busy[sid]) { NT.again[sid] = 1; return; }
+  NT.busy[sid] = 1; NT.again[sid] = 0; let again = false, changed = false;
+  try {
+    const su = sUuid(sid), get = () => ntStore(sid); let stop = false;
+    for (const id of get().items.filter(x => x.d && !x.del).map(x => x.id)) {                        // 1) altas y cambios
+      if (stop) break;
+      let it = get().items.find(x => x.id === id); if (!it || !it.d) continue;
+      const rt = NT.rt[id] || (NT.rt[id] = {});
+      if (ntOver(it)) { rt.err = 'long'; continue; }
+      const seq = it.seq; rt.busy = true; rt.err = ''; ntPaint();
+      const r = await sbApi('/rest/v1/rpc/note_save', { method: 'POST', body: { p_id: id, p_story: su, p_title: it.t, p_body: it.b, p_base: it.v } });
+      rt.busy = false;
+      const cur = get().items.find(x => x.id === id); if (!cur) continue;
+      const d = r.data || {};
+      if (r.net) { rt.err = 'net'; stop = true; }
+      else if (!r.ok) { rt.err = 'err'; }
+      else if (d.status === 'ok') { cur.v = d.version | 0; if (cur.seq === seq) cur.d = false; else again = true; rt.err = ''; changed = true; }
+      else if (d.status === 'conflict' && d.row) {                                                  // cambió en otro dispositivo: se conservan las dos versiones
+        const rw = d.row, items = get().items, i = items.findIndex(x => x.id === id);
+        if ((rw.title || '') === cur.t && (rw.body || '') === cur.b) { cur.v = rw.version | 0; cur.d = false; }
+        else {
+          const suf = ' ' + t('(otra versión)'), base = (rw.title || t('Sin título')).slice(0, Math.max(0, NT_T - suf.length));
+          items.splice(i + 1, 0, ntNorm({ id: ntUuid(), t: base + suf, b: rw.body || '', v: 0, d: true, seq: 1 }));
+          cur.v = rw.version | 0; again = true; NT.conflict = true;
+        }
+        changed = true; rt.err = '';
+      }
+      else if (d.status === 'no_story') { rt.err = 'nostory'; stop = true; }
+      else rt.err = 'err';
+      ntPut(sid, get());
+    }
+    for (const id of get().items.filter(x => x.dd).map(x => x.id)) {                                  // 2) borrar / recuperar
+      if (stop) break;
+      const it = get().items.find(x => x.id === id); if (!it) continue;
+      const r = await sbApi('/rest/v1/rpc/note_delete', { method: 'POST', body: { p_id: id, p_restore: it.dd === 2 } });
+      if (r.net) { stop = true; (NT.rt[id] = NT.rt[id] || {}).err = 'net'; break; }
+      const cur = get().items.find(x => x.id === id);
+      if (cur && r.ok) { cur.dd = 0; changed = true; if (cur.del && Date.now() - cur.del > 2592000000) get().items.splice(get().items.indexOf(cur), 1); } else if (cur) (NT.rt[id] = NT.rt[id] || {}).err = 'err';
+      ntPut(sid, get());
+    }
+    if (!stop && get().od) {                                                                          // 3) orden
+      const mark = NT.ordSeq | 0, ids = get().items.filter(x => x.v > 0).map(x => x.id);
+      const r = await sbApi('/rest/v1/rpc/note_order', { method: 'POST', body: { p_story: su, p_ids: ids } });
+      if (r.net) stop = true; else if (r.ok && (r.data || {}).status === 'ok') { if ((NT.ordSeq | 0) === mark) { get().od = false; ntPut(sid, get()); } else again = true; }
+    }
+    if (!stop) {                                                                                      // 4) traer lo de otros dispositivos
+      const r = await sbApi('/rest/v1/story_notes?story_id=eq.' + su + '&select=id,title,body,pos,version,deleted_at&order=pos&limit=1000');
+      if (r.net) NT.off = true;
+      else { NT.off = false; if (r.ok && Array.isArray(r.data)) { if (ntMerge(sid, r.data)) changed = true; } }
+    }
+  } catch (e) { console.warn('notas', e); }
+  finally { NT.busy[sid] = 0; }
+  if (sid === NT.sid) { ntPaint(); if (changed && !NT.drag) { ntDraw(); ntRefreshOpen(); } }
+  if ((again || NT.again[sid]) && (round | 0) < 4) setTimeout(() => ntSync(sid, (round | 0) + 1), 300);
+  if (NT.conflict) { NT.conflict = false; toast('Esta nota cambió en otro dispositivo. Conservé las dos versiones.'); }
+}
+function ntMerge(sid, rows) {
+  const st = ntStore(sid); let ch = false; const byId = new Map(st.items.map(x => [x.id, x])), pos = new Map();
+  rows.forEach(rw => {
+    pos.set(rw.id, rw.pos | 0); const l = byId.get(rw.id), del = rw.deleted_at ? (Date.parse(rw.deleted_at) || Date.now()) : 0;
+    if (!l) { st.items.push(ntNorm({ id: rw.id, t: rw.title, b: rw.body, v: rw.version, d: false, seq: 0, del })); ch = true; return; }
+    if (l.d || l.dd) return;                                                                          // tienes cambios sin subir: manda lo local (el servidor avisa si hay conflicto)
+    if ((rw.version | 0) >= l.v && (l.t !== rw.title || l.b !== rw.body || l.v !== (rw.version | 0) || !!l.del !== !!del)) { l.t = rw.title || ''; l.b = rw.body || ''; l.v = rw.version | 0; l.del = del; ch = true; }
+  });
+  const gone = st.items.filter(x => x.v > 0 && !pos.has(x.id) && !x.d && !x.dd);
+  if (gone.length) { st.items = st.items.filter(x => !gone.includes(x)); ch = true; }
+  if (!st.od) {
+    const a = st.items.filter(x => pos.has(x.id)).sort((p, q) => pos.get(p.id) - pos.get(q.id)), b = st.items.filter(x => !pos.has(x.id)), n = a.concat(b);
+    if (n.some((x, i) => x !== st.items[i])) { st.items = n; ch = true; }
+  }
+  if (ch) ntPut(sid, st);
+  return ch;
+}
+function ntSyncPending() {
+  if (!S.user || !cloud() || !sbSes()) return;
+  const ids = new Set(); if (NT.sid) ids.add(NT.sid);
+  (S.stories || []).forEach(s => { const raw = LS.get(ntKey(s.id), null); if (raw && ((raw.items || []).some(x => x.d || x.dd) || raw.od)) ids.add(s.id); });
+  ids.forEach(id => ntSync(id));
+}
+
+/* --- tarjetas --- */
+const ntCard = it => { const ti = it.t.trim(); return `<div class="nt-card" role="button" tabindex="0" data-nid="${esc(it.id)}" aria-label="${esc(t('Abrir nota: {x}', { x: ti || t('Sin título') }))}"><button type="button" class="nt-grip" data-nid="${esc(it.id)}" aria-label="${esc(t('Mover nota. Con el teclado, usa las flechas.'))}"><i></i><i></i><i></i></button><b class="nt-ct${ti ? '' : ' nt-none'}">${esc(ti || t('Sin título'))}</b><p class="nt-cp">${esc(it.b)}</p></div>`; };
+function ntHead(st, id) {
+  const del = st.items.filter(x => x.del && Date.now() - x.del < 2592000000).length;
+  return `<div class="nt-hd"><span class="nt-lock">${t('Privado · solo tú')}</span><span class="nt-ds" role="status" aria-live="polite"></span></div><div class="nt-hd nt-hb"><button type="button" class="nt-new" data-nt="new">＋ ${t('Nueva nota')}</button>${del ? `<button type="button" class="nt-lnk" data-nt="trash">${t('Borradas ({n})', { n: del })}</button>` : ''}${id ? `<a class="nt-lnk" href="#/write/${esc(id)}/notes">${t('Tablero')}</a>` : ''}</div>`;
+}
+function ntDraw() {
+  const st = NT.st; if (!st) return;
+  const live = ntLive(st), skin = ntSkin();
+  const dock = $('#nt-dock'), tg = $('.nt-tog'), bd = $('#nt-board');
+  if (tg) { const show = st.show == null ? live.length > 0 : st.show; tg.textContent = live.length ? t('Notas · {n}', { n: live.length }) : t('Notas'); tg.setAttribute('aria-pressed', show ? 'true' : 'false'); tg.classList.toggle('nt-on', !!show); }
+  if (dock && W) {
+    const show = st.show == null ? live.length > 0 : st.show; dock.hidden = !show; dock.setAttribute('data-note-skin', skin);
+    NT.wide = !!(window.matchMedia && matchMedia('(min-width:1200px)').matches); dock.classList.toggle('nt-wide', NT.wide);
+    const empty = `<p class="nt-empty">${t('Aún no hay notas en esta historia.')}</p>`;
+    if (NT.wide) {
+      const k = st.split < 0 ? Math.ceil(live.length / 2) : Math.min(st.split, live.length);
+      dock.innerHTML = `<div class="nt-side nt-sl">${ntHead(st, W.id)}<div class="nt-col" data-ntc>${live.slice(0, k).map(ntCard).join('') || (live.length ? '' : empty)}</div></div><div class="nt-side nt-sr"><div class="nt-col" data-ntc>${live.slice(k).map(ntCard).join('')}</div></div>`;
+    } else dock.innerHTML = `${ntHead(st, W.id)}<div class="nt-row" data-ntc>${live.map(ntCard).join('') || empty}</div>`;
+  }
+  if (bd) { bd.setAttribute('data-note-skin', skin); bd.innerHTML = live.map(ntCard).join('') || `<p class="nt-empty">${t('Aún no hay notas en esta historia.')}</p>`; const h = $('#nt-bh'); if (h) { const del = st.items.filter(x => x.del && Date.now() - x.del < 2592000000).length; h.innerHTML = `<button type="button" class="nt-new" data-nt="new">＋ ${t('Nueva nota')}</button><span class="nt-ds" role="status" aria-live="polite"></span>${del ? `<button type="button" class="nt-lnk" data-nt="trash">${t('Borradas ({n})', { n: del })}</button>` : ''}`; } }
+  ntPaint();
+}
+function ntMount() {
+  const bd = $('#nt-board'), dock = $('#nt-dock');
+  if (!W || !S.user || (!bd && !dock)) { if ($('#nt-ov')) ntClose(true); return; }
+  ntLoad(W.id); NT.route = location.hash; ntDraw(); ntSyncSoon(500);
+}
+
+/* --- crear, editar, mover, borrar --- */
+function ntNew() {
+  const st = NT.st; if (!st) return;
+  if (ntLive(st).length >= NT_MAX) return toast('Llegaste al máximo de notas de esta historia.');
+  const it = ntNorm({ id: ntUuid(), t: '', b: '', v: 0, d: true, seq: 1 }); st.items.push(it); st.show = true; ntSave(true); ntDraw(); ntOpen(it.id, 'b');
+}
+function ntEdit(id, f, val) {
+  const it = NT.st && NT.st.items.find(x => x.id === id); if (!it || it[f] === val) return;
+  it[f] = val; it.d = true; it.seq++; (NT.rt[id] = NT.rt[id] || {}).err = ''; ntSave(); ntSyncSoon(); ntPaint(); ntCount();
+}
+function ntCount() {
+  const it = NT.st && NT.st.items.find(x => x.id === NT.open), c = $('#nt-cnt'); if (!it || !c) return;
+  const n = it.b.length, near = n >= NT_B - 800, tOver = it.t.length > NT_T;
+  c.textContent = n > NT_B ? t('{n} caracteres de más (máximo {m})', { n: n - NT_B, m: NT_B }) : tOver ? t('El título pasa de {m} caracteres', { m: NT_T }) : near ? t('{n} / {m}', { n, m: NT_B }) : '';
+  c.classList.toggle('nt-warn', n > NT_B || tOver);
+}
+function ntMove(id, d) {
+  const st = NT.st; if (!st) return; const live = ntLive(st), i = live.findIndex(x => x.id === id), j = i + d; if (i < 0 || j < 0 || j >= live.length) return;
+  const a = live[i], b = live[j], ia = st.items.indexOf(a), ib = st.items.indexOf(b); st.items[ia] = b; st.items[ib] = a;
+  st.od = true; NT.ordSeq = (NT.ordSeq | 0) + 1; ntSave(true); ntSyncSoon(700); ntDraw();
+  const g = document.querySelector(`.nt-grip[data-nid="${CSS.escape(id)}"]`); if (g) g.focus();
+  const lv = $('#nt-live'); if (lv) lv.textContent = t('Nota movida a la posición {n} de {m}', { n: j + 1, m: live.length });
+}
+function ntDelAsk(id) { dialog('¿Borrar esta nota?', 'Podrás recuperarla durante 30 días desde «Borradas».', 'Borrar', 'Cancelar', () => ntDelDo(id), true); }
+function ntDelDo(id) {
+  const it = NT.st && NT.st.items.find(x => x.id === id); if (!it) return;
+  if (NT.open === id) ntClose(true, true);
+  it.del = Date.now(); it.dd = it.v > 0 ? 1 : 0; if (!it.v) NT.st.items = NT.st.items.filter(x => x !== it || (it.b || it.t)); ntSave(true); ntSyncSoon(300); ntDraw();
+  ntSnack(t('Nota borrada'), t('Deshacer'), () => ntRestore(id));
+}
+function ntRestore(id) {
+  const it = NT.st && NT.st.items.find(x => x.id === id); if (!it) return;
+  it.del = 0; it.dd = it.v > 0 ? 2 : 0; if (!it.v) it.d = true; ntSave(true); ntSyncSoon(300); ntDraw();
+}
+function ntTrash() {
+  const st = NT.st; if (!st) return;
+  const l = st.items.filter(x => x.del && Date.now() - x.del < 2592000000).sort((a, b) => b.del - a.del);
+  const m = document.createElement('div'); m.className = 'modal'; m.setAttribute('data-note-skin', ntSkin());
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${t('Notas borradas')}</h2><p class="helper">${t('Se pueden recuperar durante 30 días.')}</p><div class="nt-tr">${l.map(x => `<div class="nt-tri"><div><b>${esc(x.t.trim() || t('Sin título'))}</b><span>${esc(x.b.slice(0, 80))}</span></div><button type="button" class="button secondary sm" data-rid="${esc(x.id)}">${t('Recuperar')}</button></div>`).join('') || `<p class="helper">${t('No hay notas borradas.')}</p>`}</div><button class="button ghost" data-no style="width:100%;margin-top:12px">${t('Cerrar')}</button></div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-no]')) return m.remove(); const b = e.target.closest('[data-rid]'); if (b) { ntRestore(b.dataset.rid); b.closest('.nt-tri').remove(); toast('Nota recuperada'); if (!m.querySelector('.nt-tri')) m.remove(); } });
+}
+function ntSnack(msg, label, fn) {
+  let el = $('#nt-snack'); if (el) el.remove(); el = document.createElement('div'); el.id = 'nt-snack'; el.className = 'nt-snack'; el.setAttribute('role', 'status');
+  el.innerHTML = `<span>${esc(msg)}</span>${label ? `<button type="button">${esc(label)}</button>` : ''}`; document.body.appendChild(el);
+  if (label) el.querySelector('button').onclick = () => { el.remove(); fn(); };
+  clearTimeout(NT.snack); NT.snack = setTimeout(() => el.remove(), 8000);
+}
+function ntToggle() {
+  const st = NT.st; if (!st) return; const ta = $('#w-ch-text'); if (ta && document.activeElement === ta) ta.blur();
+  const cur = st.show == null ? ntLive(st).length > 0 : st.show; st.show = !cur; ntSave(true); ntDraw();
+}
+
+/* --- nota ampliada --- */
+function ntOpen(id, focus) {
+  const st = NT.st, it = st && st.items.find(x => x.id === id); if (!it) return; ntClose(true);
+  NT.open = id; const ov = document.createElement('div'); ov.id = 'nt-ov'; ov.className = 'nt-ov'; ov.setAttribute('data-note-skin', ntSkin());
+  ov.innerHTML = `<div class="nt-bk" data-nt="close"></div><div class="nt-big" role="dialog" aria-modal="true" aria-label="${esc(t('Nota privada'))}">
+  <div class="nt-bt"><span class="nt-lock">${t('Privado · solo tú')}</span><span class="nt-sp"></span><button type="button" class="nt-ib" data-nt="menu" aria-haspopup="true" aria-expanded="false" aria-label="${esc(t('Más opciones de la nota'))}">⋯</button><button type="button" class="nt-ib" data-nt="close" aria-label="${esc(t('Cerrar nota'))}">✕</button></div>
+  <div class="nt-st" id="nt-stat" role="status" aria-live="polite"></div>
+  <div class="nt-menu" id="nt-menu" hidden><button type="button" data-nt="mv-">${t('Mover antes')}</button><button type="button" data-nt="mv+">${t('Mover después')}</button><button type="button" data-nt="del" class="nt-dng">${t('Borrar nota')}</button></div>
+  <input id="nt-ti" class="nt-ti" autocomplete="off" placeholder="${esc(t('Título (opcional)'))}" aria-label="${esc(t('Título de la nota'))}" value="${esc(it.t)}">
+  <textarea id="nt-tx" class="nt-tx" autocomplete="off" autocapitalize="sentences" placeholder="${esc(t('Escribe tu nota…'))}" aria-label="${esc(t('Texto de la nota'))}">${esc(it.b)}</textarea>
+  <div id="nt-pick" class="nt-pick" hidden></div>
+  <div class="nt-ft"><span id="nt-cnt" class="nt-cnt" aria-live="polite"></span><span class="nt-sp"></span><button type="button" class="button secondary sm" data-nt="insert">${t('Insertar en el capítulo')}</button><button type="button" class="button sm" data-nt="close">${t('Listo')}</button></div></div><span id="nt-live" class="sr-only" aria-live="polite"></span>`;
+  document.body.appendChild(ov); ntFit(); ntCount(); ntPaint();
+  const f = $(focus === 't' ? '#nt-ti' : '#nt-tx', ov); if (f && (focus || !it.b)) { try { f.focus({ preventScroll: true }); const n = f.value.length; f.setSelectionRange(n, n); } catch (e) { /* ignorar */ } }
+}
+function ntFit() {
+  const ov = $('#nt-ov'); if (!ov) return; const vv = window.visualViewport;
+  ov.style.setProperty('--nt-top', (vv ? vv.offsetTop : 0) + 'px'); ov.style.setProperty('--nt-h', (vv ? vv.height : window.innerHeight) + 'px');
+}
+function ntRefreshOpen() {                                                                            // lo que llegó de otro dispositivo se ve solo si no estás escribiendo
+  const it = NT.open && NT.st && NT.st.items.find(x => x.id === NT.open); if (!it) return;
+  const a = $('#nt-ti'), b = $('#nt-tx'); if (a && document.activeElement !== a && a.value !== it.t) a.value = it.t; if (b && document.activeElement !== b && b.value !== it.b) b.value = it.b; ntCount();
+}
+function ntClose(quiet, noSave) {
+  const ov = $('#nt-ov'); const id = NT.open; NT.open = '';
+  if (ov) ov.remove();
+  const st = NT.st, it = st && id && st.items.find(x => x.id === id);
+  if (it && !noSave && !it.t.trim() && !it.b.trim() && !it.v) { st.items = st.items.filter(x => x !== it); }   // una nota nueva que quedó vacía no deja tarjeta
+  if (st) { ntSave(true); if (!quiet) ntSyncSoon(200); ntDraw(); }
+  if (id && !quiet) { const c = document.querySelector(`.nt-card[data-nid="${CSS.escape(id)}"]`); if (c) c.focus({ preventScroll: true }); }
+}
+
+/* --- insertar en un capítulo (solo el texto, sin tocar lo que ya hay) --- */
+const ntNeut = s => s.replace(/^([ \t]*)(::chat )/gmi, '$1​$2');                                  // una línea que parezca tarjeta de chat se queda como texto
+function ntPrep(body, where, view) {
+  const x = ntNeut(body);
+  if (where === 'end' && view.length) return (/\n\n$/.test(view) ? '' : /\n$/.test(view) ? '\n' : '\n\n') + x;
+  if (where === 'start' && view.length) return x + '\n\n';
+  return x;
+}
+function ntFindIns(cur, text, pos) {
+  if (cur.substr(pos, text.length) === text) return pos;
+  let best = -1, i = cur.indexOf(text);
+  while (i >= 0) { if (best < 0 || Math.abs(i - pos) < Math.abs(best - pos)) best = i; i = cur.indexOf(text, i + 1); }
+  return best;
+}
+function ntInsTa(ta, pos, ins) {
+  const before = ta.value; try { ta.focus({ preventScroll: true }); ta.setSelectionRange(pos, pos); } catch (e) { /* ignorar */ }
+  let ok = false; try { ok = document.execCommand('insertText', false, ins); } catch (e) { ok = false; }       // así entra en el historial (deshacer) del propio editor
+  if (!ok || ta.value.length !== before.length + ins.length) { ta.value = before; ta.setRangeText(ins, pos, pos, 'end'); ta.dispatchEvent(new Event('input', { bubbles: true })); }
+  return ta.value.slice(pos, pos + ins.length) === ins;
+}
+function ntPickUI(html) { const p = $('#nt-pick'); if (!p) return; p.innerHTML = html; p.hidden = !html; }
+function ntInsertStart(id) {
+  const it = NT.st && NT.st.items.find(x => x.id === id); if (!it) return;
+  if (!it.b.trim()) return toast('La nota está vacía: no hay nada que insertar.');
+  if (ntOver(it)) return toast('La nota pasa del límite. Recórtala antes de insertarla.');
+  const ta = $('#w-ch-text');
+  if (ta && W) {                                                                                      // abierta desde el editor
+    const sel = NT.sel, ok = sel && sel.cid === +ta.dataset.cid && sel.e <= ta.value.length && sel.len === ta.value.length;
+    if (ok) return ntInsertGo(id, { cid: +ta.dataset.cid, where: 'cursor' });
+    return ntPickUI(`<p class="nt-pq"><b>${t('No sé dónde estaba tu cursor.')}</b> ${t('¿Dónde inserto la nota?')}</p><div class="nt-po"><button type="button" class="button secondary sm" data-nt="go" data-where="start">${t('Al principio del capítulo')}</button><button type="button" class="button secondary sm" data-nt="go" data-where="end">${t('Al final del capítulo')}</button><button type="button" class="button ghost sm" data-nt="nopick">${t('Cancelar')}</button></div>`);
+  }
+  if (!W || !W.chapters.length) return;                                                               // abierta desde el tablero: eliges capítulo y lugar
+  ntPickUI(`<p class="nt-pq"><b>${t('Elige el capítulo')}</b></p><div class="nt-chs" role="radiogroup" aria-label="${esc(t('Capítulo'))}">${W.chapters.map((c, i) => `<label class="nt-ch"><input type="radio" name="nt-c" value="${c.id}" ${i === 0 ? 'checked' : ''}><span><b>${t('Cap. {n}', { n: i + 1 })}</b> ${esc(c.title || t('Sin título'))}</span></label>`).join('')}</div><p class="nt-pq"><b>${t('¿Dónde?')}</b></p><div class="nt-chs"><label class="nt-ch"><input type="radio" name="nt-w" value="end" checked><span>${t('Al final del capítulo')}</span></label><label class="nt-ch"><input type="radio" name="nt-w" value="start"><span>${t('Al principio del capítulo')}</span></label></div><div class="nt-po"><button type="button" class="button sm" data-nt="go2">${t('Insertar')}</button><button type="button" class="button ghost sm" data-nt="nopick">${t('Cancelar')}</button></div>`);
+}
+function ntInsertGo(id, o) {
+  if (Date.now() - NT.lock < 1000) return; NT.lock = Date.now();                                      // el doble toque no inserta dos veces
+  const it = NT.st && NT.st.items.find(x => x.id === id); if (!it || !it.b.trim() || ntOver(it)) return;
+  const body = it.b; ntClose(true);
+  const ta = $('#w-ch-text');
+  if (ta && W && o.cid === +ta.dataset.cid) {
+    const cur = ta.value, pos = o.where === 'cursor' ? Math.min(NT.sel ? NT.sel.e : cur.length, cur.length) : o.where === 'start' ? 0 : cur.length, ins = ntPrep(body, o.where, cur);
+    if (cur.length + ins.length > NT_CHMAX) return toast('Con esta nota el capítulo pasaría de 150 000 caracteres. No inserté nada.');
+    if (!ntInsTa(ta, pos, ins)) { return toast('No pude insertar la nota. Tu capítulo no cambió.'); }
+    ta.blur(); NT.sel = { cid: o.cid, s: pos + ins.length, e: pos + ins.length, len: ta.value.length };
+    NT.undo = { sid: NT.sid, cid: o.cid, text: ins, pos };
+  } else {
+    const ch = W && W.chapters.find(c => c.id === o.cid); if (!ch) return toast('No encontré ese capítulo.');
+    const view = chToView(ch.text), pos = o.where === 'start' ? 0 : view.length, ins = ntPrep(body, o.where, view);
+    if (view.length + ins.length > NT_CHMAX) return toast('Con esta nota el capítulo pasaría de 150 000 caracteres. No inserté nada.');
+    ch.text = chFromView(view.slice(0, pos) + ins + view.slice(pos)); persistDraft();
+    NT.undo = { sid: NT.sid, cid: o.cid, text: ins, pos };
+  }
+  ntSnack(t('Texto insertado'), t('Deshacer'), ntUndo);
+}
+function ntUndo() {
+  const u = NT.undo; if (!u || !W) return; NT.undo = null;
+  const ta = $('#w-ch-text'), onTa = ta && +ta.dataset.cid === u.cid, ch = W.chapters.find(c => c.id === u.cid);
+  const cur = onTa ? ta.value : ch ? chToView(ch.text) : null; if (cur == null) return;
+  const i = ntFindIns(cur, u.text, u.pos); if (i < 0) return toast('No pude deshacerlo: el texto insertado ya cambió.');
+  const j = i + u.text.length;
+  if (onTa) {
+    try { ta.focus({ preventScroll: true }); ta.setSelectionRange(i, j); } catch (e) { /* ignorar */ }
+    let ok = false; try { ok = document.execCommand('delete'); } catch (e) { ok = false; }
+    if (!ok || ta.value.length !== cur.length - u.text.length) { ta.value = cur; ta.setRangeText('', i, j, 'end'); ta.dispatchEvent(new Event('input', { bubbles: true })); }
+    ta.blur(); NT.sel = { cid: u.cid, s: i, e: i, len: ta.value.length };
+  } else { ch.text = chFromView(cur.slice(0, i) + cur.slice(j)); persistDraft(); }
+  toast('Inserción deshecha');
+}
+
+/* --- arrastrar: mantén pulsada la tarjeta (o toma su asa) y suéltala donde quieras; encaja sola en la lista --- */
+const NT_LP = 380, ntReduce = () => reduceMotion() || document.documentElement.classList.contains('lite');
+function ntLift() {
+  const p = NT.p; if (!p || NT.drag || !p.card.isConnected) return;
+  const card = p.card, r = card.getBoundingClientRect(), ph = document.createElement('div'); ph.className = 'nt-ph'; ph.style.width = r.width + 'px'; ph.style.height = r.height + 'px';
+  card.parentNode.insertBefore(ph, card);
+  NT.drag = { ...p, ph, ox: p.x - r.left, oy: p.y - r.top, px: p.x, py: p.y, iv: 0 };
+  Object.assign(card.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', margin: '0', zIndex: '80' });
+  void card.offsetWidth; card.classList.add('nt-lift'); try { card.setPointerCapture(p.pid); } catch (e) { /* ignorar */ }
+  try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) { /* ignorar */ }
+  NT.drag.iv = setInterval(ntAuto, 30);
+}
+function ntSlot(x, y) {
+  const d = NT.drag; if (!d) return; const ph = d.ph;
+  const cs = [...document.querySelectorAll('.nt-card:not(.nt-lift)')];
+  for (const c of document.querySelectorAll('[data-ntc]')) {                                          // contenedor vacío bajo el dedo
+    const r = c.getBoundingClientRect(); if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom && !c.querySelector('.nt-card:not(.nt-lift)')) { if (ph.parentNode !== c) c.appendChild(ph); return; }
+  }
+  let best = null, bd = 1e9;
+  for (const c of cs) { const r = c.getBoundingClientRect(), dd = Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2)); if (dd < bd) { bd = dd; best = c; } }
+  if (!best) { const c = document.querySelector('[data-ntc]'); if (c && ph.parentNode !== c) c.appendChild(ph); return; }
+  const r = best.getBoundingClientRect(), par = best.parentNode, row = par.classList.contains('nt-row'), col = par.classList.contains('nt-col');
+  const before = row ? x < r.left + r.width / 2 : col ? y < r.top + r.height / 2 : (y < r.top ? true : y > r.bottom ? false : x < r.left + r.width / 2);
+  if (before ? best.previousElementSibling === ph : best.nextElementSibling === ph) return;
+  par.insertBefore(ph, before ? best : best.nextSibling);
+}
+function ntAuto() {
+  const d = NT.drag; if (!d) return; let moved = false;
+  const row = document.querySelector('.nt-row');
+  if (row) { const r = row.getBoundingClientRect(); if (d.py >= r.top - 20 && d.py <= r.bottom + 20) { if (d.px < r.left + 36) { row.scrollLeft -= 12; moved = true; } else if (d.px > r.right - 36) { row.scrollLeft += 12; moved = true; } } }
+  document.querySelectorAll('.nt-side').forEach(s => { const r = s.getBoundingClientRect(); if (d.px >= r.left && d.px <= r.right) { if (d.py < r.top + 40) { s.scrollTop -= 10; moved = true; } else if (d.py > r.bottom - 40) { s.scrollTop += 10; moved = true; } } });
+  if ($('#nt-board')) { if (d.py < 70) { window.scrollBy(0, -10); moved = true; } else if (d.py > window.innerHeight - 70) { window.scrollBy(0, 10); moved = true; } }
+  if (moved) ntSlot(d.px, d.py);
+}
+function ntDragMove(x, y) {
+  const d = NT.drag; if (!d) return; d.px = x; d.py = y; d.card.style.left = (x - d.ox) + 'px'; d.card.style.top = (y - d.oy) + 'px'; ntSlot(x, y);
+}
+function ntDrop() {
+  const p = NT.p; if (p) clearTimeout(p.tm); NT.p = null; const d = NT.drag; if (!d) return;
+  NT.drag = null; clearInterval(d.iv); NT.noclick = Date.now() + 350;
+  const card = d.card, ph = d.ph, r = ph.getBoundingClientRect();
+  const fin = () => {
+    ['position', 'left', 'top', 'width', 'height', 'margin', 'zIndex', 'transition'].forEach(k => { card.style[k] = ''; });
+    card.classList.remove('nt-lift'); if (ph.parentNode) ph.replaceWith(card);
+    const st = NT.st; if (!st) return;
+    const ids = [...document.querySelectorAll('.nt-card')].map(c => c.dataset.nid), live = ntLive(st), cur = live.map(x => x.id);
+    if (ids.length === cur.length && ids.some((id, i) => id !== cur[i])) {
+      const map = new Map(live.map(x => [x.id, x])), gone = st.items.filter(x => x.del);
+      st.items = ids.map(id => map.get(id)).filter(Boolean).concat(gone); st.od = true; NT.ordSeq = (NT.ordSeq | 0) + 1; ntSyncSoon(700);
+    }
+    if (NT.wide) { const l = document.querySelector('.nt-sl .nt-col'); if (l) st.split = l.querySelectorAll('.nt-card').length; }
+    ntSave(true); ntDraw();
+  };
+  if (ntReduce()) return fin();
+  card.style.transition = 'left .2s ease, top .2s ease, transform .2s ease, box-shadow .2s ease'; card.classList.remove('nt-lift');
+  card.style.left = r.left + 'px'; card.style.top = r.top + 'px'; setTimeout(fin, 215);
+}
+document.addEventListener('pointerdown', e => {
+  if (e.button > 0 || NT.drag) return; const card = e.target.closest && e.target.closest('.nt-card'); if (!card) return;
+  const grip = !!e.target.closest('.nt-grip'), touch = e.pointerType !== 'mouse';
+  NT.p = { card, id: card.dataset.nid, x: e.clientX, y: e.clientY, pid: e.pointerId, grip, touch, tm: 0 };
+  if (grip && touch) { ntLift(); }
+  else if (touch) NT.p.tm = setTimeout(ntLift, NT_LP);
+}, true);
+document.addEventListener('pointermove', e => {
+  const p = NT.p; if (!p || e.pointerId !== p.pid) return;
+  if (NT.drag) { ntDragMove(e.clientX, e.clientY); return; }
+  if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > (p.touch ? 8 : 5)) { if (p.touch) { clearTimeout(p.tm); NT.p = null; } else { ntLift(); if (NT.drag) ntDragMove(e.clientX, e.clientY); } }
+}, true);
+['pointerup', 'pointercancel'].forEach(ev => document.addEventListener(ev, e => { const p = NT.p; if (p && e.pointerId === p.pid) { if (NT.drag) ntDrop(); else { clearTimeout(p.tm); NT.p = null; } } }, true));
+document.addEventListener('touchmove', e => { if (NT.drag && e.cancelable) e.preventDefault(); }, { passive: false });
+document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('.nt-card')) e.preventDefault(); });
+
+/* --- eventos de las notas (clic, teclado, escritura) --- */
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('[data-nt]');
+  if (a && a.closest('.nt-ov, .nt-dock, #nt-board, .nt-page')) {
+    e.preventDefault(); const k = a.dataset.nt, id = NT.open;
+    if (k === 'new') ntNew();
+    else if (k === 'trash') ntTrash();
+    else if (k === 'close') ntClose();
+    else if (k === 'menu') { const m = $('#nt-menu'); if (m) { m.hidden = !m.hidden; a.setAttribute('aria-expanded', String(!m.hidden)); } }
+    else if (k === 'mv-' || k === 'mv+') { ntMove(id, k === 'mv-' ? -1 : 1); const m = $('#nt-menu'); if (m) m.hidden = true; }
+    else if (k === 'del') ntDelAsk(id);
+    else if (k === 'insert') ntInsertStart(id);
+    else if (k === 'nopick') ntPickUI('');
+    else if (k === 'go') ntInsertGo(id, { cid: +($('#w-ch-text') || { dataset: {} }).dataset.cid, where: a.dataset.where });
+    else if (k === 'go2') { const c = document.querySelector('#nt-pick input[name="nt-c"]:checked'), w = document.querySelector('#nt-pick input[name="nt-w"]:checked'); if (c && w) ntInsertGo(id, { cid: +c.value, where: w.value }); }
+    else if (k === 'retry') { Object.keys(NT.rt).forEach(i => { NT.rt[i].err = ''; }); ntSync(NT.sid); ntPaint(); }
+    return;
+  }
+  const card = e.target.closest && e.target.closest('.nt-card');
+  if (card && !e.target.closest('.nt-grip')) { if (Date.now() < NT.noclick) return; ntOpen(card.dataset.nid); }
+});
+document.addEventListener('keydown', e => {
+  const ov = $('#nt-ov');
+  if (ov) {
+    if (e.key === 'Escape') { e.preventDefault(); ntClose(); return; }
+    if (e.key === 'Tab') { const f = [...ov.querySelectorAll('button:not([hidden]),input,textarea,a[href]')].filter(x => x.offsetParent !== null); if (f.length) { const i = f.indexOf(document.activeElement); if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); } } }
+    return;
+  }
+  const g = e.target.closest && e.target.closest('.nt-grip');
+  if (g && ['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].includes(e.key)) { e.preventDefault(); ntMove(g.dataset.nid, e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1); return; }
+  const c = e.target.closest && e.target.closest('.nt-card');
+  if (c && e.target === c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); ntOpen(c.dataset.nid); }
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'nt-ti') ntEdit(NT.open, 't', e.target.value);
+  else if (e.target.id === 'nt-tx') ntEdit(NT.open, 'b', e.target.value);
+  else if (e.target.id === 'w-ch-text') ntSel(e.target);
+});
+function ntSel(ta) { NT.sel = { cid: +ta.dataset.cid, s: ta.selectionStart, e: ta.selectionEnd, len: ta.value.length }; }
+document.addEventListener('selectionchange', () => { const ta = document.activeElement; if (ta && ta.id === 'w-ch-text') ntSel(ta); });
+document.addEventListener('focusout', e => { if (e.target && e.target.id === 'w-ch-text') ntSel(e.target); }, true);
+['keyup', 'click'].forEach(ev => document.addEventListener(ev, e => { if (e.target && e.target.id === 'w-ch-text') ntSel(e.target); }));
+if (window.visualViewport) ['resize', 'scroll'].forEach(ev => window.visualViewport.addEventListener(ev, ntFit));
+if (window.matchMedia) { const mq = matchMedia('(min-width:1200px)'); (mq.addEventListener ? mq.addEventListener.bind(mq, 'change') : mq.addListener.bind(mq))(() => { if (NT.st && ($('#nt-dock') || $('#nt-board')) && !NT.drag) ntDraw(); }); }
+window.addEventListener('pagehide', ntFlush);
+document.addEventListener('visibilitychange', () => { if (document.hidden) ntFlush(); });
+window.addEventListener('online', () => { NT.off = false; ntSyncPending(); });
+window.addEventListener('offline', () => { NT.off = true; ntPaint(); });
+
+/* --- pantalla secundaria: tablero de notas de la historia (organizar) --- */
+function notesBoardView() {
+  return `<main class="page story-layout nt-page"><div class="section-head" style="margin-top:0"><div><a class="back" href="#/write/${esc(W.id)}/chapters" data-dir="back">‹ ${t('Capítulos')}</a><h2 style="margin-top:8px">${t('Notas privadas')}</h2><p>${esc(W.title)} · <span class="nt-lock">${t('Privado · solo tú')}</span></p></div></div>
+  <div class="nt-hd nt-hb" id="nt-bh"></div><p class="helper">${t('Mantén pulsada una nota para moverla. Dentro de cada capítulo también las tienes junto al texto.')}</p>
+  <div class="nt-grid" id="nt-board" data-ntc></div><span id="nt-live" class="sr-only" aria-live="polite"></span></main>`;
+}
+
 /* Lista de capítulos de la historia */
 function chaptersView() {
   const n = W.chapters.length;
   return `<main class="page story-layout"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">☰ ${t('Capítulos')}</span><h2 style="margin-top:8px">${esc(W.title)}</h2><p>${t('Cada capítulo se escribe en su propia pantalla.')}</p></div><button class="button secondary sm" data-act="info-go">✎ ${t('Datos de la historia')}</button></div>
   ${statusNote(W) ? `<p class="notice" style="margin-bottom:14px">${esc(statusNote(W))}</p>` : ''}
   <div class="ch-list ch-list-big">${W.chapters.map((c, i) => `<div class="ch-item"><button type="button" class="ch-open" data-act="ch-go" data-cid="${c.id}"><b>${t('Cap. {n}', { n: i + 1 })}</b><span>${esc(c.title || t('Sin título'))}</span><i>${CH_MARK[c.status] || ''}</i></button><button type="button" class="icon-btn ch-trash" data-act="ch-trash" data-cid="${c.id}" aria-label="${esc(t('Eliminar {x}', { x: c.title || t('capítulo {n}', { n: i + 1 }) }))}">${TRASH}</button></div>`).join('')}</div>
-  <button type="button" class="button secondary" data-act="ch-add" style="margin:12px 0">＋ ${t('Capítulo {n}', { n: n + 1 })}</button>${submitBlock()}</main>`;
+  <div class="ch-adds"><button type="button" class="button secondary" data-act="ch-add">＋ ${t('Capítulo {n}', { n: n + 1 })}</button><a class="button secondary" href="#/write/${esc(W.id)}/notes">${t('Notas privadas')}</a></div>${submitBlock()}</main>`;
 }
 
 const safeImg = u => typeof u === 'string' && (/^data:image\//.test(u) || isStoreUrl(u));
@@ -3095,8 +3539,9 @@ function chapterView(cid) {
   if (WPREVIEW) return `<div class="rf"><header class="rf-top"><button class="button ghost sm" data-act="back-edit">${t('‹ Volver a escribir')}</button><div class="rf-title">${t('Vista previa · Cap. {n}', { n: i + 1 })}</div><span style="width:44px"></span></header>
   <article class="rf-body">${chHero(ch)}${chHead(i + 1, ch.title)}${readerText(ch.text || t('Aquí aparecerá el texto de tu capítulo.'), W.useReaderCharacter)}</article></div>`;
   return `<div class="wf" data-ebg="${EBGS[cfg('ebg')] && hasItem(S.user, 'ebg:' + cfg('ebg')) ? esc(cfg('ebg')) : 'auto'}"><header class="wf-top"><button class="button ghost sm" data-act="ch-list" aria-label="${esc(t('Guardar y salir a la lista de capítulos'))}">✕ ${t('Salir')}</button>
-  <span class="grow">${t('Cap. {i} de {n}', { i: i + 1, n })} · <span class="pill st-${st}">${t(CH_STATUS[st])}</span> <span id="w-saved"></span></span><button class="button secondary sm" data-act="preview">${t('Vista previa')}</button><button class="button sm wf-done" data-act="kb-done">${t('Listo')}</button></header>
+  <span class="grow">${t('Cap. {i} de {n}', { i: i + 1, n })} · <span class="pill st-${st}">${t(CH_STATUS[st])}</span> <span id="w-saved"></span></span><button type="button" class="button secondary sm nt-tog" data-act="nt-toggle" aria-pressed="false" aria-controls="nt-dock">${t('Notas')}</button><button class="button secondary sm" data-act="preview">${t('Vista previa')}</button><button class="button sm wf-done" data-act="kb-done">${t('Listo')}</button></header>
   ${st === 'rejected' && ch.reason ? `<p class="notice">${t('Rechazado: {reason}', { reason: esc(ch.reason) })}</p>` : ''}${ch.live ? `<p class="notice">${t('Mientras se revisa esta edición, los lectores siguen viendo la versión aprobada anterior.')}</p>` : ''}
+  <section class="nt-dock" id="nt-dock" aria-label="${esc(t('Notas privadas'))}" hidden></section>
   ${chCoverBox(ch)}
   <input id="w-ch-title" class="wf-title" data-cid="${ch.id}" value="${esc(ch.title)}" placeholder="${esc(t('Título del capítulo'))}">
   <textarea id="w-ch-text" class="wf-text" autocomplete="off" autocapitalize="sentences" data-cid="${ch.id}" placeholder="${esc(W.mode === 'chat' ? t('Toca 💬 Chat para añadir una conversación.') : t('Érase una vez…'))}">${esc(chToView(ch.text))}</textarea>${chatCards(ch)}
@@ -5535,6 +5980,7 @@ function render() {
   if (nav && a === 'story' && c && c !== 'fin') { pcHintOnce(); readingPing(b); viewPing(b); chtStart(b, c); }
   if (nav && a === 'vnr') vnrBoot(b, c);
   if (passOn()) msAll();
+  ntMount();
   if (S.user) { showModOverlay(); showGiftOverlay(); founderAuto(); }                                      // moderador/a sin marco puesto: el aviso reaparece hasta que se lo ponga
   if (nav) { const m = from.match(/^\/story\/([^/]+)\/\d+$/); if (m && !(path + '/').startsWith('/story/' + m[1] + '/')) askSaveLib(decodeURIComponent(m[1])); }   // saliste de un capítulo por otro camino (p. ej. "atrás")
 }
@@ -5662,7 +6108,7 @@ document.addEventListener('click', e => {
     'save-next': saveInfo,
     'info-save': () => { if (saveInfoOnly()) { toast(t('Cambios guardados ✓')); KEEP = true; render(); } },
     comments: () => { SHOWC = !SHOWC; KEEP = true; render(); if (SHOWC) { const c = $('#comments'); if (c && c.scrollIntoView) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
-    'ch-add': addChapter,
+    'ch-add': addChapter, 'nt-toggle': ntToggle,
     'ch-trash': () => { const c = W.chapters.find(x => x.id === +el.dataset.cid); if (c) confirmBox(t('¿Seguro que quieres eliminar «{title}»?', { title: c.title || t('capítulo') }), () => deleteChapter(c.id)); },
     'warn-toggle': () => { W.warns = W.warns || []; const on = !W.warns.includes(id); W.warns = on ? [...W.warns, id] : W.warns.filter(x => x !== id); el.classList.toggle('active', on); el.setAttribute('aria-pressed', String(on)); },
     'avoid-warn': () => { const l = avoidWarns(), on = !l.includes(id); setCfg('avoidWarns', on ? [...l, id] : l.filter(x => x !== id)); KEEP = true; render(); },
