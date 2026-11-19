@@ -3340,8 +3340,8 @@ html.lite .pv-all,html.lite .rw-t.ready,html.lite .rw-big{animation:none}
 
 /* ---------- Notas privadas (tarjetas dentro del editor) ---------- */
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-[data-note-skin]{--note-paper:#fffaf0;--note-ink:#2b2320;--note-soft:#85766d;--note-bd:#e6d9c5;--note-bar:#f1e6d1;--note-sh:0 6px 14px -9px rgba(90,61,31,.6);--note-orn:none;--note-title-font:var(--serif);--note-body-font:var(--sans,system-ui,sans-serif)}
-.dark [data-note-skin]{--note-paper:#2b1a21;--note-ink:#f3e6e9;--note-soft:#b69aa3;--note-bd:#4a2a33;--note-bar:#35202a;--note-sh:0 8px 16px -10px rgba(0,0,0,.8)}
+[data-note-skin]{--note-paper:hsl(var(--card));--note-ink:hsl(var(--foreground));--note-soft:hsl(var(--muted-foreground));--note-bd:hsl(var(--border));--note-bar:hsl(var(--accent));--note-sh:0 6px 14px -9px hsl(var(--primary)/.55);--note-orn:none;--note-title-font:var(--serif);--note-body-font:var(--sans,system-ui,sans-serif)}
+.dark [data-note-skin]{--note-sh:0 8px 16px -10px rgba(0,0,0,.8)}
 .nt-tog{white-space:nowrap}
 .nt-tog.nt-on{border-color:hsl(var(--primary));color:hsl(var(--primary));background:hsl(var(--primary)/.1)}
 .wf-top .grow{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -3415,3 +3415,501 @@ html.lite .pv-all,html.lite .rw-t.ready,html.lite .rw-big{animation:none}
 .nt-tri b{display:block;font-size:14px}.nt-tri span{font-size:12px;color:hsl(var(--muted-foreground))}
 @media (prefers-reduced-motion:reduce){.nt-card,.nt-dock,.nt-big,.nt-bk,.nt-snack{transition:none!important;animation:none!important}}
 html.lite .nt-card,html.lite .nt-dock,html.lite .nt-big,html.lite .nt-bk{transition:none!important;animation:none!important}
+
+/* Skins de notas v2 (premios del pase gratis de escritor) */
+/* Auri · skins de papelería, versión 2.
+   Aplicar después del CSS base de notas.
+   Sin imágenes ni fuentes remotas. */
+
+/* ===== VARIABLES ===== */
+
+[data-note-skin="cartas-prohibidas"][data-note-skin] {
+  --note-paper: #eadbb9;
+  --note-ink: #492932;
+  --note-soft: #745746;
+  --note-bd: #a78b62;
+  --note-bar: #dac59d;
+  --note-orn: none;
+  --note-title-font: var(--serif, Georgia, serif);
+  --note-body-font:
+    "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+  --note-sh: 0 8px 16px -8px #0008;
+}
+
+[data-note-skin="querido-corazon"][data-note-skin] {
+  --note-paper: #fff6f0;
+  --note-ink: #812942;
+  --note-soft: #925064;
+  --note-bd: #d29caa;
+  --note-bar: #f4d1db;
+  --note-orn: none;
+  --note-title-font: var(--serif, Georgia, serif);
+  --note-body-font: Georgia, "Times New Roman", serif;
+  --note-sh: 0 8px 16px -9px #9a315366;
+}
+
+/* ===== CARTAS PROHIBIDAS ===== */
+/* Papel envejecido y bordes irregulares. */
+
+[data-note-skin="cartas-prohibidas"] :is(.nt-card, .nt-big) {
+  border: 0;
+  border-radius: 0;
+  isolation: isolate;
+  background-color: var(--note-paper);
+  background-image:
+    radial-gradient(
+      ellipse at 0 0,
+      #8b563b35,
+      transparent 39%
+    ),
+    radial-gradient(
+      ellipse at 100% 100%,
+      #85503940,
+      transparent 37%
+    ),
+    linear-gradient(
+      90deg,
+      #79533825,
+      transparent 7%,
+      transparent 94%,
+      #79533830
+    );
+
+  clip-path: polygon(
+    1% 0,
+    9% .5%,
+    15% 0,
+    22% .8%,
+    28% .1%,
+    36% .7%,
+    44% 0,
+    53% .6%,
+    60% .2%,
+    68% .8%,
+    75% 0,
+    84% .6%,
+    91% .1%,
+    99% .7%,
+    100% 7%,
+    99% 13%,
+    100% 21%,
+    99.3% 28%,
+    100% 36%,
+    99% 43%,
+    100% 51%,
+    99.4% 59%,
+    100% 67%,
+    99% 75%,
+    100% 84%,
+    99.1% 92%,
+    100% 99%,
+    92% 99.2%,
+    86% 100%,
+    78% 99.3%,
+    72% 100%,
+    63% 99.4%,
+    55% 100%,
+    47% 99.2%,
+    39% 100%,
+    32% 99.5%,
+    24% 100%,
+    16% 99.2%,
+    9% 100%,
+    0 99%,
+    1% 92%,
+    0 85%,
+    .7% 78%,
+    0 70%,
+    1% 62%,
+    0 54%,
+    .8% 46%,
+    0 37%,
+    .9% 29%,
+    0 20%,
+    1% 12%
+  );
+}
+
+[data-note-skin="cartas-prohibidas"] .nt-grip {
+  height: 25px;
+  background: transparent;
+  border-bottom: 1px solid #966c4940;
+}
+
+[data-note-skin="cartas-prohibidas"] .nt-grip i {
+  background: #704239;
+}
+
+[data-note-skin="cartas-prohibidas"] .nt-ct {
+  padding: 8px 11px 3px;
+  font-style: italic;
+  letter-spacing: .01em;
+}
+
+[data-note-skin="cartas-prohibidas"] .nt-cp {
+  padding: 0 13px 0 11px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* Cinta borgoña en la tarjeta pequeña. */
+
+[data-note-skin="cartas-prohibidas"] .nt-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 14px;
+  width: 10px;
+  height: 20px;
+  background: #652a3e;
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% 100%,
+    50% 75%,
+    0 100%
+  );
+  pointer-events: none;
+}
+
+/* Sello de lacre pequeño. */
+
+[data-note-skin="cartas-prohibidas"] .nt-card::after {
+  content: "";
+  position: absolute;
+  bottom: 7px;
+  right: 7px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    #8f4052 0 22%,
+    #60263a 25% 48%,
+    #a0525d 52% 59%,
+    #68283b 64%
+  );
+  opacity: .95;
+  pointer-events: none;
+}
+
+[data-note-skin="cartas-prohibidas"] .nt-bt {
+  background: #d7bf9670;
+  border-bottom: 1px solid #98774d70;
+  padding-top: 13px;
+}
+
+/* Detalle ornamental fuera del texto. */
+
+[data-note-skin="cartas-prohibidas"] .nt-big::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 91px;
+  bottom: 74px;
+  width: 5px;
+  border-left: 1px solid #7d3947;
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 19px,
+    #7d394780 20px 21px,
+    transparent 22px 33px
+  );
+  opacity: .5;
+  pointer-events: none;
+}
+
+/* Sello de lacre de la nota ampliada. */
+
+[data-note-skin="cartas-prohibidas"] .nt-big::after {
+  content: "";
+  position: absolute;
+  right: 22px;
+  bottom: 72px;
+  width: 34px;
+  height: 34px;
+  border-radius: 48% 52% 46% 54%;
+  background: radial-gradient(
+    circle at 46% 42%,
+    #914051 0 24%,
+    #602339 26% 40%,
+    #ad5963 43% 47%,
+    #762b40 50% 64%,
+    #542034 68%
+  );
+  box-shadow: 1px 3px 4px #3c1d3038;
+  pointer-events: none;
+}
+
+[data-note-skin="cartas-prohibidas"] .nt-ti {
+  font-style: italic;
+}
+
+/* ===== QUERIDO CORAZÓN ===== */
+/* Papel de carta, costura, lazo y encaje. */
+
+[data-note-skin="querido-corazon"] :is(.nt-card, .nt-big) {
+  border: 1px solid #cf8fa2;
+  border-radius: 15px 15px 9px 9px;
+  isolation: isolate;
+  background-color: var(--note-paper);
+  background-image: linear-gradient(
+    90deg,
+    #f7dce166,
+    transparent 8%,
+    transparent 92%,
+    #f7dce166
+  );
+}
+
+[data-note-skin="querido-corazon"] .nt-grip {
+  position: relative;
+  height: 28px;
+  background: #f3cbd6;
+  border-bottom: 3px double #c67d96;
+}
+
+/* El lazo ocupa el lugar visual de los puntos del asa.
+   El botón y su funcionamiento siguen siendo los mismos. */
+
+[data-note-skin="querido-corazon"] .nt-grip i {
+  opacity: 0;
+}
+
+[data-note-skin="querido-corazon"] .nt-grip::before {
+  content: "";
+  position: absolute;
+  left: calc(50% - 15px);
+  top: 6px;
+  width: 30px;
+  height: 14px;
+  background: #ad4a68;
+  clip-path: polygon(
+    0 3%,
+    42% 31%,
+    50% 40%,
+    58% 31%,
+    100% 3%,
+    100% 97%,
+    58% 69%,
+    50% 60%,
+    42% 69%,
+    0 97%
+  );
+}
+
+[data-note-skin="querido-corazon"] .nt-grip::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 2.5px);
+  top: 9px;
+  width: 5px;
+  height: 8px;
+  border: 1px solid #fff0f0aa;
+  border-radius: 2px;
+  background: #a54260;
+}
+
+[data-note-skin="querido-corazon"] .nt-ct {
+  padding: 8px 13px 3px;
+  font-style: italic;
+}
+
+[data-note-skin="querido-corazon"] .nt-cp {
+  padding: 0 14px 0 13px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  line-height: 1.45;
+  font-style: italic;
+}
+
+/* Marco de costura de la tarjeta pequeña. */
+
+[data-note-skin="querido-corazon"] .nt-card::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  top: 33px;
+  bottom: 9px;
+  border: 1px dashed #c7819766;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+/* Encaje inferior. */
+
+[data-note-skin="querido-corazon"] .nt-card::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  bottom: 3px;
+  height: 5px;
+  background:
+    radial-gradient(
+      circle at 50% 0,
+      #dda7b7 2px,
+      transparent 2.5px
+    ) 0 0 / 9px 5px repeat-x;
+  pointer-events: none;
+}
+
+/* Pliegues de sobre en la cabecera de la nota ampliada. */
+
+[data-note-skin="querido-corazon"] .nt-bt {
+  background:
+    linear-gradient(
+      155deg,
+      transparent 48.8%,
+      #cb879c66 49% 49.6%,
+      transparent 50%
+    ) left top / 50% 100% no-repeat,
+    linear-gradient(
+      205deg,
+      transparent 48.8%,
+      #cb879c66 49% 49.6%,
+      transparent 50%
+    ) right top / 50% 100% no-repeat,
+    #f3cbd6;
+  border-bottom: 3px double #c67d96;
+}
+
+[data-note-skin="querido-corazon"] .nt-big::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 88px;
+  bottom: 68px;
+  border: 1px dashed #c7819770;
+  border-radius: 5px;
+  pointer-events: none;
+}
+
+[data-note-skin="querido-corazon"] .nt-big::after {
+  content: "";
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 60px;
+  height: 6px;
+  background:
+    radial-gradient(
+      circle at 50% 0,
+      #c7819780 2px,
+      transparent 2.5px
+    ) 0 0 / 10px 6px repeat-x;
+  pointer-events: none;
+}
+
+[data-note-skin="querido-corazon"] :is(.nt-ti, .nt-tx) {
+  font-style: italic;
+}
+
+/* ===== AJUSTES COMPARTIDOS ===== */
+
+:is(
+  [data-note-skin="cartas-prohibidas"],
+  [data-note-skin="querido-corazon"]
+) .nt-ti {
+  padding: 14px 24px 6px;
+  font-size: 20px;
+}
+
+:is(
+  [data-note-skin="cartas-prohibidas"],
+  [data-note-skin="querido-corazon"]
+) .nt-tx {
+  padding: 8px 25px 48px;
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+:is(
+  [data-note-skin="cartas-prohibidas"],
+  [data-note-skin="querido-corazon"]
+) .nt-st {
+  padding-left: 24px;
+  color: var(--note-soft);
+}
+
+:is(
+  [data-note-skin="cartas-prohibidas"],
+  [data-note-skin="querido-corazon"]
+) .nt-big .nt-sd-ok {
+  color: var(--note-soft);
+}
+
+:is(
+  [data-note-skin="cartas-prohibidas"],
+  [data-note-skin="querido-corazon"]
+) .nt-ft {
+  background: transparent;
+  padding-top: 10px;
+  padding-bottom: 14px;
+}
+
+/* Botones legibles sobre ambos papeles,
+   independientemente del tema general de Auri. */
+
+:is(
+  [data-note-skin="cartas-prohibidas"],
+  [data-note-skin="querido-corazon"]
+) :is(.nt-ft, .nt-po) .button {
+  color: var(--note-paper);
+  background: var(--note-ink);
+  border-color: var(--note-ink);
+}
+
+:is(
+  [data-note-skin="cartas-prohibidas"],
+  [data-note-skin="querido-corazon"]
+) :is(.nt-ft, .nt-po) :is(.button.secondary, .button.ghost) {
+  color: var(--note-ink);
+  background: transparent;
+  border-color: var(--note-bd);
+}
+
+/* Foco visible dentro de los bordes decorados. */
+
+:is(
+  [data-note-skin="cartas-prohibidas"],
+  [data-note-skin="querido-corazon"]
+) :is(.nt-card, .nt-grip, .nt-ib, .nt-ti, .nt-tx):focus-visible {
+  outline: 2px solid var(--note-ink);
+  outline-offset: -4px;
+}
+
+/* Pantallas estrechas y contador de caracteres. */
+
+@media (max-width: 380px) {
+  :is(
+    [data-note-skin="cartas-prohibidas"],
+    [data-note-skin="querido-corazon"]
+  ) .nt-ft {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  :is(
+    [data-note-skin="cartas-prohibidas"],
+    [data-note-skin="querido-corazon"]
+  ) .nt-cnt:not(:empty) {
+    flex-basis: 100%;
+  }
+}
+
+/* Selector de apariencia y vista del premio */
+.nt-skl{display:flex;align-items:center;gap:8px;margin:6px 0 0;font-size:12px;color:hsl(var(--muted-foreground))}
+.nt-skin{font:600 12.5px var(--sans,inherit);color:hsl(var(--foreground));background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:10px;padding:6px 26px 6px 10px;max-width:100%}
+.nt-skin:focus-visible{outline:2px solid hsl(var(--primary));outline-offset:2px}
+.rw-nsk{display:block;position:relative;width:64px;height:56px;pointer-events:none}
+.rw-nsk .nt-card{position:absolute;left:0;top:0;transform:scale(.52);transform-origin:0 0;cursor:default}
+.rw-big .rw-nsk{width:122px;height:106px}
+.rw-big .rw-nsk .nt-card{transform:none}
+/* Ajuste de integración: el ornamento base de .nt-big fija 34×34 px; el encaje de Querido corazón ocupa todo el ancho */
+[data-note-skin="querido-corazon"] .nt-big::after{width:auto;right:20px}
+.rw-big:has(.rw-nsk){width:auto;height:auto;min-width:112px;min-height:112px;padding:10px;overflow:visible}
+.nt-skl{max-width:100%}.nt-skl .nt-skin{min-width:0;flex:1 1 auto;width:auto}

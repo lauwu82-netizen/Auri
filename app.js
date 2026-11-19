@@ -2960,12 +2960,16 @@ function infoView(existing) {
    Gratis para todas las cuentas y privadas (solo la autoría). Tabla story_notes + funciones note_* (supabase/76).
    Borrador local por cuenta/historia/nota; se sincroniza con control de versión (si hay conflicto se conservan las dos versiones).
    El orden es lógico (una lista), nunca coordenadas. Las skins solo cambian la apariencia (data-note-skin): el contenido es el mismo. */
-const NT_T = 80, NT_B = 5000, NT_MAX = 300, NT_CHMAX = 150000, NT_SKINS = ['basic'];
+const NT_T = 80, NT_B = 5000, NT_MAX = 300, NT_CHMAX = 150000, NT_SKINS = ['basic', 'querido-corazon', 'cartas-prohibidas'];
 const NT = { user: '', sid: '', st: null, rt: {}, open: '', sel: null, undo: null, drag: null, p: null, busy: {}, again: {}, tm: 0, sy: 0, dirty: false, noclick: 0, lock: 0, snack: 0, wide: false, route: '', off: false };
 const ntKey = sid => uk('notes.' + sid);
 const ntUuid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = (window.crypto && crypto.getRandomValues ? crypto.getRandomValues(new Uint8Array(1))[0] : Math.floor(Math.random() * 256)) & 15; return (c === 'x' ? r : (r & 3) | 8).toString(16); });
 const ntNorm = x => ({ id: String(x.id), t: String(x.t || ''), b: String(x.b || ''), v: x.v | 0, d: !!x.d, dd: x.dd | 0, seq: x.seq | 0, del: +x.del || 0 });
-const ntRead = sid => { const raw = LS.get(ntKey(sid), null) || {}; return { items: (Array.isArray(raw.items) ? raw.items : []).filter(x => x && x.id).map(ntNorm), od: !!raw.od, split: raw.split == null ? -1 : raw.split | 0, show: raw.show == null ? null : !!raw.show, skin: NT_SKINS.includes(raw.skin) ? raw.skin : 'basic' }; };
+const NT_SKIN_N = { basic: 'Básica', 'querido-corazon': 'Querido corazón', 'cartas-prohibidas': 'Cartas prohibidas' };
+/** basic es gratis; las otras solo si la cuenta ya reclamó su objeto (la Owner los tiene todos para probar) */
+const ntSkinOK = k => k === 'basic' || (NT_SKINS.includes(k) && !!S.user && hasItem(S.user, 'nskin:' + k));
+const ntSkinList = () => NT_SKINS.filter(ntSkinOK);
+const ntRead = sid => { const raw = LS.get(ntKey(sid), null) || {}; return { items: (Array.isArray(raw.items) ? raw.items : []).filter(x => x && x.id).map(ntNorm), od: !!raw.od, split: raw.split == null ? -1 : raw.split | 0, show: raw.show == null ? null : !!raw.show, skin: ntSkinOK(raw.skin) ? raw.skin : 'basic' }; };
 const ntLive = st => st.items.filter(x => !x.del);
 const ntOver = it => it.t.length > NT_T || it.b.length > NT_B;
 function ntFlush() { clearTimeout(NT.tm); NT.tm = 0; if (NT.sid && NT.st && NT.dirty) { NT.dirty = false; LS.set(ntKey(NT.sid), NT.st); } }
@@ -2978,7 +2982,17 @@ const ntStore = sid => sid === NT.sid && NT.st ? NT.st : ntRead(sid);
 const ntPut = (sid, st) => { if (sid === NT.sid && NT.st) ntSave(true); else LS.set(ntKey(sid), st); };
 /** ¿Esta cuenta puede guardar las notas en la nube? Si no, quedan solo en este dispositivo */
 const ntCan = sid => { const s = sbSes(); return !!(cloud() && s && S.user && !isGuest() && S.user === String(s.email || '').toLowerCase() && sUuid(sid) && (getUsers()[S.user] || {}).cloud); };
-const ntSkin = () => (NT.st && NT_SKINS.includes(NT.st.skin) ? NT.st.skin : 'basic');   // futuro: una skin extra solo si hasItem(S.user, 'nskin:<clave>')
+const ntSkin = () => (NT.st && ntSkinOK(NT.st.skin) ? NT.st.skin : 'basic');
+/** Selector de apariencia: solo si hay alguna skin obtenida además de la básica */
+const ntSkinSel = () => { const l = ntSkinList(); if (l.length < 2) return ''; const cur = ntSkin(); return `<label class="nt-skl"><span>${t('Apariencia')}</span><select class="nt-skin" data-ntskin aria-label="${esc(t('Apariencia de las notas'))}">${l.map(k => `<option value="${k}"${k === cur ? ' selected' : ''}>${esc(t(NT_SKIN_N[k]))}</option>`).join('')}</select></label>`; };
+/** Cambia solo la apariencia: no toca el texto, el orden ni el cursor (solo cambia data-note-skin) */
+function ntSetSkin(k, sid) {
+  sid = sid || NT.sid; if (!sid || !ntSkinOK(k)) return false;
+  const st = ntStore(sid); st.skin = k; ntPut(sid, st);
+  if (sid === NT.sid) document.querySelectorAll('#nt-dock,#nt-board,#nt-ov,.nt-pick-m[data-note-skin],.modal[data-note-skin]').forEach(el => el.setAttribute('data-note-skin', k));
+  document.querySelectorAll('select[data-ntskin]').forEach(x => { if (x.value !== k) x.value = k; });
+  return true;
+}
 
 /* --- estado visible: solo dice «Guardado» cuando el servidor lo confirmó --- */
 function ntStatOf(items) {
@@ -3091,7 +3105,7 @@ function ntSyncPending() {
 const ntCard = it => { const ti = it.t.trim(); return `<div class="nt-card" role="button" tabindex="0" data-nid="${esc(it.id)}" aria-label="${esc(t('Abrir nota: {x}', { x: ti || t('Sin título') }))}"><button type="button" class="nt-grip" data-nid="${esc(it.id)}" aria-label="${esc(t('Mover nota. Con el teclado, usa las flechas.'))}"><i></i><i></i><i></i></button><b class="nt-ct${ti ? '' : ' nt-none'}">${esc(ti || t('Sin título'))}</b><p class="nt-cp">${esc(it.b)}</p></div>`; };
 function ntHead(st, id) {
   const del = st.items.filter(x => x.del && Date.now() - x.del < 2592000000).length;
-  return `<div class="nt-hd"><span class="nt-lock">${t('Privado · solo tú')}</span><span class="nt-ds" role="status" aria-live="polite"></span></div><div class="nt-hd nt-hb"><button type="button" class="nt-new" data-nt="new">＋ ${t('Nueva nota')}</button>${del ? `<button type="button" class="nt-lnk" data-nt="trash">${t('Borradas ({n})', { n: del })}</button>` : ''}${id ? `<a class="nt-lnk" href="#/write/${esc(id)}/notes">${t('Tablero')}</a>` : ''}</div>`;
+  return `<div class="nt-hd"><span class="nt-lock">${t('Privado · solo tú')}</span><span class="nt-ds" role="status" aria-live="polite"></span></div><div class="nt-hd nt-hb"><button type="button" class="nt-new" data-nt="new">＋ ${t('Nueva nota')}</button>${del ? `<button type="button" class="nt-lnk" data-nt="trash">${t('Borradas ({n})', { n: del })}</button>` : ''}${id ? `<a class="nt-lnk" href="#/write/${esc(id)}/notes">${t('Tablero')}</a>` : ''}</div>${ntSkinSel()}`;
 }
 function ntDraw() {
   const st = NT.st; if (!st) return;
@@ -3107,7 +3121,7 @@ function ntDraw() {
       dock.innerHTML = `<div class="nt-side nt-sl">${ntHead(st, W.id)}<div class="nt-col" data-ntc>${live.slice(0, k).map(ntCard).join('') || (live.length ? '' : empty)}</div></div><div class="nt-side nt-sr"><div class="nt-col" data-ntc>${live.slice(k).map(ntCard).join('')}</div></div>`;
     } else dock.innerHTML = `${ntHead(st, W.id)}<div class="nt-row" data-ntc>${live.map(ntCard).join('') || empty}</div>`;
   }
-  if (bd) { bd.setAttribute('data-note-skin', skin); bd.innerHTML = live.map(ntCard).join('') || `<p class="nt-empty">${t('Aún no hay notas en esta historia.')}</p>`; const h = $('#nt-bh'); if (h) { const del = st.items.filter(x => x.del && Date.now() - x.del < 2592000000).length; h.innerHTML = `<button type="button" class="nt-new" data-nt="new">＋ ${t('Nueva nota')}</button><span class="nt-ds" role="status" aria-live="polite"></span>${del ? `<button type="button" class="nt-lnk" data-nt="trash">${t('Borradas ({n})', { n: del })}</button>` : ''}`; } }
+  if (bd) { bd.setAttribute('data-note-skin', skin); bd.innerHTML = live.map(ntCard).join('') || `<p class="nt-empty">${t('Aún no hay notas en esta historia.')}</p>`; const h = $('#nt-bh'); if (h) { const del = st.items.filter(x => x.del && Date.now() - x.del < 2592000000).length; h.innerHTML = `<button type="button" class="nt-new" data-nt="new">＋ ${t('Nueva nota')}</button><span class="nt-ds" role="status" aria-live="polite"></span>${del ? `<button type="button" class="nt-lnk" data-nt="trash">${t('Borradas ({n})', { n: del })}</button>` : ''}${ntSkinSel()}`; } }
   ntPaint();
 }
 function ntMount() {
@@ -3362,6 +3376,7 @@ document.addEventListener('touchmove', e => { if (NT.drag && e.cancelable) e.pre
 document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('.nt-card')) e.preventDefault(); });
 
 /* --- eventos de las notas (clic, teclado, escritura) --- */
+document.addEventListener('change', e => { const x = e.target; if (x && x.matches && x.matches('select[data-ntskin]')) { if (!ntSetSkin(x.value)) x.value = ntSkin(); } });
 document.addEventListener('click', e => {
   const a = e.target.closest && e.target.closest('[data-nt]');
   if (a && a.closest('.nt-ov, .nt-dock, #nt-board, .nt-page')) {
@@ -6636,7 +6651,7 @@ function chtCheck() {
 const PASS_FREE_BASE = { 4: 'Insignia de temporada', 8: 'Insignia de temporada', 10: 'Gemas moradas ×3', 14: 'Separador · carta de amor', 17: 'Insignia de temporada', 19: 'Gemas moradas ×3', 20: 'Insignia final de temporada' };
 const PASS_FREE = {
   reader: { ...PASS_FREE_BASE, 4: 'Insignia · First blush', 8: 'Insignia · Love letter', 17: 'Insignia · Eternal bloom', 20: 'Insignia · Ever after', 2: 'Título · Corazón tímido', 6: 'Separador · corazón sencillo', 9: 'Barra de progreso · corazón', 13: 'Cinta de marcapáginas · corazón colgante', 15: 'Sprite aleatorio', 18: 'Sprite aleatorio' },
-  writer: { ...PASS_FREE_BASE, 4: 'Insignia · Forbidden pact', 8: 'Insignia · Crimson elixir', 17: 'Insignia · Crimson muse', 20: "Insignia · Devil's Masterpiece", 2: 'Título · Pluma novata', 3: 'Fondo del editor · papel', 6: 'Separador · pluma', 11: 'Fondo del editor · noche', 15: 'Sprite aleatorio', 18: 'Sprite · corazón roto' } };
+  writer: { ...PASS_FREE_BASE, 1: 'Skin de notas · Querido corazón', 12: 'Skin de notas · Cartas prohibidas', 4: 'Insignia · Forbidden pact', 8: 'Insignia · Crimson elixir', 17: 'Insignia · Crimson muse', 20: "Insignia · Devil's Masterpiece", 2: 'Título · Pluma novata', 3: 'Fondo del editor · papel', 6: 'Separador · pluma', 11: 'Fondo del editor · noche', 15: 'Sprite aleatorio', 18: 'Sprite · corazón roto' } };
 const PASS_PAID = {
   reader: { 1: 'Forma · corazón con alitas', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador · flecha y corazón', 4: 'AuriGems cian ×10', 5: 'Adorno · caja de bombones', 6: 'Adorno · corazones enamorados', 7: 'AuriCoins ×200', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'Cinta de marcapáginas · seda', 11: 'Adorno · corazón con encaje', 12: 'Mascota · Cupida', 13: 'Ambiente · corazones flotantes', 14: 'Chat San Valentín · lila', 15: 'Sprite aleatorio', 16: 'Tarjeta de fin de capítulo · carta con sello', 17: 'Mascota · Cupido', 18: 'Sprite aleatorio', 19: 'AuriCoins ×200', 20: 'Sprite a elección · Título · Corazón de biblioteca' },
   writer: { 1: 'Título · Tinta y corazón', 2: 'AuriCoins ×50', 3: 'Forma · corazón partido', 4: 'AuriGems cian ×10', 5: 'Marco de portada · sweet love', 6: 'AuriCoins ×50', 7: 'Separador · rosas y espinas', 8: 'Fondos del editor · San Valentín dulce y oscuro', 9: 'AuriGems moradas ×10', 10: 'Marco de portada · dark San Valentín', 11: 'Impulso a destacados ×1', 12: 'AuriCoins ×75', 13: 'Adornos · corona de rosas, corazón y collar oscuro', 14: 'Mascota · Diablillo', 15: 'AuriGems cian ×15', 16: 'Fondo de lectura · San Valentín oscuro', 17: 'Ambiente por capítulo', 18: 'Sprite · borracho enamorado', 19: 'AuriGems moradas ×15', 20: 'Título · Rompecorazones · AuriCoins ×175' }
@@ -6678,6 +6693,7 @@ function rwVis(r) {                                      // el dibujo del premio
   if (r.kind === 'coins') return `<span class="rw-ic"><i class="coin"></i><b>×${r.amount}</b></span>`;
   if (r.kind === 'title') { const tk = r.key || it; return titleHTML(tk, TITLES[tk] || tk); }
   if (r.kind === 'sprite_random' || r.kind === 'sprite_pick') return `<span class="rw-mys">?</span>`;
+  if (p === 'nskin') return NT_SKINS.includes(k) && k !== 'basic' ? `<span class="rw-nsk" data-note-skin="${esc(k)}"><span class="nt-card"><span class="nt-grip"><i></i><i></i><i></i></span><b class="nt-ct">${esc(t('Nota de ejemplo'))}</b><span class="nt-cp">${esc(t('Así se verá tu nota.'))}</span></span></span>` : '';
   if (p === 'badge') return BADGES[k] ? badgeImg(k, 'rw-badge') : '';
   if (p === 'sprite') return `<div class="rw-spr">${vnSil(k)}</div>`;
   if (p === 'pet') return `<span class="rw-pet" style="background-image:url('pets/${esc(k)}.png')"></span>`;
@@ -6713,9 +6729,11 @@ function passTab() {
 }
 function rwModal(rows, title, extra) {                  // recompensa reclamada / detalle: dibujo grande + Equipar + X
   const m = document.createElement('div'); m.className = 'modal sheet';
-  const one = r => { const eq = rwEq(r); return `<div class="rw-got"><div class="rw-big">${rwVis(r)}</div>${eq ? `<button type="button" class="button sm" data-eq="${esc(eq[0])}|${esc(eq[1])}">${t('Equipar')}</button>` : ''}</div>`; };
+  const one = r => { const eq = rwEq(r), nk = String(r.item || '').startsWith('nskin:') ? r.item.slice(6) : ''; return `<div class="rw-got"><div class="rw-big">${rwVis(r)}</div>${nk ? (hasItem(S.user, r.item) ? `<button type="button" class="button sm" data-nsk="${esc(nk)}">${t('Equipar')}</button>` : `<p class="helper">${t('Vista previa: se desbloquea al reclamarla.')}</p>`) : eq ? `<button type="button" class="button sm" data-eq="${esc(eq[0])}|${esc(eq[1])}">${t('Equipar')}</button>` : ''}</div>`; };
   m.innerHTML = `<div class="modal-box rw-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${esc(title)}</h2><div class="rw-gots">${rows.map(one).join('')}</div>${extra || ''}<p class="helper">${t('No se equipa nada solo: tú eliges cuándo ponerlo.')}</p></div>`;
   m.addEventListener('click', ev => {
+    const nb = ev.target.closest('[data-nsk]');
+    if (nb) { const k = nb.dataset.nsk, mm = /^#\/write\/([^/?]+)/.exec(location.hash || ''), sid = mm && W && W.id === decodeURIComponent(mm[1]) ? W.id : ''; if (!ntSkinOK(k)) return; if (sid) { ntSetSkin(k, sid); nb.textContent = '✓ ' + t('Equipado'); nb.disabled = true; toast(t('Skin aplicada a las notas de esta historia')); } else { nb.outerHTML = `<a class="button sm" href="#/write" data-no>${t('Elegir historia en Mis historias')}</a><p class="helper">${t('Abre una historia, entra a un capítulo y elige la apariencia en tus notas.')}</p>`; } return; }
     const b = ev.target.closest('[data-eq]');
     if (b) { const [k, v] = b.dataset.eq.split('|'); setCfg(k, v); b.textContent = '✓ ' + t('Equipado'); b.disabled = true; return; }
     if (ev.target === m || ev.target.closest('[data-no]')) m.remove();
