@@ -83,6 +83,7 @@ const cfg = k => {
   const c = S.cfg || {};
   if (k === 'showMature') { const u = getUsers()[S.user]; if (isMinor(u)) return false; return c.showMature == null ? isAdult(u) : c.showMature; }   // por defecto: visible solo si ya declaraste ser mayor de edad
   if (k === 'notif') return { ...CFG_DEFAULTS.notif, ...(c.notif || {}) };
+  if (k === 'ntSound') return c.ntSound == null ? (isOwner() && !reduceMotion()) : !!c.ntSound;   // apagado por defecto (la Owner lo tiene encendido); si lo enciendes tú, suena siempre
   return c[k] ?? CFG_DEFAULTS[k];
 };
 const READ = { pad: { sm: '12px', md: '20px', lg: '34px' }, wd: { sm: '760px', md: '680px', lg: '600px' }, size: { sm: '17px', md: '19px', lg: '22px' }, lh: { compact: '1.7', normal: '1.95', relaxed: '2.25' }, font: { serif: 'var(--serif)', sans: 'var(--sans)' } };
@@ -3180,7 +3181,7 @@ function ntOpen(id, focus) {
   <textarea id="nt-tx" class="nt-tx" autocomplete="off" autocapitalize="sentences" placeholder="${esc(t('Escribe tu nota…'))}" aria-label="${esc(t('Texto de la nota'))}">${esc(it.b)}</textarea>
   <div id="nt-pick" class="nt-pick" hidden></div>
   <div class="nt-ft"><span id="nt-cnt" class="nt-cnt" aria-live="polite"></span><span class="nt-sp"></span><button type="button" class="button secondary sm" data-nt="insert">${t('Insertar en el capítulo')}</button><button type="button" class="button sm" data-nt="close">${t('Listo')}</button></div></div><span id="nt-live" class="sr-only" aria-live="polite"></span>`;
-  document.body.appendChild(ov); ntFit(); ntCount(); ntPaint();
+  document.body.appendChild(ov); ntSnd('open'); ntFit(); ntCount(); ntPaint();
   const f = $(focus === 't' ? '#nt-ti' : '#nt-tx', ov); if (f && (focus || !it.b)) { try { f.focus({ preventScroll: true }); const n = f.value.length; f.setSelectionRange(n, n); } catch (e) { /* ignorar */ } }
 }
 function ntFit() {
@@ -3269,6 +3270,24 @@ function ntUndo() {
   toast('Inserción deshecha');
 }
 
+/* --- sonido de papel (sintetizado con Web Audio: no descarga nada; muy bajito y corto) --- */
+let NT_AC = null;
+function ntSnd(kind) {
+  try {
+    if (!cfg('ntSound')) return;
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    if (!NT_AC) NT_AC = new AC(); if (NT_AC.state === 'suspended') NT_AC.resume();
+    const ac = NT_AC, t0 = ac.currentTime, dur = kind === 'lift' ? 0.16 : kind === 'open' ? 0.12 : 0.09;
+    const n = Math.floor(ac.sampleRate * dur), buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
+    let a = 0; for (let i = 0; i < n; i++) { if (i % Math.floor(ac.sampleRate * 0.012) === 0) a = 0.35 + Math.random() * 0.65; d[i] = (Math.random() * 2 - 1) * a; }   // ruido a ráfagas = papel que se arruga
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.7; bp.frequency.setValueAtTime(kind === 'drop' ? 1500 : 2600, t0); bp.frequency.exponentialRampToValueAtTime(kind === 'lift' ? 4200 : 1300, t0 + dur);
+    const g = ac.createGain(), peak = kind === 'lift' ? 0.07 : kind === 'open' ? 0.05 : 0.06;
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(peak, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(bp); bp.connect(g); g.connect(ac.destination); src.start(t0);
+    if (kind === 'drop') { const o = ac.createOscillator(), og = ac.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(170, t0); o.frequency.exponentialRampToValueAtTime(90, t0 + 0.07); og.gain.setValueAtTime(0.0001, t0); og.gain.exponentialRampToValueAtTime(0.05, t0 + 0.008); og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.08); o.connect(og); og.connect(ac.destination); o.start(t0); o.stop(t0 + 0.09); }   // un toquecito suave al apoyar la nota
+  } catch (e) { /* sin audio: no pasa nada */ }
+}
 /* --- arrastrar: mantén pulsada la tarjeta (o toma su asa) y suéltala donde quieras; encaja sola en la lista --- */
 const NT_LP = 380, ntReduce = () => reduceMotion() || document.documentElement.classList.contains('lite');
 function ntLift() {
@@ -3277,7 +3296,7 @@ function ntLift() {
   card.parentNode.insertBefore(ph, card);
   NT.drag = { ...p, ph, ox: p.x - r.left, oy: p.y - r.top, px: p.x, py: p.y, iv: 0 };
   Object.assign(card.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', margin: '0', zIndex: '80' });
-  void card.offsetWidth; card.classList.add('nt-lift'); try { card.setPointerCapture(p.pid); } catch (e) { /* ignorar */ }
+  ntSnd('lift'); void card.offsetWidth; card.classList.add('nt-lift'); try { card.setPointerCapture(p.pid); } catch (e) { /* ignorar */ }
   try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) { /* ignorar */ }
   NT.drag.iv = setInterval(ntAuto, 30);
 }
@@ -3308,7 +3327,7 @@ function ntDragMove(x, y) {
 }
 function ntDrop() {
   const p = NT.p; if (p) clearTimeout(p.tm); NT.p = null; const d = NT.drag; if (!d) return;
-  NT.drag = null; clearInterval(d.iv); NT.noclick = Date.now() + 350;
+  NT.drag = null; clearInterval(d.iv); NT.noclick = Date.now() + 350; ntSnd('drop');
   const card = d.card, ph = d.ph, r = ph.getBoundingClientRect();
   const fin = () => {
     ['position', 'left', 'top', 'width', 'height', 'margin', 'zIndex', 'transition'].forEach(k => { card.style[k] = ''; });
@@ -4749,6 +4768,7 @@ function settingsView(secId) {
       <div class="set-col"><span>${t('Separador de escena')}</span><div class="sep-prev">${sepHTML('scene-sep')}</div><div class="sep-grid">${Object.entries(SEPS).filter(([k]) => SEPS[k][1] === 'free' || sepOK(k)).map(([k, v]) => `<button type="button" class="sep-opt ${sepKey() === k ? 'on' : ''} ${sepOK(k) ? '' : 'lock'}" ${sepOK(k) ? `data-act="cfg" data-k="sepStyle" data-v="${k}"` : 'data-act="sep-lock"'} aria-pressed="${sepKey() === k}">${sepHTML('sep-mini', k)}<span>${t(v[0])}</span><em>${t(v[1] === 'free' ? 'Gratis' : v[1] === 'shop' ? 'Tienda' : v[1] === 'founder' ? 'Fundador' : 'Pase')}</em></button>`).join('')}</div></div>
       <div class="set-col"><span>${t('Ambiente de lectura')}</span><p class="helper" style="margin:0">${t('Pequeñas animaciones suaves mientras lees libros tradicionales. Se quitan solas en modo Ahorro.')}</p><div class="sep-grid">${Object.entries(AMBS).filter(([k]) => AMBS[k][1] !== 'founder' || ambOK(k)).map(([k, v]) => `<button type="button" class="sep-opt amb-opt ${ambKey() === k ? 'on' : ''} ${ambOK(k) ? '' : 'lock'}" ${ambOK(k) ? `data-act="cfg" data-k="amb" data-v="${k}"` : 'data-act="amb-lock"'} aria-pressed="${ambKey() === k}"><span class="amb-ico">${v[2]}</span><span>${t(v[0])}</span>${k === 'off' ? '' : `<em>${t(v[1] === 'free' ? 'Gratis' : v[1] === 'founder' ? 'Fundador' : 'Pase')}</em>`}</button>`).join('')}</div></div>
       ${sw('noGlow', !!cfg('noGlow'), 'Quitar el brillo del avatar', 'Quita el resplandor de color alrededor del avatar y de los cosméticos que llevas puestos.')}
+      ${sw('ntSound', !!cfg('ntSound'), 'Sonidos de las notas', 'Un roce suave de papel al levantar, soltar y abrir una nota. Muy bajito.')}
       ${sw('petStill', !!cfg('petStill'), 'Mascota quieta', 'La mascota de los perfiles se queda quieta, sin caminar ni dormirse.')}
       ${ribOwn().length > 1 ? `<div class="set-col"><span>${t('Marcapáginas')}</span><div class="rbg-grid">${ribOwn().map(k => `<button type="button" class="rbg-opt ${cfg('ribStyle') === k ? 'on' : ''}" data-act="cfg" data-k="ribStyle" data-v="${k}" aria-pressed="${cfg('ribStyle') === k}">${t(RIBS[k])}</button>`).join('')}</div></div>` : ''}
       ${progOwn().length > 1 ? `<div class="set-col"><span>${t('Barra de progreso')}</span><div class="rbg-grid">${progOwn().map(k => `<button type="button" class="rbg-opt ${cfg('progStyle') === k ? 'on' : ''}" data-act="cfg" data-k="progStyle" data-v="${k}" aria-pressed="${cfg('progStyle') === k}">${t(PROGS[k])}</button>`).join('')}</div></div>` : ''}

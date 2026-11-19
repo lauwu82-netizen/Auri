@@ -2721,4 +2721,6 @@ window.I18N = { en: {
   "No pude deshacerlo: el texto insertado ya cambió.": "I couldn't undo it: the inserted text has changed.",
   "Inserción deshecha": "Insertion undone",
   "Esta nota cambió en otro dispositivo. Conservé las dos versiones.": "This note changed on another device. I kept both versions.",
+  "Sonidos de las notas": "Note sounds",
+  "Un roce suave de papel al levantar, soltar y abrir una nota. Muy bajito.": "A soft paper rustle when lifting, dropping and opening a note. Very quiet.",
 } };
