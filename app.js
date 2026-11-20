@@ -101,7 +101,7 @@ const RIBS = { classic: 'Clásica', seda: 'Cinta de seda', corazon: 'Corazón co
 const ribOwn = () => Object.keys(RIBS).filter(k => k === 'classic' || hasItem(S.user, 'rib:' + k)), progOwn = () => Object.keys(PROGS).filter(k => k === 'classic' || hasItem(S.user, 'prog:' + k));
 function applyReading() {                               // tamaño, interlineado y tipografía del lector, como variables CSS
   const r = document.documentElement.style; if (!r || !r.setProperty) return;
-  r.setProperty('--read-size', READ.size[cfg('fontSize')]); r.setProperty('--read-lh', READ.lh[cfg('lh')]); r.setProperty('--read-font', READ.font[cfg('font')] || READ.font.serif); loadFont(cfg('font')); r.setProperty('--read-pad', READ.pad[cfg('margin')] || '20px'); r.setProperty('--read-w', READ.wd[cfg('margin')] || '680px'); document.documentElement.dataset.rbg = cfg('rbg'); document.documentElement.dataset.dropcap = cfg('dropcap') ? '1' : '0'; document.documentElement.dataset.rib = ribOwn().includes(cfg('ribStyle')) ? cfg('ribStyle') : 'classic'; document.documentElement.dataset.prog = progOwn().includes(cfg('progStyle')) ? cfg('progStyle') : 'classic'; r.setProperty('--read-align', cfg('align') === 'justify' ? 'justify' : 'left');
+  r.setProperty('--read-size', READ.size[cfg('fontSize')]); r.setProperty('--read-lh', READ.lh[cfg('lh')]); r.setProperty('--read-font', READ.font[cfg('font')] || READ.font.serif); loadFont(cfg('font')); r.setProperty('--read-pad', READ.pad[cfg('margin')] || '20px'); r.setProperty('--read-w', READ.wd[cfg('margin')] || '680px'); document.documentElement.dataset.rbg = rbgKey(); document.documentElement.dataset.dropcap = cfg('dropcap') ? '1' : '0'; document.documentElement.dataset.rib = ribOwn().includes(cfg('ribStyle')) ? cfg('ribStyle') : 'classic'; document.documentElement.dataset.prog = progOwn().includes(cfg('progStyle')) ? cfg('progStyle') : 'classic'; r.setProperty('--read-align', cfg('align') === 'justify' ? 'justify' : 'left');
   document.documentElement.lang = uiLang(); document.documentElement.classList.toggle('noglow', !!cfg('noGlow'));
 }
 function setCfg(k, v) { S.cfg = { ...S.cfg, [k]: v }; LS.set(uk('cfg'), S.cfg); applyReading(); if (k === 'showOnline') { LAST_ON = null; sbBeat(); } }
@@ -3486,6 +3486,35 @@ function editorPaperDecor(key) {
         `}
     </div>`;
 }
+/** Fondos de lectura de pase (solo con el objeto en la cuenta): el valor local solo no los desbloquea */
+const RBG_PASS = { papelrosa: 'Papel de rosa', nochealgodon: 'Noche de algodón' };
+const rbgKey = () => { const k = cfg('rbg'); return RBG_PASS[k] && !(S.user && hasItem(S.user, 'rbg:' + k)) ? 'auto' : k; };
+/* Fondos de lectura: decoración estática.
+   Recibe la clave del fondo DESPUÉS de validar su propiedad.
+   Nunca forma parte del contenido guardado del capítulo. */
+function readerLoveDecor(key) {
+  if (!['papelrosa', 'nochealgodon'].includes(key)) return '';
+
+  return `
+    <div class="rbgl-decor rbgl-${key}" aria-hidden="true">
+      <span class="rbgl-edge"></span>
+
+      <span class="rbgl-petal rbgl-p1"></span>
+      <span class="rbgl-petal rbgl-p2"></span>
+      <span class="rbgl-petal rbgl-p3"></span>
+
+      <span class="rbgl-heart rbgl-h1"></span>
+      <span class="rbgl-heart rbgl-h2"></span>
+
+      ${key === 'nochealgodon'
+        ? `
+          <span class="rbgl-moon"></span>
+          <span class="rbgl-cloud rbgl-c1"></span>
+          <span class="rbgl-cloud rbgl-c2"></span>
+        `
+        : ''}
+    </div>`;
+}
 const sepOK = k => !SEPS[k] ? false : SEPS[k][1] === 'free' || (SEPS[k][1] === 'founder' ? isOwner() || !!(getUsers()[S.user] || {}).frameTop : isStaff(S.user) || hasItem(S.user, 'sep:' + k));      // los de tienda/pase se desbloquean con compra (por ahora solo el equipo los ve)
 const sepKey = () => sepOK(cfg('sepStyle')) ? cfg('sepStyle') : 'classic';
 /* Mascotas 8-bit del perfil: hoja de 4 cuadros (quieta, paso 1, paso 2, dormida) en pets/<clave>.png. Para usar un dibujo propio basta con reemplazar el PNG */
@@ -3605,7 +3634,7 @@ function chapterView(cid) {
   if (i < 0) return `<main class="page">${empty(t('Capítulo no encontrado'), t('Puede que se haya eliminado.'), '<button class="button" data-act="ch-list">' + t('Ver capítulos') + '</button>')}</main>`;
   const ch = W.chapters[i], n = W.chapters.length, before = W.chapters[i - 1], after = W.chapters[i + 1], st = ch.status || 'draft';
   if (WPREVIEW) return `<div class="rf"><header class="rf-top"><button class="button ghost sm" data-act="back-edit">${t('‹ Volver a escribir')}</button><div class="rf-title">${t('Vista previa · Cap. {n}', { n: i + 1 })}</div><span style="width:44px"></span></header>
-  <article class="rf-body">${chHero(ch)}${chHead(i + 1, ch.title)}${readerText(ch.text || t('Aquí aparecerá el texto de tu capítulo.'), W.useReaderCharacter)}</article></div>`;
+  <article class="rf-body">${readerLoveDecor(rbgKey())}${chHero(ch)}${chHead(i + 1, ch.title)}${readerText(ch.text || t('Aquí aparecerá el texto de tu capítulo.'), W.useReaderCharacter)}</article></div>`;
   return `<div class="wf" data-ebg="${esc(ebgKey())}"><header class="wf-top"><button class="button ghost sm" data-act="ch-list" aria-label="${esc(t('Guardar y salir a la lista de capítulos'))}">✕ ${t('Salir')}</button>
   <span class="grow">${t('Cap. {i} de {n}', { i: i + 1, n })} · <span class="pill st-${st}">${t(CH_STATUS[st])}</span> <span id="w-saved"></span></span><button type="button" class="button secondary sm nt-tog" data-act="nt-toggle" aria-pressed="false" aria-controls="nt-dock">${t('Notas')}</button><button class="button secondary sm" data-act="preview">${t('Vista previa')}</button><button class="button sm wf-done" data-act="kb-done">${t('Listo')}</button></header>
   ${st === 'rejected' && ch.reason ? `<p class="notice">${t('Rechazado: {reason}', { reason: esc(ch.reason) })}</p>` : ''}${ch.live ? `<p class="notice">${t('Mientras se revisa esta edición, los lectores siguen viendo la versión aprobada anterior.')}</p>` : ''}
@@ -4027,7 +4056,7 @@ function chapterRead(s, N) {
   const nc = comments(s.id, ch.idx).length, exit = `data-act="exit-book" data-id="${esc(s.id)}" data-n="${ch.idx}"`;
   return `<div class="rf">${ambHTML(s)}<div class="rf-bar"><i id="rf-bar-i"></i></div>
   <header class="rf-top"><button class="button ghost sm" ${exit} aria-label="${esc(t('Guardar progreso y salir del libro'))}">✕ ${t('Salir')}</button><div class="rf-title"><b>${t('Cap. {n}', { n: ch.idx + 1 })}</b> · ${esc(ch.title)}<small class="rf-left" id="rf-left" data-tot="${readMin(ch.text)}"></small></div><button class="icon-btn" data-act="comments" aria-label="${esc(t('Comentarios'))}">💬</button></header>
-  <article class="rf-body">${vnOn() && s.mode !== 'chat' ? `<a class="button secondary sm vnr-switch" data-replace href="#/vnr/${esc(s.id)}/${ch.idx + 1}">🎬 ${t('Leer en novela visual')}</a>` : ''}${chHero(ch)}${chHead(ch.idx + 1, ch.title)}${s.useReaderCharacter && S.chars.length > 1 ? `<label class="helper" style="display:flex;align-items:center;gap:8px;margin-bottom:14px">${t('Leyendo como')} <select id="char-sel" class="select" style="max-width:200px">${S.chars.map((x, k) => `<option value="${x.id}" ${x.id === S.activeId ? 'selected' : ''}>${esc(x.name || t('Personaje {n}', { n: k + 1 }))}</option>`).join('')}</select></label>` : ''}${ch.music && musicEmbed(ch.music) ? `<button class="button secondary sm ch-music" data-act="music" data-url="${esc(ch.music)}">🎵 ${t('Escuchar la canción de este capítulo')}</button>` : ''}${readerText(ch.text, s.useReaderCharacter, { sid: s.id, ci: ch.idx })}</article>
+  <article class="rf-body">${readerLoveDecor(rbgKey())}${vnOn() && s.mode !== 'chat' ? `<a class="button secondary sm vnr-switch" data-replace href="#/vnr/${esc(s.id)}/${ch.idx + 1}">🎬 ${t('Leer en novela visual')}</a>` : ''}${chHero(ch)}${chHead(ch.idx + 1, ch.title)}${s.useReaderCharacter && S.chars.length > 1 ? `<label class="helper" style="display:flex;align-items:center;gap:8px;margin-bottom:14px">${t('Leyendo como')} <select id="char-sel" class="select" style="max-width:200px">${S.chars.map((x, k) => `<option value="${x.id}" ${x.id === S.activeId ? 'selected' : ''}>${esc(x.name || t('Personaje {n}', { n: k + 1 }))}</option>`).join('')}</select></label>` : ''}${ch.music && musicEmbed(ch.music) ? `<button class="button secondary sm ch-music" data-act="music" data-url="${esc(ch.music)}">🎵 ${t('Escuchar la canción de este capítulo')}</button>` : ''}${readerText(ch.text, s.useReaderCharacter, { sid: s.id, ci: ch.idx })}</article>
   <footer class="rf-end"><div class="ch-end">${sepHTML('scene-sep')}${hasItem(S.user, 'fin:carta') && cfg('finCard') !== false ? `<div class="ch-letter" aria-hidden="true"><svg viewBox="0 0 64 44"><rect x="4" y="6" width="56" height="34" rx="4" class="lt-b"/><path d="M5 8l27 18L59 8" class="lt-f"/><circle cx="32" cy="26" r="8" class="lt-s"/><path d="M32 31c-5-3.4-3.8-6.4-1.8-5.8.9.3 1.5.9 1.8 1.5.3-.6.9-1.2 1.8-1.5 2-.6 3.2 2.4-1.8 5.8z" class="lt-h"/></svg><span>${t('Gracias por leer')}</span></div>` : ''}<b class="ch-fin">${after ? t('Fin del capítulo') : t('Fin del último capítulo disponible')}</b><small class="ch-min">${t('Lectura de ~{n} min', { n: readMin(ch.text) })}</small>
   <button class="read-btn ${read.includes(ch.idx) ? 'done' : ''}" data-act="read" data-id="${esc(s.id)}" data-n="${ch.idx}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7.5"/></svg>${read.includes(ch.idx) ? t('Leído') : t('Marcar como leído')}</button>
   <div class="nav2">${before ? `<a class="nav-card prev" data-replace data-dir="prev" href="#/story/${esc(s.id)}/${before.idx + 1}"><small>${t('Anterior')}</small><b>${esc(before.title || t('Capítulo {n}', { n: before.idx + 1 }))}</b></a>` : ''}${after ? `<a class="nav-card next" data-replace data-dir="next" href="#/story/${esc(s.id)}/${after.idx + 1}"><small>${t('Siguiente')}</small><b>${esc(after.title || t('Capítulo {n}', { n: after.idx + 1 }))}</b></a>` : ''}</div></div>
@@ -4813,7 +4842,7 @@ function settingsView(secId) {
     lectura: { ico: '📖', c: '#3e8fd0', t: 'Lectura', sub: `${t('Letra ' + ({ sm: 'pequeña', md: 'normal', lg: 'grande' })[cfg('fontSize')])} · ${t((FONTS.find(f => f[0] === cfg('font')) || FONTS[0])[1])}`, body: () => `<section class="panel set-sec"><div class="set-row"><span>${t('Tamaño de letra')}</span>${seg('fontSize', [['sm', 'Pequeña'], ['md', 'Normal'], ['lg', 'Grande']], cfg('fontSize'))}</div>
       <div class="set-col"><span>${t('Tipografía')}</span><div class="font-grid">${(FONTS.forEach(f => loadFont(f[0])), FONTS).map(f => `<button type="button" class="font-opt ${cfg('font') === f[0] ? 'on' : ''}" data-act="cfg" data-k="font" data-v="${f[0]}" style="font-family:${READ.font[f[0]]}" aria-pressed="${cfg('font') === f[0]}"><b>Aa</b><span>${esc(t(f[1]))}</span></button>`).join('')}</div></div>
       ${ebgOwn().length ? `<div class="set-col"><span>${t('Fondo del editor')}</span><div class="rbg-grid">${[['auto', 'Del tema'], ...ebgOwn().map(k => [k, EBGS[k]])].map(b => `<button type="button" class="rbg-opt ${cfg('ebg') === b[0] ? 'on' : ''}" data-act="cfg" data-k="ebg" data-v="${b[0]}" data-rbg="${b[0]}" aria-pressed="${cfg('ebg') === b[0]}"><span class="rbg-sw"></span>${t(b[1])}</button>`).join('')}</div></div>` : ''}
-      <div class="set-col"><span>${t('Fondo de lectura')}</span><div class="rbg-grid">${[['auto', 'Del tema'], ['cream', 'Crema'], ['sepia', 'Sepia'], ['night', 'Noche'], ['paper', 'Papel'], ...(hasItem(S.user, 'rbg:sanvalentin') || cfg('rbg') === 'sanvalentin' ? [['sanvalentin', 'San Valentín']] : []), ...(hasItem(S.user, 'rbg:sanvalentindark') || cfg('rbg') === 'sanvalentindark' ? [['sanvalentindark', 'San Valentín oscuro']] : [])].map(b => `<button type="button" class="rbg-opt ${cfg('rbg') === b[0] ? 'on' : ''}" data-act="cfg" data-k="rbg" data-v="${b[0]}" data-rbg="${b[0]}" aria-pressed="${cfg('rbg') === b[0]}"><span class="rbg-sw"></span>${t(b[1])}</button>`).join('')}</div></div>
+      <div class="set-col"><span>${t('Fondo de lectura')}</span><div class="rbg-grid">${[['auto', 'Del tema'], ['cream', 'Crema'], ['sepia', 'Sepia'], ['night', 'Noche'], ['paper', 'Papel'], ...(hasItem(S.user, 'rbg:sanvalentin') || cfg('rbg') === 'sanvalentin' ? [['sanvalentin', 'San Valentín']] : []), ...(hasItem(S.user, 'rbg:sanvalentindark') || cfg('rbg') === 'sanvalentindark' ? [['sanvalentindark', 'San Valentín oscuro']] : []), ...Object.keys(RBG_PASS).filter(k => hasItem(S.user, 'rbg:' + k)).map(k => [k, RBG_PASS[k]])].map(b => `<button type="button" class="rbg-opt ${cfg('rbg') === b[0] ? 'on' : ''}" data-act="cfg" data-k="rbg" data-v="${b[0]}" data-rbg="${b[0]}" aria-pressed="${cfg('rbg') === b[0]}"><span class="rbg-sw">${readerLoveDecor(b[0])}</span>${t(b[1])}</button>`).join('')}</div></div>
       <div class="set-col"><span>${t('Separador de escena')}</span><div class="sep-prev">${sepHTML('scene-sep')}</div><div class="sep-grid">${Object.entries(SEPS).filter(([k]) => SEPS[k][1] === 'free' || sepOK(k)).map(([k, v]) => `<button type="button" class="sep-opt ${sepKey() === k ? 'on' : ''} ${sepOK(k) ? '' : 'lock'}" ${sepOK(k) ? `data-act="cfg" data-k="sepStyle" data-v="${k}"` : 'data-act="sep-lock"'} aria-pressed="${sepKey() === k}">${sepHTML('sep-mini', k)}<span>${t(v[0])}</span><em>${t(v[1] === 'free' ? 'Gratis' : v[1] === 'shop' ? 'Tienda' : v[1] === 'founder' ? 'Fundador' : 'Pase')}</em></button>`).join('')}</div></div>
       <div class="set-col"><span>${t('Ambiente de lectura')}</span><p class="helper" style="margin:0">${t('Pequeñas animaciones suaves mientras lees libros tradicionales. Se quitan solas en modo Ahorro.')}</p><div class="sep-grid">${Object.entries(AMBS).filter(([k]) => AMBS[k][1] !== 'founder' || ambOK(k)).map(([k, v]) => `<button type="button" class="sep-opt amb-opt ${ambKey() === k ? 'on' : ''} ${ambOK(k) ? '' : 'lock'}" ${ambOK(k) ? `data-act="cfg" data-k="amb" data-v="${k}"` : 'data-act="amb-lock"'} aria-pressed="${ambKey() === k}"><span class="amb-ico">${ambIco(k)}</span><span>${t(v[0])}</span>${k === 'off' ? '' : `<em>${t(v[1] === 'free' ? 'Gratis' : v[1] === 'founder' ? 'Fundador' : 'Pase')}</em>`}</button>`).join('')}</div></div>
       ${sw('noGlow', !!cfg('noGlow'), 'Quitar el brillo del avatar', 'Quita el resplandor de color alrededor del avatar y de los cosméticos que llevas puestos.')}
@@ -4829,7 +4858,7 @@ function settingsView(secId) {
       <div class="set-row"><span>${t('Comentarios en párrafos')}</span>${seg('pcom', [['tap', 'Al tocar'], ['dots', 'Con contador'], ['off', 'Desactivados']], cfg('pcom'))}</div>
       <p class="helper" style="margin:0 0 6px">${t('«Al tocar» deja la lectura limpia: toca un párrafo y aparece «Comentar». «Con contador» muestra un número discreto en los párrafos que tienen comentarios.')}</p>
       <div class="set-row"><span>${t('Spoilers en comentarios')}</span>${seg('spoilers', [['hide', 'Difuminar'], ['show', 'Mostrar']], cfg('spoilers'))}</div>
-      <div class="read-prev"><p class="reader-text">${t('Así se verá tu lectura. La luna asomó entre las nubes y el bosque guardó silencio.')}</p></div>
+      <div class="read-prev" data-rbg="${esc(rbgKey())}">${readerLoveDecor(rbgKey())}<p class="reader-text">${t('Así se verá tu lectura. La luna asomó entre las nubes y el bosque guardó silencio.')}</p></div>
       <div class="set-row"><span>${t('Música de los capítulos')}</span>${seg('music', [['ask', 'Preguntar siempre'], ['remember', 'Recordar mi elección']], cfg('music'))}</div>
       <p class="helper" style="margin:0 0 6px">${t('«Recordar» abre sola la canción del capítulo si la última vez elegiste reproducirla (el navegador puede pedirte un toque antes).')}</p>
       ${sw('skipReadAs', cfg('skipReadAs'), 'Saltar «Leer como…»', t('Usa siempre tu personaje activo{x}. Si no tienes uno activo, se te preguntará.', { x: act ? ` (${esc(act.name)})` : '' }))}</section>` },
@@ -6684,7 +6713,7 @@ function chtCheck() {
 /* Premios de ejemplo de cada pase (se cambian por los definitivos cuando estén los diseños) */
 const PASS_FREE_BASE = { 4: 'Insignia de temporada', 8: 'Insignia de temporada', 10: 'Gemas moradas ×3', 14: 'Separador · carta de amor', 17: 'Insignia de temporada', 19: 'Gemas moradas ×3', 20: 'Insignia final de temporada' };
 const PASS_FREE = {
-  reader: { ...PASS_FREE_BASE, 4: 'Insignia · First blush', 8: 'Insignia · Love letter', 17: 'Insignia · Eternal bloom', 20: 'Insignia · Ever after', 2: 'Título · Corazón tímido', 6: 'Separador · corazón sencillo', 9: 'Barra de progreso · corazón', 13: 'Cinta de marcapáginas · corazón colgante', 15: 'Sprite aleatorio', 18: 'Sprite aleatorio' },
+  reader: { ...PASS_FREE_BASE, 1: 'Fondo de lectura · Papel de rosa', 11: 'Fondo de lectura · Noche de algodón', 4: 'Insignia · First blush', 8: 'Insignia · Love letter', 17: 'Insignia · Eternal bloom', 20: 'Insignia · Ever after', 2: 'Título · Corazón tímido', 6: 'Separador · corazón sencillo', 9: 'Barra de progreso · corazón', 13: 'Cinta de marcapáginas · corazón colgante', 15: 'Sprite aleatorio', 18: 'Sprite aleatorio' },
   writer: { ...PASS_FREE_BASE, 5: 'Fondo del editor · Tinta cálida', 16: 'Fondo del editor · Rosa ceniza', 1: 'Skin de notas · Querido corazón', 12: 'Skin de notas · Cartas prohibidas', 4: 'Insignia · Forbidden pact', 8: 'Insignia · Crimson elixir', 17: 'Insignia · Crimson muse', 20: "Insignia · Devil's Masterpiece", 2: 'Título · Pluma novata', 3: 'Fondo del editor · papel', 6: 'Separador · pluma', 11: 'Fondo del editor · noche', 15: 'Sprite aleatorio', 18: 'Sprite · corazón roto' } };
 const PASS_PAID = {
   reader: { 1: 'Forma · corazón con alitas', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador · flecha y corazón', 4: 'AuriGems cian ×10', 5: 'Adorno · caja de bombones', 6: 'Adorno · corazones enamorados', 7: 'AuriCoins ×200', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'Cinta de marcapáginas · seda', 11: 'Adorno · corazón con encaje', 12: 'Mascota · Cupida', 13: 'Ambiente · corazones flotantes', 14: 'Chat San Valentín · lila', 15: 'Sprite aleatorio', 16: 'Tarjeta de fin de capítulo · carta con sello', 17: 'Mascota · Cupido', 18: 'Sprite aleatorio', 19: 'AuriCoins ×200', 20: 'Sprite a elección · Título · Corazón de biblioteca' },
@@ -6735,7 +6764,7 @@ function rwVis(r) {                                      // el dibujo del premio
   if (p === 'sep') return SEPS[k] ? sepHTML('sep-mini rw-sep sp-' + k, k) : '';
   if (p === 'cq') return COS_IMG[it] ? cosOne(it) : '';
   if (p === 'cf') return COVER_FRAMES[k] ? `<span class="rw-cf" style="background-image:url('${esc(COVER_FRAMES[k][1])}')"></span>` : '';
-  if (p === 'ebg' || p === 'rbg') { const d = { papel: 'paper', noche: 'night' }[k] || k; return `<span class="rbg-opt rw-bgw" data-rbg="${d}"><i class="rbg-sw"></i></span>`; }
+  if (p === 'ebg' || p === 'rbg') { const d = { papel: 'paper', noche: 'night' }[k] || k; return `<span class="rbg-opt rw-bgw" data-rbg="${d}"><i class="rbg-sw">${p === 'rbg' ? readerLoveDecor(k) : ''}</i></span>`; }
   if (p === 'amb') return AMBS[k] ? `<span class="rw-amb">${ambIco(k)}</span>` : `<span class="rw-emo">🎁</span>`;
   if (p === 'skin') return `<span class="rw-chat"><i></i><i class="me"></i></span>`;
   if (p === 'hue') return `<span class="rw-chat hue-${esc(k)}"><i></i><i class="me"></i></span>`;

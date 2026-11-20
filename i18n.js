@@ -2739,4 +2739,8 @@ window.I18N = { en: {
   "Rosa ceniza": "Ash rose",
   "Fondo del editor · Tinta cálida": "Editor background · Warm ink",
   "Fondo del editor · Rosa ceniza": "Editor background · Ash rose",
+  "Papel de rosa": "Rose paper",
+  "Noche de algodón": "Cotton night",
+  "Fondo de lectura · Papel de rosa": "Reading background · Rose paper",
+  "Fondo de lectura · Noche de algodón": "Reading background · Cotton night",
 } };
