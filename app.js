@@ -3653,7 +3653,14 @@ const auriLoveChapterHeadHTML = (num, title) => { const raw = String(title || ''
 const auriConCarinoHTML = () => `<div class="auri-love-end" aria-hidden="true"><span class="auri-love-end-label">${esc(t('Fin del capítulo'))}</span><p class="auri-love-end-title">${esc(t('Con cariño'))}</p><span class="auri-love-end-msg">${esc(t('Una página más cerca'))}${auriLoveHeartHTML()}</span></div>`;
 const headKey = () => cfg('headStyle') === 'enamorados' && hasItem(S.user, 'head:enamorados') ? 'enamorados' : 'classic';
 const finKey = () => cfg('finCard') === false ? '' : cfg('finStyle') === 'concarino' && hasItem(S.user, 'fin:concarino') ? 'concarino' : hasItem(S.user, 'fin:carta') && cfg('finStyle') !== 'concarino' ? 'carta' : '';
-const sepHTML = (cls, k = sepKey()) => k === 'petalosunidos' ? auriPetalsSeparatorHTML(cls) : `<div class="${cls} sp-${k}" aria-hidden="true"><i></i><span class="sp-mid">${sepSvg(k)}</span><i></i></div>`;
+/* Dibujo compartido del separador existente sep:flecha. */
+function auriCupidArtHTML() {
+  return `<span class="ac-frame" aria-hidden="true"><span class="ac-art"><span class="ac-shaft"><span class="ac-fletch"></span></span><span class="ac-heart"></span><span class="ac-shine"></span><span class="ac-bow"><span class="ac-tail ac-tail-left"></span><span class="ac-tail ac-tail-right"></span><span class="ac-loop ac-loop-left"></span><span class="ac-loop ac-loop-right"></span><span class="ac-knot"></span></span></span></span>`;
+}
+function auriCupidSeparatorHTML(cls = 'scene-sep') {
+  return `<div class="${esc(cls)} ac-separator" aria-hidden="true"><span class="ac-line"></span>${auriCupidArtHTML()}<span class="ac-line"></span></div>`;
+}
+const sepHTML = (cls, k = sepKey()) => k === 'flecha' ? auriCupidSeparatorHTML(cls) : k === 'petalosunidos' ? auriPetalsSeparatorHTML(cls) : `<div class="${cls} sp-${k}" aria-hidden="true"><i></i><span class="sp-mid">${sepSvg(k)}</span><i></i></div>`;
 const chHead = (num, title) => { if (headKey() === 'enamorados') return auriLoveChapterHeadHTML(num, title); const plain = /^\s*cap[ií]tulo\s*\d+\s*$/i.test(title || '') || !(title || '').trim(); return `<div class="ch-head">${plain ? '' : `<span class="ch-no">${t('Capítulo {n}', { n: num })}</span>`}<h1 class="rf-h">${esc(plain ? (title || '').trim() || t('Capítulo {n}', { n: num }) : title)}</h1>${sepHTML('ch-orn')}</div>`; };
 const chHero = (c, cls = 'ch-hero') => safeImg(c.cover) ? `<img class="${cls}" src="${esc(c.cover)}" alt="${esc(t('Portada del capítulo'))}">` : '';
 const chCoverBox = ch => `<div class="chc-box">${safeImg(ch.cover)
@@ -6795,7 +6802,7 @@ function rwVis(r) {                                      // el dibujo del premio
   if (p === 'pet') return `<span class="rw-pet" style="background-image:url('pets/${esc(k)}.png')"></span>`;
   if (p === 'shape') return `<span class="fr"${k ? ` data-shape="${esc(k)}"` : ''}>${avatarHTML(u.avatar, S.user, '')}</span>`;
   if (p === 'head') return k === 'enamorados' ? `<span class="auri-love-preview">${auriLoveChapterHeadHTML('03', t('Un título'))}</span>` : '';
-  if (p === 'sep') return SEPS[k] ? (k === 'petalosunidos' ? `<span class="auri-love-preview">${auriPetalsSeparatorHTML('sep-mini rw-sep')}</span>` : '') ||  sepHTML('sep-mini rw-sep sp-' + k, k) : '';
+  if (p === 'sep') return SEPS[k] ? (k === 'petalosunidos' ? `<span class="auri-love-preview">${auriPetalsSeparatorHTML('sep-mini rw-sep')}</span>` : k === 'flecha' ? `<span class="ac-preview" style="display:block;width:100%">${auriCupidSeparatorHTML('sep-mini rw-sep')}</span>` : '') ||  sepHTML('sep-mini rw-sep sp-' + k, k) : '';
   if (p === 'cq') return COS_IMG[it] ? cosOne(it) : '';
   if (p === 'cf') return COVER_FRAMES[k] ? `<span class="rw-cf" style="background-image:url('${esc(COVER_FRAMES[k][1])}')"></span>` : '';
   if (p === 'ebg' || p === 'rbg') { const d = { papel: 'paper', noche: 'night' }[k] || k; return `<span class="rbg-opt rw-bgw" data-rbg="${d}"><i class="rbg-sw">${p === 'rbg' ? readerLoveDecor(k) : ''}</i></span>`; }
