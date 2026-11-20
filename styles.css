@@ -4619,3 +4619,69 @@ html.lite .nt-card,html.lite .nt-dock,html.lite .nt-big,html.lite .nt-bk{transit
 .read-prev .rbgl-moon { right: 12px; top: 11px; width: 10px; height: 10px; box-shadow: -3px 1px 0 0 var(--rbgl-orn); }
 .read-prev .rbgl-p1 { top: 30px; } .read-prev .rbgl-p2 { top: auto; bottom: 22px; } .read-prev .rbgl-p3 { bottom: 10px; }
 .read-prev .rbgl-h1 { top: 12px; } .read-prev .rbgl-h2 { bottom: 12px; }
+
+/* ===== AURI · LAZOS DE LECTURA (Hilo rojo y Lacito de carta) ===== */
+/* Paleta de cinta: clara por defecto; oscura con el tema oscuro y con los fondos de lectura oscuros. */
+:root, .auri-ribbon-preview {
+  --auri-silk: #b83e60;
+  --auri-silk-deep: #8f2b4b;
+  --auri-silk-light: #ef9db4;
+  --auri-silk-track: #dcb0bf;
+}
+.dark, .dark .auri-ribbon-preview,
+[data-rbg="night"] .rf, [data-rbg="nochealgodon"] .rf, [data-rbg="sanvalentindark"] .rf {
+  --auri-silk: #e4a1be;
+  --auri-silk-deep: #a76387;
+  --auri-silk-light: #f9d3e4;
+  --auri-silk-track: #675169;
+}
+/* Fondos de lectura claros explícitos dentro de la app oscura */
+[data-rbg="cream"] .rf, [data-rbg="sepia"] .rf, [data-rbg="paper"] .rf, [data-rbg="sanvalentin"] .rf, [data-rbg="papelrosa"] .rf {
+  --auri-silk: #b83e60;
+  --auri-silk-deep: #8f2b4b;
+  --auri-silk-light: #ef9db4;
+  --auri-silk-track: #dcb0bf;
+}
+
+/* Lazo (SVG compartido) */
+.auri-silk-bow { display: block; width: 34px; height: 25px; filter: drop-shadow(0 1px 1px #58223a25); pointer-events: none; overflow: visible; }
+.auri-silk-bow * { pointer-events: none; }
+
+/* ===== HILO ROJO · barra de progreso ===== */
+.auri-thread-progress:not(.rf-bar) { position: relative; }
+[data-prog="hilorojo"] .rf-bar.auri-thread-progress { height: 3px; border-radius: 4px; background: var(--auri-silk-track); overflow: visible; }
+[data-prog="hilorojo"] .rf-bar.auri-thread-progress > i { background: var(--auri-silk); border-radius: 4px; box-shadow: none; }
+.auri-progress-bow {
+  position: absolute;
+  left: clamp(14px, var(--auri-progress, 0%), calc(100% - 14px));
+  top: 50%;
+  width: 25px;
+  height: 19px;
+  transform: translate(-50%, -12%);
+  pointer-events: none;
+}
+.auri-progress-bow .auri-silk-bow { transform: scale(.72); transform-origin: left top; }
+
+/* Muestra estática (Ajustes y premio): 60 % */
+.rw-prog.prog-hilorojo { height: 3px; background: var(--auri-silk-track); overflow: visible; margin: 9px 0 16px; width: 64px; }
+.rw-prog.prog-hilorojo > i { background: var(--auri-silk); border-radius: 4px; }
+.rw-prog.prog-hilorojo .auri-progress-bow { transform: translate(-50%, -30%); }
+
+/* ===== LACITO DE CARTA · marcapáginas ===== */
+/* En el libro: el mismo dibujo como fondo de la marca existente (sin tocar el texto del capítulo ni el marcapáginas guardado). */
+[data-rib="lacitocarta"] .bm-p::after,
+[data-rib="lacitocarta"] .bm-rib {
+  clip-path: none; filter: none; -webkit-mask: none; mask: none;
+  background: var(--auri-bm-light) center top / contain no-repeat;
+}
+[data-rib="lacitocarta"] .bm-p::after { width: 24px; height: 40px; top: -3px; }
+[data-rib="lacitocarta"] .bm-rib { aspect-ratio: 34 / 57; width: 16%; max-width: 28px; }
+.dark[data-rbg="auto"][data-rib="lacitocarta"] .bm-p::after, .dark[data-rbg="auto"][data-rib="lacitocarta"] .bm-rib,
+[data-rbg="night"][data-rib="lacitocarta"] .bm-p::after, [data-rbg="nochealgodon"][data-rib="lacitocarta"] .bm-p::after, [data-rbg="sanvalentindark"][data-rib="lacitocarta"] .bm-p::after {
+  background-image: var(--auri-bm-dark);
+}
+.auri-bookmark-art { position: relative; display: block; width: 24px; height: 40px; flex: none; pointer-events: none; }
+.auri-bookmark-art svg { display: block; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.auri-ribbon-preview { display: inline-block; line-height: 0; }
+.rw-big .auri-bookmark-art { width: 40px; height: 67px; }
+.rw-big .rw-prog.prog-hilorojo { width: 90px; }

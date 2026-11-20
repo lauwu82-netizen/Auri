@@ -2743,4 +2743,8 @@ window.I18N = { en: {
   "Noche de algodón": "Cotton night",
   "Fondo de lectura · Papel de rosa": "Reading background · Rose paper",
   "Fondo de lectura · Noche de algodón": "Reading background · Cotton night",
+  "Hilo rojo": "Red thread",
+  "Lacito de carta": "Letter bow",
+  "Barra de progreso · Hilo rojo": "Progress bar · Red thread",
+  "Marcapáginas · Lacito de carta": "Bookmark · Letter bow",
 } };

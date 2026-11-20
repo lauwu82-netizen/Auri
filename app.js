@@ -97,11 +97,26 @@ function loadFont(k) {                                  // carga la fuente solo 
 }
 /* Formato dentro del texto: **negrita** y *cursiva* (se escribe con los botones A del editor) */
 const fmtText = h => String(h).replace(/\*\*([^\s*](?:[^*\n]*?[^\s*])?)\*\*/g, '<strong>$1</strong>').replace(/\*([^\s*](?:[^*\n]*?[^\s*])?)\*/g, '<em>$1</em>');
-const RIBS = { classic: 'Clásica', seda: 'Cinta de seda', corazon: 'Corazón colgante' }, PROGS = { classic: 'Clásica', corazon: 'Corazón' };
+const RIBS = { classic: 'Clásica', seda: 'Cinta de seda', corazon: 'Corazón colgante', lacitocarta: 'Lacito de carta' }, PROGS = { classic: 'Clásica', corazon: 'Corazón', hilorojo: 'Hilo rojo' };
 const ribOwn = () => Object.keys(RIBS).filter(k => k === 'classic' || hasItem(S.user, 'rib:' + k)), progOwn = () => Object.keys(PROGS).filter(k => k === 'classic' || hasItem(S.user, 'prog:' + k));
+/* Lazo de seda: un solo dibujo (SVG) para la barra, el marcapáginas, las vistas previas y los premios. Solo decoración. */
+const AURI_PAL = { light: { s: '#b83e60', d: '#8f2b4b', l: '#ef9db4' }, dark: { s: '#e4a1be', d: '#a76387', l: '#f9d3e4' } };
+const auriBowBody = c => `<path d="M13.5 12 7 24l4.800-2.400 4.200 2.200L17 12Z" style="fill:${c.l};stroke:${c.d};stroke-width:.6;stroke-linejoin:round"/><path d="M20.500 12 27 24l-4.800-2.400-4.200 2.200L17 12Z" style="fill:${c.l};stroke:${c.d};stroke-width:.6;stroke-linejoin:round"/><path d="M17 12C11 3.500 3 .5 1.200 5 0 9.500 6.500 14 17 12Z" style="fill:${c.s};stroke:${c.d};stroke-width:1;stroke-linejoin:round"/><path d="M17 12c6-8.500 14-11.500 15.800-7C34 9.500 27.500 14 17 12Z" style="fill:${c.s};stroke:${c.d};stroke-width:1;stroke-linejoin:round"/><path d="M14.800 10.600C11 6.800 6.500 4.800 4 6.200M19.200 10.600c3.800-3.800 8.300-5.800 10.800-4.400" style="fill:none;stroke:${c.l};stroke-width:.8;opacity:.65;stroke-linecap:round"/><rect x="14.300" y="7.500" width="5.400" height="9" rx="2.600" style="fill:${c.d};stroke:${c.l};stroke-width:.5"/>`;
+const auriBowCSS = { s: 'var(--auri-silk)', d: 'var(--auri-silk-deep)', l: 'var(--auri-silk-light)' };
+const auriRibbonBody = c => `<path d="M10 0h15v55l-7.500-6.400L10 55Z" style="fill:${c.s};stroke:${c.d};stroke-width:.7;stroke-linejoin:round"/><path d="M13.500 2v46" style="fill:none;stroke:${c.l};stroke-width:1.200;opacity:.55;stroke-linecap:round"/><g transform="translate(2.100 17) scale(.88)">${auriBowBody(c)}</g>`;
+const auriUri = (w, h, body) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">${body}</svg>`)}")`;
+/** Dibujo compartido. Solo decoración; sin eventos propios. */
+function auriSilkBowHTML() { return `<svg class="auri-silk-bow" viewBox="0 0 34 25" aria-hidden="true" focusable="false">${auriBowBody(auriBowCSS)}</svg>`; }
+/** Marcador de la barra: hijo directo de la barra, separado del relleno. */
+function auriProgressBowHTML() { return `<span class="auri-progress-bow" aria-hidden="true">${auriSilkBowHTML()}</span>`; }
+/** Cinta del marcapáginas (vistas previas y premios). En el libro se dibuja con el mismo SVG como fondo (variables --auri-bm-*). */
+function auriBookmarkRibbonHTML() { return `<span class="auri-bookmark-art" aria-hidden="true"><svg viewBox="0 0 34 57" focusable="false">${auriRibbonBody(auriBowCSS)}</svg></span>`; }
+const auriSetBookmarkArt = () => { const r = document.documentElement.style; r.setProperty('--auri-bm-light', auriUri(34, 57, auriRibbonBody(AURI_PAL.light))); r.setProperty('--auri-bm-dark', auriUri(34, 57, auriRibbonBody(AURI_PAL.dark))); };
+const ribKey = () => ribOwn().includes(cfg('ribStyle')) ? cfg('ribStyle') : 'classic', progKey = () => progOwn().includes(cfg('progStyle')) ? cfg('progStyle') : 'classic';
+
 function applyReading() {                               // tamaño, interlineado y tipografía del lector, como variables CSS
   const r = document.documentElement.style; if (!r || !r.setProperty) return;
-  r.setProperty('--read-size', READ.size[cfg('fontSize')]); r.setProperty('--read-lh', READ.lh[cfg('lh')]); r.setProperty('--read-font', READ.font[cfg('font')] || READ.font.serif); loadFont(cfg('font')); r.setProperty('--read-pad', READ.pad[cfg('margin')] || '20px'); r.setProperty('--read-w', READ.wd[cfg('margin')] || '680px'); document.documentElement.dataset.rbg = rbgKey(); document.documentElement.dataset.dropcap = cfg('dropcap') ? '1' : '0'; document.documentElement.dataset.rib = ribOwn().includes(cfg('ribStyle')) ? cfg('ribStyle') : 'classic'; document.documentElement.dataset.prog = progOwn().includes(cfg('progStyle')) ? cfg('progStyle') : 'classic'; r.setProperty('--read-align', cfg('align') === 'justify' ? 'justify' : 'left');
+  r.setProperty('--read-size', READ.size[cfg('fontSize')]); r.setProperty('--read-lh', READ.lh[cfg('lh')]); r.setProperty('--read-font', READ.font[cfg('font')] || READ.font.serif); loadFont(cfg('font')); r.setProperty('--read-pad', READ.pad[cfg('margin')] || '20px'); r.setProperty('--read-w', READ.wd[cfg('margin')] || '680px'); document.documentElement.dataset.rbg = rbgKey(); document.documentElement.dataset.dropcap = cfg('dropcap') ? '1' : '0'; document.documentElement.dataset.rib = ribKey(); document.documentElement.dataset.prog = progKey(); auriSetBookmarkArt(); r.setProperty('--read-align', cfg('align') === 'justify' ? 'justify' : 'left');
   document.documentElement.lang = uiLang(); document.documentElement.classList.toggle('noglow', !!cfg('noGlow'));
 }
 function setCfg(k, v) { S.cfg = { ...S.cfg, [k]: v }; LS.set(uk('cfg'), S.cfg); applyReading(); if (k === 'showOnline') { LAST_ON = null; sbBeat(); } }
@@ -3608,7 +3623,7 @@ const AMBS = { off: ['Ninguno', 'free', '🚫'], rain: ['Lluvia', 'free', '🌧�
 const AMB_N = { rain: 34, snow: 14, fog: 4, fireflies: 9, stars: 4, petals: 12, stardust: 11, hearts: 9 };
 /** Dibujos en CSS (sin emojis) de los ambientes, marcapáginas y barras de progreso */
 const ambIco = k => `<span class="amb-ic ai-${esc(k)}" aria-hidden="true"><i></i><i></i><i></i><i></i></span>`;
-const ribPrev = k => `<span class="rw-rib rib-${esc(k)}" aria-hidden="true"></span>`, progPrev = k => `<span class="rw-prog prog-${esc(k)}" aria-hidden="true"><i></i></span>`;
+const ribPrev = k => k === 'lacitocarta' ? `<span class="auri-ribbon-preview">${auriBookmarkRibbonHTML()}</span>` : `<span class="rw-rib rib-${esc(k)}" aria-hidden="true"></span>`, progPrev = k => k === 'hilorojo' ? `<span class="rw-prog prog-hilorojo auri-thread-progress auri-ribbon-preview" style="--auri-progress:60%" aria-hidden="true"><i style="width:60%"></i>${auriProgressBowHTML()}</span>` : `<span class="rw-prog prog-${esc(k)}" aria-hidden="true"><i></i></span>`;
 const ambOK = k => !AMBS[k] ? false : AMBS[k][1] === 'free' || (AMBS[k][1] === 'founder' ? isOwner() || !!(getUsers()[S.user] || {}).frameTop : isStaff(S.user) || hasItem(S.user, 'amb:' + k));
 const ambKey = () => ambOK(cfg('amb')) ? cfg('amb') : 'off';
 const STAR_POS = [[12, 17, 1.0], [83, 24, 0.6], [26, 63, 0.3], [78, 79, 0.9]];   // estrellas fijas: x%, y%, tamaño
@@ -4054,7 +4069,7 @@ function chapterRead(s, N) {
   const ch = s.chapters[pos], before = s.chapters[pos - 1], after = s.chapters[pos + 1];
   if (!ch) return `<main class="page">${empty(t('Aún no hay capítulos'), t('Esta historia todavía no tiene capítulos publicados.'), `<a class="button" href="#/story/${esc(s.id)}">${t('Volver a la historia')}</a>`)}</main>`;
   const nc = comments(s.id, ch.idx).length, exit = `data-act="exit-book" data-id="${esc(s.id)}" data-n="${ch.idx}"`;
-  return `<div class="rf">${ambHTML(s)}<div class="rf-bar"><i id="rf-bar-i"></i></div>
+  return `<div class="rf">${ambHTML(s)}<div class="rf-bar${progKey() === 'hilorojo' ? ' auri-thread-progress' : ''}"><i id="rf-bar-i"></i>${progKey() === 'hilorojo' ? auriProgressBowHTML() : ''}</div>
   <header class="rf-top"><button class="button ghost sm" ${exit} aria-label="${esc(t('Guardar progreso y salir del libro'))}">✕ ${t('Salir')}</button><div class="rf-title"><b>${t('Cap. {n}', { n: ch.idx + 1 })}</b> · ${esc(ch.title)}<small class="rf-left" id="rf-left" data-tot="${readMin(ch.text)}"></small></div><button class="icon-btn" data-act="comments" aria-label="${esc(t('Comentarios'))}">💬</button></header>
   <article class="rf-body">${readerLoveDecor(rbgKey())}${vnOn() && s.mode !== 'chat' ? `<a class="button secondary sm vnr-switch" data-replace href="#/vnr/${esc(s.id)}/${ch.idx + 1}">🎬 ${t('Leer en novela visual')}</a>` : ''}${chHero(ch)}${chHead(ch.idx + 1, ch.title)}${s.useReaderCharacter && S.chars.length > 1 ? `<label class="helper" style="display:flex;align-items:center;gap:8px;margin-bottom:14px">${t('Leyendo como')} <select id="char-sel" class="select" style="max-width:200px">${S.chars.map((x, k) => `<option value="${x.id}" ${x.id === S.activeId ? 'selected' : ''}>${esc(x.name || t('Personaje {n}', { n: k + 1 }))}</option>`).join('')}</select></label>` : ''}${ch.music && musicEmbed(ch.music) ? `<button class="button secondary sm ch-music" data-act="music" data-url="${esc(ch.music)}">🎵 ${t('Escuchar la canción de este capítulo')}</button>` : ''}${readerText(ch.text, s.useReaderCharacter, { sid: s.id, ci: ch.idx })}</article>
   <footer class="rf-end"><div class="ch-end">${sepHTML('scene-sep')}${hasItem(S.user, 'fin:carta') && cfg('finCard') !== false ? `<div class="ch-letter" aria-hidden="true"><svg viewBox="0 0 64 44"><rect x="4" y="6" width="56" height="34" rx="4" class="lt-b"/><path d="M5 8l27 18L59 8" class="lt-f"/><circle cx="32" cy="26" r="8" class="lt-s"/><path d="M32 31c-5-3.4-3.8-6.4-1.8-5.8.9.3 1.5.9 1.8 1.5.3-.6.9-1.2 1.8-1.5 2-.6 3.2 2.4-1.8 5.8z" class="lt-h"/></svg><span>${t('Gracias por leer')}</span></div>` : ''}<b class="ch-fin">${after ? t('Fin del capítulo') : t('Fin del último capítulo disponible')}</b><small class="ch-min">${t('Lectura de ~{n} min', { n: readMin(ch.text) })}</small>
@@ -6650,7 +6665,7 @@ document.addEventListener('click', e => { if (NOCLICK) { e.preventDefault(); e.s
 let POSQ;
 window.addEventListener('scroll', () => {                         // barra de avance y guardado automático del progreso al leer
   const m = (location.hash || '').match(/^#\/story\/([^/]+)\/(\d+)/); if (!m || !S.user) return;
-  const bar = $('#rf-bar-i'); if (bar && bar.style) bar.style.width = (scrollPct() * 100) + '%'; rfLeft();
+  const bar = $('#rf-bar-i'); if (bar && bar.style) { const pc = scrollPct() * 100; bar.style.width = pc + '%'; if (bar.parentNode && bar.parentNode.style) bar.parentNode.style.setProperty('--auri-progress', pc + '%'); } rfLeft();
   chtCheck();
   clearTimeout(POSQ); POSQ = setTimeout(() => { const n = (location.hash || '').match(/^#\/story\/([^/]+)\/(\d+)/); if (n && n[1] === m[1] && n[2] === m[2]) saveReadPos(decodeURIComponent(m[1]), +m[2] - 1); }, 500);
 }, { passive: true });
@@ -6713,7 +6728,7 @@ function chtCheck() {
 /* Premios de ejemplo de cada pase (se cambian por los definitivos cuando estén los diseños) */
 const PASS_FREE_BASE = { 4: 'Insignia de temporada', 8: 'Insignia de temporada', 10: 'Gemas moradas ×3', 14: 'Separador · carta de amor', 17: 'Insignia de temporada', 19: 'Gemas moradas ×3', 20: 'Insignia final de temporada' };
 const PASS_FREE = {
-  reader: { ...PASS_FREE_BASE, 1: 'Fondo de lectura · Papel de rosa', 11: 'Fondo de lectura · Noche de algodón', 4: 'Insignia · First blush', 8: 'Insignia · Love letter', 17: 'Insignia · Eternal bloom', 20: 'Insignia · Ever after', 2: 'Título · Corazón tímido', 6: 'Separador · corazón sencillo', 9: 'Barra de progreso · corazón', 13: 'Cinta de marcapáginas · corazón colgante', 15: 'Sprite aleatorio', 18: 'Sprite aleatorio' },
+  reader: { ...PASS_FREE_BASE, 7: 'Barra de progreso · Hilo rojo', 12: 'Marcapáginas · Lacito de carta', 1: 'Fondo de lectura · Papel de rosa', 11: 'Fondo de lectura · Noche de algodón', 4: 'Insignia · First blush', 8: 'Insignia · Love letter', 17: 'Insignia · Eternal bloom', 20: 'Insignia · Ever after', 2: 'Título · Corazón tímido', 6: 'Separador · corazón sencillo', 9: 'Barra de progreso · corazón', 13: 'Cinta de marcapáginas · corazón colgante', 15: 'Sprite aleatorio', 18: 'Sprite aleatorio' },
   writer: { ...PASS_FREE_BASE, 5: 'Fondo del editor · Tinta cálida', 16: 'Fondo del editor · Rosa ceniza', 1: 'Skin de notas · Querido corazón', 12: 'Skin de notas · Cartas prohibidas', 4: 'Insignia · Forbidden pact', 8: 'Insignia · Crimson elixir', 17: 'Insignia · Crimson muse', 20: "Insignia · Devil's Masterpiece", 2: 'Título · Pluma novata', 3: 'Fondo del editor · papel', 6: 'Separador · pluma', 11: 'Fondo del editor · noche', 15: 'Sprite aleatorio', 18: 'Sprite · corazón roto' } };
 const PASS_PAID = {
   reader: { 1: 'Forma · corazón con alitas', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador · flecha y corazón', 4: 'AuriGems cian ×10', 5: 'Adorno · caja de bombones', 6: 'Adorno · corazones enamorados', 7: 'AuriCoins ×200', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'Cinta de marcapáginas · seda', 11: 'Adorno · corazón con encaje', 12: 'Mascota · Cupida', 13: 'Ambiente · corazones flotantes', 14: 'Chat San Valentín · lila', 15: 'Sprite aleatorio', 16: 'Tarjeta de fin de capítulo · carta con sello', 17: 'Mascota · Cupido', 18: 'Sprite aleatorio', 19: 'AuriCoins ×200', 20: 'Sprite a elección · Título · Corazón de biblioteca' },
@@ -6768,8 +6783,8 @@ function rwVis(r) {                                      // el dibujo del premio
   if (p === 'amb') return AMBS[k] ? `<span class="rw-amb">${ambIco(k)}</span>` : `<span class="rw-emo">🎁</span>`;
   if (p === 'skin') return `<span class="rw-chat"><i></i><i class="me"></i></span>`;
   if (p === 'hue') return `<span class="rw-chat hue-${esc(k)}"><i></i><i class="me"></i></span>`;
-  if (p === 'rib') return `<span class="rw-rib rib-${esc(k)}"></span>`;
-  if (p === 'prog') return `<span class="rw-prog prog-${esc(k)}"><i></i></span>`;
+  if (p === 'rib') return ribPrev(k);
+  if (p === 'prog') return progPrev(k);
   if (p === 'fin') return `<svg class="ch-letter rw-let" viewBox="0 0 64 44" style="margin:0;animation:none"><rect x="4" y="6" width="56" height="34" rx="4" class="lt-b"/><path d="M5 8l27 18L59 8" class="lt-f"/><circle cx="32" cy="26" r="8" class="lt-s"/></svg>`;
   return `<span class="rw-emo">🎁</span>`;
 }
