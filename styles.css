@@ -4621,26 +4621,25 @@ html.lite .nt-card,html.lite .nt-dock,html.lite .nt-big,html.lite .nt-bk{transit
 .read-prev .rbgl-h1 { top: 12px; } .read-prev .rbgl-h2 { bottom: 12px; }
 
 /* ===== AURI · LAZOS DE LECTURA (Hilo rojo y Lacito de carta) ===== */
-/* Paleta de cinta: clara por defecto; oscura con el tema oscuro y con los fondos de lectura oscuros. */
+/* Paleta de cinta: sale del color del tema (--primary), claro u oscuro. Mismas mezclas que auriPalOf en app.js. */
 :root, .auri-ribbon-preview {
-  --auri-silk: #b83e60;
-  --auri-silk-deep: #8f2b4b;
-  --auri-silk-light: #ef9db4;
-  --auri-silk-track: #dcb0bf;
+  --auri-lt-silk: color-mix(in srgb, hsl(var(--primary)) 90%, #000);
+  --auri-lt-deep: color-mix(in srgb, hsl(var(--primary)) 60%, #000);
+  --auri-lt-light: color-mix(in srgb, hsl(var(--primary)) 45%, #fff);
+  --auri-lt-track: color-mix(in srgb, hsl(var(--primary)) 30%, #fff);
+  --auri-dk-silk: color-mix(in srgb, hsl(var(--primary)) 55%, #fff);
+  --auri-dk-deep: hsl(var(--primary));
+  --auri-dk-light: color-mix(in srgb, hsl(var(--primary)) 30%, #fff);
+  --auri-dk-track: hsl(var(--primary) / .35);
+  --auri-silk: var(--auri-lt-silk); --auri-silk-deep: var(--auri-lt-deep); --auri-silk-light: var(--auri-lt-light); --auri-silk-track: var(--auri-lt-track);
 }
 .dark, .dark .auri-ribbon-preview,
 [data-rbg="night"] .rf, [data-rbg="nochealgodon"] .rf, [data-rbg="sanvalentindark"] .rf {
-  --auri-silk: #e4a1be;
-  --auri-silk-deep: #a76387;
-  --auri-silk-light: #f9d3e4;
-  --auri-silk-track: #675169;
+  --auri-silk: var(--auri-dk-silk); --auri-silk-deep: var(--auri-dk-deep); --auri-silk-light: var(--auri-dk-light); --auri-silk-track: var(--auri-dk-track);
 }
 /* Fondos de lectura claros explícitos dentro de la app oscura */
 [data-rbg="cream"] .rf, [data-rbg="sepia"] .rf, [data-rbg="paper"] .rf, [data-rbg="sanvalentin"] .rf, [data-rbg="papelrosa"] .rf {
-  --auri-silk: #b83e60;
-  --auri-silk-deep: #8f2b4b;
-  --auri-silk-light: #ef9db4;
-  --auri-silk-track: #dcb0bf;
+  --auri-silk: var(--auri-lt-silk); --auri-silk-deep: var(--auri-lt-deep); --auri-silk-light: var(--auri-lt-light); --auri-silk-track: var(--auri-lt-track);
 }
 
 /* Lazo (SVG compartido) */

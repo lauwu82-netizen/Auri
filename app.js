@@ -53,6 +53,7 @@ function loadUser() {
 function applyTheme() {                                 // 'light' | 'dark' | 'auto' (sigue el modo del teléfono)
   const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
   document.documentElement.classList.toggle('dark', S.theme === 'dark' || (S.theme === 'auto' && !!(mq && mq.matches)));
+  if (typeof auriSetBookmarkArt === 'function' && document.documentElement.dataset.prog !== undefined) auriSetBookmarkArt();
   LS.set('auri.theme', S.theme);
   applyAccent();
 }
@@ -61,6 +62,7 @@ function accentOf(e) { const a = e === S.user ? cfg('accent') : ((getUsers()[e] 
 function applyAccent() {                                // color de la app: el tuyo, o el de la persona cuyo perfil estás viendo
   let ac = ''; try { const m = /^#\/user\/([^/?]+)/.exec(location.hash || ''), v = m ? decodeURIComponent(m[1]) : null; ac = v && v !== S.user ? accentOf(v) : (S.user ? accentOf(S.user) : ''); } catch (e) { }
   if (ac) document.documentElement.dataset.accent = ac; else delete document.documentElement.dataset.accent;
+  if (document.documentElement.dataset.prog !== undefined) auriSetBookmarkArt();
 }
 /* --- Ajustes (se guardan por cuenta) --- */
 const APP_VERSION = '0.9 (beta)';
@@ -100,7 +102,15 @@ const fmtText = h => String(h).replace(/\*\*([^\s*](?:[^*\n]*?[^\s*])?)\*\*/g, '
 const RIBS = { classic: 'Clásica', seda: 'Cinta de seda', corazon: 'Corazón colgante', lacitocarta: 'Lacito de carta' }, PROGS = { classic: 'Clásica', corazon: 'Corazón', hilorojo: 'Hilo rojo' };
 const ribOwn = () => Object.keys(RIBS).filter(k => k === 'classic' || hasItem(S.user, 'rib:' + k)), progOwn = () => Object.keys(PROGS).filter(k => k === 'classic' || hasItem(S.user, 'prog:' + k));
 /* Lazo de seda: un solo dibujo (SVG) para la barra, el marcapáginas, las vistas previas y los premios. Solo decoración. */
-const AURI_PAL = { light: { s: '#b83e60', d: '#8f2b4b', l: '#ef9db4' }, dark: { s: '#e4a1be', d: '#a76387', l: '#f9d3e4' } };
+/** Paleta del lazo: sale del color del tema (--primary). Dos variantes: sobre fondo claro y sobre fondo oscuro. Mismas mezclas que en el CSS. */
+const auriHex = (r, g, b) => '#' + [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+const auriMix = (c, o, k) => c.map((v, i) => v * k + o[i] * (1 - k));
+function auriPrimaryRGB() {
+  const m = /([\d.]+)\s+([\d.]+)%\s+([\d.]+)%/.exec(getComputedStyle(document.documentElement).getPropertyValue('--primary') || ''), h = m ? +m[1] : 270, sa = (m ? +m[2] : 70) / 100, l = (m ? +m[3] : 60) / 100;
+  const k = n => (n + h / 30) % 12, a = sa * Math.min(l, 1 - l), f = n => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+  return [f(0) * 255, f(8) * 255, f(4) * 255];
+}
+const auriPalOf = p => ({ light: { s: auriHex(...auriMix(p, [0, 0, 0], .9)), d: auriHex(...auriMix(p, [0, 0, 0], .6)), l: auriHex(...auriMix(p, [255, 255, 255], .45)) }, dark: { s: auriHex(...auriMix(p, [255, 255, 255], .55)), d: auriHex(...p), l: auriHex(...auriMix(p, [255, 255, 255], .3)) } });
 const auriBowBody = c => `<path d="M13.5 12 7 24l4.800-2.400 4.200 2.200L17 12Z" style="fill:${c.l};stroke:${c.d};stroke-width:.6;stroke-linejoin:round"/><path d="M20.500 12 27 24l-4.800-2.400-4.200 2.200L17 12Z" style="fill:${c.l};stroke:${c.d};stroke-width:.6;stroke-linejoin:round"/><path d="M17 12C11 3.500 3 .5 1.200 5 0 9.500 6.500 14 17 12Z" style="fill:${c.s};stroke:${c.d};stroke-width:1;stroke-linejoin:round"/><path d="M17 12c6-8.500 14-11.500 15.800-7C34 9.500 27.500 14 17 12Z" style="fill:${c.s};stroke:${c.d};stroke-width:1;stroke-linejoin:round"/><path d="M14.800 10.600C11 6.800 6.500 4.800 4 6.200M19.200 10.600c3.800-3.800 8.300-5.800 10.800-4.400" style="fill:none;stroke:${c.l};stroke-width:.8;opacity:.65;stroke-linecap:round"/><rect x="14.300" y="7.500" width="5.400" height="9" rx="2.600" style="fill:${c.d};stroke:${c.l};stroke-width:.5"/>`;
 const auriBowCSS = { s: 'var(--auri-silk)', d: 'var(--auri-silk-deep)', l: 'var(--auri-silk-light)' };
 const auriRibbonBody = c => `<path d="M10 0h15v55l-7.500-6.400L10 55Z" style="fill:${c.s};stroke:${c.d};stroke-width:.7;stroke-linejoin:round"/><path d="M13.500 2v46" style="fill:none;stroke:${c.l};stroke-width:1.200;opacity:.55;stroke-linecap:round"/><g transform="translate(2.100 17) scale(.88)">${auriBowBody(c)}</g>`;
@@ -111,7 +121,7 @@ function auriSilkBowHTML() { return `<svg class="auri-silk-bow" viewBox="0 0 34 
 function auriProgressBowHTML() { return `<span class="auri-progress-bow" aria-hidden="true">${auriSilkBowHTML()}</span>`; }
 /** Cinta del marcapáginas (vistas previas y premios). En el libro se dibuja con el mismo SVG como fondo (variables --auri-bm-*). */
 function auriBookmarkRibbonHTML() { return `<span class="auri-bookmark-art" aria-hidden="true"><svg viewBox="0 0 34 57" focusable="false">${auriRibbonBody(auriBowCSS)}</svg></span>`; }
-const auriSetBookmarkArt = () => { const r = document.documentElement.style; r.setProperty('--auri-bm-light', auriUri(34, 57, auriRibbonBody(AURI_PAL.light))); r.setProperty('--auri-bm-dark', auriUri(34, 57, auriRibbonBody(AURI_PAL.dark))); };
+const auriSetBookmarkArt = () => { try { const pal = auriPalOf(auriPrimaryRGB()), r = document.documentElement.style; r.setProperty('--auri-bm-light', auriUri(34, 57, auriRibbonBody(pal.light))); r.setProperty('--auri-bm-dark', auriUri(34, 57, auriRibbonBody(pal.dark))); } catch (e) { } };
 const ribKey = () => ribOwn().includes(cfg('ribStyle')) ? cfg('ribStyle') : 'classic', progKey = () => progOwn().includes(cfg('progStyle')) ? cfg('progStyle') : 'classic';
 
 function applyReading() {                               // tamaño, interlineado y tipografía del lector, como variables CSS
