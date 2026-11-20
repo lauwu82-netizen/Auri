@@ -3454,7 +3454,38 @@ const SEPS = { classic: ['Clásico', 'free', '<rect x="17" y="7" width="10" heig
   corazon: ['Corazón sencillo', 'pass', '<path d="M22 20C10.5 12 13 4.5 18 6c2 .6 3.5 2 4 3.4.5-1.4 2-2.8 4-3.4C31 4.5 33.5 12 22 20z"/><circle cx="8" cy="12" r="1.8" opacity=".45"/><circle cx="36" cy="12" r="1.8" opacity=".45"/>'],
   pluma: ['Pluma', 'pass', '<g transform="rotate(32 22 16)"><path d="M22 2L25.5 4.8L27 9.1L25.3 11.9L27.6 10.5L27.5 15.8L24.9 18.8L26.8 17.9L24.5 22.2L22 25L18.4 21.8L16.4 17.2L18.4 14.4L16.3 15.5L16.8 10.1L19 8L17.8 7.8L19.6 4.3Z"/><path d="M22 4V24.5" fill="none" stroke="hsl(var(--background))" stroke-width=".7" stroke-linecap="round"/><path d="M22 24.5V29" fill="none" stroke="currentColor" stroke-width=".8" stroke-linecap="round"/><ellipse cx="22" cy="31" rx=".9" ry=".65"/></g>'],
   bow: ['Moño', 'free', '<path d="M22 12c-5-8-15-6-12 1c3 5 12 0 12-1zM22 12c5-8 15-6 12 1c-3 5-12 0-12-1z"/><circle cx="22" cy="12" r="3"/>'] };
-const EBGS = { sanvalentin: 'San Valentín', sanvalentindark: 'San Valentín oscuro', papel: 'Papel', noche: 'Noche' }, ebgOwn = () => Object.keys(EBGS).filter(k => hasItem(S.user, 'ebg:' + k));
+const EBGS = { sanvalentin: 'San Valentín', sanvalentindark: 'San Valentín oscuro', papel: 'Papel', noche: 'Noche', tintacalida: 'Tinta cálida', rosaceniza: 'Rosa ceniza' }, ebgOwn = () => Object.keys(EBGS).filter(k => hasItem(S.user, 'ebg:' + k));
+/** Fondo del editor realmente autorizado por la cuenta (no solo el valor local) */
+const ebgKey = () => EBGS[cfg('ebg')] && hasItem(S.user, 'ebg:' + cfg('ebg')) ? cfg('ebg') : 'auto';
+/* Decoración visual del editor: nunca forma parte del capítulo. */
+function editorPaperDecor(key) {
+  if (!['tintacalida', 'rosaceniza'].includes(key)) return '';
+
+  const rose = cls => `
+    <span class="ed-rose ${cls}">
+      ${Array.from(
+        { length: 6 },
+        (_, i) => `<i style="--petal:${i}"></i>`
+      ).join('')}
+      <b></b>
+      <em></em>
+    </span>`;
+
+  return `
+    <div class="ed-paper-decor" aria-hidden="true">
+      ${key === 'tintacalida'
+        ? `
+          <span class="ed-fold"></span>
+          ${rose('ed-rose-warm')}
+          <span class="ed-love-mark"></span>
+        `
+        : `
+          ${rose('ed-rose-top')}
+          ${rose('ed-rose-bottom')}
+          ${rose('ed-rose-small')}
+        `}
+    </div>`;
+}
 const sepOK = k => !SEPS[k] ? false : SEPS[k][1] === 'free' || (SEPS[k][1] === 'founder' ? isOwner() || !!(getUsers()[S.user] || {}).frameTop : isStaff(S.user) || hasItem(S.user, 'sep:' + k));      // los de tienda/pase se desbloquean con compra (por ahora solo el equipo los ve)
 const sepKey = () => sepOK(cfg('sepStyle')) ? cfg('sepStyle') : 'classic';
 /* Mascotas 8-bit del perfil: hoja de 4 cuadros (quieta, paso 1, paso 2, dormida) en pets/<clave>.png. Para usar un dibujo propio basta con reemplazar el PNG */
@@ -3575,13 +3606,13 @@ function chapterView(cid) {
   const ch = W.chapters[i], n = W.chapters.length, before = W.chapters[i - 1], after = W.chapters[i + 1], st = ch.status || 'draft';
   if (WPREVIEW) return `<div class="rf"><header class="rf-top"><button class="button ghost sm" data-act="back-edit">${t('‹ Volver a escribir')}</button><div class="rf-title">${t('Vista previa · Cap. {n}', { n: i + 1 })}</div><span style="width:44px"></span></header>
   <article class="rf-body">${chHero(ch)}${chHead(i + 1, ch.title)}${readerText(ch.text || t('Aquí aparecerá el texto de tu capítulo.'), W.useReaderCharacter)}</article></div>`;
-  return `<div class="wf" data-ebg="${EBGS[cfg('ebg')] && hasItem(S.user, 'ebg:' + cfg('ebg')) ? esc(cfg('ebg')) : 'auto'}"><header class="wf-top"><button class="button ghost sm" data-act="ch-list" aria-label="${esc(t('Guardar y salir a la lista de capítulos'))}">✕ ${t('Salir')}</button>
+  return `<div class="wf" data-ebg="${esc(ebgKey())}"><header class="wf-top"><button class="button ghost sm" data-act="ch-list" aria-label="${esc(t('Guardar y salir a la lista de capítulos'))}">✕ ${t('Salir')}</button>
   <span class="grow">${t('Cap. {i} de {n}', { i: i + 1, n })} · <span class="pill st-${st}">${t(CH_STATUS[st])}</span> <span id="w-saved"></span></span><button type="button" class="button secondary sm nt-tog" data-act="nt-toggle" aria-pressed="false" aria-controls="nt-dock">${t('Notas')}</button><button class="button secondary sm" data-act="preview">${t('Vista previa')}</button><button class="button sm wf-done" data-act="kb-done">${t('Listo')}</button></header>
   ${st === 'rejected' && ch.reason ? `<p class="notice">${t('Rechazado: {reason}', { reason: esc(ch.reason) })}</p>` : ''}${ch.live ? `<p class="notice">${t('Mientras se revisa esta edición, los lectores siguen viendo la versión aprobada anterior.')}</p>` : ''}
   <section class="nt-dock" id="nt-dock" aria-label="${esc(t('Notas privadas'))}" hidden></section>
   ${chCoverBox(ch)}
-  <input id="w-ch-title" class="wf-title" data-cid="${ch.id}" value="${esc(ch.title)}" placeholder="${esc(t('Título del capítulo'))}">
-  <textarea id="w-ch-text" class="wf-text" autocomplete="off" autocapitalize="sentences" data-cid="${ch.id}" placeholder="${esc(W.mode === 'chat' ? t('Toca 💬 Chat para añadir una conversación.') : t('Érase una vez…'))}">${esc(chToView(ch.text))}</textarea>${chatCards(ch)}
+  <div class="wf-paper"><input id="w-ch-title" class="wf-title" data-cid="${ch.id}" value="${esc(ch.title)}" placeholder="${esc(t('Título del capítulo'))}">
+  <textarea id="w-ch-text" class="wf-text" autocomplete="off" autocapitalize="sentences" data-cid="${ch.id}" placeholder="${esc(W.mode === 'chat' ? t('Toca 💬 Chat para añadir una conversación.') : t('Érase una vez…'))}">${esc(chToView(ch.text))}</textarea>${editorPaperDecor(ebgKey())}</div>${chatCards(ch)}
   <div class="fmt-bar" role="toolbar" aria-label="${esc(t('Formato del texto'))}"><button type="button" class="fmt-b" data-act="fmt" data-id="plain" aria-label="${esc(t('Texto normal'))}"><span>A</span></button><button type="button" class="fmt-b" data-act="fmt" data-id="bold" aria-label="${esc(t('Negrita'))}"><span style="font-weight:800">A</span></button><button type="button" class="fmt-b" data-act="fmt" data-id="italic" aria-label="${esc(t('Cursiva'))}"><span style="font-style:italic">A</span></button><span class="fmt-sep" aria-hidden="true"></span><button type="button" class="fmt-b fmt-al" data-act="scene-sep" aria-label="${esc(t('Separador de escena'))}" title="${esc(t('Separador de escena'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h6M15 12h6"/><path d="M12 8.5l3.5 3.5-3.5 3.5-3.5-3.5z"/></svg></button><button type="button" class="fmt-b fmt-chat" data-act="chat-add" aria-label="${esc(t('Añadir un chat'))}" title="${esc(t('Añadir un chat'))}">💬 <span>${t('Chat')}</span></button>${vnOn() && VN_AI.cg && W.mode !== 'chat' ? `<button type="button" class="fmt-b fmt-chat" data-act="cg-add" aria-label="${esc(t('Añadir un CG (ilustración especial)'))}" title="${esc(t('Añadir un CG (ilustración especial)'))}">🎬 <span>CG</span></button>` : ''}<span class="fmt-sep" aria-hidden="true"></span>${[['left', 'Alinear a la izquierda', '<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>'], ['c', 'Centrar', '<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>'], ['r', 'Alinear a la derecha', '<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>'], ['j', 'Justificar', '<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>']].map(a => `<button type="button" class="fmt-b fmt-al" data-act="align" data-id="${a[0]}" aria-label="${esc(t(a[1]))}" title="${esc(t(a[1]))}"><svg viewBox="0 0 24 24" aria-hidden="true">${a[2]}</svg></button>`).join('')}<span class="helper fmt-hint">${t('Selecciona texto o escribe para aplicar el formato')}</span></div>
   <footer class="wf-bottom"><details class="wf-music" ${ch.music ? 'open' : ''}><summary class="helper" style="cursor:pointer">🎵 ${t('Canción del capítulo (opcional)')}</summary><input id="w-ch-music" class="field" style="margin-top:8px" value="${esc(ch.music || '')}" placeholder="${esc(t('Enlace de YouTube, Spotify o un .mp3'))}"><span class="helper">${t('Quien lee decide si la reproduce. Se revisa junto con el capítulo.')} ${t('Cada capítulo tiene su propio enlace: la música se detiene al pasar al siguiente capítulo.')}</span></details>
   <div class="wf-actions"><span class="helper" id="w-count">${wc(ch.text)}</span><span class="wf-btns">${before ? `<button type="button" class="button ghost sm" data-act="ch-go" data-cid="${before.id}">‹ ${t('Cap. {n}', { n: i })}</button>` : ''}<button class="button secondary sm" data-act="save-draft">💾 ${t('Guardar borrador')}</button>${after ? `<button type="button" class="button sm" data-act="ch-go" data-cid="${after.id}">${t('Cap. {n}', { n: i + 2 })} ›</button>` : `<button type="button" class="button sm" data-act="ch-add">＋ ${t('Cap. {n}', { n: n + 1 })}</button>`}</span></div></footer></div>`;
@@ -6654,7 +6685,7 @@ function chtCheck() {
 const PASS_FREE_BASE = { 4: 'Insignia de temporada', 8: 'Insignia de temporada', 10: 'Gemas moradas ×3', 14: 'Separador · carta de amor', 17: 'Insignia de temporada', 19: 'Gemas moradas ×3', 20: 'Insignia final de temporada' };
 const PASS_FREE = {
   reader: { ...PASS_FREE_BASE, 4: 'Insignia · First blush', 8: 'Insignia · Love letter', 17: 'Insignia · Eternal bloom', 20: 'Insignia · Ever after', 2: 'Título · Corazón tímido', 6: 'Separador · corazón sencillo', 9: 'Barra de progreso · corazón', 13: 'Cinta de marcapáginas · corazón colgante', 15: 'Sprite aleatorio', 18: 'Sprite aleatorio' },
-  writer: { ...PASS_FREE_BASE, 1: 'Skin de notas · Querido corazón', 12: 'Skin de notas · Cartas prohibidas', 4: 'Insignia · Forbidden pact', 8: 'Insignia · Crimson elixir', 17: 'Insignia · Crimson muse', 20: "Insignia · Devil's Masterpiece", 2: 'Título · Pluma novata', 3: 'Fondo del editor · papel', 6: 'Separador · pluma', 11: 'Fondo del editor · noche', 15: 'Sprite aleatorio', 18: 'Sprite · corazón roto' } };
+  writer: { ...PASS_FREE_BASE, 5: 'Fondo del editor · Tinta cálida', 16: 'Fondo del editor · Rosa ceniza', 1: 'Skin de notas · Querido corazón', 12: 'Skin de notas · Cartas prohibidas', 4: 'Insignia · Forbidden pact', 8: 'Insignia · Crimson elixir', 17: 'Insignia · Crimson muse', 20: "Insignia · Devil's Masterpiece", 2: 'Título · Pluma novata', 3: 'Fondo del editor · papel', 6: 'Separador · pluma', 11: 'Fondo del editor · noche', 15: 'Sprite aleatorio', 18: 'Sprite · corazón roto' } };
 const PASS_PAID = {
   reader: { 1: 'Forma · corazón con alitas', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador · flecha y corazón', 4: 'AuriGems cian ×10', 5: 'Adorno · caja de bombones', 6: 'Adorno · corazones enamorados', 7: 'AuriCoins ×200', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'Cinta de marcapáginas · seda', 11: 'Adorno · corazón con encaje', 12: 'Mascota · Cupida', 13: 'Ambiente · corazones flotantes', 14: 'Chat San Valentín · lila', 15: 'Sprite aleatorio', 16: 'Tarjeta de fin de capítulo · carta con sello', 17: 'Mascota · Cupido', 18: 'Sprite aleatorio', 19: 'AuriCoins ×200', 20: 'Sprite a elección · Título · Corazón de biblioteca' },
   writer: { 1: 'Título · Tinta y corazón', 2: 'AuriCoins ×50', 3: 'Forma · corazón partido', 4: 'AuriGems cian ×10', 5: 'Marco de portada · sweet love', 6: 'AuriCoins ×50', 7: 'Separador · rosas y espinas', 8: 'Fondos del editor · San Valentín dulce y oscuro', 9: 'AuriGems moradas ×10', 10: 'Marco de portada · dark San Valentín', 11: 'Impulso a destacados ×1', 12: 'AuriCoins ×75', 13: 'Adornos · corona de rosas, corazón y collar oscuro', 14: 'Mascota · Diablillo', 15: 'AuriGems cian ×15', 16: 'Fondo de lectura · San Valentín oscuro', 17: 'Ambiente por capítulo', 18: 'Sprite · borracho enamorado', 19: 'AuriGems moradas ×15', 20: 'Título · Rompecorazones · AuriCoins ×175' }
@@ -6732,7 +6763,7 @@ function passTab() {
 }
 function rwModal(rows, title, extra) {                  // recompensa reclamada / detalle: dibujo grande + Equipar + X
   const m = document.createElement('div'); m.className = 'modal sheet';
-  const one = r => { const eq = rwEq(r), nk = String(r.item || '').startsWith('nskin:') ? r.item.slice(6) : ''; return `<div class="rw-got"><div class="rw-big">${rwVis(r)}</div>${nk ? (hasItem(S.user, r.item) ? `<button type="button" class="button sm" data-nsk="${esc(nk)}">${t('Equipar')}</button>` : `<p class="helper">${t('Vista previa: se desbloquea al reclamarla.')}</p>`) : eq ? `<button type="button" class="button sm" data-eq="${esc(eq[0])}|${esc(eq[1])}">${t('Equipar')}</button>` : ''}</div>`; };
+  const one = r => { const eq = rwEq(r), nk = String(r.item || '').startsWith('nskin:') ? r.item.slice(6) : ''; return `<div class="rw-got"><div class="rw-big">${rwVis(r)}</div>${nk ? (hasItem(S.user, r.item) ? `<button type="button" class="button sm" data-nsk="${esc(nk)}">${t('Equipar')}</button>` : `<p class="helper">${t('Vista previa: se desbloquea al reclamarla.')}</p>`) : eq && (r.kind !== 'item' || hasItem(S.user, r.item)) ? `<button type="button" class="button sm" data-eq="${esc(eq[0])}|${esc(eq[1])}">${t('Equipar')}</button>` : ''}</div>`; };
   m.innerHTML = `<div class="modal-box rw-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${esc(title)}</h2><div class="rw-gots">${rows.map(one).join('')}</div>${extra || ''}<p class="helper">${t('No se equipa nada solo: tú eliges cuándo ponerlo.')}</p></div>`;
   m.addEventListener('click', ev => {
     const nb = ev.target.closest('[data-nsk]');

@@ -3943,3 +3943,326 @@ html.lite .nt-card,html.lite .nt-dock,html.lite .nt-big,html.lite .nt-bk{transit
 .ai-hearts i{background:#ec6c9a;-webkit-mask:var(--hrt) center/contain no-repeat;mask:var(--hrt) center/contain no-repeat}
 .ai-hearts i:nth-child(1){left:7px;top:8px;width:16px;height:15px}.ai-hearts i:nth-child(2){left:1px;top:1px;width:8px;height:7px;background:#f6a3c0}.ai-hearts i:nth-child(3){left:21px;top:3px;width:7px;height:6px;background:#f6a3c0}.ai-hearts i:nth-child(4){display:none}
 .amb-opt .amb-ico{display:block;line-height:0}.rw-amb{display:block;line-height:0}.rw-big .amb-ic{transform:scale(1.8)}
+
+/* ===== AURI · FONDOS DEL EDITOR ===== */
+/* No modifica el lector ni las skins de notas. */
+
+/* Tinta cálida */
+.wf[data-ebg="tintacalida"] {
+  --background: 39 52% 91%;
+  --card: 39 55% 95%;
+  --border: 22 25% 72%;
+  --accent: 30 36% 84%;
+  --foreground: 350 22% 24%;
+  --muted-foreground: 350 18% 40%;
+  --title: #4b3034;
+  --soft: #82575b;
+
+  --ed-paper: #f3e8d4;
+  --ed-ink: #4b3034;
+  --ed-line: #ac6d6b77;
+  --ed-rose: #9e3f56;
+
+  background: var(--ed-paper);
+}
+
+/* Rosa ceniza */
+.wf[data-ebg="rosaceniza"] {
+  --background: 340 21% 92%;
+  --card: 340 25% 96%;
+  --border: 340 22% 73%;
+  --accent: 340 22% 86%;
+  --foreground: 338 21% 24%;
+  --muted-foreground: 338 18% 40%;
+  --title: #493039;
+  --soft: #855c6b;
+
+  --ed-paper: #eee5e7;
+  --ed-ink: #493039;
+  --ed-line: #ac758742;
+  --ed-rose: #9e3f56;
+
+  background: var(--ed-paper);
+}
+
+/* El wrapper no afecta a los demás fondos. */
+.wf-paper {
+  min-width: 0;
+}
+
+/* Hoja decorada únicamente para estos dos fondos. */
+.wf:is(
+  [data-ebg="tintacalida"],
+  [data-ebg="rosaceniza"]
+) .wf-paper {
+  position: relative;
+  isolation: isolate;
+  padding: 40px 30px 30px;
+  margin: 8px 0 16px;
+  background-color: var(--ed-paper);
+  color: var(--ed-ink);
+}
+
+/* Textura cálida, sin patrón detrás de las letras. */
+.wf[data-ebg="tintacalida"] .wf-paper {
+  background-image:
+    radial-gradient(
+      ellipse at 0 0,
+      #e3c6a45c,
+      transparent 45%
+    ),
+    linear-gradient(
+      90deg,
+      #cba4791a,
+      transparent 10%,
+      transparent 90%,
+      #cba4791a
+    );
+}
+
+/* Sombreado suave en los bordes de Rosa ceniza. */
+.wf[data-ebg="rosaceniza"] .wf-paper {
+  background-image: linear-gradient(
+    90deg,
+    #c28b9d14,
+    transparent 13%,
+    transparent 87%,
+    #c28b9d14
+  );
+}
+
+/* El texto queda sobre la capa ornamental. */
+.wf:is(
+  [data-ebg="tintacalida"],
+  [data-ebg="rosaceniza"]
+) .wf-paper :is(.wf-title, .wf-text) {
+  position: relative;
+  z-index: 1;
+  color: var(--ed-ink);
+  background: transparent;
+}
+
+.wf:is(
+  [data-ebg="tintacalida"],
+  [data-ebg="rosaceniza"]
+) .wf-paper :is(.wf-title, .wf-text)::placeholder {
+  color: var(--soft);
+  opacity: 1;
+}
+
+/* Capa decorativa: nunca intercepta la escritura. */
+.ed-paper-decor {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ed-paper-decor,
+.ed-paper-decor * {
+  pointer-events: none;
+}
+
+/* Marco fino de carta. */
+.ed-paper-decor::before {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border: 1px solid var(--ed-line);
+}
+
+.wf[data-ebg="tintacalida"] .ed-paper-decor::before {
+  border-top: 3px double var(--ed-line);
+  border-bottom: 3px double var(--ed-line);
+}
+
+.wf[data-ebg="rosaceniza"] .ed-paper-decor::before {
+  border-radius: 14px 0 14px 0;
+}
+
+/* Esquina de papel doblada. */
+.ed-fold {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 35px;
+  height: 35px;
+  background: linear-gradient(
+    225deg,
+    #d9bea0 48%,
+    #b3926e55 49%,
+    transparent 54%
+  );
+}
+
+/* Rosas delineadas, hechas con CSS. */
+.ed-rose {
+  position: absolute;
+  width: 58px;
+  height: 58px;
+  color: var(--ed-rose);
+}
+
+.ed-rose i {
+  position: absolute;
+  left: 17px;
+  top: 5px;
+  width: 27px;
+  height: 31px;
+  border: 1.5px solid currentColor;
+  border-radius: 72% 35% 66% 42%;
+  transform-origin: 12px 23px;
+  transform: rotate(calc(var(--petal) * 60deg));
+  background: transparent;
+}
+
+.ed-rose b {
+  position: absolute;
+  left: 22px;
+  top: 20px;
+  width: 21px;
+  height: 18px;
+  border: 1.5px solid currentColor;
+  border-radius: 70% 30% 60% 40%;
+  transform: rotate(-35deg);
+}
+
+.ed-rose b::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 3px;
+  width: 10px;
+  height: 9px;
+  border: 1.5px solid currentColor;
+  border-radius: 70% 30% 60% 40%;
+}
+
+.ed-rose em {
+  position: absolute;
+  left: 29px;
+  top: 48px;
+  width: 1px;
+  height: 35px;
+  background: currentColor;
+  transform: rotate(-22deg);
+  transform-origin: top;
+}
+
+.ed-rose em::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 1px;
+  width: 14px;
+  height: 8px;
+  border: 1px solid currentColor;
+  border-radius: 100% 0 100% 0;
+  transform: rotate(-15deg);
+}
+
+.ed-rose em::after {
+  content: "";
+  position: absolute;
+  top: 17px;
+  left: -11px;
+  width: 12px;
+  height: 7px;
+  border: 1px solid currentColor;
+  border-radius: 0 100% 0 100%;
+  transform: rotate(12deg);
+}
+
+/* Tinta cálida: una rosa pequeña en el margen inferior. */
+.ed-rose-warm {
+  left: -23px;
+  bottom: 25px;
+  opacity: .11;
+  transform: rotate(25deg) scale(.7);
+}
+
+/* Rosa ceniza: flores en las esquinas. */
+.ed-rose-top {
+  right: -19px;
+  top: 8px;
+  opacity: .20;
+  transform: rotate(-20deg) scale(.7);
+}
+
+.ed-rose-bottom {
+  left: -24px;
+  bottom: 42px;
+  opacity: .20;
+  transform: rotate(20deg) scale(.8);
+}
+
+.ed-rose-small {
+  right: -25px;
+  bottom: 0;
+  opacity: .10;
+  transform: rotate(-45deg) scale(.6);
+}
+
+/* Corazón ornamental en el margen inferior.
+   No es un separador ni se inserta en el texto. */
+.ed-love-mark {
+  position: absolute;
+  right: 20px;
+  bottom: 15px;
+  width: 7px;
+  height: 7px;
+  background: #995566;
+  transform: rotate(-45deg);
+  border-radius: 1px;
+  opacity: .65;
+}
+
+.ed-love-mark::before,
+.ed-love-mark::after {
+  content: "";
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  background: inherit;
+  border-radius: 50%;
+}
+
+.ed-love-mark::before {
+  top: -3.5px;
+  left: 0;
+}
+
+.ed-love-mark::after {
+  left: 3.5px;
+  top: 0;
+}
+
+/* Mantener una zona de escritura útil en celulares. */
+@media (max-width: 380px) {
+  .wf:is(
+    [data-ebg="tintacalida"],
+    [data-ebg="rosaceniza"]
+  ) .wf-paper {
+    padding: 35px 20px 30px;
+  }
+
+  .ed-paper-decor::before {
+    inset: 7px;
+  }
+
+  .ed-rose-top {
+    right: -28px;
+    transform: rotate(-20deg) scale(.55);
+  }
+
+  .ed-rose-bottom {
+    left: -31px;
+    transform: rotate(20deg) scale(.6);
+  }
+}
+
+/* Vistas previas (Ajustes y premio): mismos colores que el fondo real, dibujadas con CSS */
+.rbg-opt[data-rbg=tintacalida] .rbg-sw{background:linear-gradient(225deg,#d9bea0 0 24%,transparent 25%),linear-gradient(#0000,#0000) padding-box,#f3e8d4;border:1.5px solid #ac6d6b99;border-radius:8px}
+.rbg-opt[data-rbg=rosaceniza] .rbg-sw{background:radial-gradient(circle at 72% 72%,#9e3f5666 0 15%,transparent 16%),radial-gradient(circle at 24% 26%,#9e3f5650 0 11%,transparent 12%),#eee5e7;border:1.5px solid #ac758780;border-radius:8px}

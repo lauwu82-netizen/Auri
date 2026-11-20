@@ -2735,4 +2735,8 @@ window.I18N = { en: {
   "Abre una historia, entra a un capítulo y elige la apariencia en tus notas.": "Open a story, go into a chapter and pick the appearance in your notes.",
   "Skin de notas · Querido corazón": "Notes skin · Dear Heart",
   "Skin de notas · Cartas prohibidas": "Notes skin · Forbidden Letters",
+  "Tinta cálida": "Warm ink",
+  "Rosa ceniza": "Ash rose",
+  "Fondo del editor · Tinta cálida": "Editor background · Warm ink",
+  "Fondo del editor · Rosa ceniza": "Editor background · Ash rose",
 } };
