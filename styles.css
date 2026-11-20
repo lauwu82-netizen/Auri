@@ -4793,3 +4793,33 @@ html.lite .nt-card,html.lite .nt-dock,html.lite .nt-big,html.lite .nt-bk{transit
 .sep-mini.pit-separator{gap:5px;min-height:42px}.sep-mini.pit-separator .pit-frame{width:84px;height:39px}.sep-mini.pit-separator .pit-art{transform:scale(.6);transform-origin:left top}.sep-mini.pit-separator .pit-line{max-width:20px}
 .ch-orn.pit-separator{gap:7px}.ch-orn.pit-separator .pit-frame{width:98px;height:45px}.ch-orn.pit-separator .pit-art{transform:scale(.7);transform-origin:left top}
 @media (max-width:350px){.scene-sep.pit-separator{gap:8px}.scene-sep.pit-separator .pit-line{max-width:25px}}
+
+/* ===== AURI · TÍTULO «CARTAS SIN DESTINO» ===== */
+.tt-cartasdestino{background-image:linear-gradient(90deg,#8a2f4d,#6e2140 55%,#521832)}
+.dark .tt-cartasdestino{background-image:linear-gradient(90deg,#f0b4c6,#da8aa6 55%,#bd6b8b)}
+
+/* ===== AURI · ÍNDICE DE CARTAS (lista de capítulos privada) ===== */
+[data-chapter-index="indicecartas"]{--ic-paper:#f3e6d8;--ic-ink:#51303a;--ic-soft:#805d62;--ic-edge:#c6a5a1;--ic-wine:#83344b;--ic-inner:#ad7b7b32;--ic-fold:#e0c6bb;--ic-shadow:0 5px 10px -7px #88516155}
+.dark [data-chapter-index="indicecartas"]{--ic-shadow:0 5px 10px -7px #0009}
+[data-chapter-index="indicecartas"] .ch-list{position:relative;display:flex;flex-direction:column;gap:15px;padding:10px 0 18px;overflow:visible}
+[data-chapter-index="indicecartas"] .ch-list .ch-item{position:relative;display:flex;align-items:stretch;gap:0;min-width:0;min-height:116px;margin:0;padding:0;border:1px solid var(--ic-edge);border-radius:3px;background:linear-gradient(110deg,#e5cdbb45,transparent 28%),var(--ic-paper);color:var(--ic-ink);box-shadow:var(--ic-shadow);isolation:isolate}
+[data-chapter-index="indicecartas"] .ch-item::before{content:"";position:absolute;inset:6px 7px;border:1px solid var(--ic-inner);pointer-events:none}
+[data-chapter-index="indicecartas"] .ch-item::after{content:"";position:absolute;right:-1px;bottom:-1px;width:19px;height:19px;background:linear-gradient(135deg,transparent 47%,var(--ic-edge) 49%,var(--ic-fold) 53%);clip-path:polygon(100% 0,100% 100%,0 100%);pointer-events:none}
+[data-chapter-index="indicecartas"] .ch-item .ch-open{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr) 15px;grid-template-areas:"number title arrow" "number state arrow";align-content:center;align-items:center;column-gap:13px;row-gap:10px;flex:1;min-width:0;min-height:116px;padding:16px 10px;border:0;border-radius:3px;background:transparent;color:var(--ic-ink);text-align:left}
+[data-chapter-index="indicecartas"] .ic-number{grid-area:number;align-self:stretch;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;min-width:0;padding-right:10px;border-right:1px solid #9b657a50;color:var(--ic-wine);overflow:visible;flex:none}
+[data-chapter-index="indicecartas"] .ic-number small{font:400 10px/1.4 var(--sans,system-ui,sans-serif);letter-spacing:.08em;text-transform:uppercase}
+[data-chapter-index="indicecartas"] .ic-number strong{font:400 27px/1.2 var(--serif,Georgia,serif);overflow-wrap:anywhere}
+[data-chapter-index="indicecartas"] .ch-open .ic-title{grid-area:title;display:block;min-width:0;margin:0;font:400 18px/1.35 var(--serif,Georgia,serif);color:var(--ic-ink);white-space:normal;overflow-wrap:anywhere}
+[data-chapter-index="indicecartas"] .ch-open .ic-state{grid-area:state;display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-width:0;font:400 12px/1.5 var(--sans,system-ui,sans-serif);color:var(--ic-soft);white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+[data-chapter-index="indicecartas"] .ic-state::before{content:"";display:block;flex:none;width:5px;height:5px;border:1px solid var(--ic-wine);border-radius:50%;opacity:.7}
+[data-chapter-index="indicecartas"] .ic-arrow{grid-area:arrow;justify-self:center;font:25px/1 Georgia,serif;color:var(--ic-wine);overflow:visible}
+[data-chapter-index="indicecartas"] .ch-item .ch-trash{position:relative;align-self:center;flex:none;width:auto;height:auto;min-width:44px;min-height:44px;margin:0 7px 0 0;border-color:transparent;background:transparent;color:var(--ic-wine)}
+[data-chapter-index="indicecartas"] .ch-open:focus-visible,[data-chapter-index="indicecartas"] .ch-trash:focus-visible{outline:2px solid var(--ic-wine);outline-offset:-4px}
+.ic-sample{display:block;width:100%;pointer-events:none;user-select:none}
+.ic-sample .ch-list{display:block;padding:0;margin:0;max-height:none}
+.ic-sample .ch-item{min-height:0!important}
+.ic-sample .ch-open{min-height:0!important;padding:10px 6px!important;grid-template-columns:34px minmax(0,1fr) 10px!important;column-gap:8px!important;row-gap:4px!important}
+.ic-sample .ic-number{padding-right:6px!important}.ic-sample .ic-number strong{font-size:20px!important}.ic-sample .ic-title{font-size:13px!important}.ic-sample .ic-state{font-size:10.5px!important}
+.rbg-opt:has(.ic-sample){min-width:170px;flex:1 1 170px;grid-column:span 2;justify-content:center}
+.rw-big .ic-sample{width:200px;zoom:.48}.rw-v .ic-sample{width:200px;zoom:.4}
+@media (max-width:380px){[data-chapter-index="indicecartas"] .ch-item .ch-open{grid-template-columns:37px minmax(0,1fr) 12px;column-gap:9px;padding-left:8px;padding-right:5px}[data-chapter-index="indicecartas"] .ic-number{padding-right:7px}[data-chapter-index="indicecartas"] .ic-number strong{font-size:24px}[data-chapter-index="indicecartas"] .ch-open .ic-title{font-size:17px}[data-chapter-index="indicecartas"] .ch-item .ch-trash{margin-right:3px}}

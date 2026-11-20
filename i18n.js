@@ -2762,4 +2762,13 @@ window.I18N = { en: {
   "Promesa de tinta": "Ink promise",
   "Separador · Promesa de tinta": "Divider · Ink promise",
   "Separador · Rosas y espinas": "Divider · Roses and thorns",
+  "Índice de cartas": "Letter index",
+  "Skin de capítulos · Índice de cartas": "Chapter list skin · Letter index",
+  "Lista de capítulos": "Chapter list",
+  "Cap.": "Ch.",
+  "Abrir capítulo {n}: {title}": "Open chapter {n}: {title}",
+  "Cartas sin destino": "Letters without a destination",
+  "Título · Cartas sin destino": "Title · Letters without a destination",
+  "Un capítulo de ejemplo": "A sample chapter",
+  "Equipado": "Equipped",
 } };
