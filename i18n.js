@@ -2759,4 +2759,7 @@ window.I18N = { en: {
   "Carta con sello": "Sealed letter",
   "Un título": "A title",
   "Una tarjeta decorativa al terminar cada capítulo.": "A decorative card at the end of each chapter.",
+  "Promesa de tinta": "Ink promise",
+  "Separador · Promesa de tinta": "Divider · Ink promise",
+  "Separador · Rosas y espinas": "Divider · Roses and thorns",
 } };

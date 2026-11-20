@@ -4763,3 +4763,33 @@ html.lite .nt-card,html.lite .nt-dock,html.lite .nt-big,html.lite .nt-bk{transit
 .ch-orn.ac-separator{gap:7px}.ch-orn.ac-separator .ac-frame{width:78px;height:39px}.ch-orn.ac-separator .ac-art{transform:scale(.7);transform-origin:left top}
 .rw-v .ac-separator{max-width:100%}
 @media (max-width:350px){.scene-sep.ac-separator{gap:8px}.scene-sep.ac-separator .ac-line{max-width:35px}}
+
+/* ===== AURI · PROMESA DE TINTA ===== */
+.rf,.pit-preview,.sep-grid,.sep-prev{--pit-metal:#725562;--pit-shine:#c9aeb7;--pit-red:#9d304a;--pit-red-shine:#d997a5;--pit-line:#92546a;--pit-paper:hsl(var(--background))}
+.sep-grid,.sep-prev{--pit-paper:hsl(var(--card))}
+.pit-preview{--pit-paper:#fff2f0}
+.rf.night,[data-rbg=night] .rf,[data-rbg=nochealgodon] .rf,[data-rbg=sanvalentindark] .rf,.pit-preview.is-dark,
+.dark:not([data-rbg=cream]):not([data-rbg=sepia]):not([data-rbg=paper]):not([data-rbg=sanvalentin]):not([data-rbg=papelrosa]) .rf,
+.dark .pit-preview,.dark .sep-grid,.dark .sep-prev{--pit-metal:#b69aa9;--pit-shine:#f0dce5;--pit-red:#c85b76;--pit-red-shine:#f1bbca;--pit-line:#ad7e94}
+.pit-preview.is-dark,.dark .pit-preview{--pit-paper:#251f30}
+.pit-separator{display:flex;align-items:center;justify-content:center;gap:12px;color:var(--pit-metal)}
+.scene-sep.pit-separator{max-width:300px;min-height:76px;margin:1.8em auto}
+.pit-line{flex:1;min-width:6px;max-width:42px;height:1px;background:linear-gradient(90deg,transparent,var(--pit-line));opacity:.5}
+.pit-line:last-child{transform:rotate(180deg)}
+.pit-frame{position:relative;display:block;flex:none;width:140px;height:64px}
+.pit-art{position:absolute;left:0;top:0;display:block;width:140px;height:64px}
+.pit-nib{position:absolute;left:59px;top:3px;width:23px;height:42px;background:linear-gradient(100deg,var(--pit-metal),var(--pit-shine) 43%,var(--pit-metal) 78%);clip-path:polygon(15% 0,85% 0,100% 42%,50% 100%,0 42%);transform:rotate(14deg);transform-origin:50% 50%}
+.pit-nib::before{content:"";position:absolute;left:11px;top:15px;width:1px;height:27px;background:var(--pit-paper)}
+.pit-nib::after{content:"";position:absolute;left:9px;top:12px;width:5px;height:5px;border-radius:50%;background:var(--pit-paper)}
+.pit-cap{position:absolute;left:66.8px;top:1.8px;width:17px;height:4px;border-top:.6px solid var(--pit-shine);border-bottom:.5px solid var(--pit-metal);background:linear-gradient(90deg,var(--pit-metal),var(--pit-shine),var(--pit-metal));transform:rotate(14deg)}
+.pit-drop{position:absolute;left:61px;top:47px;width:9px;height:12px;border-radius:55% 55% 60% 60%;background:linear-gradient(125deg,var(--pit-red-shine),var(--pit-red) 55%);clip-path:polygon(50% 0,68% 27%,90% 56%,100% 75%,91% 92%,72% 100%,28% 100%,9% 92%,0 75%,10% 56%,32% 27%)}
+.pit-drop::after{content:"";position:absolute;left:2px;top:6px;width:2px;height:3px;border-radius:50%;background:var(--pit-red-shine);opacity:.8}
+.pit-flourish{position:absolute;left:3px;top:30px;width:48px;height:13px;border-bottom:1px solid var(--pit-line);border-radius:0 0 80% 42%;transform:rotate(-8deg);opacity:.8}
+.pit-flourish::before{content:"";position:absolute;left:0;bottom:-1px;width:10px;height:8px;border-left:1px solid var(--pit-line);border-top:1px solid var(--pit-line);border-radius:70%;transform:rotate(25deg)}
+.pit-flourish-right{left:auto;right:1px;top:17px;transform:rotate(172deg)}
+.pit-thorn{position:absolute;left:28px;top:37px;width:7px;height:4px;background:var(--pit-line);clip-path:polygon(0 100%,60% 0,100% 100%);transform:rotate(-10deg);opacity:.65}
+.pit-thorn-right{left:auto;right:26px;top:20px;transform:rotate(170deg)}
+.pit-separator,.pit-separator *{pointer-events:none;user-select:none}
+.sep-mini.pit-separator{gap:5px;min-height:42px}.sep-mini.pit-separator .pit-frame{width:84px;height:39px}.sep-mini.pit-separator .pit-art{transform:scale(.6);transform-origin:left top}.sep-mini.pit-separator .pit-line{max-width:20px}
+.ch-orn.pit-separator{gap:7px}.ch-orn.pit-separator .pit-frame{width:98px;height:45px}.ch-orn.pit-separator .pit-art{transform:scale(.7);transform-origin:left top}
+@media (max-width:350px){.scene-sep.pit-separator{gap:8px}.scene-sep.pit-separator .pit-line{max-width:25px}}
