@@ -4907,3 +4907,12 @@ html.lite .nt-card,html.lite .nt-dock,html.lite .nt-big,html.lite .nt-bk{transit
 .fmt-skin-preview .fmt-bar{display:flex;overflow:hidden;border-radius:8px}
 .rbg-opt:has(.fmt-skin-preview){min-width:170px;flex:1 1 170px;grid-column:span 2;justify-content:center}
 .rw-big .fmt-skin-preview{zoom:.9}.rw-v .fmt-skin-preview{zoom:.55}
+
+/* Notas desde la isla */
+.ai-top-b{display:flex;gap:8px;align-items:center}
+.nt-isle-box{display:flex;flex-direction:column;gap:10px;height:min(78dvh,640px);max-height:88dvh;overflow-y:auto}
+.nt-isle-box .nt-grid{margin:4px 0 12px}
+body:has(#nt-isle) .nt-ov{z-index:170}
+/* Una nota arrastrada siempre queda por encima de la hoja del editor decorada */
+.nt-dock:has(.nt-lift),#nt-board:has(.nt-lift){position:relative;z-index:70}
+.th-dot.gotico{background:#c23a4f}
