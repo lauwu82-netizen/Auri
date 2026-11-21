@@ -2813,4 +2813,7 @@ window.I18N = { en: {
   "Escribir un prólogo": "Write a prologue",
   "Cartas de amor": "Love letters",
   "Lista de capítulos · Cartas de amor": "Chapter list · Love letters",
+  "Estuche de tinta": "Ink case",
+  "Skin de herramientas · Estuche de tinta": "Toolbar skin · Ink case",
+  "Barra de herramientas": "Toolbar",
 } };
