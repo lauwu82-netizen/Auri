@@ -2058,12 +2058,65 @@ function continueRow() {                               // «Seguir leyendo»: li
     return `<article class="mini fc-card"><a href="#/story/${esc(s.id)}" aria-label="${esc(s.title)}">${coverHTML(s, 0)}</a><div class="fc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pr.pct}"><i style="width:${pr.pct}%"></i></div><div class="fc-pct">${pr.pct}%</div><a class="mini-title" href="#/story/${esc(s.id)}">${esc(s.title)}</a></article>`; };
   return `<section class="feed-sec"><div class="feed-head"><div><h3>${t('Seguir leyendo')}</h3><p>${t('Los libros de tu biblioteca')}</p></div><a class="feed-more" href="#/library">${t('Ver todo')}</a></div><div class="feed-row">${l.slice(0, 12).map(card).join('')}</div></section>`;
 }
+/* --- Ticket de impulso: 24 h en la fila «Impulsados de hoy» del feed --- */
+const BOOST_ITEM = 'ticket:impulso';
+let BOOST = { map: {}, at: 0, sig: '', busy: false };
+const hasTicket = () => !!S.user && ((getUsers()[S.user] || {}).items || []).includes(BOOST_ITEM);     // el ticket se consume: no cuenta el acceso de la Owner
+const boostActive = id => { const b = BOOST.map[id]; return b && b.ends > Date.now() ? b : null; };
+const boostLeft = b => { const m = Math.max(0, Math.ceil((b.ends - Date.now()) / 60000)); return t('Quedan {h} h {m} min', { h: Math.floor(m / 60), m: m % 60 }); };
+async function boostsLoad(force) {
+  if (!cloud() || !sbSes() || BOOST.busy || (!force && Date.now() - BOOST.at < 60000)) return;
+  BOOST.busy = true;
+  try {
+    const r = await sbApi('/rest/v1/story_boosts?select=story_id,starts_at,ends_at&ends_at=gt.' + encodeURIComponent(new Date().toISOString()) + '&order=starts_at.asc&limit=200');
+    if (r.ok && Array.isArray(r.data)) {
+      const map = {}; r.data.forEach(x => { map[sBack(x.story_id)] = { start: Date.parse(x.starts_at), ends: Date.parse(x.ends_at) }; });
+      const sig = Object.keys(map).sort().join(); BOOST.at = Date.now(); BOOST.map = map;
+      if (sig !== BOOST.sig) { BOOST.sig = sig; if (/^#?\/?$/.test(location.hash || '')) { KEEP = true; render(); } }
+    }
+  } catch (e) {} finally { BOOST.busy = false; }
+}
+function boostRow(pool) {                              // orden por lector: según las etiquetas que más lee (sin azar)
+  const act = pool.filter(s => boostActive(s.id)); if (!act.length) return '';
+  const top = tasteTags(pool).slice(0, 8), sc = s => tagsOf(s).reduce((a, x) => { const i = top.indexOf(tagKey(x)); return a + (i < 0 ? 0 : 9 - i); }, 0);
+  const l = act.map(s => ({ s, sc: sc(s) })).sort((a, b) => b.sc - a.sc || boostActive(a.s.id).start - boostActive(b.s.id).start).slice(0, 12).map(x => x.s);
+  return `<section class="feed-sec"><div class="feed-head"><div><h3>${t('Impulsados de hoy')}</h3><p>${t('Libros que sus autoras eligieron impulsar')}</p></div></div><div class="feed-row">${l.map(s => `<div class="bst-wrap">${storyCard(s)}<span class="bst-tag">${t('Impulsado')}</span></div>`).join('')}</div></section>`;
+}
+const boostTicketHTML = () => `<span class="bst-ticket" aria-hidden="true"><span class="bst-main"><small>${esc(t('Admite un libro'))}</small><b>${esc(t('Impulso a destacados'))}</b></span><span class="bst-cut"></span><span class="bst-stub"><i>×1</i><small>${esc(t('Ticket'))}</small></span></span>`;
+function openBoostSheet(pre) {
+  const own = S.stories.filter(s => !s.private), ok = s => publicPrefix(s.chapters).length > 0 && !boostActive(s.id);
+  let sel = pre && own.find(s => s.id === pre && ok(s)) ? pre : (own.find(ok) || {}).id || '';
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  const draw = () => {
+    const cur = own.find(s => s.id === sel);
+    m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true" aria-label="${esc(t('Usar ticket de impulso'))}"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button>
+      <div class="bst-head">${boostTicketHTML()}<div><h2>${t('Usar ticket de impulso')}</h2><p class="helper">${hasTicket() ? t('Elige el libro que quieres impulsar.') : t('No tienes un ticket de impulso.')}</p></div></div>
+      <div class="bst-list">${own.length ? own.map(s => `<button type="button" class="bst-opt ${sel === s.id ? 'on' : ''}" data-pick="${esc(s.id)}" aria-pressed="${sel === s.id}" ${ok(s) ? '' : 'disabled'}><span class="bst-bk" aria-hidden="true"></span><span class="bst-tx"><b>${esc(s.title || t('Sin título'))}</b><small>${boostActive(s.id) ? esc(boostLeft(boostActive(s.id))) : publicPrefix(s.chapters).length ? t('{n} capítulos publicados', { n: publicPrefix(s.chapters).length }) : t('Solo libros con capítulos aprobados')}</small></span></button>`).join('') : `<p class="helper">${t('Aún no tienes historias.')}</p>`}</div>
+      <ul class="bst-rules"><li>${t('Dura 24 horas desde que lo usas.')}</li><li>${t('Aparece en «Impulsados de hoy» en el feed de Inicio.')}</li><li>${t('Al terminar, el libro sigue normal en el feed.')}</li><li>${t('El ticket no se puede devolver una vez usado.')}</li></ul>
+      <div class="bst-btns"><button type="button" class="button ghost" data-no>${t('Cancelar')}</button><button type="button" class="button" data-go ${hasTicket() && cur ? '' : 'disabled'}>${cur ? t('Impulsar «{title}»', { title: cur.title || t('Sin título') }) : t('Impulsar')}</button></div></div>`;
+  };
+  draw();
+  m.addEventListener('click', async ev => {
+    const b = ev.target.closest('[data-pick]'); if (b && !b.disabled) { sel = b.dataset.pick; draw(); return; }
+    if (ev.target === m || ev.target.closest('[data-no]')) { m.remove(); return; }
+    const go = ev.target.closest('[data-go]');
+    if (go && !go.disabled) {
+      go.disabled = true; const su = sUuid(sel);
+      const r = su ? await sbApi('/rest/v1/rpc/use_boost_ticket', { method: 'POST', body: { p_story: su } }) : { ok: false };
+      if (!r.ok) { go.disabled = false; return toast(modErr(r)); }
+      const us = getUsers(); if (us[S.user]) { us[S.user].items = (us[S.user].items || []).filter(x => x !== BOOST_ITEM); G.set('users', us); }
+      await boostsLoad(true); m.remove(); toast(t('Impulso activo: tu libro aparece en «Impulsados de hoy» durante 24 horas.')); KEEP = true; render();
+    }
+  });
+  document.body.appendChild(m);
+}
 function feedHTML() {
-  const pool = feedPool(); if (pool.length < FEED.row) return '';
+  boostsLoad(); const pool = feedPool(); if (pool.length < FEED.row) return '';
   const tags = feedTags(pool), taste = tasteTags(pool), out = [], used = new Set(); ROWN = 0; MOSQ = [];
   const rowOK = l => l.length >= FEED.row;
   { const g0 = Object.keys(tags).filter(k => tags[k].n >= FEED.group).sort((a, b) => ((tasteTags(pool).indexOf(b) + 1) || 0) - ((tasteTags(pool).indexOf(a) + 1) || 0) || tags[b].n - tags[a].n); MOSQ = g0.slice(0, 2).map(k => mosCard(k, pool, tags)).filter(Boolean); }
   const featIds = new Set(crPub().filter(b => b.kind === 'book').map(b => b.storyId)), feat = pool.filter(s => featIds.has(s.id)).slice(0, 12);
+  { const br = boostRow(pool); if (br) out.push(br); }
   if (rowOK(feat)) out.push(feedRow(t('Destacados'), '', feat));
   const chb = pool.filter(s => s.mode === 'chat').sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12);
   if (rowOK(chb)) out.push(feedRow(t('Libros de chat'), t('Historias contadas como una app de mensajes'), chb, 'chat'));
@@ -2679,9 +2732,10 @@ function readNext(id, n) {                           // marca el capítulo como 
 function openStoryMenu(id) {
   const s = S.stories.find(x => x.id === id); if (!s) return;
   const m = document.createElement('div'); m.className = 'modal sheet';
-  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${esc(s.title || t('Sin título'))}</h2><div class="sm-list"><a class="sm-i" href="#/write/${esc(s.id)}">✎ ${t('Editar libro')}</a><button type="button" class="sm-i danger" data-del>🗑 ${t('Eliminar historia')}</button></div><button type="button" class="button ghost" data-no style="width:100%;margin-top:10px">${t('Cancelar')}</button></div>`;
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${esc(s.title || t('Sin título'))}</h2><div class="sm-list"><a class="sm-i" href="#/write/${esc(s.id)}">✎ ${t('Editar libro')}</a>${boostActive(s.id) ? `<p class="helper bst-on">${t('Impulso activo')} · ${esc(boostLeft(boostActive(s.id)))}</p>` : hasTicket() && !s.private && publicPrefix(s.chapters).length ? `<button type="button" class="sm-i" data-bst>${t('Impulsar con ticket')}</button>` : ''}<button type="button" class="sm-i danger" data-del>🗑 ${t('Eliminar historia')}</button></div><button type="button" class="button ghost" data-no style="width:100%;margin-top:10px">${t('Cancelar')}</button></div>`;
   m.querySelector('[data-no]').onclick = () => m.remove(); m.querySelectorAll('a').forEach(x => { x.onclick = () => m.remove(); });
   m.querySelector('[data-del]').onclick = () => { m.remove(); askDelStory(id); };
+  const bb = m.querySelector('[data-bst]'); if (bb) bb.onclick = () => { m.remove(); openBoostSheet(id); };
   document.body.appendChild(m);
 }
 function askDelStory(id) {
@@ -3469,7 +3523,8 @@ function chaptersView() {
   return `<main class="page story-layout" data-chapter-index="${esc(chapterIndexSkin())}"><div class="section-head" style="margin-top:0"><div><span class="eyebrow">☰ ${t('Capítulos')}</span><h2 style="margin-top:8px">${esc(W.title)}</h2><p>${t('Cada capítulo se escribe en su propia pantalla.')}</p></div><button class="button secondary sm" data-act="info-go">✎ ${t('Datos de la historia')}</button></div>
   ${statusNote(W) ? `<p class="notice" style="margin-bottom:14px">${esc(statusNote(W))}</p>` : ''}
   <div class="ch-list ch-list-big">${W.chapters.map((c, i) => `<div class="ch-item"><button type="button" class="ch-open" data-act="ch-go" data-cid="${c.id}" aria-label="${esc(t('Abrir capítulo {n}: {title}', { n: i + 1, title: c.title || t('Sin título') }))}">${chapterIndexSkin() === 'indicecartas' ? `${chapterIndexNumberHTML(i + 1)}<b class="ic-title">${esc(c.title || t('Sin título'))}</b><span class="ic-state">${esc(t(CH_STATUS[c.status || 'draft'] || CH_STATUS.draft))}</span>${chapterIndexArrowHTML()}` : `<b>${t('Cap. {n}', { n: i + 1 })}</b><span class="ic-title">${esc(c.title || t('Sin título'))}</span><i class="ic-state">${CH_MARK[c.status] || ''}</i>`}</button><button type="button" class="icon-btn ch-trash" data-act="ch-trash" data-cid="${c.id}" aria-label="${esc(t('Eliminar {x}', { x: c.title || t('capítulo {n}', { n: i + 1 }) }))}">${TRASH}</button></div>`).join('')}</div>
-  <div class="ch-adds"><button type="button" class="button secondary" data-act="ch-add">＋ ${t('Capítulo {n}', { n: n + 1 })}</button><a class="button secondary" href="#/write/${esc(W.id)}/notes">${t('Notas privadas')}</a></div>${submitBlock()}</main>`;
+  ${boostActive(W.id) ? `<p class="notice bst-on" style="margin-top:12px">${t('Impulso activo')} · ${esc(boostLeft(boostActive(W.id)))}</p>` : ''}
+  <div class="ch-adds">${hasTicket() && !boostActive(W.id) && publicPrefix(W.chapters).length && !W.private ? `<button type="button" class="button secondary" data-act="bst-open" data-id="${esc(W.id)}">${t('Impulsar con ticket')}</button>` : ''}<button type="button" class="button secondary" data-act="ch-add">＋ ${t('Capítulo {n}', { n: n + 1 })}</button><a class="button secondary" href="#/write/${esc(W.id)}/notes">${t('Notas privadas')}</a></div>${submitBlock()}</main>`;
 }
 
 const safeImg = u => typeof u === 'string' && (/^data:image\//.test(u) || isStoreUrl(u));
@@ -6255,6 +6310,7 @@ document.addEventListener('click', e => {
     'inv-decline': () => { declineInvite(el.dataset.nid); toast(t('Invitación rechazada')); KEEP = true; render(); },
     'owner-frame': () => { if (!isOwner()) return; const us = getUsers(); us[S.user].frameOn = us[S.user].frameOn === false; G.set('users', us); KEEP = true; render(); },
     'ch-go': () => { autosave(); go(`/write/${W.id}/ch/${el.dataset.cid}`); },
+    'bst-open': () => openBoostSheet(el.dataset.id),
     'ch-list': () => { autosave(); go(`/write/${W.id}/chapters`); },
     'info-go': () => go(`/write/${W.id}`),
     'save-next': saveInfo,
@@ -6771,7 +6827,7 @@ const PASS_FREE = {
   writer: { ...PASS_FREE_BASE, 7: 'Título · Cartas sin destino', 13: 'Skin de capítulos · Índice de cartas', 5: 'Fondo del editor · Tinta cálida', 16: 'Fondo del editor · Rosa ceniza', 1: 'Skin de notas · Querido corazón', 12: 'Skin de notas · Cartas prohibidas', 4: 'Insignia · Forbidden pact', 8: 'Insignia · Crimson elixir', 17: 'Insignia · Crimson muse', 20: "Insignia · Devil's Masterpiece", 2: 'Título · Pluma novata', 3: 'Fondo del editor · papel', 6: 'Separador · pluma', 9: 'Separador · Rosas y espinas', 11: 'Fondo del editor · noche', 15: 'Sprite aleatorio', 18: 'Sprite · corazón roto' } };
 const PASS_PAID = {
   reader: { 1: 'Forma · corazón con alitas', 2: 'Chat San Valentín · rosa pastel', 3: 'Separador · flecha y corazón', 4: 'AuriGems cian ×10', 5: 'Adorno · caja de bombones', 6: 'Adorno · corazones enamorados', 7: 'AuriCoins ×200', 8: 'Chat San Valentín · rojo', 9: 'Fondo de lectura de San Valentín', 10: 'Cinta de marcapáginas · seda', 11: 'Adorno · corazón con encaje', 12: 'Mascota · Cupida', 13: 'Ambiente · corazones flotantes', 14: 'Chat San Valentín · lila', 15: 'Sprite aleatorio', 16: 'Tarjeta de fin de capítulo · carta con sello', 17: 'Mascota · Cupido', 18: 'Sprite aleatorio', 19: 'AuriCoins ×200', 20: 'Sprite a elección · Título · Corazón de biblioteca' },
-  writer: { 1: 'Título · Tinta y corazón', 2: 'AuriCoins ×50', 3: 'Forma · corazón partido', 4: 'AuriGems cian ×10', 5: 'Marco de portada · sweet love', 6: 'AuriCoins ×50', 7: 'Separador · Promesa de tinta', 8: 'Fondos del editor · San Valentín dulce y oscuro', 9: 'AuriGems moradas ×10', 10: 'Marco de portada · dark San Valentín', 11: 'Impulso a destacados ×1', 12: 'AuriCoins ×75', 13: 'Adornos · corona de rosas, corazón y collar oscuro', 14: 'Mascota · Diablillo', 15: 'AuriGems cian ×15', 16: 'Fondo de lectura · San Valentín oscuro', 17: 'Ambiente por capítulo', 18: 'Sprite · borracho enamorado', 19: 'AuriGems moradas ×15', 20: 'Título · Rompecorazones · AuriCoins ×175' }
+  writer: { 1: 'Título · Tinta y corazón', 2: 'AuriCoins ×50', 3: 'Forma · corazón partido', 4: 'AuriGems cian ×10', 5: 'Marco de portada · sweet love', 6: 'AuriCoins ×50', 7: 'Separador · Promesa de tinta', 8: 'Fondos del editor · San Valentín dulce y oscuro', 9: 'AuriGems moradas ×10', 10: 'Marco de portada · dark San Valentín', 11: 'Ticket de impulso', 12: 'AuriCoins ×75', 13: 'Adornos · corona de rosas, corazón y collar oscuro', 14: 'Mascota · Diablillo', 15: 'AuriGems cian ×15', 16: 'Fondo de lectura · San Valentín oscuro', 17: 'Ambiente por capítulo', 18: 'Sprite · borracho enamorado', 19: 'AuriGems moradas ×15', 20: 'Título · Rompecorazones · AuriCoins ×175' }
 };
 function shopView(tab) {
   if (!passOn()) return `<main class="page">${empty('Aquí pronto habrá algo nuevo', 'La tienda y los pases todavía no están abiertos.')}</main>`;
@@ -6808,6 +6864,7 @@ function rwVis(r) {                                      // el dibujo del premio
   if (r.kind === 'cyan') return rwGem('', Math.round(r.amount / 4));
   if (r.kind === 'purple') return rwGem('p', Math.round(r.amount / 4));
   if (r.kind === 'coins') return `<span class="rw-ic"><i class="coin"></i><b>×${r.amount}</b></span>`;
+  if (p === 'ticket') return `<span class="bst-prev">${boostTicketHTML()}</span>`;
   if (r.kind === 'title') { const tk = r.key || it; return titleHTML(tk, TITLES[tk] || tk); }
   if (r.kind === 'sprite_random' || r.kind === 'sprite_pick') return `<span class="rw-mys">?</span>`;
   if (p === 'nskin') return NT_SKINS.includes(k) && k !== 'basic' ? `<span class="rw-nsk" data-note-skin="${esc(k)}"><span class="nt-card"><span class="nt-grip"><i></i><i></i><i></i></span><b class="nt-ct">${esc(t('Nota de ejemplo'))}</b><span class="nt-cp">${esc(t('Así se verá tu nota.'))}</span></span></span>` : '';
@@ -6849,11 +6906,12 @@ function passTab() {
 }
 function rwModal(rows, title, extra) {                  // recompensa reclamada / detalle: dibujo grande + Equipar + X
   const m = document.createElement('div'); m.className = 'modal sheet';
-  const one = r => { const eq = rwEq(r), tk = r.kind === 'title' ? (r.key || String(r.item || '').replace(/^title:/, '')) : '', nk = String(r.item || '').startsWith('nskin:') ? r.item.slice(6) : ''; return `<div class="rw-got"><div class="rw-big">${rwVis(r)}</div>${tk ? (titlesOf(S.user).includes(tk) ? `<button type="button" class="button sm" data-tsel="${esc(tk)}">${t('Equipar')}</button>` : `<p class="helper">${t('Vista previa: se desbloquea al reclamarla.')}</p>`) : nk ? (hasItem(S.user, r.item) ? `<button type="button" class="button sm" data-nsk="${esc(nk)}">${t('Equipar')}</button>` : `<p class="helper">${t('Vista previa: se desbloquea al reclamarla.')}</p>`) : eq && (r.kind !== 'item' || hasItem(S.user, r.item)) ? `<button type="button" class="button sm" data-eq="${esc(eq[0])}|${esc(eq[1])}">${t('Equipar')}</button>` : ''}</div>`; };
+  const one = r => { const eq = rwEq(r), tkt = String(r.item || '').startsWith('ticket:'), tk = r.kind === 'title' ? (r.key || String(r.item || '').replace(/^title:/, '')) : '', nk = String(r.item || '').startsWith('nskin:') ? r.item.slice(6) : ''; return `<div class="rw-got"><div class="rw-big">${rwVis(r)}</div>${tkt ? (hasTicket() ? `<button type="button" class="button sm" data-bst>${t('Usar ticket de impulso')}</button>` : `<p class="helper">${t('Vista previa: se desbloquea al reclamarla.')}</p>`) : tk ? (titlesOf(S.user).includes(tk) ? `<button type="button" class="button sm" data-tsel="${esc(tk)}">${t('Equipar')}</button>` : `<p class="helper">${t('Vista previa: se desbloquea al reclamarla.')}</p>`) : nk ? (hasItem(S.user, r.item) ? `<button type="button" class="button sm" data-nsk="${esc(nk)}">${t('Equipar')}</button>` : `<p class="helper">${t('Vista previa: se desbloquea al reclamarla.')}</p>`) : eq && (r.kind !== 'item' || hasItem(S.user, r.item)) ? `<button type="button" class="button sm" data-eq="${esc(eq[0])}|${esc(eq[1])}">${t('Equipar')}</button>` : ''}</div>`; };
   m.innerHTML = `<div class="modal-box rw-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${esc(title)}</h2><div class="rw-gots">${rows.map(one).join('')}</div>${extra || ''}<p class="helper">${t('No se equipa nada solo: tú eliges cuándo ponerlo.')}</p></div>`;
   m.addEventListener('click', ev => {
     const nb = ev.target.closest('[data-nsk]');
     if (nb) { const k = nb.dataset.nsk, mm = /^#\/write\/([^/?]+)/.exec(location.hash || ''), sid = mm && W && W.id === decodeURIComponent(mm[1]) ? W.id : ''; if (!ntSkinOK(k)) return; if (sid) { ntSetSkin(k, sid); nb.textContent = '✓ ' + t('Equipado'); nb.disabled = true; toast(t('Skin aplicada a las notas de esta historia')); } else { nb.outerHTML = `<a class="button sm" href="#/write" data-no>${t('Elegir historia en Mis historias')}</a><p class="helper">${t('Abre una historia, entra a un capítulo y elige la apariencia en tus notas.')}</p>`; } return; }
+    if (ev.target.closest('[data-bst]')) { m.remove(); openBoostSheet(); return; }
     const tb = ev.target.closest('[data-tsel]');
     if (tb) { const k = tb.dataset.tsel, me = S.user, us = getUsers(); if (!us[me] || !titlesOf(me).includes(k)) return; us[me].titleSel = k; G.set('users', us); sbPushTitle(); tb.textContent = '✓ ' + t('Equipado'); tb.disabled = true; toast(t('Título guardado')); return; }
     const b = ev.target.closest('[data-eq]');
