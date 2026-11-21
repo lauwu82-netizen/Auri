@@ -2811,4 +2811,6 @@ window.I18N = { en: {
   "El prólogo es opcional y puedes añadirlo o el epílogo después, en «Capítulos».": "The prologue is optional, and you can add it or an epilogue later in «Chapters».",
   "Escribir el primer capítulo": "Write the first chapter",
   "Escribir un prólogo": "Write a prologue",
+  "Cartas de amor": "Love letters",
+  "Lista de capítulos · Cartas de amor": "Chapter list · Love letters",
 } };
