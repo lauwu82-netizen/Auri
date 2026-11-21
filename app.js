@@ -2110,14 +2110,26 @@ function openBoostSheet(pre) {
   });
   document.body.appendChild(m);
 }
+/* --- «Libros nuevos»: sin reglas; cada libro nuevo aparece ~1 mes, ordenado por las etiquetas de cada lector --- */
+const NEW_DAYS = 30;
+const storyBorn = s => { const c = s.createdAt ? Date.parse(s.createdAt) : NaN, m = /^story-(\d{10,})$/.exec(String(s.id || '')); return Number.isFinite(c) ? c : m ? +m[1] : 0; };
+function newRow(pool) {
+  const lim = Date.now() - NEW_DAYS * 864e5, fresh = pool.filter(s => s.owner !== S.user && storyBorn(s) >= lim); if (!fresh.length) return '';
+  const top = tasteTags(pool).slice(0, 8), sc = s => tagsOf(s).reduce((a, x) => { const i = top.indexOf(tagKey(x)); return a + (i < 0 ? 0 : 9 - i); }, 0);
+  const ranked = fresh.map(s => ({ s, sc: sc(s), b: storyBorn(s) })).sort((a, b) => b.sc - a.sc || b.b - a.b), mine = ranked.filter(x => x.sc > 0);
+  const can = !!top.length && !!mine.length && ranked.length > mine.length, all = !can || cfg('newAll') === 'all';
+  const l = (all ? ranked : mine).slice(0, 14).map(x => x.s);
+  const sw = can ? `<button type="button" class="feed-more bst-all" data-act="cfg" data-k="newAll" data-v="${all ? 'mine' : 'all'}" aria-pressed="${all}">${all ? t('Solo mis etiquetas') : t('Mostrar todos')}</button>` : '';
+  return `<section class="feed-sec"><div class="feed-head"><div><h3>${t('Libros nuevos')}</h3><p>${all && can ? t('Todos los libros nuevos, para descubrir etiquetas nuevas') : t('Recién llegados, según las etiquetas que lees')}</p></div>${sw}</div><div class="feed-row">${l.map(s => storyCard(s)).join('')}</div></section>`;
+}
 function feedHTML() {
   boostsLoad(); const pool = feedPool(); if (pool.length < FEED.row) return '';
   const tags = feedTags(pool), taste = tasteTags(pool), out = [], used = new Set(); ROWN = 0; MOSQ = [];
   const rowOK = l => l.length >= FEED.row;
   { const g0 = Object.keys(tags).filter(k => tags[k].n >= FEED.group).sort((a, b) => ((tasteTags(pool).indexOf(b) + 1) || 0) - ((tasteTags(pool).indexOf(a) + 1) || 0) || tags[b].n - tags[a].n); MOSQ = g0.slice(0, 2).map(k => mosCard(k, pool, tags)).filter(Boolean); }
   const featIds = new Set(crPub().filter(b => b.kind === 'book').map(b => b.storyId)), feat = pool.filter(s => featIds.has(s.id)).slice(0, 12);
-  { const br = boostRow(pool); if (br) out.push(br); }
   if (rowOK(feat)) out.push(feedRow(t('Destacados'), '', feat));
+  { const br = boostRow(pool); if (br) out.push(br); }
   const chb = pool.filter(s => s.mode === 'chat').sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12);
   if (rowOK(chb)) out.push(feedRow(t('Libros de chat'), t('Historias contadas como una app de mensajes'), chb, 'chat'));
   const top = taste.filter(k => tags[k]).slice(0, 5);                  // para ti
@@ -2125,6 +2137,7 @@ function feedHTML() {
     const cand = pool.filter(s => s.owner !== S.user && !S.progress[s.id] && !S.lib.includes(s.id) && !S.favs.includes(s.id)).map(s => { const hit = top.filter(k => tagsOf(s).some(x => tagKey(x) === k)); return { s, hit, sc: hit.reduce((a, k) => a + (6 - top.indexOf(k)), 0) + (hit.length > 1 ? 3 : 0) }; }).filter(x => x.hit.length).sort((a, b) => b.sc - a.sc || feedScore(b.s) - feedScore(a.s)).slice(0, 12);
     if (rowOK(cand)) { const lab = [...new Set(cand.slice(0, 4).flatMap(x => x.hit))].slice(0, 2).map(k => '#' + tags[k].label).join(' · '); out.push(feedRow(t('Podría interesarte'), t('Porque lees {tags}', { tags: lab }), cand.map(x => x.s))); cand.forEach(x => used.add(x.s.id)); }
   }
+  { const nr = newRow(pool); if (nr) out.push(nr); }
   const groups = Object.keys(tags).filter(k => tags[k].n >= FEED.group).sort((a, b) => (top.indexOf(b) + 1 || 0) - (top.indexOf(a) + 1 || 0) || tags[b].n - tags[a].n);
   const day = today(), hash = [...day].reduce((a, ch) => a + ch.charCodeAt(0), 0);
   const pickG = groups.length ? groups[hash % groups.length] : '';
@@ -6493,12 +6506,14 @@ document.addEventListener('click', e => {
       $('#ip-msg').value = ''; toast(t('Recibido. Lo revisaremos.'));
     },
     'rw-tab': () => { RW_TAB = el.dataset.v === 'hist' ? 'hist' : 'pending'; KEEP = true; render(); },
-    'pass-tile': () => { const [tier, lv] = (el.dataset.id || '').split(':'), n = +lv, st = MS[MS.track], rows = rwRows(tier, n); if (!st || !rows.length) return;
+    'pass-claim1': () => { const [tier, lv] = (el.dataset.id || '').split(':'), n = +lv, st = MS[MS.track], rows = rwRows(tier, n); if (!st || !rows.length || el.disabled) return;
       const open = st.level >= n && (tier === 'free' || st.owned), pk = rows.find(x => x.kind === 'sprite_pick');
-      if (open && pk && !pk.claimed && !rows.some(x => !x.claimed && x.kind !== 'sprite_pick')) return vnPick();
-      if (open && rows.some(x => !x.claimed && x.kind !== 'sprite_pick')) return passClaimMany([[tier, n]]);
-      const lab = (tier === 'paid' ? PASS_PAID : PASS_FREE)[MS.track][n] || '', done = rows.every(x => x.claimed);
-      rwModal(rows.filter(x => x.kind !== 'sprite_pick' && x.kind !== 'sprite_random'), t('Nivel {n}', { n }), `<p class="rw-lab">${esc(t(lab))}</p><p class="helper">${esc(t(done ? 'Ya lo reclamaste.' : st.level < n ? 'Todavía no llegas a este nivel.' : 'Necesitas el pase para reclamar esto.'))}</p>`); },
+      if (!open) return;
+      if (rows.some(x => !x.claimed && x.kind !== 'sprite_pick')) { el.disabled = true; return passClaimMany([[tier, n]]); }
+      if (pk && !pk.claimed) return vnPick(); },
+    'pass-tile': () => { const [tier, lv] = (el.dataset.id || '').split(':'), n = +lv, st = MS[MS.track], rows = rwRows(tier, n); if (!st || !rows.length) return;
+      const open = st.level >= n && (tier === 'free' || st.owned), lab = (tier === 'paid' ? PASS_PAID : PASS_FREE)[MS.track][n] || '', done = rows.every(x => x.claimed), pend = open && !done;
+      rwModal(rows.filter(x => x.kind !== 'sprite_pick' && x.kind !== 'sprite_random'), t('Nivel {n}', { n }), `<p class="rw-lab">${esc(t(lab))}</p><p class="helper">${esc(t(done ? 'Ya lo reclamaste.' : pend ? 'Listo para reclamar: usa el botón Reclamar.' : st.level < n ? 'Todavía no llegas a este nivel.' : 'Necesitas el pase para reclamar esto.'))}</p>`); },
     'badges-pick': () => openBadgePick(),
     'founder-gift': () => founderClaim(),
     'share-open': () => { const st = findStory(id); if (st) openShare(st); },
@@ -6892,7 +6907,9 @@ function rwTile(tier, n, st) {
   if (!rows.length) return `<div class="rw-t empty"><i>${label ? '?' : '—'}</i></div>`;
   const reached = st.level >= n, open = reached && (tier === 'free' || st.owned), done = rows.every(x => x.claimed) && !(rows.some(x => x.kind === 'sprite_pick' && !x.claimed));
   const cls = done ? 'done' : open ? 'ready' : 'lock', main = rows.find(x => x.kind !== 'cyan' && x.kind !== 'purple' && x.kind !== 'coins') || rows[0];
-  return `<button type="button" class="rw-t ${cls}" data-act="pass-tile" data-id="${tier}:${n}" aria-label="${esc(t(label || 'Premio'))}"><span class="rw-v">${rwVis(main)}</span>${rows.length > 1 ? `<em class="rw-more">+${rows.length - 1}</em>` : ''}<small>${esc(t(label))}</small>${done ? '<u class="rw-ck">✓</u>' : open ? '' : '<u class="rw-lk"><svg viewBox="0 0 24 24" width="14" height="14"><rect x="5" y="11" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></u>'}</button>`;
+  const tile = `<button type="button" class="rw-t ${cls}" data-act="pass-tile" data-id="${tier}:${n}" aria-label="${esc(t(label || 'Premio'))}"><span class="rw-v">${rwVis(main)}</span>${rows.length > 1 ? `<em class="rw-more">+${rows.length - 1}</em>` : ''}<small>${esc(t(label))}</small>${done ? '<u class="rw-ck">✓</u>' : open ? '' : '<u class="rw-lk"><svg viewBox="0 0 24 24" width="14" height="14"><rect x="5" y="11" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></u>'}</button>`;
+  const pend = open && (rows.some(x => !x.claimed && x.kind !== 'sprite_pick') || rows.some(x => x.kind === 'sprite_pick' && !x.claimed));
+  return pend ? `<div class="rw-cell">${tile}<button type="button" class="rw-claim" data-act="pass-claim1" data-id="${tier}:${n}" aria-label="${esc(t('Reclamar {x}', { x: t(label || 'Premio') }))}">${t('Reclamar')}</button></div>` : tile;
 }
 const rwReady = st => { const l = []; for (let n = 1; n <= 20; n++) for (const tier of ['free', 'paid']) { const rows = rwRows(tier, n); if (rows.length && st.level >= n && (tier === 'free' || st.owned) && rows.some(x => !x.claimed && x.kind !== 'sprite_pick')) l.push([tier, n]); } return l; };
 function passTab() {

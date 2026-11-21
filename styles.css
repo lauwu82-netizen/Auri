@@ -4847,3 +4847,12 @@ html.lite .nt-card,html.lite .nt-dock,html.lite .nt-big,html.lite .nt-bk{transit
 .bst-wrap{flex:0 0 108px;width:108px;position:relative;scroll-snap-align:start}.bst-wrap .mini{width:100%}
 .bst-tag{position:absolute;left:6px;top:6px;padding:2px 8px;border-radius:999px;background:#681d38;border:1px solid #d8b36a;color:#f4dfa8;font:600 9.5px var(--sans,system-ui,sans-serif);letter-spacing:.06em;text-transform:uppercase;pointer-events:none}
 .bst-on{color:#83344b}.dark .bst-on{color:#e6a0b8}
+
+/* ===== Impulsado: etiqueta nueva; Libros nuevos; Reclamar por premio ===== */
+.bst-tag{display:inline-flex;align-items:center;gap:5px;left:5px;top:5px;padding:3px 9px 3px 7px;background:linear-gradient(120deg,#8b2c4b,#5a1830);border:1px solid #e0bf78;box-shadow:0 0 0 2px #5a183088,0 3px 8px -3px #000a;color:#f6e3b0;font-size:9px;letter-spacing:.1em}
+.bst-tag::before{content:"";width:9px;height:9px;flex:none;background:linear-gradient(135deg,#fbe9b5,#d4a84c);clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%)}
+.bst-wrap .mini>a:first-child{display:block;border-radius:12px;box-shadow:0 0 0 1.5px #d8b36aaa}
+.bst-all{background:transparent;border:0;padding:6px 2px;min-height:36px}
+.rw-cell{display:flex;flex-direction:column;gap:6px;min-width:0}
+.rw-claim{min-height:32px;padding:0 10px;border-radius:999px;border:0;background:hsl(var(--primary));color:#fff;font:700 12px var(--sans,system-ui,sans-serif)}
+.rw-claim:disabled{opacity:.6}

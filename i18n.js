@@ -2794,4 +2794,11 @@ window.I18N = { en: {
   "Impulsar con ticket": "Boost with ticket",
   "Impulso activo: tu libro aparece en «Impulsados de hoy» durante 24 horas.": "Boost active: your book appears in «Boosted today» for 24 hours.",
   "Ticket de impulso": "Boost ticket",
+  "Libros nuevos": "New books",
+  "Solo mis etiquetas": "Only my tags",
+  "Mostrar todos": "Show all",
+  "Todos los libros nuevos, para descubrir etiquetas nuevas": "All new books, to discover new tags",
+  "Recién llegados, según las etiquetas que lees": "Just arrived, based on the tags you read",
+  "Reclamar {x}": "Claim {x}",
+  "Listo para reclamar: usa el botón Reclamar.": "Ready to claim: use the Claim button.",
 } };
