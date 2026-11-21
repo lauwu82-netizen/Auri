@@ -4856,3 +4856,9 @@ html.lite .nt-card,html.lite .nt-dock,html.lite .nt-big,html.lite .nt-bk{transit
 .rw-cell{display:flex;flex-direction:column;gap:6px;min-width:0}
 .rw-claim{min-height:32px;padding:0 10px;border-radius:999px;border:0;background:hsl(var(--primary));color:#fff;font:700 12px var(--sans,system-ui,sans-serif)}
 .rw-claim:disabled{opacity:.6}
+
+/* Prólogo / epílogo opcionales */
+.ch-extra{width:100%;justify-content:center;margin:8px 0;border-style:dashed}
+.ch-open.ch-special .ic-title{font-style:italic}
+[data-chapter-index="indicecartas"] .ic-number.ic-kind strong{font-size:1.1em}
+.st-choice{display:grid;gap:10px;margin-top:16px}
