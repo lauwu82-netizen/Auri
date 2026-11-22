@@ -2829,4 +2829,6 @@ window.I18N = { en: {
   "{n} libros para ti": "{n} books for you",
   "Ningún libro tiene todo lo que elegiste: te mostramos los más cercanos.": "No book has everything you picked: here are the closest ones.",
   "Aún no hay libros para mostrar.": "There are no books to show yet.",
+  "Añadir": "Add",
+  "Escribe tu propia etiqueta": "Type your own tag",
 } };

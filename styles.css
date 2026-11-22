@@ -4954,3 +4954,5 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 .fd-chip,.fd-mode{min-height:44px;padding:0 14px;border-radius:99px;border:1px solid hsl(var(--border));background:hsl(var(--card));color:hsl(var(--foreground));font:600 13px var(--sans);cursor:pointer}
 .fd-chip.on,.fd-mode.on{background:hsl(var(--primary));color:hsl(var(--primary-foreground,0 0% 100%));border-color:hsl(var(--primary))}
 .fd-modes{display:flex;flex-wrap:wrap;gap:8px}.fd-go{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+
+.fd-add{display:flex;gap:8px;margin-top:10px}.fd-add .field{flex:1;min-width:0}

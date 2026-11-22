@@ -2165,17 +2165,23 @@ function finderResults() {
   const featIds = new Set(crPub().filter(b => b.kind === 'book').map(b => b.storyId)), apr = s => s.chapters.filter(c => c.status === 'approved').length;
   const metric = s => FD.mode === 'new' ? storyBorn(s) / 864e5 : FD.mode === 'feat' ? (featIds.has(s.id) ? 1e4 : 0) + feedScore(s) : ((s.views | 0) < 100 && apr(s) >= 2 ? 1e4 - (s.views | 0) : 0);
   const fm = s => !fan || tagKey(s.fandom).includes(fan) || tagKey(s.title).includes(fan) || tagsOf(s).some(x => tagKey(x).includes(fan));
-  const rows = pool.map(s => { const hit = sel.filter(k => tagsOf(s).some(x => tagKey(x) === k)).length; return { s, hit, f: fan ? fm(s) : false, sc: (fan && fm(s) ? 100 : 0) + hit * 10, m: metric(s) }; })
+  const rows = pool.map(s => { const hit = sel.filter(k => tagsOf(s).some(x => { const y = tagKey(x); return y === k || (k.length >= 3 && y.includes(k)); })).length; return { s, hit, f: fan ? fm(s) : false, sc: (fan && fm(s) ? 100 : 0) + hit * 10, m: metric(s) }; })
     .sort((a, b) => b.sc - a.sc || b.m - a.m).slice(0, 60);
   const want = (fan ? 100 : 0) + sel.length * 10, full = rows.filter(r => r.sc >= want && want > 0).length;
   return { list: rows.map(r => r.s), full, exact: want === 0 || full > 0 };
 }
 function finderView() {
-  const pool = feedPool(), tags = feedTags(pool), top = Object.keys(tags).sort((a, b) => tags[b].n - tags[a].n).slice(0, 30);
+  const pool = feedPool(), tags = feedTags(pool);
+  const lab = {}; INTERESTS.forEach(([n, e]) => { lab[tagKey(n)] = { l: n, e }; });
+  const inApp = Object.keys(tags).sort((a, b) => tags[b].n - tags[a].n).filter(k => !lab[k]).slice(0, 24);
+  const mine = FD.tags.filter(k => !lab[k] && !inApp.includes(k));
+  const chip = (k, txt) => `<button type="button" class="fd-chip ${FD.tags.includes(k) ? 'on' : ''}" data-act="fd-tag" data-k="${esc(k)}" aria-pressed="${FD.tags.includes(k)}">${txt}</button>`;
+  const top = [...INTERESTS.map(([n, e]) => chip(tagKey(n), `${e} ${esc(t(n))}`)), ...inApp.map(k => chip(k, '#' + esc(tags[k].label))), ...mine.map(k => chip(k, '#' + esc(k)))];
   const fans = [...new Set(pool.map(s => String(s.fandom || '').trim()).filter(f => f && tagKey(f) !== 'original'))].slice(0, 40);
   const res = FD.go ? finderResults() : null;
   return `<main class="page fd-page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Búsqueda personalizada')}</span><h2 style="margin-top:8px">${t('Descubre a tu manera')}</h2><p>${t('Elige etiquetas, un fandom si quieres, y qué quieres descubrir.')}</p></div></div>
-  <section class="panel fd-box"><h3 class="fd-h">${t('Etiquetas')}</h3><div class="fd-chips">${top.length ? top.map(k => `<button type="button" class="fd-chip ${FD.tags.includes(k) ? 'on' : ''}" data-act="fd-tag" data-k="${esc(k)}" aria-pressed="${FD.tags.includes(k)}">#${esc(tags[k].label)}</button>`).join('') : `<p class="helper">${t('Aún no hay etiquetas para elegir.')}</p>`}</div>
+  <section class="panel fd-box"><h3 class="fd-h">${t('Etiquetas')}</h3><div class="fd-chips">${top.join('')}</div>
+  <div class="fd-add"><input id="fd-add" class="field" autocomplete="off" maxlength="40" placeholder="${esc(t('Escribe tu propia etiqueta'))}" aria-label="${esc(t('Escribe tu propia etiqueta'))}"><button type="button" class="button secondary sm" data-act="fd-add">${t('Añadir')}</button></div>
   <h3 class="fd-h">${t('Fandom (opcional)')}</h3><input id="fd-fandom" class="field" list="fd-fans" autocomplete="off" placeholder="${esc(t('Nombre del anime, novela o grupo'))}" aria-label="${esc(t('Fandom (opcional)'))}" value="${esc(FD.fandom)}"><datalist id="fd-fans">${fans.map(f => `<option value="${esc(f)}">`).join('')}</datalist>
   <h3 class="fd-h">${t('¿Qué quieres descubrir?')}</h3><div class="fd-modes" role="group" aria-label="${esc(t('¿Qué quieres descubrir?'))}">${Object.entries(FD_MODES).map(([k, n]) => `<button type="button" class="fd-mode ${FD.mode === k ? 'on' : ''}" data-act="fd-mode" data-v="${k}" aria-pressed="${FD.mode === k}">${t(n)}</button>`).join('')}</div>
   <div class="fd-go"><button type="button" class="button" data-act="fd-go">${t('Ver libros')}</button><button type="button" class="button ghost" data-act="fd-reset">${t('Borrar elecciones')}</button></div></section>
@@ -5643,6 +5649,7 @@ function avoidAdd() {
   const i = $('#avoid-in'); if (!i) return; const k = tagKey(i.value.replace(/^#+/, '')); if (!k) return;
   const l = avoidList(); if (!l.includes(k)) setCfg('avoidTags', [...l, k]); KEEP = true; render(); setTimeout(() => { const j = $('#avoid-in'); if (j) j.focus(); }, 50);
 }
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'fd-add') { e.preventDefault(); const b = document.querySelector('[data-act=fd-add]'); if (b) b.click(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'avoid-in') { e.preventDefault(); avoidAdd(); } });
 function openLook() {
   if (roleOf(S.user) !== 'OWNER') return;
@@ -6673,6 +6680,7 @@ document.addEventListener('click', e => {
     'fd-tag': () => { const k = el.dataset.k; FD.tags = FD.tags.includes(k) ? FD.tags.filter(x => x !== k) : [...FD.tags, k]; FD.go = false; KEEP = true; render(); },
     'fd-mode': () => { FD.mode = el.dataset.v; FD.go = false; KEEP = true; render(); },
     'fd-go': () => { const f = $('#fd-fandom'); if (f) FD.fandom = f.value.trim(); FD.go = true; KEEP = true; render(); setTimeout(() => { const r = $('#fd-res'); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'start', behavior: reduceMotion() ? 'auto' : 'smooth' }); }, 60); },
+    'fd-add': () => { const i = $('#fd-add'), k = tagKey(i ? i.value.replace(/^#+/, '') : ''); if (!k) return; if (!FD.tags.includes(k)) FD.tags = [...FD.tags, k]; FD.go = false; KEEP = true; render(); },
     'fd-reset': () => { Object.assign(FD, { tags: [], fandom: '', mode: 'new', go: false }); KEEP = true; render(); },
     'notif-toggle': () => { NOTIF_OPEN = !NOTIF_OPEN; KEEP = true; render(); },
     logout,
