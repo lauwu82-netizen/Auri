@@ -3406,7 +3406,7 @@ function ntLift() {
   card.parentNode.insertBefore(ph, card);
   NT.drag = { ...p, ph, ox: p.x - r.left, oy: p.y - r.top, px: p.x, py: p.y, iv: 0 };
   Object.assign(card.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', margin: '0', zIndex: '80' });
-  ntSnd('lift'); void card.offsetWidth; card.classList.add('nt-lift'); try { card.setPointerCapture(p.pid); } catch (e) { /* ignorar */ }
+  document.body.classList.add('nt-dragging'); ntSnd('lift'); void card.offsetWidth; card.classList.add('nt-lift'); try { card.setPointerCapture(p.pid); } catch (e) { /* ignorar */ }
   try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) { /* ignorar */ }
   NT.drag.iv = setInterval(ntAuto, 30);
 }
@@ -3441,7 +3441,7 @@ function ntDrop() {
   const card = d.card, ph = d.ph, r = ph.getBoundingClientRect();
   const fin = () => {
     ['position', 'left', 'top', 'width', 'height', 'margin', 'zIndex', 'transition'].forEach(k => { card.style[k] = ''; });
-    card.classList.remove('nt-lift'); if (ph.parentNode) ph.replaceWith(card);
+    card.classList.remove('nt-lift'); document.body.classList.remove('nt-dragging'); if (ph.parentNode) ph.replaceWith(card);
     const st = NT.st; if (!st) return;
     const ids = [...document.querySelectorAll('.nt-card')].map(c => c.dataset.nid), live = ntLive(st), cur = live.map(x => x.id);
     if (ids.length === cur.length && ids.some((id, i) => id !== cur[i])) {

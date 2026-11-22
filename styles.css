@@ -4916,3 +4916,8 @@ body:has(#nt-isle) .nt-ov{z-index:170}
 /* Una nota arrastrada siempre queda por encima de la hoja del editor decorada */
 .nt-dock:has(.nt-lift),#nt-board:has(.nt-lift){position:relative;z-index:70}
 .th-dot.gotico{background:#c23a4f}
+
+/* Mientras se arrastra una nota, su zona queda por encima de la hoja decorada y de la barra del editor */
+body.nt-dragging .nt-dock,body.nt-dragging #nt-board{position:relative;z-index:90}
+body.nt-dragging .wf-paper{z-index:0}
+body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:auto}
