@@ -2188,7 +2188,127 @@ function finderView() {
   <h3 class="fd-h">${t('Fandom (opcional)')}</h3><input id="fd-fandom" class="field" list="fd-fans" autocomplete="off" placeholder="${esc(t('Nombre del anime, novela o grupo'))}" aria-label="${esc(t('Fandom (opcional)'))}" value="${esc(FD.fandom)}"><datalist id="fd-fans">${fans.map(f => `<option value="${esc(f)}">`).join('')}</datalist>
   <h3 class="fd-h">${t('¿Qué quieres descubrir?')}</h3><div class="fd-modes" role="group" aria-label="${esc(t('¿Qué quieres descubrir?'))}">${Object.entries(FD_MODES).map(([k, n]) => `<button type="button" class="fd-mode ${FD.mode === k ? 'on' : ''}" data-act="fd-mode" data-v="${k}" aria-pressed="${FD.mode === k}">${t(n)}</button>`).join('')}</div>
   <div class="fd-go"><button type="button" class="button" data-act="fd-go">${t('Ver libros')}</button><button type="button" class="button ghost" data-act="fd-reset">${t('Borrar elecciones')}</button></div></section>
-  ${res ? `<section class="fd-res" id="fd-res"><div class="section-head" style="margin-top:20px"><div><h3 style="margin:0">${t('{n} libros para ti', { n: res.list.length })}</h3>${res.exact || !res.list.length ? '' : `<p>${t('Ningún libro tiene todo lo que elegiste: te mostramos los más cercanos.')}</p>`}</div></div>${res.list.length ? masonryHTML(res.list) : empty(t('Aún no hay libros para mostrar.'), '', '')}</section>` : ''}</main>`;
+  ${res ? `<section class="fd-res" id="fd-res"><div class="section-head" style="margin-top:20px"><div><h3 style="margin:0">${t('{n} libros para ti', { n: res.list.length })}</h3>${res.list.length ? `<div class="sw-toggle" role="group"><button type="button" aria-pressed="true">${t('Lista')}</button><button type="button" aria-pressed="false" data-act="sw-open" data-src="finder">${t('Deslizar')}</button></div>` : ''}${res.exact || !res.list.length ? '' : `<p>${t('Ningún libro tiene todo lo que elegiste: te mostramos los más cercanos.')}</p>`}</div></div>${res.list.length ? masonryHTML(res.list) : empty(t('Aún no hay libros para mostrar.'), '', '')}</section>` : ''}</main>`;
+}
+/* ---- Modo deslizar: las portadas se lanzan como cartas (izquierda descarta, derecha guarda en tu biblioteca) ---- */
+const SWP = { ids: [], map: new Map(), back: '#/', i: 0, hist: [] };
+const swNo = () => LS.get(uk('swipeNo'), []);
+function swipeOpen(list, back) {
+  const no = new Set(swNo()), l = list.filter(s => s.owner !== S.user && !no.has(s.id) && !S.lib.includes(s.id));
+  SWP.ids = l.map(s => s.id); SWP.map = new Map(l.map(s => [s.id, s])); SWP.back = back; SWP.i = 0; SWP.hist = [];
+  location.hash = '#/swipe';
+}
+function swCard(s, k) {
+  return `<div class="sw-c" data-k="${k}" data-id="${esc(s.id)}"><span class="sw-cv">${coverHTML(s, SWP.i + k)}</span><span class="sw-sh"></span><b class="sw-st sw-st-y">${t('GUARDAR')}</b><b class="sw-st sw-st-n">${t('DESCARTAR')}</b></div>`;
+}
+function swInfo(s) { return `<b>${esc(s.title || t('Sin título'))}</b><span>${esc(s.author || '')}</span>`; }
+function swPanel(s) {
+  const tg = tagsOf(s).slice(0, 5).map(x => `<span class="sw-tag">#${esc(x)}</span>`).join('');
+  return `${tg ? `<div class="sw-tags">${tg}</div>` : ''}<p class="sw-syn">${s.synopsis ? esc(s.synopsis) : t('Sin sinopsis aún.')}</p><a class="button secondary sm sw-more" href="#/story/${esc(s.id)}">${t('Ver libro completo')}</a>`;
+}
+function swipeView() {
+  const cur = SWP.map.get(SWP.ids[SWP.i]);
+  if (!cur) return `<main class="page"><a class="back-link" href="${esc(SWP.back)}">‹ ${t('Volver')}</a>${empty(SWP.ids.length ? t('Ya viste todos los libros') : t('Aún no hay libros para mostrar.'), SWP.ids.length ? t('Los que descartaste no vuelven a salir aquí.') : '', `<a class="button secondary" href="${esc(SWP.back)}">${t('Volver')}</a>`)}</main>`;
+  const cards = [0, 1, 2].map(k => SWP.map.get(SWP.ids[SWP.i + k])).map((x, k) => x ? swCard(x, k) : '').join('');
+  const ic = d => `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  return `<main class="page sw-page"><div class="sw-top"><a class="back-link" href="${esc(SWP.back)}">‹ ${t('Volver')}</a><span class="sw-count" id="sw-count">${t('{a} de {b}', { a: SWP.i + 1, b: SWP.ids.length })}</span></div>
+  <div class="sw-stage" id="sw-stage"><div class="sw-deck" id="sw-deck">${cards}</div><div class="sw-info" id="sw-info">${swInfo(cur)}</div></div>
+  <section class="sw-sheet"><div class="sw-panel" id="sw-panel">${swPanel(cur)}</div>
+  <div class="sw-btns"><button type="button" class="sw-b sw-no" id="sw-no" aria-label="${esc(t('Descartar'))}">${ic('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
+  <button type="button" class="sw-b sw-un" id="sw-un" aria-label="${esc(t('Deshacer'))}" ${SWP.hist.length ? '' : 'disabled'}>${ic('<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>')}</button>
+  <button type="button" class="sw-b sw-yes" id="sw-yes" aria-label="${esc(t('Guardar en mi biblioteca'))}">${ic('<path d="M6 4h12v17l-6-4-6 4z"/>')}</button></div>
+  <p class="helper sw-hint">${t('Desliza la portada: izquierda descarta, derecha guarda')}</p></section></main>`;
+}
+function swipeInit() {
+  const stage = document.getElementById('sw-stage'), deck = document.getElementById('sw-deck'); if (!stage || !deck) return;
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let drag = null, raf = 0, busy = false;
+  const cards = () => [...deck.querySelectorAll('.sw-c')];
+  const W = () => stage.clientWidth || 360;
+  const sh = (c, a) => { const e = c.querySelector('.sw-sh'); if (e) e.style.opacity = a; };
+  function paint(x, y, r) {                                   // la carta de arriba sigue el dedo; las de atrás suben al centro según cuánto la alejas
+    const cs = cards(), p = Math.min(1, Math.abs(x) / 150), e = 1 - (1 - p) * (1 - p);
+    cs.forEach((c, k) => {
+      if (k === 0) {
+        c.style.transform = `translate3d(${x}px,${y}px,0) rotate(${r}deg)`; sh(c, 0);
+        const a = Math.min(1, Math.abs(x) / 110), y1 = c.querySelector('.sw-st-y'), n1 = c.querySelector('.sw-st-n');
+        if (y1) y1.style.opacity = x > 0 ? a : 0; if (n1) n1.style.opacity = x < 0 ? a : 0;
+      } else {
+        const u = Math.max(0, k - e), tx = u <= 1 ? 128 * u : 128 + 62 * (u - 1), sc = u <= 1 ? 1 - .12 * u : .88 - .08 * (u - 1), dk = u <= 1 ? .6 * u : .6 + .2 * (u - 1);
+        c.style.transform = `translate3d(${tx}px,0,0) scale(${sc})`; sh(c, dk);
+      }
+    });
+  }
+  const swapText = () => {                                     // el texto de abajo cambia con un fundido suave según el libro
+    const s = SWP.map.get(SWP.ids[SWP.i]), pn = document.getElementById('sw-panel'), inf = document.getElementById('sw-info'), cnt = document.getElementById('sw-count'), un = document.getElementById('sw-un'); if (!pn) return;
+    pn.classList.add('swap'); inf.classList.add('swap');
+    setTimeout(() => { if (s) { pn.innerHTML = swPanel(s); inf.innerHTML = swInfo(s); } if (cnt) cnt.textContent = t('{a} de {b}', { a: Math.min(SWP.i + 1, SWP.ids.length), b: SWP.ids.length }); if (un) un.disabled = !SWP.hist.length; pn.classList.remove('swap'); inf.classList.remove('swap'); }, 170);
+  };
+  function run(st, step, done) {                               // pequeño motor de física: step(dt) mueve, devuelve true cuando termina
+    cancelAnimationFrame(raf); let last = performance.now();
+    const tick = now => { const dt = Math.min(34, now - last); last = now; if (step(dt)) { done && done(); return; } raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+  }
+  function springBack(x, y, vx, vy, done) {                    // regresa con un resorte suave
+    const K = .0026, C = .075; busy = true;
+    run(null, dt => { vx += (-K * x - C * vx) * dt; vy += (-K * y - C * vy) * dt; x += vx * dt; y += vy * dt; paint(x, y, x * .06);
+      if (Math.abs(x) < .4 && Math.abs(y) < .4 && Math.abs(vx) < .01) { paint(0, 0, 0); return true; } return false; }, () => { busy = false; done && done(); });
+  }
+  function advance() {                                         // la carta lanzada sale: la de atrás ya está en el centro
+    const top = cards()[0]; if (top) top.remove();
+    cards().forEach((c, k) => { c.dataset.k = k; });
+    const nx = SWP.map.get(SWP.ids[SWP.i + 2]); if (nx) deck.insertAdjacentHTML('beforeend', swCard(nx, 2));
+    paint(0, 0, 0);
+  }
+  function commit(dir, x, y, vx, vy) {
+    const top = cards()[0]; if (!top || busy && !drag) { if (!top) return; }
+    const id = top.dataset.id; busy = true;
+    SWP.hist.push({ id, act: dir > 0 ? 'yes' : 'no' });
+    if (dir > 0) libAdd(id); else { const no = swNo(); if (!no.includes(id)) LS.set(uk('swipeNo'), [...no, id]); }
+    SWP.i++; swapText();
+    const finish = () => { advance(); busy = false; if (SWP.i >= SWP.ids.length) { KEEP = true; render(); } };
+    if (still) { finish(); return; }
+    let r = x * .06, vr = dir * .1 + vx * .04; vx = dir * Math.max(Math.abs(vx), .85); vy = vy * .5 - .22;
+    run(null, dt => { vy += .0016 * dt; vx *= Math.pow(.9994, dt); x += vx * dt; y += vy * dt; r += vr * dt; paint(x, y, r); return Math.abs(x) > W() * .5 + 260; }, finish);
+  }
+  function fling(dir) { if (busy) return; const top = cards()[0]; if (!top) return; commit(dir, 0, 0, dir * .5, 0); }
+  function undo() {
+    if (busy || !SWP.hist.length) return; const h = SWP.hist.pop();
+    if (h.act === 'yes') libRemove(h.id); else LS.set(uk('swipeNo'), swNo().filter(x => x !== h.id));
+    SWP.i--; const s = SWP.map.get(h.id); if (!s) return;
+    if (!cards().length) { KEEP = true; render(); return; }
+    cards().slice(2).forEach(c => c.remove());
+    deck.insertAdjacentHTML('beforeend', swCard(s, 0)); const nc = cards(); nc.unshift(nc.pop()); nc.forEach((c, k) => { c.dataset.k = k; });
+    swapText(); const dir = h.act === 'yes' ? 1 : -1;
+    if (still) { paint(0, 0, 0); return; }
+    paint(dir * 330, -40, dir * 24); springBack(dir * 330, -40, -dir * .5, .1);
+  }
+  stage.addEventListener('pointerdown', e => {
+    const top = cards()[0]; if (busy || !top || !top.contains(e.target)) return;
+    cancelAnimationFrame(raf); drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, pts: [[performance.now(), e.clientX, e.clientY]] };
+    try { stage.setPointerCapture(e.pointerId); } catch {}
+    top.classList.add('grab');
+  });
+  stage.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const x = e.clientX - drag.x0, y = (e.clientY - drag.y0) * .4; drag.x = x; drag.y = y;
+    drag.pts.push([performance.now(), e.clientX, e.clientY]); if (drag.pts.length > 5) drag.pts.shift();
+    paint(x, y, Math.max(-26, Math.min(26, x * .07)));
+  });
+  const release = e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const top = cards()[0], p = drag.pts, a = p[0], b = p[p.length - 1], dt = Math.max(1, b[0] - a[0]);
+    const vx = (b[1] - a[1]) / dt, vy = (b[2] - a[2]) / dt * .4, x = drag.x || 0, y = drag.y || 0; drag = null;
+    if (top) top.classList.remove('grab');
+    const dir = x ? Math.sign(x) : Math.sign(vx);
+    if (e.type !== 'pointercancel' && dir && (Math.abs(x) > 95 || (Math.abs(vx) > .5 && Math.abs(x) > 24 && Math.sign(vx) === dir))) commit(dir, x, y, vx, vy);
+    else springBack(x, y, vx, vy);
+  };
+  stage.addEventListener('pointerup', release); stage.addEventListener('pointercancel', release);
+  document.getElementById('sw-no').onclick = () => fling(-1);
+  document.getElementById('sw-yes').onclick = () => fling(1);
+  document.getElementById('sw-un').onclick = undo;
+  paint(0, 0, 0);
 }
 function feedHTML() {
   boostsLoad(); const pool = feedPool(); if (pool.length < FEED.row) return '';
@@ -2221,6 +2341,7 @@ function feedHTML() {
 function exploreView(k) {
   k = tagKey(k); const pool = feedPool(), tags = feedTags(pool), l = pool.filter(s => tagsOf(s).some(x => tagKey(x) === k) || (k === 'chat' && s.mode === 'chat')).sort((a, b) => feedScore(b) - feedScore(a)), lab = k === 'chat' ? t('Libros de chat') : (tags[k] || { label: k }).label;
   return `<main class="page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Explorar')}</span><h2 style="margin-top:8px">${k === 'chat' ? '💬 ' : '#'}${esc(lab)}</h2><p>${t('{n} libros', { n: l.length })}</p></div></div>
+  ${l.length ? `<div class="sw-toggle" role="group"><button type="button" aria-pressed="true">${t('Lista')}</button><button type="button" aria-pressed="false" data-act="sw-open" data-src="explore" data-k="${esc(k)}">${t('Deslizar')}</button></div>` : ''}
   ${l.length ? masonryHTML(l) : empty(t('Aún no hay libros con esta etiqueta.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
 }
 function similarBooks(s, max = 15) {                  // libros parecidos al que acabas de leer (comparten etiquetas), con algo de azar entre empates
@@ -6310,6 +6431,7 @@ function render() {
   else if (a === 'write') { const v = writeRoute(b, c, d); app.innerHTML = c === 'ch' && W ? v : shell('/write', v); }   // escribir un capítulo = pantalla completa
   else if (a === 'story') { const v = safeView(() => storyView(b, c), b); app.innerHTML = c ? v : shell('', v); }   // leer un capítulo = pantalla completa
   else if (a === 'finder') app.innerHTML = shell('', finderView());
+  else if (a === 'swipe') app.innerHTML = shell('', swipeView());
   else if (a === 'explore') app.innerHTML = shell('', exploreView(decodeURIComponent(b || '')));
   else if (a === 'library') app.innerHTML = shell('/library', libraryView());
   else if (a === 'profile' && b === 'edit' && !isGuest()) app.innerHTML = shell('/profile', editProfileView());
@@ -6338,7 +6460,7 @@ function render() {
     if (nx && b === MUSIC.sid && nx.music && nx.music === MUSIC.url) MUSIC.ch = String(c); else closeMusic(); }
   if (HLC) { const hid = HLC; HLC = ''; const cm0 = comments(b).find(x => String(x.id) === hid); if (cm0) { setTimeout(() => { const el = document.getElementById('cm-' + hid); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('cm-hl'); setTimeout(() => el.classList.remove('cm-hl'), 3200); } }, 120); } else toast(t('Ese comentario ya no está.')); }
   else if (!KEEP) { if (nav) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); } else window.scrollTo(0, keepY); }
-  imgGuard(app); chatAuto(); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); flowInit(); ftInit(); dmAfter();
+  imgGuard(app); chatAuto(); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); flowInit(); ftInit(); swipeInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
   if (nav && a === 'story' && c && c !== 'fin') { pcHintOnce(); readingPing(b); viewPing(b); chtStart(b, c); }
   if (nav && a === 'vnr') vnrBoot(b, c);
@@ -6684,6 +6806,9 @@ document.addEventListener('click', e => {
     'fd-mode': () => { FD.mode = el.dataset.v; FD.go = false; KEEP = true; render(); },
     'fd-go': () => { const f = $('#fd-fandom'); if (f) FD.fandom = f.value.trim(); FD.go = true; KEEP = true; render(); setTimeout(() => { const r = $('#fd-res'); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'start', behavior: reduceMotion() ? 'auto' : 'smooth' }); }, 60); },
     'fd-add': () => { const i = $('#fd-add'), k = tagKey(i ? i.value.replace(/^#+/, '') : ''); if (!k) return; if (!FD.tags.includes(k)) FD.tags = [...FD.tags, k]; FD.go = false; KEEP = true; render(); },
+    'sw-open': () => { const src = el.dataset.src;
+      if (src === 'finder') { swipeOpen(finderResults().list, '#/finder'); return; }
+      const k = tagKey(el.dataset.k || ''), pool = feedPool(); swipeOpen(pool.filter(s => tagsOf(s).some(x => tagKey(x) === k) || (k === 'chat' && s.mode === 'chat')).sort((a, b) => feedScore(b) - feedScore(a)), '#/explore/' + encodeURIComponent(k)); },
     'fd-reset': () => { Object.assign(FD, { tags: [], fandom: '', mode: 'new', go: false }); KEEP = true; render(); },
     'notif-toggle': () => { NOTIF_OPEN = !NOTIF_OPEN; KEEP = true; render(); },
     logout,
