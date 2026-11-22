@@ -2844,5 +2844,6 @@ window.I18N = { en: {
   "Explorar todos los destacados": "Explore all featured books",
   "Todos los destacados": "All featured books",
   "Aún no hay libros destacados.": "No featured books yet.",
+  "Ver todo el tablero": "See the whole board",
   "Escribe tu propia etiqueta": "Type your own tag",
 } };

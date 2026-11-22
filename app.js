@@ -2320,6 +2320,45 @@ function swipeInit() {
   document.getElementById('sw-un').onclick = undo;
   paint(0, 0, 0);
 }
+/* ---- Línea de etiqueta en collage: portadas grandes y pequeñas; al mantener presionado (o pasar el ratón) sale título y sinopsis ---- */
+const CL_SLOTS = [   // bloque de 4 columnas × 3 filas; el bloque par va espejado
+  [[1, 2, 1, 3], [3, 2, 1, 2], [3, 1, 3, 1], [4, 1, 3, 1]],
+  [[1, 2, 1, 2], [1, 1, 3, 1], [2, 1, 3, 1], [3, 2, 1, 3]]];
+function tagCollage(label, sub, list, k) {
+  const per = innerWidth >= 1000 ? 3 : innerWidth >= 700 ? 2 : 1;
+  if (list.length < 3) return '';
+  let tiles = Math.min(list.length + 1, per * 4); tiles -= tiles % 4; if (tiles < 4) return '';
+  const books = list.slice(0, tiles - 1), out = [];
+  for (let n = 0; n < tiles; n++) {
+    const blk = Math.floor(n / 4), sl = CL_SLOTS[blk % 2][n % 4], col = blk * 4 + sl[0], st = `grid-column:${col}/span ${sl[1]};grid-row:${sl[2]}/span ${sl[3]}`;
+    if (n === tiles - 1) { out.push(`<a class="cl-t cl-all" style="${st}" href="#/explore/${encodeURIComponent(k)}"><b>${t('Ver todo el tablero')}</b><span>${t('Abrir')} ›</span></a>`); continue; }
+    const b = books[n], big = sl[1] * sl[3] >= 4;
+    out.push(`<a class="cl-t ${big ? 'cl-big' : ''}" style="${st}" href="#/story/${esc(b.id)}" data-id="${esc(b.id)}" aria-label="${esc(b.title)}"><span class="cl-cv">${coverHTML(b, n)}</span>${big ? `<span class="cl-cap"><b>${esc(b.title || t('Sin título'))}</b><small>${esc(b.author || '')}</small></span>` : ''}</a>`);
+  }
+  return `<section class="feed-sec cl-sec"><div class="feed-head"><div><h3>${label}</h3>${sub ? `<p>${sub}</p>` : ''}</div><a class="feed-more" href="#/explore/${encodeURIComponent(k)}">${t('Ver todo')}</a></div><div class="cl-grid" style="grid-template-columns:repeat(${Math.min(per, tiles / 4) * 4},minmax(0,1fr))">${out.join('')}</div></section>`;
+}
+function collageInit() {
+  const grids = document.querySelectorAll('.cl-grid'); if (!grids.length) return;
+  let pop = document.getElementById('cl-pop');
+  if (!pop) { pop = document.createElement('div'); pop.id = 'cl-pop'; pop.className = 'cl-pop'; pop.setAttribute('role', 'tooltip'); pop.hidden = true; document.body.appendChild(pop); }
+  const find = id => feedPoolAll().find(x => x.id === id);
+  const show = a => { const s = find(a.dataset.id); if (!s) return; pop.innerHTML = `<b>${esc(s.title || t('Sin título'))}</b>${s.synopsis ? `<p>${esc(s.synopsis)}</p>` : ''}`; pop.hidden = false;
+    const r = a.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight; let x = r.left + r.width / 2 - pw / 2, y = r.bottom + 8;
+    x = Math.max(10, Math.min(innerWidth - pw - 10, x)); if (y + ph > innerHeight - 90) y = Math.max(10, r.top - ph - 8); pop.style.left = x + 'px'; pop.style.top = y + 'px'; pop.classList.add('on'); };
+  const hide = () => { pop.classList.remove('on'); pop.hidden = true; };
+  grids.forEach(g => {
+    let tm = 0, held = false, sx = 0, sy = 0;
+    g.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { const a = e.target.closest && e.target.closest('.cl-t[data-id]'); if (a) show(a); } }, true);
+    g.addEventListener('pointerover', e => { if (e.pointerType !== 'mouse') return; const a = e.target.closest('.cl-t[data-id]'); if (a) show(a); else hide(); });
+    g.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hide(); });
+    g.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; const a = e.target.closest('.cl-t[data-id]'); if (!a) return; held = false; sx = e.clientX; sy = e.clientY; clearTimeout(tm); tm = setTimeout(() => { held = true; show(a); }, 380); });
+    g.addEventListener('pointermove', e => { if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) clearTimeout(tm); });
+    const end = () => { clearTimeout(tm); if (held) setTimeout(() => { hide(); held = false; }, 60); };
+    g.addEventListener('pointerup', end); g.addEventListener('pointercancel', () => { clearTimeout(tm); hide(); held = false; });
+    g.addEventListener('click', e => { if (held) { e.preventDefault(); e.stopPropagation(); } }, true);
+    g.addEventListener('contextmenu', e => { if (e.target.closest('.cl-t')) e.preventDefault(); });
+  });
+}
 function feedHTML() {
   boostsLoad(); const pool = feedPool(); if (pool.length < FEED.row) return '';
   const tags = feedTags(pool), taste = tasteTags(pool), out = [], used = new Set(); ROWN = 0; MOSQ = [];
@@ -2340,7 +2379,7 @@ function feedHTML() {
   const day = today(), hash = [...day].reduce((a, ch) => a + ch.charCodeAt(0), 0);
   const pickG = groups.length ? groups[hash % groups.length] : '';
   const rnd = Object.keys(tags).filter(k => tags[k].n >= FEED.row && k !== pickG); const rk = rnd.length ? rnd[(hash * 7) % rnd.length] : '';
-  if (rk) out.push(feedRow('#' + esc(tags[rk].label), t('Una etiqueta para explorar hoy'), pool.filter(s => tagsOf(s).some(x => tagKey(x) === rk)).slice(0, 12), rk));
+  if (rk) { const rl = pool.filter(s => tagsOf(s).some(x => tagKey(x) === rk)); out.push(tagCollage('#' + esc(tags[rk].label), t('Una etiqueta para explorar hoy'), rl.slice().sort((a, b) => feedScore(b) - feedScore(a)), rk) || feedRow('#' + esc(tags[rk].label), t('Una etiqueta para explorar hoy'), rl.slice(0, 12), rk)); }
   const recent = Date.now() - 30 * 864e5, scored = pool.filter(s => feedScore(s) > 0);
   const hot = scored.filter(s => new Date(s.updatedAt || 0).getTime() >= recent).sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12), all = scored.sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12);
   if (rowOK(hot)) out.push(feedRow(t('Lo más famoso del momento'), '', hot));
@@ -6471,7 +6510,7 @@ function render() {
     if (nx && b === MUSIC.sid && nx.music && nx.music === MUSIC.url) MUSIC.ch = String(c); else closeMusic(); }
   if (HLC) { const hid = HLC; HLC = ''; const cm0 = comments(b).find(x => String(x.id) === hid); if (cm0) { setTimeout(() => { const el = document.getElementById('cm-' + hid); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('cm-hl'); setTimeout(() => el.classList.remove('cm-hl'), 3200); } }, 120); } else toast(t('Ese comentario ya no está.')); }
   else if (!KEEP) { if (nav) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); } else window.scrollTo(0, keepY); }
-  imgGuard(app); chatAuto(); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); flowInit(); ftInit(); swipeInit(); dmAfter();
+  imgGuard(app); chatAuto(); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); flowInit(); ftInit(); swipeInit(); collageInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
   if (nav && a === 'story' && c && c !== 'fin') { pcHintOnce(); readingPing(b); viewPing(b); chtStart(b, c); }
   if (nav && a === 'vnr') vnrBoot(b, c);
