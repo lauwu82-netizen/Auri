@@ -2161,12 +2161,13 @@ function masonryHTML(list) {
 /* ---- Búsqueda personalizada: etiquetas + fandom (opcional) + qué descubrir → tablero ---- */
 const FD = { tags: [], fandom: '', mode: 'new', go: false };
 const FD_MODES = { new: 'Libros nuevos', feat: 'Destacados', small: 'Poco conocidos' };
+const nk = x => tagKey(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '');   // sin tildes: «gotico» = «gótico»
 function finderResults() {
   const pool = feedPoolAll().filter(s => s.owner !== S.user), sel = FD.tags, fan = tagKey(FD.fandom);
   const featIds = new Set(crPub().filter(b => b.kind === 'book').map(b => b.storyId)), apr = s => s.chapters.filter(c => c.status === 'approved').length;
   const metric = s => FD.mode === 'new' ? storyBorn(s) / 864e5 : FD.mode === 'feat' ? (featIds.has(s.id) ? 1e4 : 0) + feedScore(s) : ((s.views | 0) < 100 && apr(s) >= 2 ? 1e4 - (s.views | 0) : 0);
   const fm = s => !fan || tagKey(s.fandom).includes(fan) || tagKey(s.title).includes(fan) || tagsOf(s).some(x => tagKey(x).includes(fan));
-  const rows = pool.map(s => { const hit = sel.filter(k => tagsOf(s).some(x => { const y = tagKey(x); return y === k || (k.length >= 3 && y.includes(k)); })).length; return { s, hit, f: fan ? fm(s) : false, sc: (fan && fm(s) ? 100 : 0) + hit * 10, m: metric(s) }; })
+  const rows = pool.map(s => { const hit = sel.filter(k => { const kk = nk(k); return tagsOf(s).some(x => { const y = nk(x); return y === kk || (kk.length >= 3 && y.includes(kk)); }); }).length; return { s, hit, f: fan ? fm(s) : false, sc: (fan && fm(s) ? 100 : 0) + hit * 10, m: metric(s) }; })
     .sort((a, b) => b.sc - a.sc || b.m - a.m);
   const rel = rows.filter(r => r.sc > 0), shown = ((sel.length || fan) && rel.length ? rel : rows).slice(0, 60);
   const want = (fan ? 100 : 0) + sel.length * 10, full = rows.filter(r => r.sc >= want && want > 0).length;
