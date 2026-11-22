@@ -2028,6 +2028,7 @@ const avoidWarns = () => (cfg('avoidWarns') || []).filter(k => WARNS[k]);
 const avoidList = () => (cfg('avoidTags') || []).map(tagKey).filter(Boolean);
 const avoidOK = s => { const a = avoidList(), w = avoidWarns(); return s.owner === S.user || ((!a.length || !tagsOf(s).some(x => a.includes(tagKey(x)))) && (!w.length || !warnsOf(s).some(k => w.includes(k)))); };    // oculta libros con etiquetas que la persona quiere evitar
 const doneOK = s => !cfg('hideDone') || s.owner === S.user || !(S.progress[s.id] && bookProgress(s).finished);
+const feedPoolAll = () => publishedStories().filter(matureOK).filter(storyVisible).filter(avoidOK).filter(s => !hidesStory(s.owner));   // sin ocultar terminados (para búsquedas)
 const feedPool = () => publishedStories().filter(matureOK).filter(storyVisible).filter(avoidOK).filter(doneOK).filter(s => !hidesStory(s.owner));
 function feedTags(pool) {                              // etiqueta (minúsculas) -> {label, n}
   const m = {}; pool.forEach(s => tagsOf(s).forEach(x => { const k = tagKey(x); if (!k) return; m[k] = m[k] || { label: String(x).trim(), n: 0 }; m[k].n++; })); return m;
@@ -2161,7 +2162,7 @@ function masonryHTML(list) {
 const FD = { tags: [], fandom: '', mode: 'new', go: false };
 const FD_MODES = { new: 'Libros nuevos', feat: 'Destacados', small: 'Poco conocidos' };
 function finderResults() {
-  const pool = feedPool().filter(s => s.owner !== S.user), sel = FD.tags, fan = tagKey(FD.fandom);
+  const pool = feedPoolAll().filter(s => s.owner !== S.user), sel = FD.tags, fan = tagKey(FD.fandom);
   const featIds = new Set(crPub().filter(b => b.kind === 'book').map(b => b.storyId)), apr = s => s.chapters.filter(c => c.status === 'approved').length;
   const metric = s => FD.mode === 'new' ? storyBorn(s) / 864e5 : FD.mode === 'feat' ? (featIds.has(s.id) ? 1e4 : 0) + feedScore(s) : ((s.views | 0) < 100 && apr(s) >= 2 ? 1e4 - (s.views | 0) : 0);
   const fm = s => !fan || tagKey(s.fandom).includes(fan) || tagKey(s.title).includes(fan) || tagsOf(s).some(x => tagKey(x).includes(fan));
@@ -2171,7 +2172,7 @@ function finderResults() {
   return { list: rows.map(r => r.s), full, exact: want === 0 || full > 0 };
 }
 function finderView() {
-  const pool = feedPool(), tags = feedTags(pool);
+  const pool = feedPoolAll(), tags = feedTags(pool);
   const lab = {}; INTERESTS.forEach(([n, e]) => { lab[tagKey(n)] = { l: n, e }; });
   const inApp = Object.keys(tags).sort((a, b) => tags[b].n - tags[a].n).filter(k => !lab[k]).slice(0, 24);
   const mine = FD.tags.filter(k => !lab[k] && !inApp.includes(k));
