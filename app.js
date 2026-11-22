@@ -2167,9 +2167,10 @@ function finderResults() {
   const metric = s => FD.mode === 'new' ? storyBorn(s) / 864e5 : FD.mode === 'feat' ? (featIds.has(s.id) ? 1e4 : 0) + feedScore(s) : ((s.views | 0) < 100 && apr(s) >= 2 ? 1e4 - (s.views | 0) : 0);
   const fm = s => !fan || tagKey(s.fandom).includes(fan) || tagKey(s.title).includes(fan) || tagsOf(s).some(x => tagKey(x).includes(fan));
   const rows = pool.map(s => { const hit = sel.filter(k => tagsOf(s).some(x => { const y = tagKey(x); return y === k || (k.length >= 3 && y.includes(k)); })).length; return { s, hit, f: fan ? fm(s) : false, sc: (fan && fm(s) ? 100 : 0) + hit * 10, m: metric(s) }; })
-    .sort((a, b) => b.sc - a.sc || b.m - a.m).slice(0, 60);
+    .sort((a, b) => b.sc - a.sc || b.m - a.m);
+  const rel = rows.filter(r => r.sc > 0), shown = ((sel.length || fan) && rel.length ? rel : rows).slice(0, 60);
   const want = (fan ? 100 : 0) + sel.length * 10, full = rows.filter(r => r.sc >= want && want > 0).length;
-  return { list: rows.map(r => r.s), full, exact: want === 0 || full > 0 };
+  return { list: shown.map(r => r.s), full, exact: want === 0 || full > 0 };
 }
 function finderView() {
   const pool = feedPoolAll(), tags = feedTags(pool);
