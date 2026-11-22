@@ -2125,6 +2125,12 @@ function newRow(pool) {
 }
 /* ---- Feed: Destacados en carrusel (el libro del centro se ve más grande) ---- */
 const FT = { h: '', left: 0 };
+const ALLN = { n: 24 };
+function allView() {
+  const l = publishedStories().filter(matureOK).filter(storyVisible).filter(avoidOK).filter(s => !hidesStory(s.owner)), shown = l.slice(0, ALLN.n);
+  return `<main class="page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Libros')}</span><h2 style="margin-top:8px">${t('Todas las historias')}</h2><p>${t('{n} libros', { n: l.length })}</p></div></div>
+  ${shown.length ? `<div class="story-grid">${shown.map(storyCard).join('')}</div>${l.length > shown.length ? `<div class="feed-all-more"><button type="button" class="button secondary" data-act="all-more">${t('Mostrar más')}</button></div>` : ''}` : empty(t('Aún no hay libros para mostrar.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
+}
 function featAll() { const ids = new Set(crPub().filter(b => b.kind === 'book').map(b => b.storyId)); return feedPoolAll().filter(s => ids.has(s.id)); }
 function featuredView() {
   const l = featAll();
@@ -2198,15 +2204,15 @@ function finderListView() {
 function finderView() {
   const pool = feedPoolAll(), tags = feedTags(pool);
   const lab = {}; INTERESTS.forEach(([n, e]) => { lab[tagKey(n)] = { l: n, e }; });
-  const inApp = Object.keys(tags).sort((a, b) => tags[b].n - tags[a].n).filter(k => !lab[k]).slice(0, 24);
-  const mine = FD.tags.filter(k => !lab[k] && !inApp.includes(k));
+  const mine = FD.tags.filter(k => !lab[k]);     // fijas: las del registro; el resto solo las que tú escribes (con sugerencias al teclear)
   const chip = (k, txt) => `<button type="button" class="fd-chip ${FD.tags.includes(k) ? 'on' : ''}" data-act="fd-tag" data-k="${esc(k)}" aria-pressed="${FD.tags.includes(k)}">${txt}</button>`;
-  const top = [...INTERESTS.map(([n, e]) => chip(tagKey(n), `${e} ${esc(t(n))}`)), ...inApp.map(k => chip(k, '#' + esc(tags[k].label))), ...mine.map(k => chip(k, '#' + esc(k)))];
+  const top = [...INTERESTS.map(([n, e]) => chip(tagKey(n), `${e} ${esc(t(n))}`)), ...mine.map(k => chip(k, '#' + esc(k)))];
+  const sugg = Object.keys(tags).filter(k => !lab[k]).sort((a, b) => tags[b].n - tags[a].n).slice(0, 300);
   const fans = [...new Set(pool.map(s => String(s.fandom || '').trim()).filter(f => f && tagKey(f) !== 'original'))].slice(0, 40);
   const res = FD.pick ? finderResults() : null;
   return `<main class="page fd-page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Búsqueda personalizada')}</span><h2 style="margin-top:8px">${t('Descubre a tu manera')}</h2><p>${t('Elige etiquetas, un fandom si quieres, y qué quieres descubrir.')}</p></div></div>
   <section class="panel fd-box"><h3 class="fd-h">${t('Etiquetas')}</h3><div class="fd-chips">${top.join('')}</div>
-  <div class="fd-add"><input id="fd-add" class="field" autocomplete="off" maxlength="40" placeholder="${esc(t('Escribe tu propia etiqueta'))}" aria-label="${esc(t('Escribe tu propia etiqueta'))}"><button type="button" class="button secondary sm" data-act="fd-add">${t('Añadir')}</button></div>
+  <div class="fd-add"><input id="fd-add" class="field" list="fd-sugg" autocomplete="off" maxlength="40" placeholder="${esc(t('Escribe tu propia etiqueta'))}" aria-label="${esc(t('Escribe tu propia etiqueta'))}"><button type="button" class="button secondary sm" data-act="fd-add">${t('Añadir')}</button><datalist id="fd-sugg">${sugg.map(k => `<option value="${esc(tags[k].label)}"></option>`).join('')}</datalist></div>
   <h3 class="fd-h">${t('Fandom (opcional)')}</h3><input id="fd-fandom" class="field" list="fd-fans" autocomplete="off" placeholder="${esc(t('Nombre del anime, novela o grupo'))}" aria-label="${esc(t('Fandom (opcional)'))}" value="${esc(FD.fandom)}"><datalist id="fd-fans">${fans.map(f => `<option value="${esc(f)}">`).join('')}</datalist>
   <h3 class="fd-h">${t('¿Qué quieres descubrir?')}</h3><div class="fd-modes" role="group" aria-label="${esc(t('¿Qué quieres descubrir?'))}">${Object.entries(FD_MODES).map(([k, n]) => `<button type="button" class="fd-mode ${FD.mode === k ? 'on' : ''}" data-act="fd-mode" data-v="${k}" aria-pressed="${FD.mode === k}">${t(n)}</button>`).join('')}</div>
   <div class="fd-go"><div class="fd-act"><button type="button" class="fd-ib fd-ib-go" data-act="fd-go" aria-label="${esc(t('Ver libros'))}"><span class="fd-eye" aria-hidden="true"></span></button><span class="fd-cap">${t('Ver libros')}</span></div>
@@ -2416,7 +2422,8 @@ function discoverList() {
   const qs = Q.trim().toLowerCase(), tq = qs.includes('#') ? parseTags(qs).map(x => x.toLowerCase()) : null;      // «#romance #au» busca por etiquetas
   const f = live.filter(s => (GEN === 'All' || (GEN === 'chat' ? s.mode === 'chat' : s.genre === GEN)) && (tq ? tq.every(t => s.tags.some(x => x.toLowerCase() === t || x.toLowerCase().includes(t)) || (t === 'chat' && s.mode === 'chat')) : `${s.title} ${s.synopsis} ${s.fandom} ${s.tags.join(' ')}${s.mode === 'chat' ? ' libro de chat chat' : ''}`.toLowerCase().includes(qs)));
   if (f.length) { const pool = feedPool(), tg = feedTags(pool), qk = tagKey(tq && tq.length === 1 ? tq[0] : qs), gc = qs && tg[qk] && tg[qk].n >= FEED.group ? groupCard(qk, pool, tg) : '';
-    return (!qs && GEN === 'All' ? feedHTML() : '') + gc + `<div class="story-grid">${f.map(storyCard).join('')}</div>`; }
+    const home = !qs && GEN === 'All', lim = innerWidth >= 1000 ? 18 : innerWidth >= 700 ? 12 : 8;      // en Inicio solo una parte; el resto está en «Ver todos»
+    return (home ? feedHTML() : '') + gc + `<div class="story-grid">${(home ? f.slice(0, lim) : f).map(storyCard).join('')}</div>${home && f.length > lim ? `<div class="feed-all-more"><a class="button secondary" href="#/all">${t('Ver todos')}</a></div>` : ''}`; }
   if (!live.length) return empty(t('El estante de Auri está vacío'), t('Aquí aparecerán las historias creadas por las personas usuarias. Puedes escribir la primera.'), '<a class="button secondary" href="#/write">' + t('Crear la primera historia') + '</a>');
   return empty(t('No encontramos historias'), t('Prueba con otra búsqueda o género.'), '<button class="button secondary" data-act="clear">' + t('Borrar filtros') + '</button>');
 }
@@ -6494,6 +6501,7 @@ function render() {
   else if (a === 'story') { const v = safeView(() => storyView(b, c), b); app.innerHTML = c ? v : shell('', v); }   // leer un capítulo = pantalla completa
   else if (a === 'finder') app.innerHTML = shell('', finderView());
   else if (a === 'finder-list') app.innerHTML = shell('', finderListView());
+  else if (a === 'all') app.innerHTML = shell('', allView());
   else if (a === 'featured') app.innerHTML = shell('', featuredView());
   else if (a === 'swipe') app.innerHTML = shell('', swipeView());
   else if (a === 'explore') app.innerHTML = shell('', exploreView(decodeURIComponent(b || '')));
@@ -6869,6 +6877,7 @@ document.addEventListener('click', e => {
     'fd-tag': () => { const k = el.dataset.k; FD.tags = FD.tags.includes(k) ? FD.tags.filter(x => x !== k) : [...FD.tags, k]; FD.go = false; KEEP = true; render(); },
     'fd-mode': () => { FD.mode = el.dataset.v; FD.go = false; KEEP = true; render(); },
     'fd-go': () => { const f = $('#fd-fandom'); if (f) FD.fandom = f.value.trim(); FD.pick = true; KEEP = true; render(); },
+    'all-more': () => { ALLN.n += 24; KEEP = true; render(); },
     'fd-close': () => { FD.pick = false; KEEP = true; render(); },
     'fd-list': () => { FD.pick = false; location.hash = '#/finder-list'; },
     'fd-swipe': () => { FD.pick = false; swipeOpen(finderResults().list, '#/finder'); },

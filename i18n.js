@@ -2849,5 +2849,7 @@ window.I18N = { en: {
   "Mostrar todo": "Show everything",
   "Todos los libros en un tablero": "All the books on one board",
   "Uno por uno: guarda o descarta": "One by one: save or pass",
+  "Mostrar más": "Show more",
+  "Ver todos": "See all",
   "Escribe tu propia etiqueta": "Type your own tag",
 } };
