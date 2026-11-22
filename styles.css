@@ -4992,3 +4992,9 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 .sw-yes{border:0;background:var(--btn);color:#fff;box-shadow:0 10px 20px -8px rgba(123,80,201,.8)}
 .sw-hint{text-align:center;margin:12px 0 0}
 @media (prefers-reduced-motion:reduce){.sw-panel,.sw-info{transition:none}}
+
+.ft-all{display:flex;justify-content:center;margin:2px 0 8px}
+@media (min-width:760px){
+  .ft-flow{gap:14px;max-width:1040px;margin:0 auto;padding:34px calc(50% - 95px) 30px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent)}
+  .ft-c{width:190px}
+}

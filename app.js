@@ -2125,17 +2125,27 @@ function newRow(pool) {
 }
 /* ---- Feed: Destacados en carrusel (el libro del centro se ve más grande) ---- */
 const FT = { h: '', left: 0 };
+function featAll() { const ids = new Set(crPub().filter(b => b.kind === 'book').map(b => b.storyId)); return feedPoolAll().filter(s => ids.has(s.id)); }
+function featuredView() {
+  const l = featAll();
+  return `<main class="page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Destacados')}</span><h2 style="margin-top:8px">${t('Todos los destacados')}</h2><p>${t('{n} libros', { n: l.length })}</p></div></div>
+  ${l.length ? `<div class="sw-toggle" role="group"><button type="button" aria-pressed="true">${t('Lista')}</button><button type="button" aria-pressed="false" data-act="sw-open" data-src="featured">${t('Deslizar')}</button></div>` : ''}
+  ${l.length ? masonryHTML(l) : empty(t('Aún no hay libros destacados.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
+}
 function featFlow(list) {
   return `<section class="feed-sec ft-sec"><div class="feed-head"><div><h3>${t('Destacados')}</h3></div></div>
   <div class="ft-flow" id="ft-flow" role="list">${list.map((s, i) => `<a class="ft-c" role="listitem" href="#/story/${esc(s.id)}" data-ti="${esc(s.title || t('Sin título'))}" data-au="${esc(s.author || '')}" aria-label="${esc(s.title)}">${coverHTML(s, i)}</a>`).join('')}</div>
-  <div class="ft-info" aria-live="off"><b id="ft-ti"></b><span id="ft-au"></span></div></section>`;
+  <div class="ft-info" aria-live="off"><b id="ft-ti"></b><span id="ft-au"></span></div>
+  <div class="ft-all"><a class="button secondary sm" href="#/featured">${t('Explorar todos los destacados')}</a></div></section>`;
 }
 function ftInit() {
   const fl = $('#ft-flow'); if (!fl) return;
   if (FT.h !== location.hash) FT.left = 0; FT.h = location.hash;
   const cs = [...fl.children], ti = $('#ft-ti'), au = $('#ft-au');
-  const paint = () => { const mid = fl.scrollLeft + fl.clientWidth / 2; let best = null, bd = 1e9;
-    cs.forEach(c => { const dist = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid), d = Math.min(1, dist / (c.offsetWidth * 1.2)); c.style.transform = `scale(${(1.16 - .32 * d).toFixed(3)})`; c.style.opacity = (1 - .45 * d).toFixed(2); if (dist < bd) { bd = dist; best = c; } });
+  const lerp = (pts, x) => { const i = Math.min(pts.length - 2, Math.floor(x)), f = Math.min(1, Math.max(0, x - i)); return pts[i] + (pts[i + 1] - pts[i]) * f; };
+  const paint = () => { const wide = fl.clientWidth >= 700, mid = fl.scrollLeft + fl.clientWidth / 2, SC = wide ? [1.22, .98, .76, .58] : [1.16, .84, .7, .6], OP = wide ? [1, .92, .72, .5] : [1, .55, .42, .3]; let best = null, bd = 1e9;
+    cs.forEach(c => { const dist = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid), sl = Math.min(3, dist / (c.offsetWidth + (wide ? 14 : 4)));
+      c.style.transform = `scale(${lerp(SC, sl).toFixed(3)})`; c.style.opacity = lerp(OP, sl).toFixed(2); c.style.zIndex = String(10 - Math.round(sl * 3)); if (dist < bd) { bd = dist; best = c; } });
     if (best && ti) { ti.textContent = best.dataset.ti; au.textContent = best.dataset.au ? ' · ' + best.dataset.au : ''; } };
   if (FT.left) fl.scrollLeft = FT.left;
   let raf = 0; fl.addEventListener('scroll', () => { FT.left = fl.scrollLeft; cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); }, { passive: true }); paint();
@@ -6431,6 +6441,7 @@ function render() {
   else if (a === 'write') { const v = writeRoute(b, c, d); app.innerHTML = c === 'ch' && W ? v : shell('/write', v); }   // escribir un capítulo = pantalla completa
   else if (a === 'story') { const v = safeView(() => storyView(b, c), b); app.innerHTML = c ? v : shell('', v); }   // leer un capítulo = pantalla completa
   else if (a === 'finder') app.innerHTML = shell('', finderView());
+  else if (a === 'featured') app.innerHTML = shell('', featuredView());
   else if (a === 'swipe') app.innerHTML = shell('', swipeView());
   else if (a === 'explore') app.innerHTML = shell('', exploreView(decodeURIComponent(b || '')));
   else if (a === 'library') app.innerHTML = shell('/library', libraryView());
@@ -6807,6 +6818,7 @@ document.addEventListener('click', e => {
     'fd-go': () => { const f = $('#fd-fandom'); if (f) FD.fandom = f.value.trim(); FD.go = true; KEEP = true; render(); setTimeout(() => { const r = $('#fd-res'); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'start', behavior: reduceMotion() ? 'auto' : 'smooth' }); }, 60); },
     'fd-add': () => { const i = $('#fd-add'), k = tagKey(i ? i.value.replace(/^#+/, '') : ''); if (!k) return; if (!FD.tags.includes(k)) FD.tags = [...FD.tags, k]; FD.go = false; KEEP = true; render(); },
     'sw-open': () => { const src = el.dataset.src;
+      if (src === 'featured') { swipeOpen(featAll(), '#/featured'); return; }
       if (src === 'finder') { swipeOpen(finderResults().list, '#/finder'); return; }
       const k = tagKey(el.dataset.k || ''), pool = feedPool(); swipeOpen(pool.filter(s => tagsOf(s).some(x => tagKey(x) === k) || (k === 'chat' && s.mode === 'chat')).sort((a, b) => feedScore(b) - feedScore(a)), '#/explore/' + encodeURIComponent(k)); },
     'fd-reset': () => { Object.assign(FD, { tags: [], fandom: '', mode: 'new', go: false }); KEEP = true; render(); },

@@ -2841,5 +2841,8 @@ window.I18N = { en: {
   "Guardar en mi biblioteca": "Save to my library",
   "Desliza la portada: izquierda descarta, derecha guarda": "Swipe the cover: left to pass, right to save",
   "Lista": "List",
+  "Explorar todos los destacados": "Explore all featured books",
+  "Todos los destacados": "All featured books",
+  "Aún no hay libros destacados.": "No featured books yet.",
   "Escribe tu propia etiqueta": "Type your own tag",
 } };
