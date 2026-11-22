@@ -2146,7 +2146,7 @@ function exploreRow(pool, tags, taste) {
   const more = Object.keys(tags).filter(k => ok(k) && !mine.includes(k)).sort((a, b) => tags[b].n - tags[a].n);
   const ks = [...mine, ...more].slice(0, 8); if (ks.length < 2) return '';
   const card = k => { const l = pool.filter(s => tagsOf(s).some(x => tagKey(x) === k)).sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 3), lab = tags[k].label, tl = t('Explorar {tag}', { tag: lab });
-    return `<a class="ex-card" href="#/explore/${encodeURIComponent(k)}" aria-label="${esc(tl)}"><b class="ex-t">${esc(t('Explorar'))}<span>${esc(lab)}</span></b><span class="ex-fan" aria-hidden="true">${l.map((s, i) => `<span class="ex-p ex-p${i}">${coverHTML(s, i)}</span>`).join('')}</span><span class="ex-auri" aria-hidden="true">${ISLE_HEAD}</span></a>`; };
+    return `<a class="ex-card" href="#/explore/${encodeURIComponent(k)}" aria-label="${esc(tl)}"><b class="ex-t">${esc(t('Explorar'))}<span>${esc(lab)}</span></b><span class="ex-fan" aria-hidden="true">${l.map((s, i) => `<span class="ex-p ex-p${i}">${coverHTML(s, i)}</span>`).join('')}</span><span class="ex-auri" aria-hidden="true">${mascot()}</span></a>`; };
   return `<section class="feed-sec"><div class="feed-head"><div><h3>${t('Explorar')}</h3></div><a class="feed-more" href="#/finder">${t('Búsqueda personalizada')}</a></div><div class="feed-row ex-row">${ks.map(card).join('')}</div></section>`;
 }
 /* ---- Tablero de libros (dos columnas, alturas distintas) ---- */
