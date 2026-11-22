@@ -1734,7 +1734,7 @@ function shell(path, html) {
   const item = (href, label, ic, on, bd = 0) => `<a class="bn-item ${on ? 'active' : ''}" href="${href}" ${on ? 'aria-current="page"' : ''}><span class="bn-ic">${ic}${bd ? `<b class="badge">${bd > 99 ? '99+' : bd}</b>` : ''}</span><span>${label}</span></a>`;
   const fab = (path === '/' || path === '/profile') && !isGuest() && !cfg('hideBugFab') && !/^#\/profile\/edit/.test(location.hash) ? `<button type="button" class="bug-fab" data-act="report" aria-label="${esc(t('Reportar un error'))}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.6 21.6 20.4H2.4Z"/><path d="M12 9.6v5"/><circle cx="12" cy="17.4" r=".6" fill="currentColor"/></svg></button>` : '';
   return `<div class="shell"><header class="topbar tb2">
-    <div class="search-bar ${SEARCH_OPEN ? 'open' : ''}"><input id="sq" class="field" type="search" placeholder="${esc(SM === 'users' ? t('Buscar usuarios…') : t('Buscar títulos, etiquetas o fandoms…'))}" aria-label="${esc(t('Buscar'))}" value="${esc(Q)}"><button class="icon-btn" data-act="search-close" aria-label="${esc(t('Cerrar búsqueda'))}">✕</button></div>
+    <div class="search-bar ${SEARCH_OPEN ? 'open' : ''}"><input id="sq" class="field" type="search" placeholder="${esc(SM === 'users' ? t('Buscar usuarios…') : t('Buscar títulos, etiquetas o fandoms…'))}" aria-label="${esc(t('Buscar'))}" value="${esc(Q)}"><button class="icon-btn" data-act="search-close" aria-label="${esc(t('Cerrar búsqueda'))}">✕</button><button type="button" class="button secondary sm sb-custom" data-act="finder-go">${t('Búsqueda personalizada')}</button></div>
   </header>${html}${pop}${fab}
   <nav class="bottom-nav" aria-label="${esc(t('Navegación principal'))}">${item('#/', t('Inicio'), ICON.home, path === '/')}${item('#/library', t('Biblioteca'), ICON.books, path === '/library')}<a class="bn-plus ${path === '/write' ? 'active' : ''}" href="#/write" aria-label="${esc(t('Crear historia'))}">${ICON.plus}</a>${passOn() ? item('#/shop', t('Tienda'), ICON.shop, path === '/shop') : item('#/news', t('Noticias'), ICON.news, path === '/news')}${item('#/profile', t('Mi Perfil'), ICON.user, path === '/profile', mcTot)}</nav></div>`;
 }
@@ -2122,13 +2122,71 @@ function newRow(pool) {
   const sw = can ? `<button type="button" class="feed-more bst-all" data-act="cfg" data-k="newAll" data-v="${all ? 'mine' : 'all'}" aria-pressed="${all}">${all ? t('Solo mis etiquetas') : t('Mostrar todos')}</button>` : '';
   return `<section class="feed-sec"><div class="feed-head"><div><h3>${t('Libros nuevos')}</h3><p>${all && can ? t('Todos los libros nuevos, para descubrir etiquetas nuevas') : t('Recién llegados, según las etiquetas que lees')}</p></div>${sw}</div><div class="feed-row">${l.map(s => storyCard(s)).join('')}</div></section>`;
 }
+/* ---- Feed: Destacados en carrusel (el libro del centro se ve más grande) ---- */
+const FT = { h: '', left: 0 };
+function featFlow(list) {
+  return `<section class="feed-sec ft-sec"><div class="feed-head"><div><h3>${t('Destacados')}</h3></div></div>
+  <div class="ft-flow" id="ft-flow" role="list">${list.map((s, i) => `<a class="ft-c" role="listitem" href="#/story/${esc(s.id)}" data-ti="${esc(s.title || t('Sin título'))}" data-au="${esc(s.author || '')}" aria-label="${esc(s.title)}">${coverHTML(s, i)}</a>`).join('')}</div>
+  <div class="ft-info" aria-live="off"><b id="ft-ti"></b><span id="ft-au"></span></div></section>`;
+}
+function ftInit() {
+  const fl = $('#ft-flow'); if (!fl) return;
+  if (FT.h !== location.hash) FT.left = 0; FT.h = location.hash;
+  const cs = [...fl.children], ti = $('#ft-ti'), au = $('#ft-au');
+  const paint = () => { const mid = fl.scrollLeft + fl.clientWidth / 2; let best = null, bd = 1e9;
+    cs.forEach(c => { const dist = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid), d = Math.min(1, dist / (c.offsetWidth * 1.2)); c.style.transform = `scale(${(1.16 - .32 * d).toFixed(3)})`; c.style.opacity = (1 - .45 * d).toFixed(2); if (dist < bd) { bd = dist; best = c; } });
+    if (best && ti) { ti.textContent = best.dataset.ti; au.textContent = best.dataset.au ? ' · ' + best.dataset.au : ''; } };
+  if (FT.left) fl.scrollLeft = FT.left;
+  let raf = 0; fl.addEventListener('scroll', () => { FT.left = fl.scrollLeft; cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); }, { passive: true }); paint();
+}
+/* ---- Feed: línea «Explorar» con una tarjeta por etiqueta y Auri asomado ---- */
+function exploreRow(pool, tags, taste) {
+  const ok = k => tags[k] && tags[k].n >= FEED.group, mine = taste.filter(ok).slice(0, 4);
+  const more = Object.keys(tags).filter(k => ok(k) && !mine.includes(k)).sort((a, b) => tags[b].n - tags[a].n);
+  const ks = [...mine, ...more].slice(0, 8); if (ks.length < 2) return '';
+  const card = k => { const l = pool.filter(s => tagsOf(s).some(x => tagKey(x) === k)).sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 3), lab = tags[k].label, tl = t('Explorar {tag}', { tag: lab });
+    return `<a class="ex-card" href="#/explore/${encodeURIComponent(k)}" aria-label="${esc(tl)}"><b class="ex-t">${esc(t('Explorar'))}<span>${esc(lab)}</span></b><span class="ex-fan" aria-hidden="true">${l.map((s, i) => `<span class="ex-p ex-p${i}">${coverHTML(s, i)}</span>`).join('')}</span><span class="ex-auri" aria-hidden="true">${ISLE_HEAD}</span></a>`; };
+  return `<section class="feed-sec"><div class="feed-head"><div><h3>${t('Explorar')}</h3></div><a class="feed-more" href="#/finder">${t('Búsqueda personalizada')}</a></div><div class="feed-row ex-row">${ks.map(card).join('')}</div></section>`;
+}
+/* ---- Tablero de libros (dos columnas, alturas distintas) ---- */
+const MP_H = [1.3, 1.62, 1.42, 1.78, 1.5, 1.36];
+function masonryHTML(list) {
+  const cols = [[], []], hs = [0, 0];
+  list.forEach((s, i) => { const r = MP_H[[...String(s.id)].reduce((a, c) => a + c.charCodeAt(0), i) % MP_H.length], k = hs[0] <= hs[1] ? 0 : 1; hs[k] += r + .22; cols[k].push([s, r, i]); });
+  const pin = ([s, r, i]) => { const fav = S.favs.includes(s.id);
+    return `<article class="mp"><a class="mp-a" href="#/story/${esc(s.id)}" aria-label="${esc(s.title)}"><span class="mp-cv" style="aspect-ratio:1/${r}">${coverHTML(s, i)}</span><span class="mp-ov"><b>${esc(s.title || t('Sin título'))}</b><small>${esc(s.author || '')}</small></span></a><button type="button" class="mp-fav" data-act="fav" data-id="${esc(s.id)}" aria-label="${esc(t('Favorito'))}" aria-pressed="${fav}">${fav ? '♥' : '♡'}</button></article>`; };
+  return `<div class="mp-grid"><div class="mp-col">${cols[0].map(pin).join('')}</div><div class="mp-col mp-col2">${cols[1].map(pin).join('')}</div></div>`;
+}
+/* ---- Búsqueda personalizada: etiquetas + fandom (opcional) + qué descubrir → tablero ---- */
+const FD = { tags: [], fandom: '', mode: 'new', go: false };
+const FD_MODES = { new: 'Libros nuevos', feat: 'Destacados', small: 'Poco conocidos' };
+function finderResults() {
+  const pool = feedPool().filter(s => s.owner !== S.user), sel = FD.tags, fan = tagKey(FD.fandom);
+  const featIds = new Set(crPub().filter(b => b.kind === 'book').map(b => b.storyId)), apr = s => s.chapters.filter(c => c.status === 'approved').length;
+  const metric = s => FD.mode === 'new' ? storyBorn(s) / 864e5 : FD.mode === 'feat' ? (featIds.has(s.id) ? 1e4 : 0) + feedScore(s) : ((s.views | 0) < 100 && apr(s) >= 2 ? 1e4 - (s.views | 0) : 0);
+  const fm = s => !fan || tagKey(s.fandom).includes(fan) || tagKey(s.title).includes(fan) || tagsOf(s).some(x => tagKey(x).includes(fan));
+  const rows = pool.map(s => { const hit = sel.filter(k => tagsOf(s).some(x => tagKey(x) === k)).length; return { s, hit, f: fan ? fm(s) : false, sc: (fan && fm(s) ? 100 : 0) + hit * 10, m: metric(s) }; })
+    .sort((a, b) => b.sc - a.sc || b.m - a.m).slice(0, 60);
+  const want = (fan ? 100 : 0) + sel.length * 10, full = rows.filter(r => r.sc >= want && want > 0).length;
+  return { list: rows.map(r => r.s), full, exact: want === 0 || full > 0 };
+}
+function finderView() {
+  const pool = feedPool(), tags = feedTags(pool), top = Object.keys(tags).sort((a, b) => tags[b].n - tags[a].n).slice(0, 30);
+  const fans = [...new Set(pool.map(s => String(s.fandom || '').trim()).filter(f => f && tagKey(f) !== 'original'))].slice(0, 40);
+  const res = FD.go ? finderResults() : null;
+  return `<main class="page fd-page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Búsqueda personalizada')}</span><h2 style="margin-top:8px">${t('Descubre a tu manera')}</h2><p>${t('Elige etiquetas, un fandom si quieres, y qué quieres descubrir.')}</p></div></div>
+  <section class="panel fd-box"><h3 class="fd-h">${t('Etiquetas')}</h3><div class="fd-chips">${top.length ? top.map(k => `<button type="button" class="fd-chip ${FD.tags.includes(k) ? 'on' : ''}" data-act="fd-tag" data-k="${esc(k)}" aria-pressed="${FD.tags.includes(k)}">#${esc(tags[k].label)}</button>`).join('') : `<p class="helper">${t('Aún no hay etiquetas para elegir.')}</p>`}</div>
+  <h3 class="fd-h">${t('Fandom (opcional)')}</h3><input id="fd-fandom" class="field" list="fd-fans" autocomplete="off" placeholder="${esc(t('Nombre del anime, novela o grupo'))}" aria-label="${esc(t('Fandom (opcional)'))}" value="${esc(FD.fandom)}"><datalist id="fd-fans">${fans.map(f => `<option value="${esc(f)}">`).join('')}</datalist>
+  <h3 class="fd-h">${t('¿Qué quieres descubrir?')}</h3><div class="fd-modes" role="group" aria-label="${esc(t('¿Qué quieres descubrir?'))}">${Object.entries(FD_MODES).map(([k, n]) => `<button type="button" class="fd-mode ${FD.mode === k ? 'on' : ''}" data-act="fd-mode" data-v="${k}" aria-pressed="${FD.mode === k}">${t(n)}</button>`).join('')}</div>
+  <div class="fd-go"><button type="button" class="button" data-act="fd-go">${t('Ver libros')}</button><button type="button" class="button ghost" data-act="fd-reset">${t('Borrar elecciones')}</button></div></section>
+  ${res ? `<section class="fd-res" id="fd-res"><div class="section-head" style="margin-top:20px"><div><h3 style="margin:0">${t('{n} libros para ti', { n: res.list.length })}</h3>${res.exact || !res.list.length ? '' : `<p>${t('Ningún libro tiene todo lo que elegiste: te mostramos los más cercanos.')}</p>`}</div></div>${res.list.length ? masonryHTML(res.list) : empty(t('Aún no hay libros para mostrar.'), '', '')}</section>` : ''}</main>`;
+}
 function feedHTML() {
   boostsLoad(); const pool = feedPool(); if (pool.length < FEED.row) return '';
   const tags = feedTags(pool), taste = tasteTags(pool), out = [], used = new Set(); ROWN = 0; MOSQ = [];
   const rowOK = l => l.length >= FEED.row;
-  { const g0 = Object.keys(tags).filter(k => tags[k].n >= FEED.group).sort((a, b) => ((tasteTags(pool).indexOf(b) + 1) || 0) - ((tasteTags(pool).indexOf(a) + 1) || 0) || tags[b].n - tags[a].n); MOSQ = g0.slice(0, 2).map(k => mosCard(k, pool, tags)).filter(Boolean); }
   const featIds = new Set(crPub().filter(b => b.kind === 'book').map(b => b.storyId)), feat = pool.filter(s => featIds.has(s.id)).slice(0, 12);
-  if (rowOK(feat)) out.push(feedRow(t('Destacados'), '', feat));
+  if (rowOK(feat)) out.push(featFlow(feat));
   { const br = boostRow(pool); if (br) out.push(br); }
   const chb = pool.filter(s => s.mode === 'chat').sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12);
   if (rowOK(chb)) out.push(feedRow(t('Libros de chat'), t('Historias contadas como una app de mensajes'), chb, 'chat'));
@@ -2137,6 +2195,7 @@ function feedHTML() {
     const cand = pool.filter(s => s.owner !== S.user && !S.progress[s.id] && !S.lib.includes(s.id) && !S.favs.includes(s.id)).map(s => { const hit = top.filter(k => tagsOf(s).some(x => tagKey(x) === k)); return { s, hit, sc: hit.reduce((a, k) => a + (6 - top.indexOf(k)), 0) + (hit.length > 1 ? 3 : 0) }; }).filter(x => x.hit.length).sort((a, b) => b.sc - a.sc || feedScore(b.s) - feedScore(a.s)).slice(0, 12);
     if (rowOK(cand)) { const lab = [...new Set(cand.slice(0, 4).flatMap(x => x.hit))].slice(0, 2).map(k => '#' + tags[k].label).join(' · '); out.push(feedRow(t('Podría interesarte'), t('Porque lees {tags}', { tags: lab }), cand.map(x => x.s))); cand.forEach(x => used.add(x.s.id)); }
   }
+  { const er = exploreRow(pool, tags, taste); if (er) out.push(er); }
   { const nr = newRow(pool); if (nr) out.push(nr); }
   const groups = Object.keys(tags).filter(k => tags[k].n >= FEED.group).sort((a, b) => (top.indexOf(b) + 1 || 0) - (top.indexOf(a) + 1 || 0) || tags[b].n - tags[a].n);
   const day = today(), hash = [...day].reduce((a, ch) => a + ch.charCodeAt(0), 0);
@@ -2153,7 +2212,7 @@ function feedHTML() {
 function exploreView(k) {
   k = tagKey(k); const pool = feedPool(), tags = feedTags(pool), l = pool.filter(s => tagsOf(s).some(x => tagKey(x) === k) || (k === 'chat' && s.mode === 'chat')).sort((a, b) => feedScore(b) - feedScore(a)), lab = k === 'chat' ? t('Libros de chat') : (tags[k] || { label: k }).label;
   return `<main class="page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Explorar')}</span><h2 style="margin-top:8px">${k === 'chat' ? '💬 ' : '#'}${esc(lab)}</h2><p>${t('{n} libros', { n: l.length })}</p></div></div>
-  ${l.length ? `<div class="story-grid">${l.map(storyCard).join('')}</div>` : empty(t('Aún no hay libros con esta etiqueta.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
+  ${l.length ? masonryHTML(l) : empty(t('Aún no hay libros con esta etiqueta.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
 }
 function similarBooks(s, max = 15) {                  // libros parecidos al que acabas de leer (comparten etiquetas), con algo de azar entre empates
   const mine = new Set(tagsOf(s).map(tagKey)); if (!mine.size) return [];
@@ -6136,7 +6195,7 @@ function kbVar() {
 document.addEventListener('focusin', e => { if (e.target.id === 'w-ch-text') { setTyping(true); [120, 420, 800].forEach(ms => setTimeout(() => followCaret(true), ms)); } });
 document.addEventListener('focusout', e => { if (e.target.id === 'w-ch-text') setTyping(false); });
 document.addEventListener('selectionchange', () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { followCaret(); fmtMarks(); } });
-document.addEventListener('input', e => { if (e.target && e.target.id === 'w-ch-text') fmtMarks(); });
+document.addEventListener('input', e => { if (e.target && e.target.id === 'w-ch-text') fmtMarks(); else if (e.target && e.target.id === 'fd-fandom') { FD.fandom = e.target.value; FD.go = false; } });
 if (window.visualViewport) { const f = () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { kbVar(); followCaret(); } }; window.visualViewport.addEventListener('resize', () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') { kbVar(); followCaret(true); setTimeout(() => followCaret(true), 350); } });
   window.visualViewport.addEventListener('scroll', () => { if (document.activeElement && document.activeElement.id === 'w-ch-text') kbVar(); }); }       // la barra de formato sigue pegada al teclado cuando iOS mueve la vista (sin tirar del cursor)
 /* --- Transiciones suaves entre pantallas (CSS + un poco de JS) --- */
@@ -6240,6 +6299,7 @@ function render() {
   else if (a === 'vn') app.innerHTML = shell('/write', vnView(b));
   else if (a === 'write') { const v = writeRoute(b, c, d); app.innerHTML = c === 'ch' && W ? v : shell('/write', v); }   // escribir un capítulo = pantalla completa
   else if (a === 'story') { const v = safeView(() => storyView(b, c), b); app.innerHTML = c ? v : shell('', v); }   // leer un capítulo = pantalla completa
+  else if (a === 'finder') app.innerHTML = shell('', finderView());
   else if (a === 'explore') app.innerHTML = shell('', exploreView(decodeURIComponent(b || '')));
   else if (a === 'library') app.innerHTML = shell('/library', libraryView());
   else if (a === 'profile' && b === 'edit' && !isGuest()) app.innerHTML = shell('/profile', editProfileView());
@@ -6268,7 +6328,7 @@ function render() {
     if (nx && b === MUSIC.sid && nx.music && nx.music === MUSIC.url) MUSIC.ch = String(c); else closeMusic(); }
   if (HLC) { const hid = HLC; HLC = ''; const cm0 = comments(b).find(x => String(x.id) === hid); if (cm0) { setTimeout(() => { const el = document.getElementById('cm-' + hid); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('cm-hl'); setTimeout(() => el.classList.remove('cm-hl'), 3200); } }, 120); } else toast(t('Ese comentario ya no está.')); }
   else if (!KEEP) { if (nav) { window.scrollTo(0, 0); if (a === 'story' && c) restoreReadPos(b, +c - 1); } else window.scrollTo(0, keepY); }
-  imgGuard(app); chatAuto(); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); flowInit(); dmAfter();
+  imgGuard(app); chatAuto(); isleSync(); bmApply(false); bioFit(); rfLeft(); KEEP = false; autoGrow(); if (nav) { if (dir === 'swipe') fadeInfo(); else enterView(app, dir); } animateBars(); carInit(); flowInit(); ftInit(); dmAfter();
   if (nav) autoMusic(a, b, c);
   if (nav && a === 'story' && c && c !== 'fin') { pcHintOnce(); readingPing(b); viewPing(b); chtStart(b, c); }
   if (nav && a === 'vnr') vnrBoot(b, c);
@@ -6609,6 +6669,11 @@ document.addEventListener('click', e => {
     'home-find': () => { SEARCH_OPEN = !SEARCH_OPEN; syncSearch(); el.setAttribute('aria-expanded', SEARCH_OPEN); if (SEARCH_OPEN) { focusSearch(); const sb = $('.search-bar'); if (sb && sb.scrollIntoView) sb.scrollIntoView({ block: 'center', behavior: 'smooth' }); } else clearSearch(); },
     'search-toggle': () => { SEARCH_OPEN = !SEARCH_OPEN; syncSearch(); el.setAttribute('aria-expanded', SEARCH_OPEN); if (SEARCH_OPEN) focusSearch(); else clearSearch(); },
     'search-close': () => { SEARCH_OPEN = false; syncSearch(); clearSearch(); },
+    'finder-go': () => { SEARCH_OPEN = false; syncSearch(); clearSearch(); go('/finder'); },
+    'fd-tag': () => { const k = el.dataset.k; FD.tags = FD.tags.includes(k) ? FD.tags.filter(x => x !== k) : [...FD.tags, k]; FD.go = false; KEEP = true; render(); },
+    'fd-mode': () => { FD.mode = el.dataset.v; FD.go = false; KEEP = true; render(); },
+    'fd-go': () => { const f = $('#fd-fandom'); if (f) FD.fandom = f.value.trim(); FD.go = true; KEEP = true; render(); setTimeout(() => { const r = $('#fd-res'); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'start', behavior: reduceMotion() ? 'auto' : 'smooth' }); }, 60); },
+    'fd-reset': () => { Object.assign(FD, { tags: [], fandom: '', mode: 'new', go: false }); KEEP = true; render(); },
     'notif-toggle': () => { NOTIF_OPEN = !NOTIF_OPEN; KEEP = true; render(); },
     logout,
     fav: () => { const was = S.favs.includes(id); S.favs = was ? S.favs.filter(x => x !== id) : [...S.favs, id]; persist('favs', S.favs); render(); if (!was) toast(t('Añadido a favoritos')); },
