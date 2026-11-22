@@ -2169,7 +2169,7 @@ function masonryHTML(list) {
   return `<div class="mp-grid"><div class="mp-col">${cols[0].map(pin).join('')}</div><div class="mp-col mp-col2">${cols[1].map(pin).join('')}</div></div>`;
 }
 /* ---- Búsqueda personalizada: etiquetas + fandom (opcional) + qué descubrir → tablero ---- */
-const FD = { tags: [], fandom: '', mode: 'new', go: false };
+const FD = { tags: [], fandom: '', mode: 'new', go: false, pick: false };
 const FD_MODES = { new: 'Libros nuevos', feat: 'Destacados', small: 'Poco conocidos' };
 const nk = x => tagKey(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '');   // sin tildes: «gotico» = «gótico»
 function finderResults() {
@@ -2183,6 +2183,18 @@ function finderResults() {
   const want = (fan ? 100 : 0) + sel.length * 10, full = rows.filter(r => r.sc >= want && want > 0).length;
   return { list: shown.map(r => r.s), full, exact: want === 0 || full > 0 };
 }
+function fdSheet(res) {                                      // ventana pequeña: elegir cómo ver los libros
+  const n = res.list.length, off = n ? '' : 'disabled';
+  return `<div class="fd-bk" data-act="fd-close"></div><section class="fd-sheet" role="dialog" aria-modal="true" aria-label="${esc(t('¿Cómo quieres verlos?'))}"><h3>${t('¿Cómo quieres verlos?')}</h3><p class="helper">${n ? t('{n} libros para ti', { n }) : t('Aún no hay libros para mostrar.')}</p>
+  <div class="fd-opts"><button type="button" class="fd-opt" data-act="fd-list" ${off}><span class="fd-art fd-art-list" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><b>${t('Mostrar todo')}</b><small>${t('Todos los libros en un tablero')}</small></button>
+  <button type="button" class="fd-opt" data-act="fd-swipe" ${off}><span class="fd-art fd-art-swipe" aria-hidden="true"><i></i><i></i><i></i></span><b>${t('Deslizar')}</b><small>${t('Uno por uno: guarda o descarta')}</small></button></div>
+  <button type="button" class="button ghost" data-act="fd-close">${t('Cerrar')}</button></section>`;
+}
+function finderListView() {
+  const res = finderResults();
+  return `<main class="page fd-page"><a class="back-link" href="#/finder">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Búsqueda personalizada')}</span><h2 style="margin-top:8px">${t('{n} libros para ti', { n: res.list.length })}</h2>${res.exact || !res.list.length ? '' : `<p>${t('Ningún libro tiene todo lo que elegiste: te mostramos los más cercanos.')}</p>`}</div></div>
+  ${res.list.length ? `<div class="sw-toggle" role="group"><button type="button" aria-pressed="true">${t('Lista')}</button><button type="button" aria-pressed="false" data-act="sw-open" data-src="finder">${t('Deslizar')}</button></div>${masonryHTML(res.list)}` : empty(t('Aún no hay libros para mostrar.'), '', `<a class="button secondary" href="#/finder">${t('Volver')}</a>`)}</main>`;
+}
 function finderView() {
   const pool = feedPoolAll(), tags = feedTags(pool);
   const lab = {}; INTERESTS.forEach(([n, e]) => { lab[tagKey(n)] = { l: n, e }; });
@@ -2191,14 +2203,15 @@ function finderView() {
   const chip = (k, txt) => `<button type="button" class="fd-chip ${FD.tags.includes(k) ? 'on' : ''}" data-act="fd-tag" data-k="${esc(k)}" aria-pressed="${FD.tags.includes(k)}">${txt}</button>`;
   const top = [...INTERESTS.map(([n, e]) => chip(tagKey(n), `${e} ${esc(t(n))}`)), ...inApp.map(k => chip(k, '#' + esc(tags[k].label))), ...mine.map(k => chip(k, '#' + esc(k)))];
   const fans = [...new Set(pool.map(s => String(s.fandom || '').trim()).filter(f => f && tagKey(f) !== 'original'))].slice(0, 40);
-  const res = FD.go ? finderResults() : null;
+  const res = FD.pick ? finderResults() : null;
   return `<main class="page fd-page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Búsqueda personalizada')}</span><h2 style="margin-top:8px">${t('Descubre a tu manera')}</h2><p>${t('Elige etiquetas, un fandom si quieres, y qué quieres descubrir.')}</p></div></div>
   <section class="panel fd-box"><h3 class="fd-h">${t('Etiquetas')}</h3><div class="fd-chips">${top.join('')}</div>
   <div class="fd-add"><input id="fd-add" class="field" autocomplete="off" maxlength="40" placeholder="${esc(t('Escribe tu propia etiqueta'))}" aria-label="${esc(t('Escribe tu propia etiqueta'))}"><button type="button" class="button secondary sm" data-act="fd-add">${t('Añadir')}</button></div>
   <h3 class="fd-h">${t('Fandom (opcional)')}</h3><input id="fd-fandom" class="field" list="fd-fans" autocomplete="off" placeholder="${esc(t('Nombre del anime, novela o grupo'))}" aria-label="${esc(t('Fandom (opcional)'))}" value="${esc(FD.fandom)}"><datalist id="fd-fans">${fans.map(f => `<option value="${esc(f)}">`).join('')}</datalist>
   <h3 class="fd-h">${t('¿Qué quieres descubrir?')}</h3><div class="fd-modes" role="group" aria-label="${esc(t('¿Qué quieres descubrir?'))}">${Object.entries(FD_MODES).map(([k, n]) => `<button type="button" class="fd-mode ${FD.mode === k ? 'on' : ''}" data-act="fd-mode" data-v="${k}" aria-pressed="${FD.mode === k}">${t(n)}</button>`).join('')}</div>
-  <div class="fd-go"><button type="button" class="button" data-act="fd-go">${t('Ver libros')}</button><button type="button" class="button ghost" data-act="fd-reset">${t('Borrar elecciones')}</button></div></section>
-  ${res ? `<section class="fd-res" id="fd-res"><div class="section-head" style="margin-top:20px"><div><h3 style="margin:0">${t('{n} libros para ti', { n: res.list.length })}</h3>${res.list.length ? `<div class="sw-toggle" role="group"><button type="button" aria-pressed="true">${t('Lista')}</button><button type="button" aria-pressed="false" data-act="sw-open" data-src="finder">${t('Deslizar')}</button></div>` : ''}${res.exact || !res.list.length ? '' : `<p>${t('Ningún libro tiene todo lo que elegiste: te mostramos los más cercanos.')}</p>`}</div></div>${res.list.length ? masonryHTML(res.list) : empty(t('Aún no hay libros para mostrar.'), '', '')}</section>` : ''}</main>`;
+  <div class="fd-go"><div class="fd-act"><button type="button" class="fd-ib fd-ib-go" data-act="fd-go" aria-label="${esc(t('Ver libros'))}"><span class="fd-eye" aria-hidden="true"></span></button><span class="fd-cap">${t('Ver libros')}</span></div>
+  <div class="fd-act"><button type="button" class="fd-ib" data-act="fd-reset" aria-label="${esc(t('Borrar elecciones'))}"><span class="fd-trash" aria-hidden="true"></span></button><span class="fd-cap">${t('Borrar elecciones')}</span></div></div></section>
+  ${res ? fdSheet(res) : ''}</main>`;
 }
 /* ---- Modo deslizar: las portadas se lanzan como cartas (izquierda descarta, derecha guarda en tu biblioteca) ---- */
 const SWP = { ids: [], map: new Map(), back: '#/', i: 0, hist: [] };
@@ -6480,6 +6493,7 @@ function render() {
   else if (a === 'write') { const v = writeRoute(b, c, d); app.innerHTML = c === 'ch' && W ? v : shell('/write', v); }   // escribir un capítulo = pantalla completa
   else if (a === 'story') { const v = safeView(() => storyView(b, c), b); app.innerHTML = c ? v : shell('', v); }   // leer un capítulo = pantalla completa
   else if (a === 'finder') app.innerHTML = shell('', finderView());
+  else if (a === 'finder-list') app.innerHTML = shell('', finderListView());
   else if (a === 'featured') app.innerHTML = shell('', featuredView());
   else if (a === 'swipe') app.innerHTML = shell('', swipeView());
   else if (a === 'explore') app.innerHTML = shell('', exploreView(decodeURIComponent(b || '')));
@@ -6854,7 +6868,10 @@ document.addEventListener('click', e => {
     'finder-go': () => { SEARCH_OPEN = false; syncSearch(); clearSearch(); go('/finder'); },
     'fd-tag': () => { const k = el.dataset.k; FD.tags = FD.tags.includes(k) ? FD.tags.filter(x => x !== k) : [...FD.tags, k]; FD.go = false; KEEP = true; render(); },
     'fd-mode': () => { FD.mode = el.dataset.v; FD.go = false; KEEP = true; render(); },
-    'fd-go': () => { const f = $('#fd-fandom'); if (f) FD.fandom = f.value.trim(); FD.go = true; KEEP = true; render(); setTimeout(() => { const r = $('#fd-res'); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'start', behavior: reduceMotion() ? 'auto' : 'smooth' }); }, 60); },
+    'fd-go': () => { const f = $('#fd-fandom'); if (f) FD.fandom = f.value.trim(); FD.pick = true; KEEP = true; render(); },
+    'fd-close': () => { FD.pick = false; KEEP = true; render(); },
+    'fd-list': () => { FD.pick = false; location.hash = '#/finder-list'; },
+    'fd-swipe': () => { FD.pick = false; swipeOpen(finderResults().list, '#/finder'); },
     'fd-add': () => { const i = $('#fd-add'), k = tagKey(i ? i.value.replace(/^#+/, '') : ''); if (!k) return; if (!FD.tags.includes(k)) FD.tags = [...FD.tags, k]; FD.go = false; KEEP = true; render(); },
     'sw-open': () => { const src = el.dataset.src;
       if (src === 'featured') { swipeOpen(featAll(), '#/featured'); return; }
