@@ -4970,6 +4970,7 @@ const PRIVACY = `<ol><li><b>Dónde se guardan tus datos.</b> Tu cuenta, historia
 <li><b>Anuncios y seguimiento.</b> Auri no muestra anuncios ni te rastrea.</li>
 <li><b>Tus derechos.</b> Puedes exportar tus datos, borrar los de este dispositivo o eliminar tu cuenta desde Ajustes, cuando quieras.</li>
 <li><b>Otras funciones con IA.</b> Para funciones de IA distintas de la moderación (como el asistente para escribir) te avisaremos antes de enviar tus textos a un servicio externo y te pediremos permiso.</li>
+<li><b>Auri y tus notas.</b> Cuando usas el asistente Auri en un libro tuyo (nunca en libros +18), se envía a un servicio externo de IA lo que le pides, el texto del capítulo que estás escribiendo y las notas privadas de ese libro, para que sus respuestas sean coherentes con tus personajes y tu mundo. Solo se usan tus propias notas, solo en ese momento, y nadie más puede verlas.</li>
 <li><b>Revisión automática con IA.</b> Los capítulos que envías a revisión y las imágenes que subes (foto de perfil, banner y portadas) se envían a un servicio externo de moderación (OpenAI) solo para detectar contenido no permitido. Si una imagen se marca por error, puedes pedir que la revise una persona del equipo. No se usan para entrenar modelos ni para publicidad.</li>
 <li><b>Menores.</b> El contenido +18 es solo para personas adultas; por ahora se basa en una declaración.</li></ol>`;
 function showPrivacy() {
