@@ -5093,3 +5093,6 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 .cover-prev:has(.cv-fr){overflow:visible}
 
 .ft-all a{color:hsl(var(--primary))}
+/* el marco no se recorta en las esquinas y el lomo del libro queda por encima */
+.cv-fr{border-radius:0;z-index:1}
+.cover:has(.cv-fr)::before{width:9px;z-index:3}
