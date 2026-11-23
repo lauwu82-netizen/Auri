@@ -2142,7 +2142,7 @@ function featFlow(list) {
   return `<section class="feed-sec ft-sec"><div class="feed-head"><div><h3>${t('Destacados')}</h3></div></div>
   <div class="ft-flow" id="ft-flow" role="list">${list.map((s, i) => `<a class="ft-c" role="listitem" href="#/story/${esc(s.id)}" data-ti="${esc(s.title || t('Sin título'))}" data-au="${esc(s.author || '')}" aria-label="${esc(s.title)}">${coverHTML(s, i)}</a>`).join('')}</div>
   <div class="ft-info" aria-live="off"><b id="ft-ti"></b><span id="ft-au"></span></div>
-  <div class="ft-all"><a class="button secondary sm" href="#/featured">${t('Explorar todos los destacados')}</a></div></section>`;
+  <div class="ft-all"><a href="#/featured">${t('Ver todos')} ›</a></div></section>`;
 }
 function ftInit() {
   const fl = $('#ft-flow'); if (!fl) return;

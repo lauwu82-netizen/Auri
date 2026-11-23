@@ -4865,27 +4865,26 @@ html.lite .nt-card,html.lite .nt-dock,html.lite .nt-big,html.lite .nt-bk{transit
 /* Lista de capítulos · Cartas de amor (San Valentín, pase de pago de escritor, nivel 17). Estático, sin animaciones */
 [data-chapter-index="cartasamor"]{--ca-paper:#fffaf3;--ca-paper2:#f9ecdf;--ca-ink:#3b1220;--ca-soft:#6f3b4a;--ca-gold:#d9b36a;--ca-gold2:#e3c58a;--ca-wine:#8f1d33;--ca-wine2:#b8324a;--ca-kick:#8a5a2b}
 .dark [data-chapter-index="cartasamor"]{--ca-paper:#3a1b27;--ca-paper2:#2e1520;--ca-ink:#fbeee2;--ca-soft:#e2bfc6;--ca-gold:#c9a15a;--ca-gold2:#b8914d;--ca-kick:#e3c58a}
-[data-chapter-index="cartasamor"] .ch-list{display:flex;flex-direction:column;gap:30px;padding:8px 0 18px}
-[data-chapter-index="cartasamor"] .ch-list .ch-item{position:relative;display:flex;align-items:center;gap:0;min-height:88px;padding:0;border:0;border-radius:14px;background:linear-gradient(180deg,var(--ca-paper),var(--ca-paper2));box-shadow:0 0 0 1px var(--ca-gold2),0 0 0 4px var(--ca-paper),0 0 0 5px var(--ca-gold),0 10px 20px -10px rgba(120,40,60,.35)}
-[data-chapter-index="cartasamor"] .ch-list .ch-item+.ch-item::before{content:"";position:absolute;left:38px;top:-27px;width:2px;height:22px;background:repeating-linear-gradient(180deg,var(--ca-gold) 0 3px,transparent 3px 6px)}
-[data-chapter-index="cartasamor"] .ch-list .ch-item+.ch-item::after{content:"";position:absolute;left:33px;top:-17px;width:12px;height:11px;background:var(--ca-wine2);clip-path:path("M6 11C6 11 0 7 0 3.4A3 3 0 0 1 6 2.2 3 3 0 0 1 12 3.4C12 7 6 11 6 11Z");outline:0}
-[data-chapter-index="cartasamor"] .ch-item .ch-open{display:grid;grid-template-columns:56px minmax(0,1fr) 16px;grid-template-areas:"number title arrow" "number state arrow";align-items:center;column-gap:14px;row-gap:3px;flex:1;min-width:0;min-height:88px;padding:12px 6px 12px 10px;border:0;background:transparent;text-align:left;color:var(--ca-ink)}
-[data-chapter-index="cartasamor"] .ic-number{grid-area:number;position:relative;display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#c0394f 0%,#8f1d33 55%,#5e1022 100%);box-shadow:0 0 0 3px #f6e7d8,0 0 0 4px #d9b36a,0 6px 12px rgba(94,16,34,.35),inset 0 2px 3px rgba(255,255,255,.28),inset 0 -3px 5px rgba(0,0,0,.28);color:#fbeee2}
-[data-chapter-index="cartasamor"] .ic-number::before{content:"";position:absolute;inset:6px;border-radius:50%;border:1px solid rgba(246,231,216,.55)}
+[data-chapter-index="cartasamor"] .ch-list{display:flex;flex-direction:column;gap:14px;padding:8px 0 18px}
+[data-chapter-index="cartasamor"] .ch-list .ch-item{position:relative;display:flex;align-items:center;gap:0;min-height:84px;padding:0;border:1px solid color-mix(in srgb,var(--ca-gold) 55%,transparent);border-radius:16px;background:linear-gradient(180deg,var(--ca-paper),var(--ca-paper2));box-shadow:0 8px 18px -14px rgba(120,40,60,.45)}
+[data-chapter-index="cartasamor"] .ch-list .ch-item+.ch-item::before,[data-chapter-index="cartasamor"] .ch-list .ch-item+.ch-item::after{content:none}
+[data-chapter-index="cartasamor"] .ch-item .ch-open{display:grid;grid-template-columns:44px minmax(0,1fr) 14px;grid-template-areas:"number title arrow" "number state arrow";align-items:center;column-gap:14px;row-gap:2px;flex:1;min-width:0;min-height:84px;padding:12px 4px 12px 14px;border:0;background:transparent;text-align:left;color:var(--ca-ink)}
+[data-chapter-index="cartasamor"] .ic-number{grid-area:number;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:linear-gradient(160deg,var(--ca-wine2),var(--ca-wine));box-shadow:0 4px 8px -4px rgba(94,16,34,.55);color:#fbeee2}
+[data-chapter-index="cartasamor"] .ic-number::before{content:none}
 [data-chapter-index="cartasamor"] .ic-number small{display:none}
-[data-chapter-index="cartasamor"] .ic-number strong{font:700 22px/1 "Cormorant Garamond",var(--serif,Georgia,serif);color:#fbeee2;text-shadow:0 1px 1px rgba(0,0,0,.4)}
-[data-chapter-index="cartasamor"] .ic-number.ic-kind strong{font-size:19px}
+[data-chapter-index="cartasamor"] .ic-number strong{font:700 20px/1 "Cormorant Garamond",var(--serif,Georgia,serif);color:#fbeee2}
+[data-chapter-index="cartasamor"] .ic-number.ic-kind strong{font-size:17px}
 [data-chapter-index="cartasamor"] .ch-open .ic-title{grid-area:title;display:block;min-width:0;margin:0;font:italic 600 20px/1.2 "Cormorant Garamond",var(--serif,Georgia,serif);color:var(--ca-ink);white-space:normal;overflow-wrap:anywhere}
-[data-chapter-index="cartasamor"] .ch-open .ic-state{grid-area:state;justify-self:start;font:600 11px/1.5 var(--sans,system-ui,sans-serif);padding:2px 9px;border-radius:99px;background:#efe4ea;color:#5b3548}
-[data-chapter-index="cartasamor"] .ic-arrow{grid-area:arrow;font:28px/1 "Cormorant Garamond",Georgia,serif;color:var(--ca-gold);justify-self:center}
-[data-chapter-index="cartasamor"] .ch-item .ch-trash{flex:none;min-width:44px;min-height:44px;margin:0 8px 0 0;color:var(--ca-wine)}
+[data-chapter-index="cartasamor"] .ch-open .ic-state{grid-area:state;justify-self:start;font:600 10.5px/1.5 var(--sans,system-ui,sans-serif);letter-spacing:.1em;text-transform:uppercase;padding:0;border-radius:0;background:none;color:var(--ca-kick)}
+[data-chapter-index="cartasamor"] .ic-arrow{grid-area:arrow;font:24px/1 "Cormorant Garamond",Georgia,serif;color:var(--ca-gold);justify-self:center;opacity:.8}
+[data-chapter-index="cartasamor"] .ch-item .ch-trash{flex:none;min-width:44px;min-height:44px;margin:0 6px 0 0;color:var(--ca-soft);background:none!important;border:0!important;box-shadow:none!important;opacity:.55}
 [data-chapter-index="cartasamor"] .ch-open:focus-visible,[data-chapter-index="cartasamor"] .ch-trash:focus-visible{outline:2px solid var(--ca-wine);outline-offset:2px}
-[data-chapter-index="cartasamor"] .ch-extra{border:1.5px dashed var(--ca-gold);background:transparent;color:var(--ca-kick);min-height:48px}
-[data-chapter-index="cartasamor"] .ch-adds .button{border-color:var(--ca-gold2)}
+[data-chapter-index="cartasamor"] .ch-extra{border:0;border-top:1px solid color-mix(in srgb,var(--ca-gold) 45%,transparent);border-radius:0;background:transparent;color:var(--ca-kick);min-height:44px;font-style:italic;box-shadow:none}
+[data-chapter-index="cartasamor"] .ch-adds .button{border-color:color-mix(in srgb,var(--ca-gold) 55%,transparent)}
 .ic-sample[data-chapter-index="cartasamor"] .ch-item{min-height:0!important;border-radius:10px}
 .ic-sample[data-chapter-index="cartasamor"] .ch-open{padding:8px 6px!important;grid-template-columns:40px minmax(0,1fr) 10px!important;column-gap:9px!important;min-height:0!important}
-.ic-sample[data-chapter-index="cartasamor"] .ic-number{width:40px;height:40px}.ic-sample[data-chapter-index="cartasamor"] .ic-number strong{font-size:16px!important}.ic-sample[data-chapter-index="cartasamor"] .ic-title{font-size:14px!important}
-@media (max-width:380px){[data-chapter-index="cartasamor"] .ch-item .ch-open{grid-template-columns:48px minmax(0,1fr) 12px;column-gap:10px}[data-chapter-index="cartasamor"] .ic-number{width:48px;height:48px}[data-chapter-index="cartasamor"] .ch-list .ch-item+.ch-item::before{left:34px}[data-chapter-index="cartasamor"] .ch-list .ch-item+.ch-item::after{left:29px}}
+.ic-sample[data-chapter-index="cartasamor"] .ic-number{width:34px;height:34px}.ic-sample[data-chapter-index="cartasamor"] .ic-number strong{font-size:16px!important}.ic-sample[data-chapter-index="cartasamor"] .ic-title{font-size:14px!important}
+@media (max-width:380px){[data-chapter-index="cartasamor"] .ch-item .ch-open{grid-template-columns:40px minmax(0,1fr) 12px;column-gap:10px;padding-left:10px}[data-chapter-index="cartasamor"] .ic-number{width:40px;height:40px}}
 [data-chapter-index="cartasamor"] .ch-item .ch-open,[data-chapter-index="cartasamor"] .ch-item .ch-open.ch-special{box-shadow:none!important;border:0!important;background:transparent!important;border-radius:0!important}
 /* ===== AURI · ESTUCHE DE TINTA ===== */
 /* Solo apariencia de la barra de formato. No toca position, top, bottom, transform ni z-index. */
@@ -4993,7 +4992,7 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 .sw-hint{text-align:center;margin:12px 0 0}
 @media (prefers-reduced-motion:reduce){.sw-panel,.sw-info{transition:none}}
 
-.ft-all{display:flex;justify-content:center;margin:2px 0 8px}
+.ft-all{display:flex;justify-content:center;margin:2px 0 8px}.ft-all a{font:600 14px/1.4 var(--sans,system-ui,sans-serif);color:var(--muted,#6b5f80);text-decoration:none;padding:10px 12px;min-height:44px;display:inline-flex;align-items:center;background:none;border:0}.ft-all a:hover{text-decoration:underline}
 @media (min-width:760px){
   .ft-flow{gap:14px;max-width:1040px;margin:0 auto;padding:34px calc(50% - 95px) 30px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent)}
   .ft-c{width:190px}
