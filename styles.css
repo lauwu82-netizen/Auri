@@ -5075,3 +5075,12 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 .cht-t>*{width:100%;height:100%;display:block}
 .cht-t.on{opacity:1;outline:2px solid hsl(var(--primary));outline-offset:2px}
 @media (max-width:380px){.cht-phone{width:46%}.cht-ti{font-size:18px}.cht-img{width:100%;box-sizing:border-box}}
+/* Libros de chat: colores según el tema activo */
+.cht-phone{background:hsl(var(--card));border-color:color-mix(in srgb,hsl(var(--primary)) 28%,#100913)}
+.cht-top{color:hsl(var(--background));background:linear-gradient(160deg,hsl(var(--primary)),color-mix(in srgb,hsl(var(--primary)) 60%,#1a0f22))}
+.cht-body{background:color-mix(in srgb,hsl(var(--primary)) 5%,hsl(var(--card)))}
+.cht-b{color:hsl(var(--foreground))}
+.cht-in{background:hsl(var(--accent));color:hsl(var(--accent-foreground))}
+.cht-out{background:hsl(var(--primary));color:hsl(var(--background))}
+.cht-img{background:hsl(var(--accent))}
+.cht-av{background:hsl(var(--accent))}
