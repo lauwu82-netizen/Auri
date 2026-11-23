@@ -2556,7 +2556,7 @@ html.lite [data-sk-bg=misterio] .cr-body::before,html.lite [data-sk-bg=misterio]
 .cos-b:disabled{opacity:.4;cursor:not-allowed}
 
 /* 104 · Ambientes de lectura */
-.amb{position:fixed;inset:0;z-index:6;pointer-events:none;overflow:hidden}
+.amb{position:fixed;inset:0;z-index:8;pointer-events:none;overflow:hidden}
 .amb i{position:absolute;display:block;will-change:transform}
 html.lite .amb{display:none}
 @media (prefers-reduced-motion:reduce){.amb{display:none}}
@@ -2578,7 +2578,7 @@ html.lite .amb{display:none}
 .amb-petals i{left:var(--x);top:-6vh;width:calc(7px + 4px*var(--s));height:calc(5px + 3px*var(--s));border-radius:150% 0 150% 0;background:linear-gradient(135deg,#fde6ee,#f7c5d6);opacity:.4;animation:ambPet var(--d) linear infinite;animation-delay:var(--dl)}
 @keyframes ambPet{0%{transform:translate3d(0,0,0) rotate(0)}25%{transform:translate3d(14px,28vh,0) rotate(60deg)}50%{transform:translate3d(-8px,56vh,0) rotate(130deg)}75%{transform:translate3d(12px,84vh,0) rotate(190deg)}100%{transform:translate3d(0,112vh,0) rotate(240deg)}}
 
-.amb ~ .rf-body,.amb ~ .rf-end{position:relative;z-index:7}   /* el texto queda por encima de las animaciones */
+.amb ~ .rf-body,.amb ~ .rf-end{position:relative;z-index:7}   /* el ambiente (z 8) va encima de la hoja, sin tapar toques */
 
 /* 105 · Mascotas 8-bit del perfil */
 .pf-hero{position:relative}
