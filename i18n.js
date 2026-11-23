@@ -1877,6 +1877,8 @@ window.I18N = { en: {
   "Pronto": "Coming soon",
   "Sigues en el mensaje {a} de {b}": "You're at message {a} of {b}",
   "Leer chat": "Read chat",
+  "Mismo fandom y etiquetas parecidas": "Same fandom and similar tags",
+  "Descubrir deslizando": "Discover by swiping",
   "Escritura": "Writing",
   "Editor, capítulos y notas": "Editor, chapters and notes",
   "Skins y funciones para escribir": "Skins and tools for writing",

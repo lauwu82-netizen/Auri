@@ -2426,8 +2426,8 @@ function exploreView(k) {
   ${l.length ? masonryHTML(l) : empty(t('Aún no hay libros con esta etiqueta.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
 }
 function similarBooks(s, max = 15) {                  // libros parecidos al que acabas de leer (comparten etiquetas), con algo de azar entre empates
-  const mine = new Set(tagsOf(s).map(tagKey)); if (!mine.size) return [];
-  return feedPool().filter(x => x.id !== s.id && x.owner !== S.user && !(S.progress[x.id] && bookProgress(x).finished)).map(x => ({ x, n: tagsOf(x).filter(k => mine.has(tagKey(k))).length, r: Math.random() })).filter(o => o.n > 0).sort((a, b) => b.n - a.n || a.r - b.r).slice(0, max).map(o => o.x);
+  const mine = new Set(tagsOf(s).map(tagKey)), fan = tagKey(s.fandom || ''); if (!mine.size && !fan) return [];
+  return feedPool().filter(x => x.id !== s.id && x.owner !== S.user && !(S.progress[x.id] && bookProgress(x).finished)).map(x => ({ x, n: (fan && tagKey(x.fandom || '') === fan ? 100 : 0) + tagsOf(x).filter(k => mine.has(tagKey(k))).length, r: Math.random() })).filter(o => o.n > 0).sort((a, b) => b.n - a.n || a.r - b.r).slice(0, max).map(o => o.x);   // el fandom pesa más que las etiquetas
 }
 function discoverList() {
   if (SM === 'users') return usersList();
@@ -4495,7 +4495,7 @@ function bookEnd(s) {
   return `<div class="rf"><header class="rf-top"><a class="button ghost sm" data-replace href="#/story/${id}">✕ ${t('Cerrar')}</a><div class="rf-title">${esc(s.title)}</div><span style="width:44px"></span></header>
   <div class="rf-body end-card"><h1 class="rf-h end-h">${head}</h1><div class="end-cover">${coverHTML(s, 0)}${p.finished || p.caught ? `<span class="end-badge ${p.finished ? 'done' : ''}">${p.finished ? t('Terminado') : t('Estás al día')}</span>` : ''}</div><p class="story-meta">${esc(s.title)}</p>
   <div class="pbar big"><i data-key="b-${esc(s.id)}" data-w="${p.pct}" style="width:${p.pct}%"></i></div>
-  <p class="end-pills">${pills.map(x => `<span class="pill ${pillCls[x] || ''}">${t(x)}</span>`).join(' ')}</p>${notice}${main}${(() => { const r = p.caught ? similarBooks(s) : []; return r.length ? `<section class="end-recs"><h3>${t('Si te gustó esta historia')}</h3><p class="helper">${t('Libros con etiquetas parecidas')}</p><div class="story-grid">${r.map(storyCard).join('')}</div></section>` : ''; })()}</div></div>`;
+  <p class="end-pills">${pills.map(x => `<span class="pill ${pillCls[x] || ''}">${t(x)}</span>`).join(' ')}</p>${notice}${main}${(() => { const r = p.caught ? similarBooks(s) : []; return r.length ? `<section class="end-recs"><h3>${t('Si te gustó esta historia')}</h3><p class="helper">${t('Mismo fandom y etiquetas parecidas')}</p><div class="story-grid">${r.map(storyCard).join('')}</div><button type="button" class="button secondary end-swipe" data-act="end-swipe" data-id="${id}">${t('Descubrir deslizando')}</button></section>` : ''; })()}</div></div>`;
 }
 /* Pantalla 2: lectura a pantalla completa (sin barra de la app); la salida guarda el progreso */
 function chapterRead(s, N) {
@@ -6907,6 +6907,7 @@ document.addEventListener('click', e => {
     'fd-swipe': () => { FD.pick = false; swipeOpen(finderResults().list, '#/finder'); },
     'fd-add': () => { const i = $('#fd-add'), k = tagKey(i ? i.value.replace(/^#+/, '') : ''); if (!k) return; if (!FD.tags.includes(k)) FD.tags = [...FD.tags, k]; FD.go = false; KEEP = true; render(); },
     'cht-pick': () => { CHR.i = +el.dataset.i || 0; KEEP = true; render(); },
+    'end-swipe': () => { const st = findStory(id); if (st) swipeOpen(similarBooks(st, 40), '#/story/' + encodeURIComponent(st.id) + '/fin'); },
     'sw-open': () => { const src = el.dataset.src;
       if (src === 'featured') { swipeOpen(featAll(), '#/featured'); return; }
       if (src === 'finder') { swipeOpen(finderResults().list, '#/finder'); return; }

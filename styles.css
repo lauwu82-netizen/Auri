@@ -5098,3 +5098,5 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 .cover:has(.cv-fr)::before{width:9px;z-index:3}
 
 .set-blk{margin:14px 0 4px;font:700 11px var(--sans);letter-spacing:.12em;text-transform:uppercase;color:hsl(var(--muted-foreground))}.set-blk:first-child{margin-top:2px}
+
+.end-swipe{margin-top:14px;align-self:center}
