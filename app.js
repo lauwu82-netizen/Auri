@@ -6505,7 +6505,9 @@ function render() {
   if (nav && a === 'moderation' && b === 'book' && c) claimBook(decodeURIComponent(c));
   if (a === 'moderation' && b === 'bugs' && isOwner()) { BUG_LAST = Date.now(); sbBugs().then(ch => ch && softRender()); }
   if (nav) { PFEDIT = false; EPD = null; SHOWC = !!HLC; LASTP = path; NAVDIR = ''; NOTIF_OPEN = false; SETDEEP = a === 'settings' && !!b && from === '/settings'; }
+  if (!S.user && a === 'story' && b) LS.set('auri.next', { p: path, t: Date.now() });                // quien llega por un enlace sin cuenta: se recuerda a qué libro iba, para llevarlo ahí al entrar
   if (!S.user && !['login', 'register', 'signup', 'welcome', 'start'].includes(a)) return go(LS.get('auri.intro', false) ? '/start' : '/welcome');
+  if (S.user && !a) { const nx = LS.get('auri.next', null); if (nx) { LS.set('auri.next', null); if (nx.p && Date.now() - nx.t < 864e5 && /^\/story\/[^/?]+$/.test(nx.p)) return go(nx.p); } }
   if (S.user && (a === 'welcome' || a === 'start' || (!isGuest() && (a === 'login' || a === 'register' || a === 'signup')))) return go('/');
   if (a === 'signup' && !QZ) return go('/register');
   if (S.user && activeBan(S.user)) { app.innerHTML = bannedView(); return; }                   // cuenta suspendida: solo ve el aviso
