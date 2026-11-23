@@ -2378,6 +2378,18 @@ function collageInit() {
     g.addEventListener('contextmenu', e => { if (e.target.closest('.cl-t')) e.preventDefault(); });
   });
 }
+/* ---- Feed: «Libros de chat» como teléfono con el chat; la portada es un botón que abre el libro ---- */
+const CHR = { i: 0 };
+function chatRow(list) {
+  if (CHR.i >= list.length) CHR.i = 0;
+  const s = list[CHR.i], n = (s.chapters || []).length, syn = (s.synopsis || '').trim();
+  return `<section class="feed-sec cht-sec"><div class="feed-head"><div><h3>${t('Libros de chat')}</h3><p>${t('Historias contadas como una app de mensajes')}</p></div><a class="feed-more" href="#/explore/chat">${t('Ver todos')} ›</a></div>
+  <div class="cht-main"><div class="cht-phone" aria-hidden="false"><div class="cht-top"><span class="cht-av" aria-hidden="true">${mascot()}</span>Auri</div>
+    <div class="cht-body"><div class="cht-b cht-in">${t('¿Viste el nuevo chat-libro?')}</div><div class="cht-b cht-out">${t('No, ¿a ver?')}</div>
+    <a class="cht-img" href="#/story/${esc(s.id)}" aria-label="${esc(t('Abrir el libro {t}', { t: s.title || '' }))}"><span class="cht-cv">${coverHTML(s, CHR.i)}</span></a></div></div>
+  <div class="cht-info"><span class="cht-eye">${t('Ahora en chat')}</span><b class="cht-ti">${esc(s.title || t('Sin título'))}</b><span class="cht-au">${esc(s.author || userName())}${n ? ' · ' + t('{n} capítulos', { n }) : ''}</span>${syn ? `<p class="cht-syn">${esc(syn)}</p>` : ''}<a class="button sm" href="#/story/${esc(s.id)}">${t('Leer chat')}</a></div></div>
+  <div class="cht-thumbs" role="group" aria-label="${esc(t('Libros de chat'))}">${list.map((x, i) => `<button type="button" class="cht-t${i === CHR.i ? ' on' : ''}" data-act="cht-pick" data-i="${i}" aria-pressed="${i === CHR.i}" aria-label="${esc(x.title || '')}">${coverHTML(x, i)}</button>`).join('')}</div></section>`;
+}
 function feedHTML() {
   boostsLoad(); const pool = feedPool(); if (pool.length < FEED.row) return '';
   const tags = feedTags(pool), taste = tasteTags(pool), out = [], used = new Set(); ROWN = 0; MOSQ = [];
@@ -2386,7 +2398,7 @@ function feedHTML() {
   if (rowOK(feat)) out.push(featFlow(feat));
   { const br = boostRow(pool); if (br) out.push(br); }
   const chb = pool.filter(s => s.mode === 'chat').sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12);
-  if (rowOK(chb)) out.push(feedRow(t('Libros de chat'), t('Historias contadas como una app de mensajes'), chb, 'chat'));
+  if (rowOK(chb)) out.push(chatRow(chb));
   const top = taste.filter(k => tags[k]).slice(0, 5);                  // para ti
   if (top.length) {
     const cand = pool.filter(s => s.owner !== S.user && !S.progress[s.id] && !S.lib.includes(s.id) && !S.favs.includes(s.id)).map(s => { const hit = top.filter(k => tagsOf(s).some(x => tagKey(x) === k)); return { s, hit, sc: hit.reduce((a, k) => a + (6 - top.indexOf(k)), 0) + (hit.length > 1 ? 3 : 0) }; }).filter(x => x.hit.length).sort((a, b) => b.sc - a.sc || feedScore(b.s) - feedScore(a.s)).slice(0, 12);
@@ -6882,6 +6894,7 @@ document.addEventListener('click', e => {
     'fd-list': () => { FD.pick = false; location.hash = '#/finder-list'; },
     'fd-swipe': () => { FD.pick = false; swipeOpen(finderResults().list, '#/finder'); },
     'fd-add': () => { const i = $('#fd-add'), k = tagKey(i ? i.value.replace(/^#+/, '') : ''); if (!k) return; if (!FD.tags.includes(k)) FD.tags = [...FD.tags, k]; FD.go = false; KEEP = true; render(); },
+    'cht-pick': () => { CHR.i = +el.dataset.i || 0; KEEP = true; render(); },
     'sw-open': () => { const src = el.dataset.src;
       if (src === 'featured') { swipeOpen(featAll(), '#/featured'); return; }
       if (src === 'finder') { swipeOpen(finderResults().list, '#/finder'); return; }
