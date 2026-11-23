@@ -813,10 +813,10 @@ const cBack = u => { const h = String(u).replace(/-/g, ''); return parseInt(h.sl
 const remoteKey = uid => 'u-' + uid + '@cloud.auri';
 const hsh = s => { s = String(s); let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h + ':' + s.length; };
 const PHASES = ['ongoing', 'paused', 'finished'], CH_ST = ['draft', 'pending', 'rejected', 'approved'];
-const infoSig = l => hsh(JSON.stringify([l.title || '', l.synopsis || '', l.genre || '', l.fandom || '', l.tags || [], l.cover || '', !!l.mature, l.cf || '', l.phase || 'ongoing', l.prev || '', l.useReaderCharacter !== false, !!l.private, ...(l.mode === 'chat' ? ['chat'] : [])]));
+const infoSig = l => hsh(JSON.stringify([l.title || '', l.synopsis || '', l.genre || '', l.fandom || '', l.tags || [], l.cover || '', !!l.mature, l.cf || '', ...(l.cfo != null ? ['cfo', l.cfo] : []), l.phase || 'ongoing', l.prev || '', l.useReaderCharacter !== false, !!l.private, ...(l.mode === 'chat' ? ['chat'] : [])]));
 const contSig = c => hsh([c.title || '', c.text || '', c.cover || '', c.music || ''].join('\u0001'));
 const sameCont = (c, r) => (c.title || '') === (r.title || '') && (c.text || '') === (r.text || '') && (c.cover || '') === (r.cover || '') && (c.music || '') === (r.music || '');
-const infoFromRow = r => ({ title: r.title, synopsis: r.synopsis || '', genre: r.genre || '', fandom: r.fandom || '', tags: r.tags || [], warns: Array.isArray(r.warnings) ? r.warnings : [], cover: r.cover || '', mature: !!r.mature, cf: COVER_FRAMES[r.cover_frame] ? r.cover_frame : '', phase: r.phase || 'ongoing', prev: r.prev ? sBack(r.prev) : '', useReaderCharacter: r.use_reader_character !== false, private: !!r.private, mode: r.mode === 'chat' ? 'chat' : 'trad', vn: !!r.vn, views: r.views | 0 });
+const infoFromRow = r => ({ title: r.title, synopsis: r.synopsis || '', genre: r.genre || '', fandom: r.fandom || '', tags: r.tags || [], warns: Array.isArray(r.warnings) ? r.warnings : [], cover: r.cover || '', mature: !!r.mature, cf: COVER_FRAMES[r.cover_frame] ? r.cover_frame : '', cfo: r.cover_frame_out == null ? undefined : r.cover_frame_out, phase: r.phase || 'ongoing', prev: r.prev ? sBack(r.prev) : '', useReaderCharacter: r.use_reader_character !== false, private: !!r.private, mode: r.mode === 'chat' ? 'chat' : 'trad', vn: !!r.vn, views: r.views | 0 });
 const day = v => String(v || '').slice(0, 10);
 let SB_BUSY = false, SB_ST, SB_QUIET = false, SB_Q = { all: false, st: false, soc: new Set() };
 function sbStoriesSoon() { if (!cloud() || !sbSes() || SB_QUIET) return; SB_Q.st = true; clearTimeout(SB_ST); SB_ST = setTimeout(() => sbRefresh({ st: true }), 1500); }
@@ -862,11 +862,11 @@ async function sbSyncOwn() {
     if (!su) { out.push(l); continue; }                                       // ids que no son de la nube (pruebas): se quedan solo aquí
     const R = cs.get(su);
     if (!R && stS.has(su)) { changed = true; continue; }                      // la borraste en otro lugar
-    const row = { id: su, owner: uid, community: comm, title: l.title || '', synopsis: l.synopsis || '', genre: l.genre || '', fandom: l.fandom || '', tags: l.tags || [], cover: l.cover || '', cover_frame: COVER_FRAMES[l.cf] ? l.cf : null, mature: !!l.mature,
+    const row = { id: su, owner: uid, community: comm, title: l.title || '', synopsis: l.synopsis || '', genre: l.genre || '', fandom: l.fandom || '', tags: l.tags || [], cover: l.cover || '', cover_frame: COVER_FRAMES[l.cf] ? l.cf : null, ...(COVER_FRAMES[l.cf] && l.cfo != null ? { cover_frame_out: cfoOf(l) } : {}), mature: !!l.mature,
       phase: PHASES.includes(l.phase) ? l.phase : 'ongoing', prev: l.prev && sUuid(l.prev) ? sUuid(l.prev) : null, use_reader_character: l.useReaderCharacter !== false, terms: false, ...(l.mode === 'chat' || (R && R.mode === 'chat') ? { mode: l.mode === 'chat' ? 'chat' : 'trad' } : {}), ...(l.private || (R && R.private) ? { private: !!l.private } : {}), ...((l.warns && l.warns.length) || (R && R.warnings && R.warnings.length) ? { warnings: l.warns || [] } : {}) };
     if (!R) putS.push(row);
     else if (sigS[su] === infoSig(l)) { const ni = infoFromRow(R); if (infoSig({ ...l, ...ni }) !== infoSig(l)) { Object.assign(l, ni); changed = true; } else if ((l.views | 0) !== ni.views) { l.views = ni.views; changed = true; } }   // no la tocaste: manda la nube (p. ej. cambio de moderación)
-    else { const same = ['title', 'synopsis', 'genre', 'fandom', 'cover', 'phase'].every(k => (R[k] || '') === (row[k] || '')) && !!R.mature === row.mature && JSON.stringify(R.tags || []) === JSON.stringify(row.tags) && (R.prev || null) === row.prev && (R.use_reader_character !== false) === row.use_reader_character && !!R.private === !!l.private && (R.mode === 'chat') === (l.mode === 'chat') && (R.cover_frame || '') === (row.cover_frame || ''); if (!same) patchS.push(row); }
+    else { const same = ['title', 'synopsis', 'genre', 'fandom', 'cover', 'phase'].every(k => (R[k] || '') === (row[k] || '')) && !!R.mature === row.mature && JSON.stringify(R.tags || []) === JSON.stringify(row.tags) && (R.prev || null) === row.prev && (R.use_reader_character !== false) === row.use_reader_character && !!R.private === !!l.private && (R.mode === 'chat') === (l.mode === 'chat') && (R.cover_frame || '') === (row.cover_frame || '') && (R.cover_frame_out ?? null) === (row.cover_frame_out ?? null); if (!same) patchS.push(row); }
     nSigS[su] = infoSig(l);
     // capítulos
     const mine = new Set();
@@ -1763,7 +1763,8 @@ const fSeal = s => { return ''; const a = fsealAdj(u); return `<span class="f-se
 const bmRib = s => bmOf(s.id) ? '<span class="bm-rib" aria-hidden="true"></span>' : '';
 const COVER_FRAMES = { sweet: ['Sweet love', 'https://i.postimg.cc/Dfj0Td61/IMG-3399.png'], dark: ['Dark San Valentín', 'https://i.postimg.cc/3wYYpd1P/IMG-3400.png'] };
 const cfKey = s => s && COVER_FRAMES[s.cf] ? s.cf : '';
-const cfSpan = s => { const k = cfKey(s); return k ? `<span class="cv-fr" style="background-image:url('${COVER_FRAMES[k][1]}')" aria-hidden="true"></span>` : ''; };
+const cfoOf = s => { const n = Math.round(+(s && s.cfo)); return Number.isFinite(n) ? Math.min(8, Math.max(0, n)) : 5; };      // cuánto sobresale el marco de la portada (% del tamaño), tope 8 para que no choque con otros libros
+const cfSpan = s => { const k = cfKey(s); return k ? `<span class="cv-fr" style="--cfo:${cfoOf(s)};background-image:url('${COVER_FRAMES[k][1]}')" aria-hidden="true"></span>` : ''; };
 const coverHTML = (s, i) => `<div class="cover c${(i % 5) + 1}">${bmRib(s)}${fSeal(s)}${cfSpan(s)}${s.cover ? `<img class="cover-img" src="${esc(s.cover)}" alt="${esc(t('Portada de {title}', { title: s.title }))}" loading="lazy" data-t="${esc(s.title || t('Sin título'))}">` : `<span class="cover-title">${esc(s.title || t('Sin título'))}</span>`}</div>`;
 
 /* --- Auth --- */
@@ -2398,7 +2399,6 @@ function feedHTML() {
   if (rowOK(feat)) out.push(featFlow(feat));
   { const br = boostRow(pool); if (br) out.push(br); }
   const chb = pool.filter(s => s.mode === 'chat').sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12);
-  if (rowOK(chb)) out.push(chatRow(chb));
   const top = taste.filter(k => tags[k]).slice(0, 5);                  // para ti
   if (top.length) {
     const cand = pool.filter(s => s.owner !== S.user && !S.progress[s.id] && !S.lib.includes(s.id) && !S.favs.includes(s.id)).map(s => { const hit = top.filter(k => tagsOf(s).some(x => tagKey(x) === k)); return { s, hit, sc: hit.reduce((a, k) => a + (6 - top.indexOf(k)), 0) + (hit.length > 1 ? 3 : 0) }; }).filter(x => x.hit.length).sort((a, b) => b.sc - a.sc || feedScore(b.s) - feedScore(a.s)).slice(0, 12);
@@ -2416,6 +2416,7 @@ function feedHTML() {
   if (rowOK(hot)) out.push(feedRow(t('Lo más famoso del momento'), '', hot));
   if (rowOK(all) && all.map(s => s.id).join() !== hot.map(s => s.id).join()) out.push(feedRow(t('Lo más famoso de Auri'), '', all));
   const cr = continueRow(); if (cr) out.push(cr);
+  if (rowOK(chb)) out.splice(Math.min(3, out.length), 0, chatRow(chb));   // los libros de chat van más abajo: cuarta línea (o la última si hay pocas)
   return out.length ? out.join('') + `<div class="section-head feed-all"><div><h2>${t('Todas las historias')}</h2></div></div>` : '';
 }
 function exploreView(k) {
@@ -2727,7 +2728,7 @@ function collect() {                                   // lee solo los campos de
     if (ch) { ch.title = ($('#w-ch-title') || { value: ch.title }).value; ch.text = chFromView(t.value); ch.music = ($('#w-ch-music') || { value: '' }).value.trim(); }
   }
 }
-const cfPicker = () => { const own = Object.keys(COVER_FRAMES).filter(k => hasItem(S.user, 'cf:' + k)); return own.length ? `<span class="helper nb-help">${t('Marco de portada')}</span><div class="nb-cf-row"><button type="button" class="pill ${W.cf ? '' : 'on'}" data-act="cf-pick" data-id="">${t('Ninguno')}</button>${own.map(k => `<button type="button" class="pill ${W.cf === k ? 'on' : ''}" data-act="cf-pick" data-id="${k}">${t(COVER_FRAMES[k][0])}</button>`).join('')}</div>` : ''; };
+const cfPicker = () => { const own = Object.keys(COVER_FRAMES).filter(k => hasItem(S.user, 'cf:' + k)); return own.length ? `<span class="helper nb-help">${t('Marco de portada')}</span><div class="nb-cf-row"><button type="button" class="pill ${W.cf ? '' : 'on'}" data-act="cf-pick" data-id="">${t('Ninguno')}</button>${own.map(k => `<button type="button" class="pill ${W.cf === k ? 'on' : ''}" data-act="cf-pick" data-id="${k}">${t(COVER_FRAMES[k][0])}</button>`).join('')}</div>${W.cf ? `<label class="nb-cfo"><span>${t('Cuánto sobresale')}</span><input type="range" id="nb-cfo" min="0" max="8" step="1" value="${cfoOf(W)}"></label>` : ''}` : ''; };
 const coverPrev = () => (W.cover ? `<img src="${esc(W.cover)}" alt="${esc(t('Vista previa de la portada'))}">` : t('Sin portada')) + cfSpan(W);
 const TN_RE = /[\[(]\s*(?:T\/N|Y\/N|TN|YN)\s*[\])]|\b(?:T\/N|Y\/N)\b|\b(?:TN|YN)\b/gi;
 /** TN / T/N / [TN] / (T/N) → nombre del personaje. "TN" en MAYÚSCULAS da el nombre en MAYÚSCULAS; "tn" o "Tn" lo dan tal cual */
@@ -3779,6 +3780,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'nt-ti') ntEdit(NT.open, 't', e.target.value);
   else if (e.target.id === 'nt-tx') ntEdit(NT.open, 'b', e.target.value);
   else if (e.target.id === 'w-ch-text') ntSel(e.target);
+  else if (e.target.id === 'nb-cfo') { W.cfo = +e.target.value; const p = $('#cover-prev'); if (p) p.innerHTML = coverPrev(); }
 });
 function ntSel(ta) { NT.sel = { cid: +ta.dataset.cid, s: ta.selectionStart, e: ta.selectionEnd, len: ta.value.length }; }
 document.addEventListener('selectionchange', () => { const ta = document.activeElement; if (ta && ta.id === 'w-ch-text') ntSel(ta); });
@@ -4074,7 +4076,7 @@ function chapterView(cid) {
 }
 /** Lee las historias tal como están guardadas AHORA (moderación puede haber cambiado estados mientras tenías la pantalla abierta) */
 const freshStories = () => LS.get(uk('stories'), []).map(norm);
-const INFO_FIELDS = ['title', 'synopsis', 'genre', 'fandom', 'tags', 'cover', 'mature', 'phase', 'prev', 'useReaderCharacter', 'mode', 'cf'];
+const INFO_FIELDS = ['title', 'synopsis', 'genre', 'fandom', 'tags', 'cover', 'mature', 'phase', 'prev', 'useReaderCharacter', 'mode', 'cf', 'cfo'];
 /** Guarda SOLO los datos generales (título, sinopsis, portada, género, etiquetas…). Parte del libro tal como está guardado: no toca los capítulos
  *  ni su estado de moderación, y no pide capítulos nuevos ni términos. Devuelve true si guardó. */
 function requestUnmature(sid, title) {                  // la autoría pide quitar +18 de una obra ya publicada: queda en Reportes para moderación

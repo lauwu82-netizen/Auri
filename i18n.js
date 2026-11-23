@@ -1876,6 +1876,7 @@ window.I18N = { en: {
   "Pronto": "Coming soon",
   "Sigues en el mensaje {a} de {b}": "You're at message {a} of {b}",
   "Leer chat": "Read chat",
+  "Cuánto sobresale": "How far it sticks out",
   "Ahora en chat": "Now in chat",
   "¿Viste el nuevo chat-libro?": "Did you see the new chat book?",
   "No, ¿a ver?": "No, show me?",

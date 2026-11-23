@@ -5084,3 +5084,10 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 .cht-out{background:hsl(var(--primary));color:hsl(var(--background))}
 .cht-img{background:hsl(var(--accent))}
 .cht-av{background:hsl(var(--accent))}
+
+/* Marco de portada: sobresale un poco de la portada (ajustable, tope 8 %) */
+.cv-fr{inset:calc(var(--cfo,5) * -1%)}
+.cht-cv .cv-fr,.cht-t .cv-fr,.sw-cv .cv-fr{inset:0}
+.nb-cfo{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:13px}
+.nb-cfo input{flex:1;min-width:0;accent-color:hsl(var(--primary))}
+.cover-prev:has(.cv-fr){overflow:visible}
