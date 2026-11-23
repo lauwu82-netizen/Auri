@@ -5096,3 +5096,5 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 /* el marco no se recorta en las esquinas y el lomo del libro queda por encima */
 .cv-fr{border-radius:0;z-index:1}
 .cover:has(.cv-fr)::before{width:9px;z-index:3}
+
+.set-blk{margin:14px 0 4px;font:700 11px var(--sans);letter-spacing:.12em;text-transform:uppercase;color:hsl(var(--muted-foreground))}.set-blk:first-child{margin-top:2px}
