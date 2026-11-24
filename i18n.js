@@ -2809,6 +2809,8 @@ window.I18N = { en: {
   "Impulso activo: tu libro aparece en «Impulsados de hoy» durante 24 horas.": "Boost active: your book appears in «Boosted today» for 24 hours.",
   "Ticket de impulso": "Boost ticket",
   "Libros nuevos": "New books",
+  "Libros del día": "Books of the day",
+  "Una selección al azar que cambia cada día": "A random pick that changes every day",
   "Solo mis etiquetas": "Only my tags",
   "Mostrar todos": "Show all",
   "Todos los libros nuevos, para descubrir etiquetas nuevas": "All new books, to discover new tags",

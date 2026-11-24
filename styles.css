@@ -5100,3 +5100,12 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 .set-blk{margin:14px 0 4px;font:700 11px var(--sans);letter-spacing:.12em;text-transform:uppercase;color:hsl(var(--muted-foreground))}.set-blk:first-child{margin-top:2px}
 
 .end-swipe{margin-top:14px;align-self:center}
+
+/* Libros del día: salto suave en dominó (sube un poco y vuelve) */
+@keyframes dmJump{0%,100%{transform:translateY(0)}40%{transform:translateY(-9px)}70%{transform:translateY(1px)}}
+.dm-c{flex:none;display:block}
+.dm-c.dm-go{animation:dmJump .7s ease-in-out both;animation-delay:calc(var(--dk,0) * 110ms)}
+@media(hover:hover){.dm-row:hover .dm-c{animation:dmJump .7s ease-in-out both;animation-delay:calc(var(--di,0) * 70ms)}}
+@media(prefers-reduced-motion:reduce){.dm-c,.dm-c.dm-go,.dm-row:hover .dm-c{animation:none!important}}
+.dm-c{scroll-snap-align:start;width:108px}
+.dm-c .mini{flex:none;width:108px}

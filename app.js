@@ -2157,6 +2157,23 @@ function ftInit() {
   if (FT.left) fl.scrollLeft = FT.left;
   let raf = 0; fl.addEventListener('scroll', () => { FT.left = fl.scrollLeft; cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); }, { passive: true }); paint();
 }
+/* --- «Libros del día»: selección al azar que cambia cada día (igual para todos); sus portadas saltan suave en dominó --- */
+function dailyRow(pool) {
+  const day = today(); let h = [...day].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7);
+  const rnd = () => { h = (h + 0x6D2B79F5) >>> 0; let x = h; x = Math.imul(x ^ x >>> 15, x | 1); x ^= x + Math.imul(x ^ x >>> 7, x | 61); return ((x ^ x >>> 14) >>> 0) / 4294967296; };
+  const l = pool.filter(s => s.owner !== S.user).sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; }
+  const pick = l.slice(0, 12); if (pick.length < FEED.row) return '';
+  return `<section class="feed-sec"><div class="feed-head"><div><h3>${t('Libros del día')}</h3><p>${t('Una selección al azar que cambia cada día')}</p></div></div><div class="feed-row dm-row">${pick.map((x, i) => `<div class="dm-c" style="--di:${i}">${storyCard(x)}</div>`).join('')}</div></section>`;
+}
+/* animación dominó: en celular salta lo que entra en pantalla; en PC, al pasar el ratón por la línea (CSS) */
+(function dmInit() {
+  if (!window.IntersectionObserver || !window.matchMedia || matchMedia('(hover:hover)').matches) return;
+  const io = new IntersectionObserver(es => { let k = 0; es.forEach(e => { if (!e.isIntersecting) return; const c = e.target; c.style.setProperty('--dk', k++); c.classList.remove('dm-go'); void c.offsetWidth; c.classList.add('dm-go'); }); }, { threshold: .7 });
+  const scan = () => document.querySelectorAll('.dm-row .dm-c:not([data-dm])').forEach(c => { c.dataset.dm = '1'; c.addEventListener('animationend', () => c.classList.remove('dm-go')); io.observe(c); });
+  const go = () => { const a = document.getElementById('app'); if (!a) return setTimeout(go, 300); let q = 0; new MutationObserver(() => { clearTimeout(q); q = setTimeout(scan, 80); }).observe(a, { childList: true, subtree: true }); scan(); };
+  go();
+})();
 /* ---- Feed: línea «Explorar» con una tarjeta por etiqueta y Auri asomado ---- */
 function exploreRow(pool, tags, taste) {
   const ok = k => tags[k] && tags[k].n >= FEED.group, mine = taste.filter(ok).slice(0, 4);
@@ -2404,8 +2421,7 @@ function feedHTML() {
     const cand = pool.filter(s => s.owner !== S.user && !S.progress[s.id] && !S.lib.includes(s.id) && !S.favs.includes(s.id)).map(s => { const hit = top.filter(k => tagsOf(s).some(x => tagKey(x) === k)); return { s, hit, sc: hit.reduce((a, k) => a + (6 - top.indexOf(k)), 0) + (hit.length > 1 ? 3 : 0) }; }).filter(x => x.hit.length).sort((a, b) => b.sc - a.sc || feedScore(b.s) - feedScore(a.s)).slice(0, 12);
     if (rowOK(cand)) { const lab = [...new Set(cand.slice(0, 4).flatMap(x => x.hit))].slice(0, 2).map(k => '#' + tags[k].label).join(' · '); out.push(feedRow(t('Podría interesarte'), t('Porque lees {tags}', { tags: lab }), cand.map(x => x.s))); cand.forEach(x => used.add(x.s.id)); }
   }
-  { const er = exploreRow(pool, tags, taste); if (er) out.push(er); }
-  { const nr = newRow(pool); if (nr) out.push(nr); }
+  { const dr = dailyRow(pool); if (dr) out.push(dr); }
   const groups = Object.keys(tags).filter(k => tags[k].n >= FEED.group).sort((a, b) => (top.indexOf(b) + 1 || 0) - (top.indexOf(a) + 1 || 0) || tags[b].n - tags[a].n);
   const day = today(), hash = [...day].reduce((a, ch) => a + ch.charCodeAt(0), 0);
   const pickG = groups.length ? groups[hash % groups.length] : '';
@@ -2413,8 +2429,9 @@ function feedHTML() {
   if (rk) { const rl = pool.filter(s => tagsOf(s).some(x => tagKey(x) === rk)); out.push(tagCollage('#' + esc(tags[rk].label), t('Una etiqueta para explorar hoy'), rl.slice().sort((a, b) => feedScore(b) - feedScore(a)), rk) || feedRow('#' + esc(tags[rk].label), t('Una etiqueta para explorar hoy'), rl.slice(0, 12), rk)); }
   const recent = Date.now() - 30 * 864e5, scored = pool.filter(s => feedScore(s) > 0);
   const hot = scored.filter(s => new Date(s.updatedAt || 0).getTime() >= recent).sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12), all = scored.sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 12);
-  if (rowOK(hot)) out.push(feedRow(t('Lo más famoso del momento'), '', hot));
-  if (rowOK(all) && all.map(s => s.id).join() !== hot.map(s => s.id).join()) out.push(feedRow(t('Lo más famoso de Auri'), '', all));
+  { const er = exploreRow(pool, tags, taste); if (er) out.push(er); }     // «Explorar» ocupa el lugar de «Lo más famoso del momento»
+  if (rowOK(all)) out.push(feedRow(t('Lo más famoso de Auri'), '', all));
+  { const nr = newRow(pool); if (nr) out.push(nr); }                       // «Libros nuevos» baja a las últimas líneas
   const cr = continueRow(); if (cr) out.push(cr);
   if (rowOK(chb)) out.splice(Math.min(3, out.length), 0, chatRow(chb));   // los libros de chat van más abajo: cuarta línea (o la última si hay pocas)
   return out.length ? out.join('') + `<div class="section-head feed-all"><div><h2>${t('Todas las historias')}</h2></div></div>` : '';
