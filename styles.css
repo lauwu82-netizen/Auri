@@ -5131,9 +5131,10 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 @media(prefers-reduced-motion:reduce){.shop-mark.mk-in{animation:none}}
 .shop-book{margin-bottom:18px}
 
-/* Menú de abajo: al abrir la app los botones se asoman desde el borde (como las orejitas de Auri) y al final aparece el «+» con un rebote suave */
-@keyframes bnPeek{from{transform:translateY(130%);opacity:0}to{transform:none;opacity:1}}
-@keyframes bnPop{0%{opacity:0;scale:.6}65%{opacity:1;scale:1.08}100%{opacity:1;scale:1}}
-.bn-draw .bn-item{animation:bnPeek .6s cubic-bezier(.22,.8,.3,1) both;animation-delay:var(--d,0s)}
-.bn-draw .bn-plus{animation:bnPop .65s ease-out both;animation-delay:calc(var(--d,0s) + .1s)}
+/* Menú de abajo: al abrir la app aparece primero el «+» y de ahí se abren los demás botones hacia los lados, como un abanico */
+@keyframes bnFan{from{transform:translateX(var(--x,0));opacity:0}to{transform:none;opacity:1}}
+@keyframes bnPop{from{opacity:0;scale:.6}to{opacity:1;scale:1}}
+.bn-draw .bn-item{animation:bnFan .7s cubic-bezier(.22,.8,.3,1) both;animation-delay:var(--d,0s)}
+.bn-draw .bn-item:nth-child(1){--x:150px}.bn-draw .bn-item:nth-child(2){--x:78px}.bn-draw .bn-item:nth-child(4){--x:-78px}.bn-draw .bn-item:nth-child(5){--x:-150px}
+.bn-draw .bn-plus{animation:bnPop .55s ease-out both;animation-delay:var(--d,0s)}
 @media(prefers-reduced-motion:reduce){.bn-draw .bn-item,.bn-draw .bn-plus{animation:none}}
