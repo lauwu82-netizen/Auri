@@ -1,6 +1,6 @@
 -- =====================================================================
 -- AURI · Gasto de IA por capítulo (solo la Owner lo ve)
--- Se puede correr varias veces. Sin comillas simples: se usa $q$ ... $q$.
+-- Se puede correr varias veces. Sin comillas simples: se usa $q$ ... $q$ (y los cuerpos de función se cierran con $fn$).
 -- Qué hace:
 --   · Cada vez que el servidor gasta IA en un capítulo, anota de qué capítulo fue.
 --   · vn_spend_report() devuelve el gasto del mes, por tipo, y el promedio por capítulo.
@@ -13,14 +13,14 @@ create index if not exists vn_usage_chapter on public.vn_usage (chapter_id) wher
 
 drop function if exists public.vn_usage_add(uuid, text, numeric, text);
 create or replace function public.vn_usage_add(p_uid uuid, p_kind text, p_cost numeric, p_detail text default $q$$q$, p_chapter uuid default null) returns void
-language sql security definer set search_path = public as $$
+language sql security definer set search_path = public as $fn$
   insert into public.vn_usage (uid, kind, cost_usd, detail, chapter_id) values (p_uid, p_kind, p_cost, left(coalesce(p_detail, $q$$q$), 200), p_chapter);
-$$;
+$fn$;
 revoke all on function public.vn_usage_add(uuid, text, numeric, text, uuid) from public, anon, authenticated;
 grant execute on function public.vn_usage_add(uuid, text, numeric, text, uuid) to service_role;
 
 create or replace function public.vn_spend_report(p_days int default 30) returns jsonb
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public as $fn$
 declare r jsonb; since timestamptz := now() - make_interval(days => greatest(1, least(coalesce(p_days, 30), 365)));
 begin
   if not exists (select 1 from public.profiles where id = auth.uid() and role = $q$OWNER$q$) then raise exception $q$Solo la Owner$q$; end if;
@@ -39,6 +39,6 @@ begin
         group by u.chapter_id, c.title order by max(u.created_at) desc limit 15) x), $q$[]$q$::jsonb)
   ) into r;
   return r;
-end $$;
+end $fn$;
 revoke all on function public.vn_spend_report(int) from public, anon;
 grant execute on function public.vn_spend_report(int) to authenticated;
