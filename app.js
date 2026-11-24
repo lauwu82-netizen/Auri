@@ -2164,13 +2164,13 @@ function dailyRow(pool) {
   const l = pool.filter(s => s.owner !== S.user).sort((a, b) => String(a.id).localeCompare(String(b.id)));
   for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; }
   const pick = l.slice(0, 12); if (pick.length < FEED.row) return '';
-  return `<section class="feed-sec"><div class="feed-head"><div><h3>${t('Libros del día')}</h3><p>${t('Una selección al azar que cambia cada día')}</p></div></div><div class="feed-row">${pick.map(x => storyCard(x)).join('')}</div></section>`;
+  return `<section class="feed-sec"><div class="feed-head"><div><h3>${t('Libros del día')}</h3><p>${t('Una selección al azar que cambia cada día')}</p></div></div><div class="feed-row dmx-row">${pick.map((x, i) => `<div class="dmx-c dmx-b" style="--di:${i}">${storyCard(x)}</div>`).join('')}</div></section>`;
 }
 /* animación dominó: en «Explorar»: en celular saltan las tarjetas que entran en pantalla; en PC, al pasar el ratón por la línea (CSS) */
 (function dmInit() {
   if (!window.IntersectionObserver || !window.matchMedia || matchMedia('(hover:hover)').matches) return;
   const io = new IntersectionObserver(es => { let k = 0; es.forEach(e => { if (!e.isIntersecting) return; const c = e.target; c.style.setProperty('--dk', k++); c.classList.remove('dmx-go'); void c.offsetWidth; c.classList.add('dmx-go'); }); }, { threshold: .7 });
-  const scan = () => document.querySelectorAll('.dmx-row .dmx-c:not([data-dm])').forEach(c => { c.dataset.dm = '1'; c.addEventListener('animationend', e => { if (e.target.classList.contains('ex-p2') || !c.querySelector('.ex-p2')) c.classList.remove('dmx-go'); }); io.observe(c); });
+  const scan = () => document.querySelectorAll('.dmx-row .dmx-c:not([data-dm])').forEach(c => { c.dataset.dm = '1'; c.addEventListener('animationend', e => { if (e.target === c || e.target.classList.contains('ex-p2')) c.classList.remove('dmx-go'); }); io.observe(c); });
   const go = () => { const a = document.getElementById('app'); if (!a) return setTimeout(go, 300); let q = 0; new MutationObserver(() => { clearTimeout(q); q = setTimeout(scan, 80); }).observe(a, { childList: true, subtree: true }); scan(); };
   go();
 })();
