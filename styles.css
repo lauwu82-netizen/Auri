@@ -5101,11 +5101,9 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 
 .end-swipe{margin-top:14px;align-self:center}
 
-/* Libros del día: salto suave en dominó (sube un poco y vuelve) */
-@keyframes dmJump{0%,100%{transform:translateY(0)}40%{transform:translateY(-9px)}70%{transform:translateY(1px)}}
-.dm-c{flex:none;display:block}
-.dm-c.dm-go{animation:dmJump .7s ease-in-out both;animation-delay:calc(var(--dk,0) * 110ms)}
-@media(hover:hover){.dm-row:hover .dm-c{animation:dmJump .7s ease-in-out both;animation-delay:calc(var(--di,0) * 70ms)}}
-@media(prefers-reduced-motion:reduce){.dm-c,.dm-c.dm-go,.dm-row:hover .dm-c{animation:none!important}}
-.dm-c{scroll-snap-align:start;width:108px}
-.dm-c .mini{flex:none;width:108px}
+/* Explorar: las 3 portadas de cada tarjeta saltan suave en dominó (propiedad translate, no pisa el abanico) */
+@keyframes dmJump{0%,100%{translate:0 0}40%{translate:0 -9px}70%{translate:0 1px}}
+.dmx-c.dmx-go .ex-p{animation:dmJump .7s ease-in-out both;animation-delay:calc(var(--dk,0) * 220ms + var(--pi,0) * 110ms)}
+@media(hover:hover){.dmx-row:hover .dmx-c .ex-p{animation:dmJump .7s ease-in-out both;animation-delay:calc(var(--di,0) * 220ms + var(--pi,0) * 110ms)}}
+.ex-p0{--pi:0}.ex-p1{--pi:1}.ex-p2{--pi:2}
+@media(prefers-reduced-motion:reduce){.dmx-c .ex-p,.dmx-row:hover .dmx-c .ex-p{animation:none!important}}

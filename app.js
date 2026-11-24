@@ -2157,20 +2157,20 @@ function ftInit() {
   if (FT.left) fl.scrollLeft = FT.left;
   let raf = 0; fl.addEventListener('scroll', () => { FT.left = fl.scrollLeft; cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); }, { passive: true }); paint();
 }
-/* --- «Libros del día»: selección al azar que cambia cada día (igual para todos); sus portadas saltan suave en dominó --- */
+/* --- «Libros del día»: selección al azar que cambia cada día (igual para todos);  --- */
 function dailyRow(pool) {
   const day = today(); let h = [...day].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7);
   const rnd = () => { h = (h + 0x6D2B79F5) >>> 0; let x = h; x = Math.imul(x ^ x >>> 15, x | 1); x ^= x + Math.imul(x ^ x >>> 7, x | 61); return ((x ^ x >>> 14) >>> 0) / 4294967296; };
   const l = pool.filter(s => s.owner !== S.user).sort((a, b) => String(a.id).localeCompare(String(b.id)));
   for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; }
   const pick = l.slice(0, 12); if (pick.length < FEED.row) return '';
-  return `<section class="feed-sec"><div class="feed-head"><div><h3>${t('Libros del día')}</h3><p>${t('Una selección al azar que cambia cada día')}</p></div></div><div class="feed-row dm-row">${pick.map((x, i) => `<div class="dm-c" style="--di:${i}">${storyCard(x)}</div>`).join('')}</div></section>`;
+  return `<section class="feed-sec"><div class="feed-head"><div><h3>${t('Libros del día')}</h3><p>${t('Una selección al azar que cambia cada día')}</p></div></div><div class="feed-row">${pick.map(x => storyCard(x)).join('')}</div></section>`;
 }
-/* animación dominó: en celular salta lo que entra en pantalla; en PC, al pasar el ratón por la línea (CSS) */
+/* animación dominó: en «Explorar»: en celular saltan las tarjetas que entran en pantalla; en PC, al pasar el ratón por la línea (CSS) */
 (function dmInit() {
   if (!window.IntersectionObserver || !window.matchMedia || matchMedia('(hover:hover)').matches) return;
-  const io = new IntersectionObserver(es => { let k = 0; es.forEach(e => { if (!e.isIntersecting) return; const c = e.target; c.style.setProperty('--dk', k++); c.classList.remove('dm-go'); void c.offsetWidth; c.classList.add('dm-go'); }); }, { threshold: .7 });
-  const scan = () => document.querySelectorAll('.dm-row .dm-c:not([data-dm])').forEach(c => { c.dataset.dm = '1'; c.addEventListener('animationend', () => c.classList.remove('dm-go')); io.observe(c); });
+  const io = new IntersectionObserver(es => { let k = 0; es.forEach(e => { if (!e.isIntersecting) return; const c = e.target; c.style.setProperty('--dk', k++); c.classList.remove('dmx-go'); void c.offsetWidth; c.classList.add('dmx-go'); }); }, { threshold: .7 });
+  const scan = () => document.querySelectorAll('.dmx-row .dmx-c:not([data-dm])').forEach(c => { c.dataset.dm = '1'; c.addEventListener('animationend', e => { if (e.target.classList.contains('ex-p2') || !c.querySelector('.ex-p2')) c.classList.remove('dmx-go'); }); io.observe(c); });
   const go = () => { const a = document.getElementById('app'); if (!a) return setTimeout(go, 300); let q = 0; new MutationObserver(() => { clearTimeout(q); q = setTimeout(scan, 80); }).observe(a, { childList: true, subtree: true }); scan(); };
   go();
 })();
@@ -2180,8 +2180,8 @@ function exploreRow(pool, tags, taste) {
   const more = Object.keys(tags).filter(k => ok(k) && !mine.includes(k)).sort((a, b) => tags[b].n - tags[a].n);
   const ks = [...mine, ...more].slice(0, 8); if (ks.length < 2) return '';
   const card = k => { const l = pool.filter(s => tagsOf(s).some(x => tagKey(x) === k)).sort((a, b) => feedScore(b) - feedScore(a)).slice(0, 3), lab = tags[k].label, tl = t('Explorar {tag}', { tag: lab });
-    return `<a class="ex-card" href="#/explore/${encodeURIComponent(k)}" aria-label="${esc(tl)}"><b class="ex-t">${esc(t('Explorar'))}<span>${esc(lab)}</span></b><span class="ex-fan" aria-hidden="true">${l.map((s, i) => `<span class="ex-p ex-p${i}">${coverHTML(s, i)}</span>`).join('')}</span><span class="ex-auri" aria-hidden="true">${mascot()}</span></a>`; };
-  return `<section class="feed-sec"><div class="feed-head"><div><h3>${t('Explorar')}</h3></div><a class="feed-more" href="#/finder">${t('Búsqueda personalizada')}</a></div><div class="feed-row ex-row">${ks.map(card).join('')}</div></section>`;
+    return `<a class="ex-card dmx-c" style="--di:${ks.indexOf(k)}" href="#/explore/${encodeURIComponent(k)}" aria-label="${esc(tl)}"><b class="ex-t">${esc(t('Explorar'))}<span>${esc(lab)}</span></b><span class="ex-fan" aria-hidden="true">${l.map((s, i) => `<span class="ex-p ex-p${i}">${coverHTML(s, i)}</span>`).join('')}</span><span class="ex-auri" aria-hidden="true">${mascot()}</span></a>`; };
+  return `<section class="feed-sec"><div class="feed-head"><div><h3>${t('Explorar')}</h3></div><a class="feed-more" href="#/finder">${t('Búsqueda personalizada')}</a></div><div class="feed-row ex-row dmx-row">${ks.map(card).join('')}</div></section>`;
 }
 /* ---- Tablero de libros (dos columnas, alturas distintas) ---- */
 const MP_H = [1.3, 1.62, 1.42, 1.78, 1.5, 1.36];
