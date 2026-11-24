@@ -5597,6 +5597,29 @@ function readersOf(sid, owner) {
     out.push({ e, r, lib: LS.get('auri.u.' + e + '.lib', []).includes(sid), fav: LS.get('auri.u.' + e + '.favs', []).includes(sid) }); }
   return out;
 }
+/* --- Gasto de IA (solo la Owner): total del mes, por tipo y promedio por capítulo --- */
+const AISP = { d: null, at: 0 };
+async function aiSpendLoad() {
+  if (!isOwner() || Date.now() - AISP.at < 15000) return; AISP.at = Date.now();
+  const r = await sbApi('/rest/v1/rpc/vn_spend_report', { method: 'POST', body: { p_days: 30 } });
+  AISP.d = r.ok && r.data && typeof r.data === 'object' ? r.data : { err: true };
+  if (location.hash === '#/aispend') { KEEP = true; render(); }
+}
+function aiSpendView() {
+  const back = '<a class="button ghost sm" href="#/profile/edit" data-dir="prev">' + t('‹ Volver') + '</a>', d = AISP.d, usd = n => '$' + (Number(n) || 0).toFixed(3);
+  if (!isOwner()) return `<main class="page">${back}${empty('Solo para la Owner', 'Esta pantalla no está disponible.')}</main>`;
+  if (!d) return `<main class="page">${back}<h1>${t('Gasto de IA')}</h1><p class="helper">${t('Cargando…')}</p></main>`;
+  if (d.err) return `<main class="page">${back}<h1>${t('Gasto de IA')}</h1><p class="helper">${t('No se pudo cargar. ¿Ya corriste el SQL 90?')}</p></main>`;
+  const n = Number(d.chapters) || 0, avg = n ? d.chapters_cost / n : 0, kinds = { analysis: 'Análisis del capítulo', background: 'Fondos', cg: 'CG y sprites', retry: 'Intentos fallidos', other: 'Otros' };
+  const bk = Object.entries(d.by_kind || {}).map(([k, v]) => `<div class="ep-row" style="cursor:default"><span><b>${t(kinds[k] || k)}</b></span><i style="font-style:normal">${usd(v)}</i></div>`).join('') || `<p class="helper">${t('Aún no hay gasto registrado.')}</p>`;
+  const rc = (d.recent || []).map(x => `<div class="ep-row" style="cursor:default"><span><b>${esc(x.title || '')}</b><small>${t('{n} llamadas', { n: x.calls })} · ${esc(fmtDate(x.last))}</small></span><i style="font-style:normal">${usd(x.cost)}</i></div>`).join('');
+  return `<main class="page">${back}<h1>${t('Gasto de IA')}</h1>
+  <p class="helper">${t('Son costos estimados. Compáralos con tu factura real de Replicate para saber si hay que ajustarlos.')}</p>
+  <div class="panel" style="margin-top:12px"><b>${t('Este mes')}</b><div style="font:700 28px var(--serif)">${usd(d.month)}</div><small class="helper">${t('Tope del mes')}: ${usd(d.cap)}</small></div>
+  <div class="panel" style="margin-top:12px"><b>${t('Por capítulo (últimos {d} días)', { d: d.days })}</b>${n ? `<div style="font:700 28px var(--serif)">${usd(avg)}</div><small class="helper">${t('Promedio de {n} capítulos. Con 5 AuriGems por capítulo, cada gema te cuesta {g}. Para ganar, véndela por al menos {m}.', { n, g: usd(avg / 5), m: usd(avg / 5 * 3) })}</small>` : `<p class="helper">${t('Todavía no hay capítulos medidos: se empiezan a contar desde que se actualizó el servidor.')}</p>`}</div>
+  <h3 class="ep-h"><span>${t('Por tipo (últimos {d} días)', { d: d.days })}</span></h3>${bk}
+  ${rc ? `<h3 class="ep-h"><span>${t('Últimos capítulos')}</span></h3>${rc}` : ''}</main>`;
+}
 function statsView() {
   const back = '<a class="button ghost sm" href="#/profile" data-dir="prev">' + t('‹ Mi perfil') + '</a>';
   const books = S.stories.map(s => ({ s, ps: publicPrefix(s.chapters) })).filter(x => x.ps.length).map(({ s, ps }) => {
@@ -5741,7 +5764,7 @@ function editProfileView() {
     ${isOwner() || u.petF || ['cupida', 'cupido', 'diablillo', 'pinguino'].some(k => hasItem(S.user, 'pet:' + k)) ? `<button type="button" class="ep-row" data-act="pets"><span><b>${t('Mascota 8-bit')}</b><small>${PETS[u.pet] ? t(PETS[u.pet][0]) : t('Ninguna')}</small></span><i aria-hidden="true">›</i></button>` : ''}
     <h3 class="ep-h">${EPI.shield}<span>${t('Privacidad')}</span></h3>
     <div class="ep-card ep-sw">${sw('showOnline', cfg('showOnline') !== false, 'Mostrar conexión', 'Un punto verde junto a tu nombre cuando estás conectada o conectado.')}${sw('hideLists', !!u.hideLists, 'Ocultar mis listas', 'Nadie más ve quién te sigue ni a quién sigues. Los números siguen visibles.')}${sw('showReading', !!u.showReading, 'Mostrar lo que leo', 'En tu perfil aparece el libro que estás leyendo ahora (solo libros públicos y no +18). Está apagado por defecto.')}</div>
-${isOwner() ? `<h3 class="ep-h">${EPI.spark}<span>${t('Pruebas de Auri')}</span></h3><button type="button" class="ep-row" data-act="isle-test" data-id="sleep"><span><b>${t('Reproducir: Auri dormido')}</b><small>${t('Solo para ti. No espera los 3 días.')}</small></span><i aria-hidden="true">›</i></button><button type="button" class="ep-row" data-act="isle-test" data-id="dizzy"><span><b>${t('Reproducir: Auri mareado')}</b><small>${t('Ojos de espiral.')}</small></span><i aria-hidden="true">›</i></button>` : ''}
+${isOwner() ? `<h3 class="ep-h">${EPI.spark}<span>${t('Pruebas de Auri')}</span></h3><button type="button" class="ep-row" data-act="isle-test" data-id="sleep"><span><b>${t('Reproducir: Auri dormido')}</b><small>${t('Solo para ti. No espera los 3 días.')}</small></span><i aria-hidden="true">›</i></button><button type="button" class="ep-row" data-act="isle-test" data-id="dizzy"><span><b>${t('Reproducir: Auri mareado')}</b><small>${t('Ojos de espiral.')}</small></span><i aria-hidden="true">›</i></button><a class="ep-row" href="#/aispend" data-dir="next"><span><b>${t('Gasto de IA')}</b><small>${t('Cuánto cuesta la novela visual por capítulo.')}</small></span><i aria-hidden="true">›</i></a>` : ''}
     <div class="ep-actions"><button type="submit" class="button ep-save-b">${t('Guardar')}</button><a class="button secondary" href="#/profile" data-dir="prev">${t('Cancelar')}</a></div>
   </form></main>`;
 }
@@ -6559,6 +6582,7 @@ function render() {
   else if (a === 'images') app.innerHTML = shell('', imagesMineView());
   else if (a === 'gift') app.innerHTML = shell('', giftView());
   else if (a === 'stats') app.innerHTML = shell('', statsView());
+  else if (a === 'aispend') { app.innerHTML = shell('', aiSpendView()); aiSpendLoad(); }
   else if (a === 'messages') app.innerHTML = b ? dmView(b) : shell('', dmView(''));
   else if (a === 'shop') app.innerHTML = shell('/shop', shopView(b));
   else if (a === 'news') app.innerHTML = shell('/news', newsView(b));

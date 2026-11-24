@@ -297,7 +297,7 @@ async function run(req: Request, env: Env): Promise<Response> {
   const num = (k: string, d: number) => Number(env[k]) > 0 ? Number(env[k]) : d;
 
   async function budget() { const b = await rpc('vn_budget_ok', { p_uid: user.id }); return b && b.ok ? null : json({ error: 'budget', reason: b ? b.reason : 'unknown' }, 429); }
-  async function spend(kind: string, usd: number, detail: string) { await rpc('vn_usage_add', { p_uid: user.id, p_kind: kind, p_cost: usd, p_detail: detail }); }
+  async function spend(kind: string, usd: number, detail: string) { await rpc('vn_usage_add', { p_uid: user.id, p_kind: kind, p_cost: usd, p_detail: detail, p_chapter: cid }); }
 
   const cachedAssets = async (): Promise<Record<string, string>> => {
     const r = await fetch(`${URL_}/rest/v1/vn_assets?chapter_id=eq.${cid}&hash=eq.${hash}&select=key,url`, { headers: H }), o: Record<string, string> = {};
