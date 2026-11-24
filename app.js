@@ -7248,7 +7248,7 @@ function shopView(tab) {
   const el = Date.now() - SHP.t, go = el < 1300;                 // si se redibuja durante la animación, continúa donde iba
   const trk = tab === 'tienda' ? '' : `<div class="shop-book" role="group" aria-label="${esc(t('Pista'))}"><button type="button" class="${MS.track === 'reader' ? 'on' : ''}" data-act="ms-track" data-id="reader" aria-pressed="${MS.track === 'reader'}">${shIcon('reader').replace(/22/g, '18')}${t('Lector')}</button><i aria-hidden="true"></i><button type="button" class="${MS.track === 'writer' ? 'on' : ''}" data-act="ms-track" data-id="writer" aria-pressed="${MS.track === 'writer'}">${shIcon('writer').replace(/22/g, '18')}${t('Escritor')}</button></div>`;
   return `<main class="page shop"><div class="shop-marks" role="navigation" aria-label="${esc(t('Tienda'))}">${tabs.map(([k, n], i) => `<a class="shop-mark ${tab === k ? 'on' : ''}${go ? ' mk-in' : ''}" ${tab === k ? 'aria-current="page"' : ''} href="#/shop/${k}" ${go ? `style="animation-delay:${i * 130 - el}ms"` : ''}>${shIcon(k)}<span>${t(n)}</span></a>`).join('')}</div>
-  <div class="section-head shop-head"><div><h1>${t('Tienda')}</h1><p>${t('Solo la ves tú por ahora.')}</p></div><a class="button ghost sm" href="#/news" data-dir="next">${t('Noticias')}</a></div>${trk}
+  <div class="section-head shop-head"><div><h1>${t(tabs.find(x => x[0] === tab)[1])}</h1><p>${t('Solo la ves tú por ahora.')}</p></div><a class="button ghost sm" href="#/news" data-dir="next">${t('Noticias')}</a></div>${trk}
   ${tab === 'tienda' ? shopTab() : tab === 'pases' ? passTab() : missionsTab()}</main>`;
 }
 function shopTab() {

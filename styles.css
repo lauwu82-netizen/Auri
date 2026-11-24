@@ -5129,3 +5129,4 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 .shop-book button.on{background:linear-gradient(90deg,hsl(var(--accent)),hsl(var(--accent)/.7));color:hsl(var(--accent-foreground));font-weight:600}
 .shop-book i{width:3px;background:linear-gradient(180deg,hsl(var(--primary)/.6),hsl(var(--border)))}
 @media(prefers-reduced-motion:reduce){.shop-mark.mk-in{animation:none}}
+.shop-book{margin-bottom:18px}
