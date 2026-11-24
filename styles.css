@@ -5113,3 +5113,19 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 .dmx-b.dmx-go{animation:dmJump .7s ease-in-out both;animation-delay:calc(var(--dk,0) * 110ms)}
 @media(hover:hover){.dmx-row:hover .dmx-b{animation:dmJump .7s ease-in-out both;animation-delay:calc(var(--di,0) * 70ms)}}
 @media(prefers-reduced-motion:reduce){.dmx-b,.dmx-b.dmx-go,.dmx-row:hover .dmx-b{animation:none!important}}
+
+/* Tienda: marcapáginas colgando (Tienda · Pases · Misiones) y libro abierto (Lector | Escritor), con los colores del tema */
+.shop-marks{display:flex;gap:10px;margin:-6px 0 4px;min-height:100px;align-items:flex-start}
+.shop-mark{display:flex;flex-direction:column;align-items:center;gap:6px;box-sizing:border-box;width:86px;height:78px;padding-top:12px;font-size:13px;font-weight:500;text-decoration:none;color:hsl(var(--muted-foreground));background:hsl(var(--accent)/.55);clip-path:polygon(0 0,100% 0,100% 100%,50% calc(100% - 14px),0 100%);transition:height .25s ease,color .2s ease}
+.shop-mark svg{flex:none}
+.shop-mark.on{height:98px;padding-top:16px;font-weight:600;color:hsl(var(--background));background:linear-gradient(180deg,hsl(var(--primary)),hsl(var(--primary)/.78))}
+.shop-mark:hover:not(.on){color:hsl(var(--foreground))}
+.shop-mark:focus-visible{outline:2px solid hsl(var(--primary));outline-offset:-2px}
+@keyframes mkIn{from{transform:translateY(-110%);opacity:0}to{transform:none;opacity:1}}
+.shop-mark.mk-in{animation:mkIn .55s cubic-bezier(.22,.8,.3,1) both}
+.shop-head{margin-top:6px}
+.shop-book{display:flex;margin-top:14px;border-radius:16px;overflow:hidden;background:hsl(var(--card));border:1px solid hsl(var(--border))}
+.shop-book button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 0;border:0;background:transparent;color:hsl(var(--muted-foreground));font:500 14px var(--sans,inherit);cursor:pointer}
+.shop-book button.on{background:linear-gradient(90deg,hsl(var(--accent)),hsl(var(--accent)/.7));color:hsl(var(--accent-foreground));font-weight:600}
+.shop-book i{width:3px;background:linear-gradient(180deg,hsl(var(--primary)/.6),hsl(var(--border)))}
+@media(prefers-reduced-motion:reduce){.shop-mark.mk-in{animation:none}}
