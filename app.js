@@ -7765,11 +7765,11 @@ function vnBgEdit(id) {
 async function vnrAsk(el, cu) {
   if (isOwner() || (LS.get(uk('vnpaid'), {}) || {})[cu]) return true;
   try { await walletLoad(); } catch (e) { /* se muestra con lo que haya */ }      // siempre el saldo de ahora (si no, mostraba el de antes de pagar el capítulo anterior)
-  const have = WALLET ? WALLET.cyan : 0, price = PRICES.chapter, ok = have >= price;
+  const cy = WALLET ? WALLET.cyan : 0, pu = WALLET ? WALLET.purple || 0 : 0, have = cy + pu, price = PRICES.chapter, ok = have >= price;
   const paint = () => {                                          // si la pantalla se vuelve a dibujar mientras decide, el aviso se vuelve a poner
     const r = document.querySelector('.vnr'), tx = r && r.querySelector('.vnr-box .vnr-text'); if (!tx || tx.querySelector('[data-vnok],[href="#/rewards"]')) return;
     const hint = r.querySelector('.vnr-hint'), who = r.querySelector('.vnr-who'); if (hint) hint.hidden = true; if (who) who.textContent = '';
-    tx.innerHTML = `${esc(t('Leer este capítulo en novela visual'))}: <b>${qFmt(price)}</b> ${gemI()} · ${esc(t('Tienes'))} <b>${qFmt(have)}</b> ${gemI()}<br>` +
+    tx.innerHTML = `${esc(t('Leer este capítulo en novela visual'))}: <b>${qFmt(price)}</b> ${gemI()} · ${esc(t('Tienes'))} <b>${qFmt(cy)}</b> ${gemI()}${pu > 0 ? ` + <b>${qFmt(pu)}</b> ${gemI('p')}` : ''}<br>${pu > 0 ? `<small>${esc(t('Se gastan primero las moradas.'))}</small><br>` : ''}` +
       (ok ? `<button type="button" class="button sm" data-vnok>${esc(t('Pagar y leer'))}</button> <small>${esc(t('Se paga una sola vez por capítulo.'))}</small>`
           : `<small>${esc(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.'))}</small><br><a class="button sm" href="#/rewards">${esc(t('Ir a Recompensas'))}</a>`);
   };

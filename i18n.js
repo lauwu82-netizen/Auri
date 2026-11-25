@@ -2809,6 +2809,7 @@ window.I18N = { en: {
   "Impulso activo: tu libro aparece en «Impulsados de hoy» durante 24 horas.": "Boost active: your book appears in «Boosted today» for 24 hours.",
   "Ticket de impulso": "Boost ticket",
   "Libros nuevos": "New books",
+  "Se gastan primero las moradas.": "Purple gems are spent first.",
   "Análisis del capítulo": "Chapter analysis",
   "CG y sprites": "CGs and sprites",
   "Intentos fallidos": "Failed attempts",
