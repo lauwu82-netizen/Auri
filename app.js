@@ -7764,7 +7764,7 @@ function vnBgEdit(id) {
 /** Antes de leer: muestra cuántas gemas cuesta el capítulo y espera a que la persona acepte (la Owner y quien ya lo pagó entran directo). */
 async function vnrAsk(el, cu) {
   if (isOwner() || (LS.get(uk('vnpaid'), {}) || {})[cu]) return true;
-  if (!WALLET) { try { await walletLoad(); } catch (e) { /* se muestra con lo que haya */ } }
+  try { await walletLoad(); } catch (e) { /* se muestra con lo que haya */ }      // siempre el saldo de ahora (si no, mostraba el de antes de pagar el capítulo anterior)
   const have = WALLET ? WALLET.cyan : 0, price = PRICES.chapter, ok = have >= price;
   const paint = () => {                                          // si la pantalla se vuelve a dibujar mientras decide, el aviso se vuelve a poner
     const r = document.querySelector('.vnr'), tx = r && r.querySelector('.vnr-box .vnr-text'); if (!tx || tx.querySelector('[data-vnok],[href="#/rewards"]')) return;
@@ -7784,6 +7784,7 @@ async function vnrAsk(el, cu) {
 async function vnrServer(cu, local, ocName, useOc, ch) {
   let r = null; try { r = await sbApi('/functions/v1/vn-generate', { method: 'POST', body: { action: 'script', chapter_id: cu } }); } catch (e) { r = null; }
   if (r && r.status === 402) return { pay: true };
+  if (r && r.ok && !isOwner()) { try { walletLoad(); } catch (e) { /* ignorar */ } }        // ya se cobró: actualiza el saldo que se ve
   const d = r && r.ok && r.data || {}; VN_VAR = Math.max(0, Math.floor(Number(d.variant) || 0)); if (!Array.isArray(d.script) || !d.script.length) return {};
   const nm = n => n === 'TN' ? (useOc ? ocName : '') : n || '';
   let place = '';
