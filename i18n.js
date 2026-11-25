@@ -2809,6 +2809,7 @@ window.I18N = { en: {
   "Impulso activo: tu libro aparece en «Impulsados de hoy» durante 24 horas.": "Boost active: your book appears in «Boosted today» for 24 hours.",
   "Ticket de impulso": "Boost ticket",
   "Libros nuevos": "New books",
+  "<b>Gasto de IA y lecturas pagadas.</b> Para controlar los costos de la novela visual y de Auri, la persona que administra la plataforma (Owner) puede ver cuántos capítulos pagó cada cuenta, cuántas gemas gastó y cuánto costó la IA usada por esa cuenta. No ve el contenido de tus conversaciones con Auri ni tus notas, solo esos totales de uso.": "<b>AI spending and paid reads.</b> To control the costs of the visual novel and of Auri, the person who runs the platform (Owner) can see how many chapters each account paid for, how many gems it spent and how much the AI used by that account cost. They cannot see the content of your conversations with Auri or your notes, only those usage totals.",
   "{n} capítulos pagados": "{n} chapters paid",
   "gemas": "gems",
   "gemas gastadas": "gems spent",
