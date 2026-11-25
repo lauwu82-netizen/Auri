@@ -2830,7 +2830,7 @@ window.I18N = { en: {
   "Este mes": "This month",
   "Tope del mes": "Monthly cap",
   "Por capítulo (últimos {d} días)": "Per chapter (last {d} days)",
-  "Promedio de {n} capítulos. Con 5 AuriGems por capítulo, cada gema te cuesta {g}. Para ganar, véndela por al menos {m}.": "Average of {n} chapters. At 5 AuriGems per chapter, each gem costs you {g}. To profit, sell it for at least {m}.",
+  "Promedio de {n} capítulos. Con {p} AuriGems por capítulo, cada gema te cuesta {g}. Para ganar, véndela por al menos {m}.": "Average of {n} chapters. At {p} AuriGems per chapter, each gem costs you {g}. To profit, sell it for at least {m}.",
   "Todavía no hay capítulos medidos: se empiezan a contar desde que se actualizó el servidor.": "No chapters measured yet: counting starts once the server is updated.",
   "Por tipo (últimos {d} días)": "By type (last {d} days)",
   "Últimos capítulos": "Latest chapters",
