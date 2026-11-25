@@ -5613,12 +5613,18 @@ function aiSpendView() {
   const n = Number(d.chapters) || 0, avg = n ? d.chapters_cost / n : 0, kinds = { analysis: 'Análisis del capítulo', background: 'Fondos', cg: 'CG y sprites', retry: 'Intentos fallidos', other: 'Otros' };
   const bk = Object.entries(d.by_kind || {}).map(([k, v]) => `<div class="ep-row" style="cursor:default"><span><b>${t(kinds[k] || k)}</b></span><i style="font-style:normal">${usd(v)}</i></div>`).join('') || `<p class="helper">${t('Aún no hay gasto registrado.')}</p>`;
   const rc = (d.recent || []).map(x => `<div class="ep-row" style="cursor:default"><span><b>${esc(x.title || '')}</b><small>${t('{n} llamadas', { n: x.calls })} · ${esc(fmtDate(x.last))}</small></span><i style="font-style:normal">${usd(x.cost)}</i></div>`).join('');
+  const us = (d.users || []).map(x => `<div class="ep-row" style="cursor:default"><span><b>${esc(x.name || '?')}${x.username ? ' @' + esc(x.username) : ''}</b><small>${t('{n} capítulos pagados', { n: x.reads })} · ${qFmt(x.gems)} ${t('gemas')}</small></span><i style="font-style:normal">${usd(x.cost)}</i></div>`).join('');
+  const fl = (d.fails || []).map(x => `<div class="ep-row" style="cursor:default"><span><small style="white-space:normal;word-break:break-word">${esc(String(x.detail || '').slice(0, 140))}<br>${esc(fmtDate(x.at))}</small></span></div>`).join('');
   return `<main class="page">${back}<h1>${t('Gasto de IA')}</h1>
   <p class="helper">${t('Son costos estimados. Compáralos con tu factura real de Replicate para saber si hay que ajustarlos.')}</p>
   <div class="panel" style="margin-top:12px"><b>${t('Este mes')}</b><div style="font:700 28px var(--serif)">${usd(d.month)}</div><small class="helper">${t('Tope del mes')}: ${usd(d.cap)}</small></div>
-  <div class="panel" style="margin-top:12px"><b>${t('Por capítulo (últimos {d} días)', { d: d.days })}</b>${n ? `<div style="font:700 28px var(--serif)">${usd(avg)}</div><small class="helper">${t('Promedio de {n} capítulos. Con 5 AuriGems por capítulo, cada gema te cuesta {g}. Para ganar, véndela por al menos {m}.', { n, g: usd(avg / 5), m: usd(avg / 5 * 3) })}</small>` : `<p class="helper">${t('Todavía no hay capítulos medidos: se empiezan a contar desde que se actualizó el servidor.')}</p>`}</div>
+  <div class="panel" style="margin-top:12px"><b>${t('Por capítulo (últimos {d} días)', { d: d.days })}</b>${n ? `<div style="font:700 28px var(--serif)">${usd(avg)}</div><small class="helper">${t('Promedio de {n} capítulos. Con 5 AuriGems por capítulo, cada gema te cuesta {g}. Para ganar, véndela por al menos {m}.', { n, g: usd(avg / 5), m: usd(avg / 5 * 3) })}</small>` : `<p class="helper">${t('Todavía no hay capítulos medidos: se empiezan a contar desde que se actualizó el servidor.')}</p>`}
+  <p class="helper" style="margin-top:8px">${t('Si un capítulo ya estaba preparado, leerlo no cuesta IA: solo la primera persona que lo lee lo genera. Por eso el costo por capítulo cuenta al primer lector.')}</p></div>
+  <div class="panel" style="margin-top:12px"><b>${t('Lecturas pagadas (últimos {d} días)', { d: d.days })}</b><div style="font:700 28px var(--serif)">${Number(d.reads) || 0}</div><small class="helper">${qFmt(d.reads_gems || 0)} ${t('gemas gastadas')}</small></div>
   <h3 class="ep-h"><span>${t('Por tipo (últimos {d} días)', { d: d.days })}</span></h3>${bk}
-  ${rc ? `<h3 class="ep-h"><span>${t('Últimos capítulos')}</span></h3>${rc}` : ''}</main>`;
+  ${us ? `<h3 class="ep-h"><span>${t('Por cuenta')}</span></h3>${us}` : ''}
+  ${rc ? `<h3 class="ep-h"><span>${t('Últimos capítulos')}</span></h3>${rc}` : ''}
+  ${fl ? `<h3 class="ep-h"><span>${t('Últimos intentos fallidos')}</span></h3>${fl}` : ''}</main>`;
 }
 function statsView() {
   const back = '<a class="button ghost sm" href="#/profile" data-dir="prev">' + t('‹ Mi perfil') + '</a>';
