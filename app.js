@@ -363,7 +363,7 @@ const AURI_LOGO = 'https://i.postimg.cc/PxD8ksW5/Photoroom-20261108-192124.png';
 const cosOne = (k, c = '') => COS_IMG[k] ? `<img${c ? ` class="${c}"` : ''} src="${esc(COS_IMG[k])}" alt="" referrerpolicy="no-referrer" decoding="async">` : '';
 const cosImg = k => cosOne(k);   // Top 50: dos versiones (clara y oscura) que cada persona elige, sin importar el tema de la app
 const svgBot = cosImg, svgTop = cosImg;
-const bowsOf = e => roleOf(e) === 'OWNER' ? Object.keys(BOWS) : ((getUsers()[e] || {}).bows || []).filter(k => BOWS[k]);   // lazos que tiene esa persona (la Owner tiene todos)
+const bowsOf = e => roleOf(e) === 'OWNER' ? Object.keys(BOWS) : [...((getUsers()[e] || {}).bows || []), ...(((getUsers()[e] || {}).items || []).filter(k => k.startsWith('bow:')).map(k => k.slice(4)))].filter((k, i, l) => BOWS[k] && l.indexOf(k) === i);   // lazos que tiene esa persona (la Owner tiene todos)
 const topKey = e => {                                    // adorno de arriba que se muestra para esa persona
   const u = getUsers()[e] || {}, c = u.cosTop;
   if (roleOf(e) !== 'OWNER') return typeof c === 'string' && /^bow:/.test(c) && bowsOf(e).includes(c.split(':')[1]) ? c : '';   // un lazo regalado solo se ve si sigue siendo suyo
@@ -404,7 +404,7 @@ function shapeDefs() {                              // recortes SVG compartidos 
 }
 const hasItem = (e, k) => roleOf(e) === 'OWNER' || (Array.isArray((getUsers()[e] || {}).items) && getUsers()[e].items.includes(k));   // objetos de pase ya reclamados (la Owner los tiene todos para probar)
 const shapesOf = e => ['', ...Object.keys(SHAPES).filter(k => k && hasItem(e, 'shape:' + k))];
-const lookOf = e => { const u = getUsers()[e] || {}; return { shape: SHAPES[u.shape] && u.shape && hasItem(e, 'shape:' + u.shape) ? u.shape : '', halo: HALOS[u.halo] ? u.halo : '' }; };   // por ahora solo la Owner las tiene
+const lookOf = e => { const u = getUsers()[e] || {}; return { shape: SHAPES[u.shape] && u.shape && hasItem(e, 'shape:' + u.shape) ? u.shape : '', halo: HALOS[u.halo] && hasItem(e, 'halo:' + u.halo) ? u.halo : '' }; };   // por ahora solo la Owner las tiene
 const stageLook = e => { const l = lookOf(e); return (l.shape ? ` data-shape="${l.shape}"` : '') + (l.halo && HALOS[l.halo] ? ` data-halo="${l.halo}" style="--a:132px;--hc:${HALOS[l.halo][0]}"` : ' style="--a:132px"'); };   // vista previa de adornos: con la forma y el halo de la persona
 const lookAttr = e => { const l = lookOf(e); return (l.shape ? ` data-shape="${l.shape}"` : '') + (l.halo ? ` data-halo="${l.halo}" style="--hc:${HALOS[l.halo][0]}"` : ''); };
 const frWrap = (e, cls, av) => `<span class="fr ${cls}"${lookAttr(e)}>${av}${ornHTML(e)}</span>`;
@@ -5750,7 +5750,7 @@ function editProfileView() {
   const look = canLook ? `${showShapes ? `<h3 class="ep-h">${EPI.spark}<span>${t('Forma de la foto')}</span></h3><p class="ep-help">${owner ? t('Solo tú las tienes por ahora. Elige cómo se ve tu foto de perfil.') : t('Elige la forma de tu foto de perfil.')}</p>
     <div class="ep-shapes" role="group" aria-label="${esc(t('Forma'))}">${shapesOf(S.user).map(x => `<button type="button" class="ep-shape ${(lk.shape || '') === x ? 'on' : ''}" data-act="ep-shape" data-id="${x}" aria-pressed="${(lk.shape || '') === x}" aria-label="${esc(t(SHAPES[x]))}" title="${esc(t(SHAPES[x]))}">${shapeIco(x)}<small>${esc(t(SHAPES[x]))}</small></button>`).join('')}</div>` : ''}
     ${true ? `    <h3 class="ep-h"><i class="ep-dot"></i><span>${t('Borde de color')}</span></h3>
-    <div class="ep-halos" role="group" aria-label="${esc(t('Borde de color'))}">${[['', 'Sin borde'], ...Object.entries(HALOS).map(([x, v]) => [x, v[1]])].map(([x, nm]) => `<button type="button" class="ep-halo ${(lk.halo || '') === x ? 'on' : ''}" data-act="ep-halo" data-id="${x}" aria-pressed="${(lk.halo || '') === x}" aria-label="${esc(t(nm))}" title="${esc(t(nm))}"><i class="${x ? '' : 'none'}" style="${x ? 'background:' + HALOS[x][0] : ''}"></i></button>`).join('')}</div>` : ''}` : '';
+    <div class="ep-halos" role="group" aria-label="${esc(t('Borde de color'))}">${[['', 'Sin borde'], ...Object.entries(HALOS).filter(([x]) => hasItem(S.user, 'halo:' + x)).map(([x, v]) => [x, v[1]])].map(([x, nm]) => `<button type="button" class="ep-halo ${(lk.halo || '') === x ? 'on' : ''}" data-act="ep-halo" data-id="${x}" aria-pressed="${(lk.halo || '') === x}" aria-label="${esc(t(nm))}" title="${esc(t(nm))}"><i class="${x ? '' : 'none'}" style="${x ? 'background:' + HALOS[x][0] : ''}"></i></button>`).join('')}</div>` : ''}` : '';
   return `<main class="page story-layout ep-page ep2"><div class="ep-top"><a class="icon-btn" href="#/profile" data-dir="prev" aria-label="${esc(t('Volver'))}">‹</a><h2>${t('Editar perfil')}</h2><button type="submit" form="ep-form" class="button sm ep-save">${t('Guardar')}</button></div>
   ${imgOpen().length ? `<a class="img-alert" href="#/images" data-dir="next"><b>${t('Una de tus imágenes fue ocultada')}</b><span>${t('Ver qué pasó y pedir revisión')}</span><i aria-hidden="true">›</i></a>` : ''}
   <section class="ep-media"><div class="ep-banner" ${has ? `style="background-image:url('${esc(u.banner)}')"` : ''}>${has ? '' : `<span class="ep-leaf l">${EPI.leaves}</span><span class="ep-leaf r">${EPI.leaves}</span>`}<div class="ep-bn-chips">${has ? `<button type="button" class="ep-chip" data-act="bn-adjust">${t('Ajustar portada')}</button><button type="button" class="ep-chip" data-act="bn-clear">${t('Quitar portada')}</button>` : ''}</div><label class="ep-cam" style="cursor:pointer" aria-label="${esc(t('Cambiar portada'))}">${EPI.cam}<input id="bn-file" type="file" accept="image/*" hidden></label></div>
@@ -6553,7 +6553,7 @@ function render() {
   if (nav && from && from.startsWith('/moderation/book/') && !(a === 'moderation' && b === 'book' && c === from.split('/')[3])) releaseClaim(decodeURIComponent(from.split('/')[3] || ''));
   if (nav && a === 'moderation' && b === 'book' && c) claimBook(decodeURIComponent(c));
   if (a === 'moderation' && b === 'bugs' && isOwner()) { BUG_LAST = Date.now(); sbBugs().then(ch => ch && softRender()); }
-  if (nav) { if (a === 'shop' && !String(from).startsWith('/shop')) SHP.t = Date.now(); if (a === 'shop' && b === 'comprar' && from && !String(from).startsWith('/shop')) SHOP_BACK = from; PFEDIT = false; EPD = null; SHOWC = !!HLC; LASTP = path; NAVDIR = ''; NOTIF_OPEN = false; SETDEEP = a === 'settings' && !!b && from === '/settings'; }
+  if (nav) { if (a === 'shop' && !String(from).startsWith('/shop')) SHP.t = Date.now(); if (a === 'shop' && b === 'comprar' && from && (!String(from).startsWith('/shop') || String(from).startsWith('/shop/cosmeticos'))) SHOP_BACK = from; PFEDIT = false; EPD = null; SHOWC = !!HLC; LASTP = path; NAVDIR = ''; NOTIF_OPEN = false; SETDEEP = a === 'settings' && !!b && from === '/settings'; }
   if (!S.user && a === 'story' && b) LS.set('auri.next', { p: path, t: Date.now() });                // quien llega por un enlace sin cuenta: se recuerda a qué libro iba, para llevarlo ahí al entrar
   if (!S.user && !['login', 'register', 'signup', 'welcome', 'start'].includes(a)) return go(LS.get('auri.intro', false) ? '/start' : '/welcome');
   if (S.user && !a) { const nx = LS.get('auri.next', null); if (nx) { LS.set('auri.next', null); if (nx.p && Date.now() - nx.t < 864e5 && /^\/story\/[^/?]+$/.test(nx.p)) return go(nx.p); } }
@@ -6977,7 +6977,7 @@ document.addEventListener('click', e => {
     'pf-list': () => openUserList(id, el.dataset.kind), 'pf-works': () => { const w = document.getElementById('pf-works'); if (w && w.scrollIntoView) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
     'frames': () => openFrames(), 'pets': () => openPets(), 'seal': () => openSeal(), 'titles': () => openTitles(), 'nfont': () => openNameFont(), 'look': () => openLook(),
     'ep-shape': () => { if (id && !hasItem(S.user, 'shape:' + id)) return; const us = getUsers(); us[S.user].shape = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
-    'ep-halo': () => { const us = getUsers(); us[S.user].halo = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
+    'ep-halo': () => { if (id && !hasItem(S.user, 'halo:' + id)) return; const us = getUsers(); us[S.user].halo = id; G.set('users', us); sbPushLook(); KEEP = true; render(); },
     'avoid-add': () => avoidAdd(), 'avoid-del': () => { setCfg('avoidTags', avoidList().filter(x => x !== tagKey(id))); KEEP = true; render(); }, 'theme-colors': () => openThemes(), 'mod-order': () => { setCfg('modShuffle', cfg('modShuffle') === false); KEEP = true; render(); }, 'strike-info': () => openStrikeInfo(), 'ai-info': () => openAiInfo(id, el.dataset.cid), 'pf-edit': () => { PFEDIT = !PFEDIT; KEEP = true; render(); },
     'fmt': () => applyFmt(id),
     'align': () => applyAlign(id),
@@ -7025,6 +7025,7 @@ document.addEventListener('click', e => {
     'img-ok': () => imgDecide(decodeURIComponent(id), true),
     'img-no': () => imgDecide(decodeURIComponent(id), false),
     'bio-more': () => { el.closest('.pf-bio-box').classList.toggle('open'); bioFit(); },
+    'shop-item': () => shopSheet(id),
     'shop-buy': () => toast(t('Los pagos todavía no están activos. Pronto podrás comprar aquí.')),
     'ms-track': () => { MS.track = id === 'writer' ? 'writer' : 'reader'; KEEP = true; render(); },
     'amb-lock': () => toast('Este ambiente estará disponible pronto con el pase.'),
@@ -7278,6 +7279,7 @@ const shIcon = k => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"
 function shopView(tab, sub) {
   if (!passOn()) return `<main class="page">${empty('Aquí pronto habrá algo nuevo', 'La tienda y los pases todavía no están abiertos.')}</main>`;
   if (tab === 'comprar') return buyView(sub);
+  if (tab === 'cosmeticos') return catView(sub);
   tab = ['tienda', 'pases', 'misiones'].includes(tab) ? tab : 'misiones'; msAll();
   const tabs = [['tienda', 'Tienda'], ['pases', 'Pases'], ['misiones', 'Misiones']];
   const el = Date.now() - SHP.t, go = el < 1300;                 // si se redibuja durante la animación, continúa donde iba
@@ -7310,14 +7312,14 @@ const SH_IC = {
   sep: '<path d="M7 3h10v18l-5-4-5 4V3z"/>', pet: '<path d="M5 9l2-5 4 3h2l4-3 2 5v6a6 6 0 01-6 5h-2a6 6 0 01-6-5V9z"/>', vip: '<path d="M3 8l4 4 5-7 5 7 4-4-2 11H5L3 8z"/>', tag: '<path d="M3 12V4h8l10 10-8 8L3 12z"/><circle cx="7.5" cy="8.5" r="1.2"/>' };
 const shSvg = k => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SH_IC[k]}</svg>`;
 function shopTab() {
-  shopWallet(); const b = shopBal();
+  shopWallet(); shopDb(); const b = shopBal(), offers = shopOffers(), all = shopCatalog();
   const bal = (kind, ico, lab, val) => `<a class="sh-bal" href="#/shop/comprar/${kind}" aria-label="${esc(t('Comprar') + ' ' + lab)}"><span class="sh-bi">${ico}</span><span class="sh-bt"><small>${esc(lab)}</small><b>${val}</b></span><span class="sh-plus" aria-hidden="true">${SH_IC.plus}</span></a>`;
   const tile = (ic, n) => `<div class="sh-tile"><span class="sh-ti">${shSvg(ic)}</span><span class="sh-tx"><b>${t(n)}</b><small>${t('Próximamente')}</small></span></div>`;
   return `<div class="sh-bals">${bal('gemas', gemI(), 'AuriGems', qFmt(b.gems))}${bal('monedas', '<i class="coin sm" aria-hidden="true"></i>', 'AuriCoins', fmtN(b.coins))}</div>
   <div class="section-head sh-sec"><div><h2>${t('Ofertas')}</h2></div></div>
-  <div class="panel sh-empty"><span class="sh-ti">${shSvg('tag')}</span><span>${t('Aún no hay ofertas esta semana.')}</span></div>
+  ${offers.length ? `<div class="sh-cgrid">${offers.map(shCard).join('')}</div>` : `<div class="panel sh-empty"><span class="sh-ti">${shSvg('tag')}</span><span>${t('Aún no hay ofertas esta semana.')}</span></div>`}
   <div class="section-head sh-sec"><div><h2>${t('Cosméticos')}</h2></div></div>
-  <div class="sh-tiles">${tile('frame', 'Marcos')}${tile('bg', 'Fondos')}${tile('sep', 'Separadores')}${tile('pet', 'Mascotas')}</div>
+  <div class="sh-tiles">${SHOP_CATS.map(([k, n, ic]) => `<a class="sh-tile" href="#/shop/cosmeticos/${k}"><span class="sh-ti">${shSvg(ic)}</span><span class="sh-tx"><b>${t(n)}</b><small>${t('{n} cosméticos', { n: all.filter(x => x.cat === k).length })}</small></span></a>`).join('')}</div>
   <div class="sh-vip">${tile('vip', 'VIP mensual')}</div>`;
 }
 function buyView(kind) {
@@ -7338,6 +7340,77 @@ function buyView(kind) {
   ${SHOP_CAP > 0 ? `<div class="panel buy-cap"><div><span>${t('Compras de este mes')}</span><span>$0 / $${SHOP_CAP}</span></div><span class="ms-bar"><i style="width:0%"></i></span></div>` : ''}
   <div class="pk-grid">${SHOP_PACKS.map(pack).join('')}</div>
   <p class="helper buy-note">${isG ? t('Las gemas compradas son cian y se pueden donar.') : t('Los cosméticos cuestan desde 100 AuriCoins.')}</p></main>`;
+}
+/* ---------- Tienda: cosméticos (precios en AuriCoins; los reales y las ofertas vienen de la tabla shop_items, SQL 92) ---------- */
+const SHOP_CATS = [['coquette', 'Coquette', 'frame'], ['skins', 'Skins de chat', 'bg'], ['lazos', 'Lazos', 'tag'], ['formas', 'Formas de perfil', 'frame'], ['bordes', 'Bordes de color', 'frame'], ['mascotas', 'Mascotas', 'pet']];
+let SHOP_DB = null, SHOP_DBT = 0;                        // tabla de precios y ofertas (null = aún no cargada o sin crear)
+function shopDb() {
+  if (!rwOn() || Date.now() - SHOP_DBT < 30000) return; SHOP_DBT = Date.now();
+  sbApi('/rest/v1/shop_items?select=sku,price,offer_price&active=eq.true').then(r => {
+    if (r.ok && Array.isArray(r.data) && r.data.length) { SHOP_DB = {}; r.data.forEach(x => { SHOP_DB[x.sku] = x; }); if (/^#\/shop/.test(location.hash)) { KEEP = true; render(); } }
+  }).catch(() => { /* se quedan los precios de lista */ });
+}
+function shopCatalog() {                                 // lista de lo que se vende, con precio y oferta
+  const l = [], add = (sku, cat, name, desc, price, grants, prev) => l.push({ sku, cat, name, desc, price, grants, prev });
+  const pk = (n, ks) => add('pack:coquette' + n, 'coquette', t('Coquette · Pack {n}', { n }), ks.map(k => CQ[k][0]).join(', '), 300, ks, ks);
+  pk(1, ['cq:flores', 'cq:mariposas', 'cq:joya']); pk(2, ['cq:corazones', 'cq:vichy', 'cq:perlas']);
+  ['cq:flores', 'cq:mariposas', 'cq:joya', 'cq:corazones', 'cq:vichy', 'cq:perlas'].forEach(k => add(k, 'coquette', CQ[k][0], CQ[k][1] === 'top' ? 'Adorno para arriba de tu foto' : 'Adorno para abajo de tu foto', 120, [k], [k]));
+  ['kawaii', 'retro', 'victoriano', 'futurista', 'antiguo', 'misterio'].forEach(k => add('skin:' + k, 'skins', CS_PACKS[k][0], CS_PACKS[k][1], 300, ['skin:' + k], ['skin:' + k]));
+  Object.keys(BOWS).forEach(k => add('bow:' + k, 'lazos', t('Lazo {c}', { c: t(BOWS[k][3]).toLowerCase() }), 'Moñito para tu foto de perfil', 100, ['bow:' + k], ['bow:' + k]));
+  ['cat', 'heart', 'star', 'flower', 'cloud'].forEach(k => add('shape:' + k, 'formas', SHAPES[k], 'Cambia la forma de tu foto de perfil', 150, ['shape:' + k], ['shape:' + k]));
+  Object.keys(HALOS).forEach(k => add('halo:' + k, 'bordes', t('Borde {c}', { c: t(HALOS[k][1]).toLowerCase() }), 'Un aro de color alrededor de tu foto', 100, ['halo:' + k], ['halo:' + k]));
+  ['gato', 'perro', 'conejo', 'pinguino'].forEach(k => add('pet:' + k, 'mascotas', PETS[k][0], 'Camina por tu portada en 8-bit', 250, ['pet:' + k], ['pet:' + k]));
+  return l.filter(x => !SHOP_DB || SHOP_DB[x.sku]).map(x => { const d = SHOP_DB && SHOP_DB[x.sku]; if (d) { x.price = d.price; x.offer = d.offer_price && d.offer_price < d.price ? d.offer_price : 0; } else x.offer = 0; x.cost = x.offer || x.price; return x; });
+}
+function shOwned(x) {
+  const u = getUsers()[S.user] || {}, it = Array.isArray(u.items) ? u.items : [];
+  return x.grants.every(k => it.includes(k) || (k.startsWith('cq:') && (u.cq || []).includes(k)) || (k.startsWith('skin:') && (u.skins || []).includes(k.slice(5))) || (k.startsWith('bow:') && (u.bows || []).includes(k.slice(4))));
+}
+function shPrev(x) {
+  const k = x.prev[0];
+  if (x.prev.length > 1) return `<span class="sh-pv multi">${x.prev.map(p => cosOne(p)).join('')}</span>`;
+  if (COS_IMG[k]) return `<span class="sh-pv">${cosOne(k)}</span>`;
+  if (k.startsWith('shape:')) return `<span class="sh-pv ico">${shapeIco(k.slice(6))}</span>`;
+  if (k.startsWith('halo:')) return `<span class="sh-pv"><i class="sh-ring" style="border-color:${HALOS[k.slice(5)][0]}"></i></span>`;
+  if (k.startsWith('skin:')) return `<span class="sh-pv ico">${shSvg('bg')}</span>`;
+  return `<span class="sh-pv ico">${shSvg('pet')}</span>`;
+}
+function shPrice(x) {
+  return x.offer ? `<span class="sh-pr"><s>${fmtN(x.price)}</s> <b>${fmtN(x.offer)}</b> <i class="coin sm" aria-hidden="true"></i></span><span class="sh-off">-${Math.round((1 - x.offer / x.price) * 100)}%</span>`
+    : `<span class="sh-pr"><b>${fmtN(x.price)}</b> <i class="coin sm" aria-hidden="true"></i></span>`;
+}
+function shCard(x) {
+  const own = shOwned(x);
+  return `<button type="button" class="sh-cos${own ? ' own' : ''}" data-act="shop-item" data-id="${esc(x.sku)}" aria-label="${esc(x.name)}">${shPrev(x)}<span class="sh-cn">${esc(x.name)}</span>${own ? `<span class="sh-pr">${t('Tuyo')}</span>` : shPrice(x)}</button>`;
+}
+function shopOffers() {                                  // ofertas: máximo 5 (los que no tengas aún)
+  return shopCatalog().filter(x => x.offer && !shOwned(x)).slice(0, 5);
+}
+function catView(cat) {
+  shopWallet(); shopDb();
+  const c = SHOP_CATS.find(x => x[0] === cat) || SHOP_CATS[0], items = shopCatalog().filter(x => x.cat === c[0]), b = shopBal();
+  return `<main class="page shop"><a class="back" href="#/shop/tienda">‹ ${t('Volver')}</a>
+  <div class="section-head shop-head"><div><h1>${t(c[1])}</h1><p>${t('Tienes')} <b>${fmtN(b.coins)}</b> <i class="coin sm" aria-hidden="true"></i></p></div></div>
+  ${items.length ? `<div class="sh-cgrid">${items.map(shCard).join('')}</div>` : `<div class="panel sh-empty"><span>${t('Aún no hay nada aquí.')}</span></div>`}
+  <p class="helper buy-note">${t('Lo que compras es tuyo para siempre.')}</p></main>`;
+}
+function shopSheet(sku) {
+  const x = shopCatalog().find(y => y.sku === sku); if (!x) return;
+  const have = shopBal().coins, miss = x.cost - have, own = shOwned(x), m = document.createElement('div'); m.className = 'modal sheet';
+  m.innerHTML = `<div class="modal-box sh-sheet" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button>
+    ${shPrev(x)}<h2>${esc(x.name)}</h2><p class="helper">${esc(t(x.desc))}</p>
+    ${own ? `<p class="sh-note">${t('Ya lo tienes.')}</p><button type="button" class="button ghost" data-no>${t('Cerrar')}</button>`
+      : miss > 0 ? `<div class="sh-miss"><b>${t('Te faltan {n} AuriCoins', { n: fmtN(miss) })}</b><small>${t('Tienes {h} y esto cuesta {p}.', { h: fmtN(have), p: fmtN(x.cost) })}</small><span class="ms-bar"><i style="width:${Math.min(100, Math.round(have / x.cost * 100))}%"></i></span></div>
+        <a class="button" href="#/shop/comprar/monedas" data-no>${t('Conseguir AuriCoins')}</a><button type="button" class="button ghost" data-no>${t('Ahora no')}</button><p class="helper">${t('Al comprar, vuelves a este cosmético.')}</p>`
+      : `<button type="button" class="button" data-go>${t('Comprar')} · ${fmtN(x.cost)} <i class="coin sm" aria-hidden="true"></i></button><button type="button" class="button ghost" data-no>${t('Ahora no')}</button>`}</div>`;
+  m.addEventListener('click', async ev => {
+    if (ev.target === m || ev.target.closest('[data-no]')) { m.remove(); return; }
+    const g = ev.target.closest('[data-go]'); if (!g) return; g.disabled = true;
+    const r = await sbApi('/rest/v1/rpc/shop_buy', { method: 'POST', body: { p_sku: x.sku } });
+    m.remove(); if (!r.ok) { toast(rpcMsg(r)); return; }
+    toast(t('¡Listo! Ya es tuyo para siempre.')); await passRefresh();
+  });
+  document.body.appendChild(m);
 }
 function msLevel(st) {
   const span = st.next == null ? 1 : st.next - st.floor, got = st.next == null ? 1 : st.xp - st.floor;
