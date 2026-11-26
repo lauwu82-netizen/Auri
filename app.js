@@ -7293,6 +7293,9 @@ const SHOP_CAP = 0;                                      // tope mensual de comp
 const SHOP_PACKS = [                                     // base + extra (gemas y monedas) por cada precio en USD
   { usd: 2, g: 50, gx: 0, c: 100, cx: 0 }, { usd: 5, g: 125, gx: 15, c: 250, cx: 30 }, { usd: 10, g: 250, gx: 40, c: 500, cx: 80 },
   { usd: 25, g: 625, gx: 125, c: 1250, cx: 250 }, { usd: 50, g: 1250, gx: 300, c: 2500, cx: 600 }, { usd: 100, g: 2500, gx: 750, c: 5000, cx: 1500 }];
+const SHOP_ART = {                                       // dibujo de cada paquete (enlaces tal cual, imágenes PNG con fondo transparente)
+  gemas: ['https://i.postimg.cc/vZhssMJs/exec-1b094cc1-f1b2-4045-b261-8f8009bd014b-(1).png', 'https://i.postimg.cc/V6xyRNCW/exec-6dac82aa-d110-4bfc-9b67-14465371ae80.png', 'https://i.postimg.cc/QCQzJJsM/exec-c485e6cd-c242-44bd-b0d1-8eca1597f716.png', 'https://i.postimg.cc/pXkGVTLK/exec-1bf51d32-3e72-4327-be71-9b1e3daada3e.png', 'https://i.postimg.cc/m2djf5mX/exec-7143d43f-d8ef-42fc-b5b9-a6f9b9c4ff5a.png', 'https://i.postimg.cc/L5Q17rmz/exec-3109f2e7-b631-4283-bbf8-1c6b5a50e484.png'],
+  monedas: ['https://i.postimg.cc/v82xQwdB/exec-c5db2fb0-8e80-4cce-8908-a6aa8788538e.png', 'https://i.postimg.cc/FKx182Zr/exec-57d8ae4a-3904-4345-9783-f0c961dcacef.png', 'https://i.postimg.cc/7PRhF1gG/exec-bb9f45c9-a1db-48d9-aa26-c0db2e2a619e.png', 'https://i.postimg.cc/3RcrH7Dp/exec-c2ca9b25-988a-4735-bfb1-82dd77f6f349.png', 'https://i.postimg.cc/TPk5hzDw/exec-c40870cb-8b99-4367-94d1-b77440353146.png', 'https://i.postimg.cc/9FG4yR7t/exec-4e319948-3329-48b1-aaf9-6c184d54e9d7.png'] };
 const SHW = { at: 0 };
 function shopWallet() {                                  // refresca el saldo al entrar (como mucho cada 15 s) y vuelve a dibujar
   if (!rwOn() || Date.now() - SHW.at < 15000) return; SHW.at = Date.now();
@@ -7322,10 +7325,10 @@ function buyView(kind) {
   const isG = kind === 'gemas', b = shopBal(), back = SHOP_BACK ? '#' + SHOP_BACK : '#/shop/tienda';
   const amt = (n, x) => isG ? t('{n} gemas', { n: fmtN(n + x) }) : t('{n} AuriCoins', { n: fmtN(n + x) });
   const pack = (p, i) => {
-    const n = isG ? p.g : p.c, x = isG ? p.gx : p.cx, best = i === SHOP_PACKS.length - 1, u = isG ? 'gem' : 'coin';
+    const n = isG ? p.g : p.c, x = isG ? p.gx : p.cx, best = i === SHOP_PACKS.length - 1;
     return `<div class="pk pk${i + 1}${best ? ' best' : ''}${isG ? '' : ' co'}">${best ? `<span class="pk-st a">${SH_STAR}</span><span class="pk-st b">${SH_STAR}</span><span class="pk-st c">${SH_STAR}</span><span class="pk-st d">${SH_STAR}</span><span class="pk-st e">${SH_STAR}</span>` : ''}
       ${best ? `<span class="pk-bn top">${t('Mejor oferta')}</span>` : x ? `<span class="pk-bn">+${fmtN(x)} ${t('extra')}</span>` : ''}
-      <div class="pk-trio" aria-hidden="true"><i class="${u} pk-s l"></i><i class="${u} pk-s r"></i><i class="${u} pk-c"></i></div>
+      <img class="pk-img" src="${esc(SHOP_ART[kind][i])}" alt="" loading="lazy" decoding="async">
       <div class="pk-am">${esc(isG ? t('{n} gemas', { n: fmtN(n) }) : t('{n} AuriCoins', { n: fmtN(n) }))}</div>${best && x ? `<div class="pk-am pk-ex">+${fmtN(x)} ${t('extra')}</div>` : ''}
       <button type="button" class="pk-btn" data-act="shop-buy" data-id="${kind}:${p.usd}" aria-label="${esc(t('Comprar {n} por {p} dólares', { n: amt(n, x), p: p.usd }))}">$${p.usd}</button></div>`;
   };
