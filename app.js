@@ -6553,7 +6553,7 @@ function render() {
   if (nav && from && from.startsWith('/moderation/book/') && !(a === 'moderation' && b === 'book' && c === from.split('/')[3])) releaseClaim(decodeURIComponent(from.split('/')[3] || ''));
   if (nav && a === 'moderation' && b === 'book' && c) claimBook(decodeURIComponent(c));
   if (a === 'moderation' && b === 'bugs' && isOwner()) { BUG_LAST = Date.now(); sbBugs().then(ch => ch && softRender()); }
-  if (nav) { if (a === 'shop' && !String(from).startsWith('/shop')) SHP.t = Date.now(); PFEDIT = false; EPD = null; SHOWC = !!HLC; LASTP = path; NAVDIR = ''; NOTIF_OPEN = false; SETDEEP = a === 'settings' && !!b && from === '/settings'; }
+  if (nav) { if (a === 'shop' && !String(from).startsWith('/shop')) SHP.t = Date.now(); if (a === 'shop' && b === 'comprar' && from && !String(from).startsWith('/shop')) SHOP_BACK = from; PFEDIT = false; EPD = null; SHOWC = !!HLC; LASTP = path; NAVDIR = ''; NOTIF_OPEN = false; SETDEEP = a === 'settings' && !!b && from === '/settings'; }
   if (!S.user && a === 'story' && b) LS.set('auri.next', { p: path, t: Date.now() });                // quien llega por un enlace sin cuenta: se recuerda a qué libro iba, para llevarlo ahí al entrar
   if (!S.user && !['login', 'register', 'signup', 'welcome', 'start'].includes(a)) return go(LS.get('auri.intro', false) ? '/start' : '/welcome');
   if (S.user && !a) { const nx = LS.get('auri.next', null); if (nx) { LS.set('auri.next', null); if (nx.p && Date.now() - nx.t < 864e5 && /^\/story\/[^/?]+$/.test(nx.p)) return go(nx.p); } }
@@ -6591,7 +6591,7 @@ function render() {
   else if (a === 'stats') app.innerHTML = shell('', statsView());
   else if (a === 'aispend') { app.innerHTML = shell('', aiSpendView()); aiSpendLoad(); }
   else if (a === 'messages') app.innerHTML = b ? dmView(b) : shell('', dmView(''));
-  else if (a === 'shop') app.innerHTML = shell('/shop', shopView(b));
+  else if (a === 'shop') app.innerHTML = shell('/shop', shopView(b, c));
   else if (a === 'news') app.innerHTML = shell('/news', newsView(b));
   else if (a === 'settings') app.innerHTML = shell('', settingsView(b));
   else if (a === 'notifications') app.innerHTML = shell('', notifView());
@@ -7025,6 +7025,7 @@ document.addEventListener('click', e => {
     'img-ok': () => imgDecide(decodeURIComponent(id), true),
     'img-no': () => imgDecide(decodeURIComponent(id), false),
     'bio-more': () => { el.closest('.pf-bio-box').classList.toggle('open'); bioFit(); },
+    'shop-buy': () => toast(t('Los pagos todavía no están activos. Pronto podrás comprar aquí.')),
     'ms-track': () => { MS.track = id === 'writer' ? 'writer' : 'reader'; KEEP = true; render(); },
     'amb-lock': () => toast('Este ambiente estará disponible pronto con el pase.'),
     'sep-lock': () => toast('Este diseño estará disponible pronto en la tienda.'),
@@ -7274,8 +7275,9 @@ const PASS_PAID = {
 const SHP = { t: 0 };                                   // cuándo se entró a la tienda: los marcapáginas se deslizan solo al entrar
 const SHI = { tienda: '<path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8a3 3 0 016 0"/>', pases: '<path d="M4 8a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 000 4v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2a2 2 0 000-4V8z"/><path d="M14 6v12" stroke-dasharray="2 2.5"/>', misiones: '<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>', reader: '<path d="M3 5.5C5 4 8 4 12 6c4-2 7-2 9-.5V19c-2-1.5-5-1.5-9 .5-4-2-7-2-9-.5V5.5z"/><path d="M12 6v13.5"/>', writer: '<path d="M4 20l1-4L16 5a2 2 0 013 3L8 19l-4 1z"/><path d="M14 7l3 3"/>' };
 const shIcon = k => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SHI[k]}</svg>`;
-function shopView(tab) {
+function shopView(tab, sub) {
   if (!passOn()) return `<main class="page">${empty('Aquí pronto habrá algo nuevo', 'La tienda y los pases todavía no están abiertos.')}</main>`;
+  if (tab === 'comprar') return buyView(sub);
   tab = ['tienda', 'pases', 'misiones'].includes(tab) ? tab : 'misiones'; msAll();
   const tabs = [['tienda', 'Tienda'], ['pases', 'Pases'], ['misiones', 'Misiones']];
   const el = Date.now() - SHP.t, go = el < 1300;                 // si se redibuja durante la animación, continúa donde iba
@@ -7284,9 +7286,55 @@ function shopView(tab) {
   <div class="section-head shop-head"><div><h1>${t(tabs.find(x => x[0] === tab)[1])}</h1><p>${t('Solo la ves tú por ahora.')}</p></div><a class="button ghost sm" href="#/news" data-dir="next">${t('Noticias')}</a></div>${trk}
   ${tab === 'tienda' ? shopTab() : tab === 'pases' ? passTab() : missionsTab()}</main>`;
 }
+/* ---------- Tienda: saldo arriba, ofertas, cosméticos y VIP; pantalla de compra de gemas y monedas ----------
+   Los pagos reales todavía no están conectados (PayPal va después): el botón de precio solo avisa. */
+let SHOP_BACK = '';                                      // desde dónde se llegó a comprar (para volver ahí)
+const SHOP_CAP = 0;                                      // tope mensual de compras en USD (0 = aún sin definir: no se muestra la barra)
+const SHOP_PACKS = [                                     // base + extra (gemas y monedas) por cada precio en USD
+  { usd: 2, g: 50, gx: 0, c: 100, cx: 0 }, { usd: 5, g: 125, gx: 15, c: 250, cx: 30 }, { usd: 10, g: 250, gx: 40, c: 500, cx: 80 },
+  { usd: 25, g: 625, gx: 125, c: 1250, cx: 250 }, { usd: 50, g: 1250, gx: 300, c: 2500, cx: 600 }, { usd: 100, g: 2500, gx: 750, c: 5000, cx: 1500 }];
+const SHW = { at: 0 };
+function shopWallet() {                                  // refresca el saldo al entrar (como mucho cada 15 s) y vuelve a dibujar
+  if (!rwOn() || Date.now() - SHW.at < 15000) return; SHW.at = Date.now();
+  walletLoad().then(() => { if (/^#\/shop/.test(location.hash)) { KEEP = true; render(); } }).catch(() => { /* se queda con lo que hay */ });
+}
+const shopBal = () => { const w = WALLET || {}; return { gems: (w.cyan || 0) + (w.purple || 0), coins: w.coins || 0 }; };
+const fmtN = n => Number(n).toLocaleString(uiLang() === 'en' ? 'en-US' : 'es');
+const SH_STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" fill="currentColor"/></svg>';
+const SH_IC = {
+  plus: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  frame: '<rect x="4" y="4" width="16" height="16" rx="3"/><rect x="8" y="8" width="8" height="8" rx="1.5"/>', bg: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/>',
+  sep: '<path d="M7 3h10v18l-5-4-5 4V3z"/>', pet: '<path d="M5 9l2-5 4 3h2l4-3 2 5v6a6 6 0 01-6 5h-2a6 6 0 01-6-5V9z"/>', vip: '<path d="M3 8l4 4 5-7 5 7 4-4-2 11H5L3 8z"/>', tag: '<path d="M3 12V4h8l10 10-8 8L3 12z"/><circle cx="7.5" cy="8.5" r="1.2"/>' };
+const shSvg = k => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SH_IC[k]}</svg>`;
 function shopTab() {
-  const card = (n, d) => `<div class="panel shop-card"><b>${t(n)}</b><p class="helper">${t(d)}</p><span class="tag">${t('Próximamente')}</span></div>`;
-  return `<div class="shop-grid">${card('AuriGems cian', 'Se compran con dinero real y se pueden regalar.')}${card('AuriGems moradas', 'Se consiguen viendo anuncios y no se pueden regalar.')}${card('AuriCoins', 'Para los paquetes de cosméticos de la tienda oficial.')}${card('Pases', 'Pase de lector y pase de escritor de cada temporada.')}</div>`;
+  shopWallet(); const b = shopBal();
+  const bal = (kind, ico, lab, val) => `<a class="sh-bal" href="#/shop/comprar/${kind}" aria-label="${esc(t('Comprar') + ' ' + lab)}"><span class="sh-bi">${ico}</span><span class="sh-bt"><small>${esc(lab)}</small><b>${val}</b></span><span class="sh-plus" aria-hidden="true">${SH_IC.plus}</span></a>`;
+  const tile = (ic, n) => `<div class="sh-tile"><span class="sh-ti">${shSvg(ic)}</span><span class="sh-tx"><b>${t(n)}</b><small>${t('Próximamente')}</small></span></div>`;
+  return `<div class="sh-bals">${bal('gemas', gemI(), 'AuriGems', qFmt(b.gems))}${bal('monedas', '<i class="coin sm" aria-hidden="true"></i>', 'AuriCoins', fmtN(b.coins))}</div>
+  <div class="section-head sh-sec"><div><h2>${t('Ofertas')}</h2></div></div>
+  <div class="panel sh-empty"><span class="sh-ti">${shSvg('tag')}</span><span>${t('Aún no hay ofertas esta semana.')}</span></div>
+  <div class="section-head sh-sec"><div><h2>${t('Cosméticos')}</h2></div></div>
+  <div class="sh-tiles">${tile('frame', 'Marcos')}${tile('bg', 'Fondos')}${tile('sep', 'Separadores')}${tile('pet', 'Mascotas')}</div>
+  <div class="sh-vip">${tile('vip', 'VIP mensual')}</div>`;
+}
+function buyView(kind) {
+  kind = kind === 'monedas' ? 'monedas' : 'gemas'; shopWallet();
+  const isG = kind === 'gemas', b = shopBal(), back = SHOP_BACK ? '#' + SHOP_BACK : '#/shop/tienda';
+  const amt = (n, x) => isG ? t('{n} gemas', { n: fmtN(n + x) }) : t('{n} AuriCoins', { n: fmtN(n + x) });
+  const pack = (p, i) => {
+    const n = isG ? p.g : p.c, x = isG ? p.gx : p.cx, best = i === SHOP_PACKS.length - 1, u = isG ? 'gem' : 'coin';
+    return `<div class="pk pk${i + 1}${best ? ' best' : ''}${isG ? '' : ' co'}">${best ? `<span class="pk-st a">${SH_STAR}</span><span class="pk-st b">${SH_STAR}</span><span class="pk-st c">${SH_STAR}</span><span class="pk-st d">${SH_STAR}</span><span class="pk-st e">${SH_STAR}</span>` : ''}
+      ${best ? `<span class="pk-bn top">${t('Mejor oferta')}</span>` : x ? `<span class="pk-bn">+${fmtN(x)} ${t('extra')}</span>` : ''}
+      <div class="pk-trio" aria-hidden="true"><i class="${u} pk-s l"></i><i class="${u} pk-s r"></i><i class="${u} pk-c"></i></div>
+      <div class="pk-am">${esc(isG ? t('{n} gemas', { n: fmtN(n) }) : t('{n} AuriCoins', { n: fmtN(n) }))}</div>${best && x ? `<div class="pk-am pk-ex">+${fmtN(x)} ${t('extra')}</div>` : ''}
+      <button type="button" class="pk-btn" data-act="shop-buy" data-id="${kind}:${p.usd}" aria-label="${esc(t('Comprar {n} por {p} dólares', { n: amt(n, x), p: p.usd }))}">$${p.usd}</button></div>`;
+  };
+  return `<main class="page shop buy"><a class="back" href="${esc(back)}">‹ ${t('Volver')}</a>
+  <div class="section-head shop-head"><div><h1>${t('Comprar')}</h1><p>${t('Tienes')} <b>${isG ? qFmt(b.gems) : fmtN(b.coins)}</b> ${isG ? gemI() : '<i class="coin sm" aria-hidden="true"></i>'}</p></div></div>
+  <div class="buy-tabs" role="navigation" aria-label="${esc(t('Comprar'))}"><a href="#/shop/comprar/gemas" class="${isG ? 'on' : ''}" ${isG ? 'aria-current="page"' : ''}>${gemI()}AuriGems</a><a href="#/shop/comprar/monedas" class="${isG ? '' : 'on'}" ${isG ? '' : 'aria-current="page"'}><i class="coin sm" aria-hidden="true"></i>AuriCoins</a></div>
+  ${SHOP_CAP > 0 ? `<div class="panel buy-cap"><div><span>${t('Compras de este mes')}</span><span>$0 / $${SHOP_CAP}</span></div><span class="ms-bar"><i style="width:0%"></i></span></div>` : ''}
+  <div class="pk-grid">${SHOP_PACKS.map(pack).join('')}</div>
+  <p class="helper buy-note">${isG ? t('Las gemas compradas son cian y se pueden donar.') : t('Los cosméticos cuestan desde 100 AuriCoins.')}</p></main>`;
 }
 function msLevel(st) {
   const span = st.next == null ? 1 : st.next - st.floor, got = st.next == null ? 1 : st.xp - st.floor;
@@ -7778,6 +7826,7 @@ async function vnrAsk(el, cu) {
     const hint = r.querySelector('.vnr-hint'), who = r.querySelector('.vnr-who'); if (hint) hint.hidden = true; if (who) who.textContent = '';
     tx.innerHTML = `${esc(t('Leer este capítulo en novela visual'))}: <b>${qFmt(price)}</b> ${gemI()} · ${esc(t('Tienes'))} <b>${qFmt(cy)}</b> ${gemI()}${pu > 0 ? ` + <b>${qFmt(pu)}</b> ${gemI('p')}` : ''}<br>${pu > 0 ? `<small>${esc(t('Se gastan primero las moradas.'))}</small><br>` : ''}` +
       (ok ? `<button type="button" class="button sm" data-vnok>${esc(t('Pagar y leer'))}</button> <small>${esc(t('Se paga una sola vez por capítulo.'))}</small>`
+          : passOn() ? `<b>${esc(t('Te faltan {n} gemas', { n: qFmt(price - have) }))}</b><br><small>${esc(t('Este capítulo cuesta {p} y tienes {h}.', { p: qFmt(price), h: qFmt(have) }))}</small><br><a class="button sm" href="#/shop/comprar/gemas">${esc(t('Conseguir AuriGems'))}</a> <small>${esc(t('Al comprar, vuelves a este capítulo.'))}</small>`
           : `<small>${esc(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.'))}</small><br><a class="button sm" href="#/rewards">${esc(t('Ir a Recompensas'))}</a>`);
   };
   paint(); if (!ok) return false;
