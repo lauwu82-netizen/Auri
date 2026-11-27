@@ -2945,4 +2945,8 @@ window.I18N = { en: {
   "Packs Coquette": "Coquette packs",
   "Adornos Coquette": "Coquette decorations",
   "Formas de la foto": "Photo shapes",
+  "Probar en mi perfil": "Try on my profile",
+  "Así se vería en tu perfil. No se guarda nada.": "This is how it would look on your profile. Nothing is saved.",
+  "Forma de tu foto": "Your photo shape",
+  "Arrastra el adorno para moverlo.": "Drag the decoration to move it.",
 } };

@@ -7395,17 +7395,59 @@ function catView(cat) {
   ${items.length ? (c[0] === 'marcos' ? [['Pack de adornos', 'Packs Coquette'], ['Adorno Coquette', 'Adornos Coquette'], ['Lazo para el perfil', 'Lazos'], ['Forma de la foto', 'Formas de la foto'], ['Borde de la foto', 'Bordes de color']].map(([ty, h]) => { const l = items.filter(x => x.ty === ty); return l.length ? `<div class="section-head sh-sec"><div><h2>${t(h)}</h2></div></div><div class="sh-cgrid">${l.map(shCard).join('')}</div>` : ''; }).join('') : `<div class="sh-cgrid">${items.map(shCard).join('')}</div>`) : `<div class="panel sh-empty"><span>${t('Aún no hay nada aquí.')}</span></div>`}
   <p class="helper buy-note">${t('Lo que compras es tuyo para siempre.')}</p></main>`;
 }
+/** Probar un cosmético de Marcos en tu propio perfil antes de comprarlo (no se guarda nada): se mueve, se agranda y se gira como en tus adornos */
+function shopTry(sku) {
+  const x = shopCatalog().find(y => y.sku === sku); if (!x) return;
+  const me = S.user, u = getUsers()[me] || {}, lk = lookOf(me), tops = [], bots = []; let shape = lk.shape, halo = lk.halo, sel = 0, drag = null, ba = { y: 0, s: 1 };
+  x.grants.forEach(k => { if (CQ[k]) (CQ[k][1] === 'top' ? tops : bots).push(k); else if (k.startsWith('bow:')) tops.push(k); else if (k.startsWith('shape:')) shape = k.slice(6); else if (k.startsWith('halo:')) halo = k.slice(5); });
+  const list = tops.slice(0, ADJ_MAX).map(adjDefault), bot = bots[0] || '', isShape = x.grants.some(k => k.startsWith('shape:')), shapes = shapesOf(me);
+  const pieces = () => [...list.map((o, i) => ({ t: 'top', i })), ...(bot ? [{ t: 'bot' }] : [])];
+  const look = () => (shape ? ` data-shape="${shape}"` : '') + (halo && HALOS[halo] ? ` data-halo="${halo}" style="--a:132px;--hc:${HALOS[halo][0]}"` : ' style="--a:132px"');
+  const m = document.createElement('div'); m.className = 'modal sheet';
+  const draw = () => {
+    const ps = pieces(); if (sel >= ps.length) sel = 0; const cur = ps[sel];
+    m.innerHTML = `<div class="modal-box sh-sheet" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${esc(x.name)}</h2><p class="helper">${t('Así se vería en tu perfil. No se guarda nada.')}</p>
+    <div class="adj-stage${bot ? ' bot' : ''}"><span class="fr"${look()}>${avatarHTML(u.avatar, u.name, 'xl')}${list.map((o, i) => adjHTML(o, ' ed' + (cur && cur.t === 'top' && cur.i === i ? ' sel' : '')).replace('<span ', `<span data-i="${i}" `)).join('')}${bot ? ornHTMLk(bot, '', ba).replace('class="orn orn-bot', 'class="orn orn-bot tr-bot') : ''}</span></div>
+    ${!isShape && shapes.length > 1 ? `<p class="helper" style="margin:0 0 6px">${t('Forma de tu foto')}</p><div class="cos-sw">${['', ...shapes.filter(Boolean)].map(k => `<button type="button" class="cos-b ${shape === k ? 'on' : ''}" data-shp="${k}" aria-label="${esc(t(SHAPES[k] || 'Círculo'))}">${shapeIco(k)}</button>`).join('')}</div>` : ''}
+    ${ps.length > 1 ? `<div class="adj-tabs">${ps.map((p, n) => `<button type="button" class="adj-tab ${n === sel ? 'on' : ''}" data-pick="${n}">${p.t === 'top' ? t('Adorno {n}', { n: p.i + 1 }) : t('Abajo')}</button>`).join('')}</div>` : ''}
+    ${cur && cur.t === 'top' ? `<p class="helper" style="margin:0 0 4px">${t('Arrastra el adorno para moverlo.')}</p><label class="adj-row"><span>${t('Tamaño')}</span><input type="range" id="tr-s" min="40" max="300" step="4" value="${Math.round(list[cur.i].s * 100)}"></label><label class="adj-row"><span>${t('Giro')}</span><input type="range" id="tr-r" min="-180" max="180" step="2" value="${Math.round(list[cur.i].r)}"></label>`
+      : cur ? `<label class="adj-row"><span>${t('Posición')}</span><input type="range" id="tr-y" min="-40" max="40" step="1" value="${Math.round(ba.y)}"></label><label class="adj-row"><span>${t('Tamaño')}</span><input type="range" id="tr-bs" min="50" max="180" step="2" value="${Math.round(ba.s * 100)}"></label>` : ''}
+    ${shOwned(x) ? '' : `<button type="button" class="button" data-buy>${t('Comprar')} · ${fmtN(x.cost)} <i class="coin sm" aria-hidden="true"></i></button>`}<button type="button" class="button ghost" data-no>${t('Cerrar')}</button></div>`;
+  };
+  const place = o => { const el = m.querySelector('.adj.sel'); if (el) { el.style.left = o.x + '%'; el.style.top = o.y + '%'; el.style.width = Math.round(ADJ_W * o.s * 10) / 10 + '%'; el.style.transform = `translate(-50%,-50%) rotate(${o.r}deg)`; } };
+  m.addEventListener('pointerdown', ev => {
+    const el = ev.target.closest('.adj.ed'); if (!el) return; const i = +el.dataset.i, r = m.querySelector('.fr').getBoundingClientRect(), ps = pieces();
+    if (!(ps[sel] && ps[sel].t === 'top' && ps[sel].i === i)) { sel = ps.findIndex(p => p.t === 'top' && p.i === i); draw(); return; }
+    drag = { i, sx: ev.clientX, sy: ev.clientY, ox: list[i].x, oy: list[i].y, w: r.width || 1, h: r.height || 1 }; try { el.setPointerCapture(ev.pointerId); } catch (e) { /* sin captura */ } ev.preventDefault();
+  });
+  m.addEventListener('pointermove', ev => { if (!drag) return; const o = list[drag.i]; o.x = adjNum(drag.ox + (ev.clientX - drag.sx) / drag.w * 100, -40, 140, o.x); o.y = adjNum(drag.oy + (ev.clientY - drag.sy) / drag.h * 100, -40, 140, o.y); place(o); });
+  const end = () => { drag = null; }; m.addEventListener('pointerup', end); m.addEventListener('pointercancel', end);
+  m.addEventListener('input', ev => {
+    const id = ev.target.id, p = pieces()[sel]; if (!p) return;
+    if (p.t === 'top') { const o = list[p.i]; if (id === 'tr-s') o.s = adjNum(ev.target.value / 100, .4, 3, 1); else if (id === 'tr-r') o.r = adjNum(ev.target.value, -180, 180, 0); else return; place(o); return; }
+    if (id === 'tr-y') ba.y = adjNum(ev.target.value, -40, 40, 0); else if (id === 'tr-bs') ba.s = adjNum(ev.target.value / 100, .5, 1.8, 1); else return;
+    const el = m.querySelector('.tr-bot'); if (el) { el.style.marginBottom = -ba.y + '%'; el.style.transform = `scale(${ba.s})`; el.style.transformOrigin = '50% 30%'; }
+  });
+  m.addEventListener('click', ev => {
+    if (ev.target === m || ev.target.closest('[data-no]')) { m.remove(); return; }
+    const pk = ev.target.closest('[data-pick]'), sh = ev.target.closest('[data-shp]');
+    if (pk) { sel = +pk.dataset.pick; draw(); } else if (sh) { shape = sh.dataset.shp; draw(); } else if (ev.target.closest('[data-buy]')) { m.remove(); shopSheet(sku); }
+  });
+  draw(); document.body.appendChild(m);
+}
 function shopSheet(sku) {
   const x = shopCatalog().find(y => y.sku === sku); if (!x) return;
   const have = shopBal().coins, miss = x.cost - have, own = shOwned(x), m = document.createElement('div'); m.className = 'modal sheet';
   m.innerHTML = `<div class="modal-box sh-sheet" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button>
     ${shPrev(x, true)}<span class="sh-ty">${esc(t(x.ty))}</span><h2>${esc(x.name)}</h2><p class="helper">${esc(t(x.desc))}</p>
+    ${x.cat === 'marcos' ? `<button type="button" class="button secondary" data-try>${t('Probar en mi perfil')}</button>` : ''}
     ${own ? `<p class="sh-note">${t('Ya lo tienes.')}</p><button type="button" class="button ghost" data-no>${t('Cerrar')}</button>`
       : miss > 0 ? `<div class="sh-miss"><b>${t('Te faltan {n} AuriCoins', { n: fmtN(miss) })}</b><small>${t('Tienes {h} y esto cuesta {p}.', { h: fmtN(have), p: fmtN(x.cost) })}</small><span class="ms-bar"><i style="width:${Math.min(100, Math.round(have / x.cost * 100))}%"></i></span></div>
         <a class="button" href="#/shop/comprar/monedas" data-no>${t('Conseguir AuriCoins')}</a><button type="button" class="button ghost" data-no>${t('Ahora no')}</button><p class="helper">${t('Al comprar, vuelves a este cosmético.')}</p>`
       : `<button type="button" class="button" data-go>${t('Comprar')} · ${fmtN(x.cost)} <i class="coin sm" aria-hidden="true"></i></button><button type="button" class="button ghost" data-no>${t('Ahora no')}</button>`}</div>`;
   m.addEventListener('click', async ev => {
     if (ev.target === m || ev.target.closest('[data-no]')) { m.remove(); return; }
+    if (ev.target.closest('[data-try]')) { m.remove(); shopTry(x.sku); return; }
     const g = ev.target.closest('[data-go]'); if (!g) return; g.disabled = true;
     const r = await sbApi('/rest/v1/rpc/shop_buy', { method: 'POST', body: { p_sku: x.sku } });
     m.remove(); if (!r.ok) { toast(rpcMsg(r)); return; }
