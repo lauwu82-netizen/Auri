@@ -92,12 +92,12 @@ async function genBgUrl(env: Env, TOKEN: string, scene: string): Promise<string>
 }
 
 /** Prompt que pide el guion en JSON. Las reglas son las de la novela visual de Auri. */
-function scriptPrompt(text: string, cast: string[], emos: string[]): string {
+function scriptPrompt(text: string, cast: string[], emos: string[], prevPlace = ''): string {
   return `Eres un asistente técnico de una plataforma de lectura para adultos. Tu único trabajo es ETIQUETAR un texto de ficción (quién habla, emoción, lugar); no lo juzgas, no lo censuras ni lo resumes, aunque contenga escenas románticas, sexuales, violentas o crudas entre personajes de ficción adultos. No escribes contenido nuevo: solo devuelves el JSON.\nConvierte el capítulo en un guion JSON.
 Personajes disponibles: ${cast.join(', ') || '(ninguno)'}.
 Emociones permitidas (usa solo estas): ${emos.join(', ')}.
 Reglas:
-- Divide el texto en tramos cortos (una o dos frases) SIN cambiar ni resumir las palabras.
+- Divide el texto en tramos cortos (una o dos frases, de menos de 220 caracteres) SIN cambiar ni resumir las palabras. Si en una misma frase la emoción cambia (por ejemplo de la euforia al llanto), pártela en dos tramos, cada uno con su emoción. Etiqueta TODO el texto hasta el final: no lo dejes en neutral por pereza, usa la emoción que corresponda en cada tramo.
 - "who" es quien HABLA en ese tramo, o "" si es narración. Los guiones largos pueden indicar diálogo (—Hola —dijo Ana—) o descripción: lo que va entre guiones es narración, no diálogo.
 - Un nombre dentro de lo que alguien dice es a quien le hablan, no quien habla.
 - "emo" es la emoción de quien habla (o del personaje principal del tramo). "focus" es el personaje al que se refiere "emo": si alguien habla es ese mismo; si es narración, es el personaje del que trata la frase (p. ej. si "el alma de Aoi sale flotando", focus es Aoi). Debe estar en "stage". Las emociones raras o intensas (llorando_cascada, panico, yandere, villano, estrellas, corazon_roto, borracho…) úsalas SOLO cuando el texto lo pida de forma clara y fuerte (p. ej. llora a mares = llorando_cascada; el alma sale del cuerpo, fantasma o susto de muerte = alma_fuera; brillo de admiración = estrellas; aura o risa malvada = villano); en cualquier otro caso usa las básicas (neutral, feliz, triste, sonrojado, asustado, enojado).
@@ -106,6 +106,7 @@ Reglas:
 - Los bloques que empiezan con :: no son texto: ignóralos.
 Responde SOLO con un arreglo JSON: [{"t":"…","who":"","emo":"neutral","focus":"","stage":[],"place":"…"}]
 
+${prevPlace ? `El tramo anterior terminó en el lugar "${prevPlace}": úsalo mientras sigan ahí.\n` : ''}
 CAPÍTULO:
 ${text}`;
 }
@@ -351,15 +352,22 @@ async function run(req: Request, env: Env): Promise<Response> {
     // Cadena de modelos: si uno se niega (contenido fuerte) o devuelve algo que no es el guion, se prueba el siguiente.
     // VN_TEXT_MODELS = "modelo1,modelo2,modelo3" (por defecto uno solo). Si ninguno sirve, la app usa su guion de prueba y el lector nunca se rompe.
     const models = (env.VN_TEXT_MODELS || env.VN_TEXT_MODEL || 'meta/meta-llama-3-70b-instruct,meta/meta-llama-3-8b-instruct').split(',').map(x => x.trim()).filter(Boolean).slice(0, 4);
-    let script: Array<Record<string, unknown>> | null = null;
-    for (const m of models) {
-      const b = await budget(); if (b) { await refund(cref); return b; }
-      try {
-        const out = await replicate(m, { prompt: scriptPrompt(text, cast, emos), max_tokens: 6000, temperature: 0.2 }, TOKEN);
-        script = parseScript(Array.isArray(out) ? out.join('') : String(out), cast, emos);
-        await spend('analysis', num('VN_COST_TEXT', 0.01), (script ? 'LEYÓ · ' : 'NO SIRVIÓ (se negó o respondió mal) · ') + m.slice(0, 120));   // así se ve en vn_usage qué modelo sí leyó
-      } catch (e) { console.error('texto', m, e); await spend('retry', 0.002, 'ERROR · ' + m.slice(0, 120)); }
-      if (script) break;
+    // Los capítulos largos se leen por partes (los modelos se pierden y se cortan con textos largos): así toda la lectura queda etiquetada.
+    const chunks: string[] = []; { let cur = ''; for (const para of text.split(/\n\s*\n/)) { if (cur && (cur.length + para.length) > 7000) { chunks.push(cur); cur = ''; } cur += (cur ? '\n\n' : '') + para; } if (cur) chunks.push(cur); }
+    let script: Array<Record<string, unknown>> | null = [], prevPlace = '';
+    for (const part of chunks.length ? chunks : ['']) {
+      let got: Array<Record<string, unknown>> | null = null;
+      for (const m of models) {
+        const b = await budget(); if (b) { await refund(cref); return b; }
+        try {
+          const out = await replicate(m, { prompt: scriptPrompt(part, cast, emos, prevPlace), max_tokens: 4096, temperature: 0.2 }, TOKEN);
+          got = parseScript(Array.isArray(out) ? out.join('') : String(out), cast, emos);
+          await spend('analysis', num('VN_COST_TEXT', 0.01), (got ? 'LEYÓ · ' : 'NO SIRVIÓ (se negó o respondió mal) · ') + m.slice(0, 120));   // así se ve en vn_usage qué modelo sí leyó
+        } catch (e) { console.error('texto', m, e); await spend('retry', 0.002, 'ERROR · ' + m.slice(0, 120)); }
+        if (got) break;
+      }
+      if (!got) { script = null; break; }
+      script.push(...got); prevPlace = String(got[got.length - 1].place || '');
     }
     if (!script) { await refund(cref); return json({ error: 'bad_script' }, 502); }                              // el cliente sigue con su guion de prueba
     await fetch(`${URL_}/rest/v1/vn_scripts`, { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ chapter_id: cid, hash, script }) });
