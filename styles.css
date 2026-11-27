@@ -5203,3 +5203,8 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 .sh-ty{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:hsl(var(--muted-foreground));line-height:1.1}
 .sh-sheet .sh-ty{align-self:flex-start}
 .sh-ring{box-shadow:0 0 0 1px hsl(var(--border)),inset 0 0 0 1px hsl(var(--border))}
+/* botón de copiar (solo editor) */
+.copy-all{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:16px;min-height:48px;border-radius:16px;border:1px solid hsl(var(--border));background:none;color:hsl(var(--muted-foreground));font:inherit;font-weight:600;cursor:pointer}
+.copy-ic{position:relative;width:16px;height:18px;flex:none}
+.copy-ic::before,.copy-ic::after{content:"";position:absolute;width:11px;height:13px;border:2px solid currentColor;border-radius:3px;box-sizing:border-box}
+.copy-ic::before{left:0;top:0;opacity:.6}.copy-ic::after{right:0;bottom:0;background:hsl(var(--background))}

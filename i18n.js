@@ -2950,4 +2950,6 @@ window.I18N = { en: {
   "Forma de tu foto": "Your photo shape",
   "Arrastra el adorno para moverlo.": "Drag the decoration to move it.",
   "Formas de foto": "Photo shapes",
+  "Copiar toda la historia": "Copy the whole story",
+  "Historia copiada": "Story copied",
 } };
