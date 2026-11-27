@@ -7366,13 +7366,14 @@ function shOwned(x) {
   const u = getUsers()[S.user] || {}, it = Array.isArray(u.items) ? u.items : [];
   return x.grants.every(k => it.includes(k) || (k.startsWith('cq:') && (u.cq || []).includes(k)) || (k.startsWith('skin:') && (u.skins || []).includes(k.slice(5))) || (k.startsWith('bow:') && (u.bows || []).includes(k.slice(4))));
 }
-function shPrev(x) {
-  const k = x.prev[0];
-  if (x.prev.length > 1) return `<span class="sh-pv multi">${x.prev.map(p => cosOne(p)).join('')}</span>`;
-  if (COS_IMG[k]) return `<span class="sh-pv">${cosOne(k)}</span>`;
+function shPrev(x, big) {
+  const k = x.prev[0], im = p => COS_IMG[p] ? `<img src="${esc(COS_IMG[p])}" alt="" referrerpolicy="no-referrer" loading="lazy" decoding="async" fetchpriority="low">` : '';
+  if (x.prev.length > 1) return `<span class="sh-pv multi">${x.prev.map(im).join('')}</span>`;
+  if (COS_IMG[k]) return `<span class="sh-pv">${im(k)}</span>`;
   if (k.startsWith('shape:')) return `<span class="sh-pv ico">${shapeIco(k.slice(6))}</span>`;
   if (k.startsWith('halo:')) return `<span class="sh-pv"><i class="sh-ring" style="border-color:${HALOS[k.slice(5)][0]}"></i></span>`;
-  if (k.startsWith('skin:')) return `<span class="sh-pv ico">${shSvg('bg')}</span>`;
+  if (k.startsWith('pet:')) return `<span class="sh-pv"><span class="pet-prev sh-pet" style="--pet:url('pets/${k.slice(4)}.png')"></span></span>`;
+  if (k.startsWith('skin:')) { const sk = k.slice(5); csFont({ [sk]: sk }); return `<span class="sh-pv skin${big ? ' big' : ''}"><span class="cr cs-prev" ${CS_PIECES.map(([q]) => `data-sk-${q}="${q === 'bubble' ? '' : sk}"`).join(' ')} data-sk-hue="" aria-hidden="true"><header class="cr-top"><span class="cr-who"><span class="cc-av"><em>M</em></span><span><b>Mizuki</b></span></span></header><div class="cr-body"><div class="cr-msgs"><div class="cr-b them tail">${t('¿Sigues despierta?')}</div><div class="cr-b me tail">${t('Sí, ¿qué pasó?')}</div></div></div><footer class="cr-foot pick"><span class="cr-opt">${t('Contarle todo')}</span></footer></span></span>`; }
   return `<span class="sh-pv ico">${shSvg('pet')}</span>`;
 }
 function shPrice(x) {
@@ -7398,7 +7399,7 @@ function shopSheet(sku) {
   const x = shopCatalog().find(y => y.sku === sku); if (!x) return;
   const have = shopBal().coins, miss = x.cost - have, own = shOwned(x), m = document.createElement('div'); m.className = 'modal sheet';
   m.innerHTML = `<div class="modal-box sh-sheet" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button>
-    ${shPrev(x)}<h2>${esc(x.name)}</h2><p class="helper">${esc(t(x.desc))}</p>
+    ${shPrev(x, true)}<h2>${esc(x.name)}</h2><p class="helper">${esc(t(x.desc))}</p>
     ${own ? `<p class="sh-note">${t('Ya lo tienes.')}</p><button type="button" class="button ghost" data-no>${t('Cerrar')}</button>`
       : miss > 0 ? `<div class="sh-miss"><b>${t('Te faltan {n} AuriCoins', { n: fmtN(miss) })}</b><small>${t('Tienes {h} y esto cuesta {p}.', { h: fmtN(have), p: fmtN(x.cost) })}</small><span class="ms-bar"><i style="width:${Math.min(100, Math.round(have / x.cost * 100))}%"></i></span></div>
         <a class="button" href="#/shop/comprar/monedas" data-no>${t('Conseguir AuriCoins')}</a><button type="button" class="button ghost" data-no>${t('Ahora no')}</button><p class="helper">${t('Al comprar, vuelves a este cosmético.')}</p>`
