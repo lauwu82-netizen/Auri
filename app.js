@@ -7961,7 +7961,7 @@ async function vnrServer(cu, local, ocName, useOc, ch) {
   if (r && r.status === 402) return { pay: true };
   if (r && r.ok && !isOwner()) { try { walletLoad(); } catch (e) { /* ignorar */ } }        // ya se cobró: actualiza el saldo que se ve
   const d = r && r.ok && r.data || {}; VN_VAR = Math.max(0, Math.floor(Number(d.variant) || 0)); if (!Array.isArray(d.script) || !d.script.length) return {};
-  const nm = n => n === 'TN' ? (useOc ? ocName : '') : n || '';
+  const nm = n => String(n || '').toUpperCase() === 'TN' ? (useOc ? ocName : '') : n || '';
   let place = '';
   const texts = d.script.map(x => {
     const st = (x.stage || []).map(nm).filter(Boolean), who = nm(x.who); if (x.place) place = x.place;
