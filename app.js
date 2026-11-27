@@ -7342,7 +7342,7 @@ function buyView(kind) {
   <p class="helper buy-note">${isG ? t('Las gemas compradas son cian y se pueden donar.') : t('Los cosméticos cuestan desde 100 AuriCoins.')}</p></main>`;
 }
 /* ---------- Tienda: cosméticos (precios en AuriCoins; los reales y las ofertas vienen de la tabla shop_items, SQL 92) ---------- */
-const SHOP_CATS = [['coquette', 'Coquette', 'frame'], ['skins', 'Skins de chat', 'bg'], ['lazos', 'Lazos', 'tag'], ['formas', 'Formas de perfil', 'frame'], ['bordes', 'Bordes de color', 'frame'], ['mascotas', 'Mascotas', 'pet']];
+const SHOP_CATS = [['marcos', 'Marcos', 'frame'], ['skins', 'Skins de chat', 'bg'], ['mascotas', 'Mascotas', 'pet']];   // Marcos = todo lo que decora tu perfil (Coquette, lazos, formas y bordes)
 let SHOP_DB = null, SHOP_DBT = 0;                        // tabla de precios y ofertas (null = aún no cargada o sin crear)
 function shopDb() {
   if (!rwOn() || Date.now() - SHOP_DBT < 30000) return; SHOP_DBT = Date.now();
@@ -7351,15 +7351,15 @@ function shopDb() {
   }).catch(() => { /* se quedan los precios de lista */ });
 }
 function shopCatalog() {                                 // lista de lo que se vende, con precio y oferta
-  const l = [], add = (sku, cat, name, desc, price, grants, prev) => l.push({ sku, cat, name, desc, price, grants, prev });
-  const pk = (n, ks) => add('pack:coquette' + n, 'coquette', t('Coquette · Pack {n}', { n }), ks.map(k => CQ[k][0]).join(', '), 300, ks, ks);
+  const l = [], add = (sku, cat, name, desc, price, grants, prev, ty) => l.push({ sku, cat, name, desc, price, grants, prev, ty });
+  const pk = (n, ks) => add('pack:coquette' + n, 'marcos', t('Coquette · Pack {n}', { n }), ks.map(k => CQ[k][0]).join(', '), 300, ks, ks, 'Pack de adornos');
   pk(1, ['cq:flores', 'cq:mariposas', 'cq:joya']); pk(2, ['cq:corazones', 'cq:vichy', 'cq:perlas']);
-  ['cq:flores', 'cq:mariposas', 'cq:joya', 'cq:corazones', 'cq:vichy', 'cq:perlas'].forEach(k => add(k, 'coquette', CQ[k][0], CQ[k][1] === 'top' ? 'Adorno para arriba de tu foto' : 'Adorno para abajo de tu foto', 120, [k], [k]));
-  ['kawaii', 'retro', 'victoriano', 'futurista', 'antiguo', 'misterio'].forEach(k => add('skin:' + k, 'skins', CS_PACKS[k][0], CS_PACKS[k][1], 300, ['skin:' + k], ['skin:' + k]));
-  Object.keys(BOWS).forEach(k => add('bow:' + k, 'lazos', t('Lazo {c}', { c: t(BOWS[k][3]).toLowerCase() }), 'Moñito para tu foto de perfil', 100, ['bow:' + k], ['bow:' + k]));
-  ['cat', 'heart', 'star', 'flower', 'cloud'].forEach(k => add('shape:' + k, 'formas', SHAPES[k], 'Cambia la forma de tu foto de perfil', 150, ['shape:' + k], ['shape:' + k]));
-  Object.keys(HALOS).forEach(k => add('halo:' + k, 'bordes', t('Borde {c}', { c: t(HALOS[k][1]).toLowerCase() }), 'Un aro de color alrededor de tu foto', 100, ['halo:' + k], ['halo:' + k]));
-  ['gato', 'perro', 'conejo', 'pinguino'].forEach(k => add('pet:' + k, 'mascotas', PETS[k][0], 'Camina por tu portada en 8-bit', 250, ['pet:' + k], ['pet:' + k]));
+  ['cq:flores', 'cq:mariposas', 'cq:joya', 'cq:corazones', 'cq:vichy', 'cq:perlas'].forEach(k => add(k, 'marcos', CQ[k][0], CQ[k][1] === 'top' ? 'Adorno para arriba de tu foto' : 'Adorno para abajo de tu foto', 120, [k], [k], 'Adorno Coquette'));
+  ['kawaii', 'retro', 'victoriano', 'futurista', 'antiguo', 'misterio'].forEach(k => add('skin:' + k, 'skins', CS_PACKS[k][0], CS_PACKS[k][1], 300, ['skin:' + k], ['skin:' + k], 'Skin de chat'));
+  Object.keys(BOWS).forEach(k => add('bow:' + k, 'marcos', t('Lazo {c}', { c: t(BOWS[k][3]).toLowerCase() }), 'Moñito para tu foto de perfil', 100, ['bow:' + k], ['bow:' + k], 'Lazo para el perfil'));
+  ['cat', 'heart', 'star', 'flower', 'cloud'].forEach(k => add('shape:' + k, 'marcos', SHAPES[k], 'Cambia la forma de tu foto de perfil', 150, ['shape:' + k], ['shape:' + k], 'Forma de la foto'));
+  Object.keys(HALOS).forEach(k => add('halo:' + k, 'marcos', t('Borde {c}', { c: t(HALOS[k][1]).toLowerCase() }), 'Un aro de color alrededor de tu foto', 100, ['halo:' + k], ['halo:' + k], 'Borde de la foto'));
+  ['gato', 'perro', 'conejo', 'pinguino'].forEach(k => add('pet:' + k, 'mascotas', PETS[k][0], 'Camina por tu portada en 8-bit', 250, ['pet:' + k], ['pet:' + k], 'Mascota 8-bit'));
   return l.filter(x => !SHOP_DB || SHOP_DB[x.sku]).map(x => { const d = SHOP_DB && SHOP_DB[x.sku]; if (d) { x.price = d.price; x.offer = d.offer_price && d.offer_price < d.price ? d.offer_price : 0; } else x.offer = 0; x.cost = x.offer || x.price; return x; });
 }
 function shOwned(x) {
@@ -7382,7 +7382,7 @@ function shPrice(x) {
 }
 function shCard(x) {
   const own = shOwned(x);
-  return `<button type="button" class="sh-cos${own ? ' own' : ''}" data-act="shop-item" data-id="${esc(x.sku)}" aria-label="${esc(x.name)}">${shPrev(x)}<span class="sh-cn">${esc(x.name)}</span>${own ? `<span class="sh-pr">${t('Tuyo')}</span>` : shPrice(x)}</button>`;
+  return `<button type="button" class="sh-cos${own ? ' own' : ''}" data-act="shop-item" data-id="${esc(x.sku)}" aria-label="${esc(x.name)}">${shPrev(x)}<span class="sh-ty">${esc(t(x.ty))}</span><span class="sh-cn">${esc(x.name)}</span>${own ? `<span class="sh-pr">${t('Tuyo')}</span>` : shPrice(x)}</button>`;
 }
 function shopOffers() {                                  // ofertas: máximo 5 (los que no tengas aún)
   return shopCatalog().filter(x => x.offer && !shOwned(x)).slice(0, 5);
@@ -7392,14 +7392,14 @@ function catView(cat) {
   const c = SHOP_CATS.find(x => x[0] === cat) || SHOP_CATS[0], items = shopCatalog().filter(x => x.cat === c[0]), b = shopBal();
   return `<main class="page shop"><a class="back" href="#/shop/tienda">‹ ${t('Volver')}</a>
   <div class="section-head shop-head"><div><h1>${t(c[1])}</h1><p>${t('Tienes')} <b>${fmtN(b.coins)}</b> <i class="coin sm" aria-hidden="true"></i></p></div></div>
-  ${items.length ? `<div class="sh-cgrid">${items.map(shCard).join('')}</div>` : `<div class="panel sh-empty"><span>${t('Aún no hay nada aquí.')}</span></div>`}
+  ${items.length ? (c[0] === 'marcos' ? [['Pack de adornos', 'Packs Coquette'], ['Adorno Coquette', 'Adornos Coquette'], ['Lazo para el perfil', 'Lazos'], ['Forma de la foto', 'Formas de la foto'], ['Borde de la foto', 'Bordes de color']].map(([ty, h]) => { const l = items.filter(x => x.ty === ty); return l.length ? `<div class="section-head sh-sec"><div><h2>${t(h)}</h2></div></div><div class="sh-cgrid">${l.map(shCard).join('')}</div>` : ''; }).join('') : `<div class="sh-cgrid">${items.map(shCard).join('')}</div>`) : `<div class="panel sh-empty"><span>${t('Aún no hay nada aquí.')}</span></div>`}
   <p class="helper buy-note">${t('Lo que compras es tuyo para siempre.')}</p></main>`;
 }
 function shopSheet(sku) {
   const x = shopCatalog().find(y => y.sku === sku); if (!x) return;
   const have = shopBal().coins, miss = x.cost - have, own = shOwned(x), m = document.createElement('div'); m.className = 'modal sheet';
   m.innerHTML = `<div class="modal-box sh-sheet" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button>
-    ${shPrev(x, true)}<h2>${esc(x.name)}</h2><p class="helper">${esc(t(x.desc))}</p>
+    ${shPrev(x, true)}<span class="sh-ty">${esc(t(x.ty))}</span><h2>${esc(x.name)}</h2><p class="helper">${esc(t(x.desc))}</p>
     ${own ? `<p class="sh-note">${t('Ya lo tienes.')}</p><button type="button" class="button ghost" data-no>${t('Cerrar')}</button>`
       : miss > 0 ? `<div class="sh-miss"><b>${t('Te faltan {n} AuriCoins', { n: fmtN(miss) })}</b><small>${t('Tienes {h} y esto cuesta {p}.', { h: fmtN(have), p: fmtN(x.cost) })}</small><span class="ms-bar"><i style="width:${Math.min(100, Math.round(have / x.cost * 100))}%"></i></span></div>
         <a class="button" href="#/shop/comprar/monedas" data-no>${t('Conseguir AuriCoins')}</a><button type="button" class="button ghost" data-no>${t('Ahora no')}</button><p class="helper">${t('Al comprar, vuelves a este cosmético.')}</p>`

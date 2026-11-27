@@ -2937,4 +2937,12 @@ window.I18N = { en: {
   "Camina por tu portada en 8-bit": "Walks across your cover in 8-bit",
   "Adorno para arriba de tu foto": "Decoration above your photo",
   "Adorno para abajo de tu foto": "Decoration below your photo",
+  "Pack de adornos": "Decoration pack",
+  "Adorno Coquette": "Coquette decoration",
+  "Lazo para el perfil": "Profile bow",
+  "Borde de la foto": "Photo border",
+  "Skin de chat": "Chat skin",
+  "Packs Coquette": "Coquette packs",
+  "Adornos Coquette": "Coquette decorations",
+  "Formas de la foto": "Photo shapes",
 } };
