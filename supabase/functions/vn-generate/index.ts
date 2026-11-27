@@ -100,11 +100,11 @@ Reglas:
 - Divide el texto en tramos cortos (una o dos frases) SIN cambiar ni resumir las palabras.
 - "who" es quien HABLA en ese tramo, o "" si es narración. Los guiones largos pueden indicar diálogo (—Hola —dijo Ana—) o descripción: lo que va entre guiones es narración, no diálogo.
 - Un nombre dentro de lo que alguien dice es a quien le hablan, no quien habla.
-- "emo" es la emoción de quien habla (o del personaje principal del tramo). Las emociones raras o intensas (llorando_cascada, panico, yandere, villano, estrellas, corazon_roto, borracho…) úsalas SOLO cuando el texto lo pida de forma clara y fuerte (p. ej. llora a mares = llorando_cascada); en cualquier otro caso usa las básicas (neutral, feliz, triste, sonrojado, asustado, enojado).
-- "stage" son los personajes visibles: aparecen cuando llegan o hablan y se van cuando se retiran. Quien habla SIEMPRE está en "stage". "TN" es el protagonista (la persona que lee): inclúyelo en "stage" mientras participe en la escena, aunque la narración sea en primera persona o él esté frente a una pantalla. Si la escena no menciona a nadie, "stage" es [].
+- "emo" es la emoción de quien habla (o del personaje principal del tramo). "focus" es el personaje al que se refiere "emo": si alguien habla es ese mismo; si es narración, es el personaje del que trata la frase (p. ej. si "el alma de Aoi sale flotando", focus es Aoi). Debe estar en "stage". Las emociones raras o intensas (llorando_cascada, panico, yandere, villano, estrellas, corazon_roto, borracho…) úsalas SOLO cuando el texto lo pida de forma clara y fuerte (p. ej. llora a mares = llorando_cascada; el alma sale del cuerpo, fantasma o susto de muerte = alma_fuera; brillo de admiración = estrellas; aura o risa malvada = villano); en cualquier otro caso usa las básicas (neutral, feliz, triste, sonrojado, asustado, enojado).
+- "stage" son los personajes visibles: aparecen cuando llegan o hablan y se van cuando se retiran. Quien habla SIEMPRE está en "stage". "TN" es el protagonista (la persona que lee) y en el texto puede aparecer escrito TN, tn, Tn, T/N o [TN]: siempre es el mismo; en "who", "stage" y "focus" escríbelo exactamente TN. Inclúyelo en "stage" mientras participe en la escena, aunque la narración sea en primera persona o él esté frente a una pantalla. Si la escena no menciona a nadie, "stage" es [].
 - "place" describe el LUGAR EXACTO donde están los personajes en ese momento, en inglés, minúsculas con guiones, máximo 55 caracteres. Indica SIEMPRE si están dentro o fuera: termina con "interior" o "exterior" seguido de la hora (day, evening o night). Si el texto dice que están DENTRO de un edificio (entran, están en un salón, en un pasillo, en una biblioteca…), usa "interior" y la estancia concreta (p. ej. "university-classroom-interior-day", "school-hallway-interior-evening"); si están en el patio, la calle o el campus, usa "exterior" (p. ej. "university-courtyard-exterior-day"). No uses el nombre del edificio solo: "university" sin estancia muestra la fachada. Repite el mismo valor mientras no cambien de lugar.
 - Los bloques que empiezan con :: no son texto: ignóralos.
-Responde SOLO con un arreglo JSON: [{"t":"…","who":"","emo":"neutral","stage":[],"place":"…"}]
+Responde SOLO con un arreglo JSON: [{"t":"…","who":"","emo":"neutral","focus":"","stage":[],"place":"…"}]
 
 CAPÍTULO:
 ${text}`;
@@ -119,7 +119,8 @@ function parseScript(raw: string, cast: string[], emos: string[]): Array<Record<
     const canon = (n: unknown) => cast.find(c => c.toLowerCase() === String(n).toLowerCase().trim()) || '';      // «tn», «Tn» y «TN» son lo mismo
     const who = canon(x.who), emo = emos.includes(String(x.emo)) ? String(x.emo) : 'neutral';
     const stage = (Array.isArray(x.stage) ? x.stage : []).map(canon).filter(Boolean).slice(0, 3);
-    out.push({ t, who, emo, stage, place: String(x.place || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').slice(0, 60) });
+    const focus = canon(x.focus);
+    out.push({ t, who, emo, focus, stage, place: String(x.place || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').slice(0, 60) });
   }
   return out.length ? out : null;
 }
@@ -346,7 +347,7 @@ async function run(req: Request, env: Env): Promise<Response> {
     const sy = await fetch(`${URL_}/rest/v1/stories?id=eq.${ch.story_id}&select=use_reader_character`, { headers: H }), usesOc = sy.ok ? ((await sy.json())[0] || {}).use_reader_character !== false : true;
     // si el libro usa la tarjeta de la lectora, el guion usa todas las emociones (cada lectora muestra las que tenga; si falta una, se ve la neutral)
     const emos = !usesOc && allEmos.filter((k: string) => used.has(k)).length > 1 ? allEmos.filter((k: string) => used.has(k)) : allEmos;
-    const text = String(ch.text || '').split(/\n\s*\n/).filter((p: string) => !/^\s*::(chat|sep|cg)/.test(p)).join('\n\n').replace(/[\[(]\s*(?:T\/N|Y\/N|TN|YN)\s*[\])]|\b(?:T\/N|Y\/N|TN|YN)\b/gi, 'TN').slice(0, 24000);    // tn, Tn, T/N, [TN]… todo se vuelve «TN» para la IA
+    const text = String(ch.text || '').split(/\n\s*\n/).filter((p: string) => !/^\s*::(chat|sep|cg)/.test(p)).join('\n\n').slice(0, 24000);
     // Cadena de modelos: si uno se niega (contenido fuerte) o devuelve algo que no es el guion, se prueba el siguiente.
     // VN_TEXT_MODELS = "modelo1,modelo2,modelo3" (por defecto uno solo). Si ninguno sirve, la app usa su guion de prueba y el lector nunca se rompe.
     const models = (env.VN_TEXT_MODELS || env.VN_TEXT_MODEL || 'meta/meta-llama-3-70b-instruct,meta/meta-llama-3-8b-instruct').split(',').map(x => x.trim()).filter(Boolean).slice(0, 4);

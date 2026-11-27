@@ -7965,8 +7965,8 @@ async function vnrServer(cu, local, ocName, useOc, ch) {
   let place = '';
   const texts = d.script.map(x => {
     const st = (x.stage || []).map(nm).filter(Boolean), who = nm(x.who); if (x.place) place = x.place;
-    if (who && !st.includes(who)) { if (st.length >= 3) st.pop(); st.push(who); }      // quien habla siempre se ve, aunque la IA no lo haya puesto en escena
-    return { text: useOc ? fillHE(fillTN(String(x.t), ocName || t('Lectora')), ch) : String(x.t), who, emo: x.emo || 'neutral', stage: st, focus: who || st[0] || '', place };
+    const fc = nm(x.focus); for (const w of [who, fc]) if (w && !st.includes(w)) { if (st.length >= 3) st.pop(); st.push(w); }      // quien habla (o de quien trata la frase) siempre se ve, aunque la IA no lo haya puesto en escena
+    return { text: useOc ? fillHE(fillTN(String(x.t), ocName || t('Lectora')), ch) : String(x.t), who, emo: x.emo || 'neutral', stage: st, focus: who || fc || st[0] || '', place };
   });
   const lt = local.filter(b => !b.sep && !b.chat && !b.cg).length, out = []; let seen = 0, ti = 0;
   local.forEach(b => { if (b.sep || b.chat || b.cg) { const upto = lt ? Math.round(seen / lt * texts.length) : texts.length; while (ti < upto) out.push(texts[ti++]); out.push(b); } else seen++; });
