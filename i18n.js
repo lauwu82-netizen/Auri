@@ -2952,4 +2952,7 @@ window.I18N = { en: {
   "Formas de foto": "Photo shapes",
   "Copiar toda la historia": "Copy the whole story",
   "Historia copiada": "Story copied",
+  "Copiar este capítulo": "Copy this chapter",
+  "Capítulo copiado": "Chapter copied",
+  "Este capítulo está vacío.": "This chapter is empty.",
 } };

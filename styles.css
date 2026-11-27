@@ -5208,3 +5208,4 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 .copy-ic{position:relative;width:16px;height:18px;flex:none}
 .copy-ic::before,.copy-ic::after{content:"";position:absolute;width:11px;height:13px;border:2px solid currentColor;border-radius:3px;box-sizing:border-box}
 .copy-ic::before{left:0;top:0;opacity:.6}.copy-ic::after{right:0;bottom:0;background:hsl(var(--background))}
+.wf-cnt{display:inline-flex;align-items:center;gap:6px}.copy-ch{display:inline-grid;place-items:center;width:44px;height:44px;border:0;background:none;color:hsl(var(--muted-foreground));cursor:pointer;border-radius:12px}
