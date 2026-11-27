@@ -101,7 +101,7 @@ Reglas:
 - "who" es quien HABLA en ese tramo, o "" si es narración. Los guiones largos pueden indicar diálogo (—Hola —dijo Ana—) o descripción: lo que va entre guiones es narración, no diálogo.
 - Un nombre dentro de lo que alguien dice es a quien le hablan, no quien habla.
 - "emo" es la emoción de quien habla (o del personaje principal del tramo).
-- "stage" son los personajes visibles: aparecen cuando llegan o hablan y se van cuando se retiran. Si la escena no menciona a nadie, "stage" es [].
+- "stage" son los personajes visibles: aparecen cuando llegan o hablan y se van cuando se retiran. Quien habla SIEMPRE está en "stage". "TN" es el protagonista (la persona que lee): inclúyelo en "stage" mientras participe en la escena, aunque la narración sea en primera persona o él esté frente a una pantalla. Si la escena no menciona a nadie, "stage" es [].
 - "place" describe el LUGAR EXACTO donde están los personajes en ese momento, en inglés, minúsculas con guiones, máximo 55 caracteres. Indica SIEMPRE si están dentro o fuera: termina con "interior" o "exterior" seguido de la hora (day, evening o night). Si el texto dice que están DENTRO de un edificio (entran, están en un salón, en un pasillo, en una biblioteca…), usa "interior" y la estancia concreta (p. ej. "university-classroom-interior-day", "school-hallway-interior-evening"); si están en el patio, la calle o el campus, usa "exterior" (p. ej. "university-courtyard-exterior-day"). No uses el nombre del edificio solo: "university" sin estancia muestra la fachada. Repite el mismo valor mientras no cambien de lugar.
 - Los bloques que empiezan con :: no son texto: ignóralos.
 Responde SOLO con un arreglo JSON: [{"t":"…","who":"","emo":"neutral","stage":[],"place":"…"}]
