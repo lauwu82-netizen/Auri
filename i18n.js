@@ -2949,4 +2949,5 @@ window.I18N = { en: {
   "Así se vería en tu perfil. No se guarda nada.": "This is how it would look on your profile. Nothing is saved.",
   "Forma de tu foto": "Your photo shape",
   "Arrastra el adorno para moverlo.": "Drag the decoration to move it.",
+  "Formas de foto": "Photo shapes",
 } };
