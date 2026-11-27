@@ -8090,7 +8090,9 @@ async function vnrCgLoad(slot, desc) {
   if (r && r.status === 402) { c.err = 'gems'; toast(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.')); }
   walletLoad(); if (c.wait) c.wait();
 }
-function vnrSprite(c, emo) { const sp = (c && c.sprites) || {}; return sp[emo] || sp.neutral || Object.values(sp)[0] || ''; }
+/* si la lectora no tiene el sprite de una emoción especial, se usa el de la emoción básica más parecida (no el neutral) */
+const VN_FB = { pensativo: 'neutral', celular: 'neutral', motivado: 'feliz', confundido: 'neutral', nervioso: 'asustado', bostezando: 'neutral', dormido: 'neutral', cafe: 'neutral', audifonos: 'neutral', sorprendido: 'asustado', coqueto: 'sonrojado', orgulloso: 'feliz', carcajada: 'feliz', celoso: 'enojado', culpable: 'triste', mareado: 'neutral', estirandose: 'neutral', panico: 'asustado', yandere: 'enojado', borracho: 'feliz', borracho_triste: 'triste', emocionado: 'feliz', alma_fuera: 'asustado', llorando_cascada: 'triste', estrellas: 'feliz', villano: 'enojado', corazon_roto: 'triste', borracho_enamorado: 'sonrojado' };
+function vnrSprite(c, emo) { const sp = (c && c.sprites) || {}; return sp[emo] || sp[VN_FB[emo]] || sp.neutral || Object.values(sp)[0] || ''; }
 const vnrAdjOf = n => vnAdjOk(VNR.adj[n] || (VNR.cast[n] && VNR.cast[n].adj && Object.keys(VNR.cast[n].adj).length ? VNR.cast[n].adj : null));
 const vnrXs = k => k <= 1 ? [50] : k === 2 ? [31, 69] : [19, 50, 81];
 function vnrDraw() {
