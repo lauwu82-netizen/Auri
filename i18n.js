@@ -2955,4 +2955,5 @@ window.I18N = { en: {
   "Copiar este capítulo": "Copy this chapter",
   "Capítulo copiado": "Chapter copied",
   "Este capítulo está vacío.": "This chapter is empty.",
+  "Importante: la IA solo usa en la lectura las emociones que subas aquí, en al menos un personaje de la historia. Si quieres que una emoción especial (por ejemplo, alma fuera del cuerpo) aparezca también para las lectoras que usan su propio personaje, súbela en cualquier personaje, aunque sea una imagen provisional.": "Important: during reading, the AI only uses the emotions you upload here, on at least one character of the story. If you want a special emotion (for example, soul leaving the body) to also appear for readers who use their own character, upload it on any character, even a temporary image.",
 } };

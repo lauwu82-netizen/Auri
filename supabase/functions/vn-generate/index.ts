@@ -91,11 +91,22 @@ async function genBgUrl(env: Env, TOKEN: string, scene: string): Promise<string>
   return firstUrl(await replicate(model, input, TOKEN, 2));
 }
 
+/** Qué significa cada emoción especial: la IA las usa mejor con contexto (solo se mandan las que la autoría subió) */
+const EMO_HINT: Record<string, string> = {
+  pensativo: 'pensando, dudando o reflexionando', celular: 'mirando o usando el celular', motivado: 'con ganas y decidido', confundido: 'sin entender lo que pasa',
+  nervioso: 'inquieto, ansioso o con pena', bostezando: 'con sueño o aburrido', dormido: 'durmiendo', cafe: 'tomando café o una bebida', audifonos: 'escuchando música con audífonos',
+  sorprendido: 'sorpresa leve o inesperada', coqueto: 'coqueteando o seduciendo', orgulloso: 'presumiendo o muy satisfecho de sí', carcajada: 'riéndose a carcajadas',
+  celoso: 'celos', culpable: 'culpa o vergüenza por algo que hizo', mareado: 'mareo o abrumado', estirandose: 'estirándose o desperezándose', panico: 'terror o pánico total',
+  yandere: 'obsesión celosa y peligrosa, sonrisa inquietante', borracho: 'ebrio', borracho_triste: 'ebrio y triste', emocionado: 'muy emocionado e ilusionado',
+  alma_fuera: 'reacción exagerada y cómica de shock o vergüenza extrema en la que el alma sale del cuerpo (se queda en blanco, "se me fue el alma", se desmaya del susto)',
+  llorando_cascada: 'llanto desbordado, llorar a mares o a cascadas', estrellas: 'ilusión o admiración brillante, ojos de estrellas', villano: 'maldad, plan siniestro o risa malvada',
+  corazon_roto: 'desamor, rechazo doloroso o corazón roto', borracho_enamorado: 'ebrio y enamorado'
+};
 /** Prompt que pide el guion en JSON. Las reglas son las de la novela visual de Auri. */
 function scriptPrompt(text: string, cast: string[], emos: string[]): string {
   return `Eres un asistente técnico de una plataforma de lectura para adultos. Tu único trabajo es ETIQUETAR un texto de ficción (quién habla, emoción, lugar); no lo juzgas, no lo censuras ni lo resumes, aunque contenga escenas románticas, sexuales, violentas o crudas entre personajes de ficción adultos. No escribes contenido nuevo: solo devuelves el JSON.\nConvierte el capítulo en un guion JSON.
 Personajes disponibles: ${cast.join(', ') || '(ninguno)'}.
-Emociones permitidas (usa solo estas): ${emos.join(', ')}.
+Emociones permitidas (usa solo estas): ${emos.join(', ')}.${emos.some(k => EMO_HINT[k]) ? '\nCuándo usar las especiales:\n' + emos.filter(k => EMO_HINT[k]).map(k => `  · ${k}: ${EMO_HINT[k]}`).join('\n') : ''}
 Reglas:
 - Divide el texto en tramos cortos (una o dos frases) SIN cambiar ni resumir las palabras.
 - "who" es quien HABLA en ese tramo, o "" si es narración. Los guiones largos pueden indicar diálogo (—Hola —dijo Ana—) o descripción: lo que va entre guiones es narración, no diálogo.
