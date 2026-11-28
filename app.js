@@ -2454,8 +2454,8 @@ function discoverList() {
   const qs = Q.trim().toLowerCase(), tq = qs.includes('#') ? parseTags(qs).map(x => x.toLowerCase()) : null;      // «#romance #au» busca por etiquetas
   const f = live.filter(s => (GEN === 'All' || (GEN === 'chat' ? s.mode === 'chat' : s.genre === GEN)) && (tq ? tq.every(t => s.tags.some(x => x.toLowerCase() === t || x.toLowerCase().includes(t)) || (t === 'chat' && s.mode === 'chat')) : `${s.title} ${s.synopsis} ${s.fandom} ${s.tags.join(' ')}${s.mode === 'chat' ? ' libro de chat chat' : ''}`.toLowerCase().includes(qs)));
   if (f.length) { const pool = feedPool(), tg = feedTags(pool), qk = tagKey(tq && tq.length === 1 ? tq[0] : qs), gc = qs && tg[qk] && tg[qk].n >= FEED.group ? groupCard(qk, pool, tg) : '';
-    const home = !qs && GEN === 'All', lim = innerWidth >= 1000 ? 18 : innerWidth >= 700 ? 12 : 8;      // en Inicio solo una parte; el resto está en «Ver todos»
-    return (home ? feedHTML() : '') + gc + `<div class="story-grid">${(home ? f.slice(0, lim) : f).map(storyCard).join('')}</div>${home && f.length > lim ? `<div class="feed-all-more"><a class="button secondary" href="#/all">${t('Ver todos')}</a></div>` : ''}`; }
+    const home = !qs && GEN === 'All', lim = 9;      // en Inicio solo 9; el resto está en «Ver todo»
+    return (home ? feedHTML() : '') + gc + `<div class="story-grid">${(home ? f.slice(0, lim) : f).map(storyCard).join('')}</div>${home && f.length > lim ? `<div class="feed-all-more"><a class="button secondary" href="#/all">${t('Ver todo')}</a></div>` : ''}`; }
   if (!live.length) return empty(t('El estante de Auri está vacío'), t('Aquí aparecerán las historias creadas por las personas usuarias. Puedes escribir la primera.'), '<a class="button secondary" href="#/write">' + t('Crear la primera historia') + '</a>');
   return empty(t('No encontramos historias'), t('Prueba con otra búsqueda o género.'), '<button class="button secondary" data-act="clear">' + t('Borrar filtros') + '</button>');
 }
