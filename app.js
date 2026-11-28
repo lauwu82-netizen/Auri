@@ -2260,10 +2260,19 @@ function finderView() {
 /* ---- Modo deslizar: las portadas se lanzan como cartas (izquierda descarta, derecha guarda en tu biblioteca) ---- */
 const SWP = { ids: [], map: new Map(), back: '#/', i: 0, hist: [] };
 const swNo = () => LS.get(uk('swipeNo'), []);
-function swipeOpen(list, back) {
-  const no = new Set(swNo()), l = list.filter(s => s.owner !== S.user && !no.has(s.id) && !S.lib.includes(s.id));
-  SWP.ids = l.map(s => s.id); SWP.map = new Map(l.map(s => [s.id, s])); SWP.back = back; SWP.i = 0; SWP.hist = [];
+function swipeOpen(src, back) {                               // src: función que devuelve la lista (así se puede pedir más libros sin que se note)
+  SWP.src = typeof src === 'function' ? src : null;
+  const list = SWP.src ? SWP.src() : src, no = new Set(swNo()), l = list.filter(s => s.owner !== S.user && !no.has(s.id) && !S.lib.includes(s.id));
+  SWP.ids = l.map(s => s.id); SWP.map = new Map(l.map(s => [s.id, s])); SWP.back = back; SWP.i = 0; SWP.hist = []; SWP.loading = false;
   location.hash = '#/swipe';
+}
+async function swExtend() {                                   // cuando quedan pocos libros por ver, trae más de la nube y los agrega al final del mazo
+  if (SWP.loading || !SWP.src || !PUB.more || PUB.busy || SWP.ids.length - SWP.i > 6) return;
+  SWP.loading = true; PUB.busy = true; PUB.n += 100;
+  try { await sbPullPublic(); } catch (e) { /* se reintenta en el siguiente libro */ } finally { PUB.busy = false; SWP.loading = false; }
+  const no = new Set(swNo()), have = new Set(SWP.ids);
+  SWP.src().filter(s => s.owner !== S.user && !no.has(s.id) && !S.lib.includes(s.id) && !have.has(s.id)).forEach(s => { SWP.ids.push(s.id); SWP.map.set(s.id, s); });
+  const cnt = document.getElementById('sw-count'); if (cnt) cnt.textContent = t('{a} de {b}', { a: Math.min(SWP.i + 1, SWP.ids.length), b: SWP.ids.length });
 }
 function swCard(s, k) {
   return `<div class="sw-c" data-k="${k}" data-id="${esc(s.id)}"><span class="sw-cv">${coverHTML(s, SWP.i + k)}</span><span class="sw-sh"></span><b class="sw-st sw-st-y">${t('GUARDAR')}</b><b class="sw-st sw-st-n">${t('DESCARTAR')}</b></div>`;
@@ -2306,7 +2315,8 @@ function swipeInit() {
       }
     });
   }
-  const swapText = () => {                                     // el texto de abajo cambia con un fundido suave según el libro
+  const swapText = () => {
+    swExtend();                                                // el texto de abajo cambia con un fundido suave según el libro
     const s = SWP.map.get(SWP.ids[SWP.i]), pn = document.getElementById('sw-panel'), inf = document.getElementById('sw-info'), cnt = document.getElementById('sw-count'), un = document.getElementById('sw-un'); if (!pn) return;
     pn.classList.add('swap'); inf.classList.add('swap');
     setTimeout(() => { if (s) { pn.innerHTML = swPanel(s); inf.innerHTML = swInfo(s); } if (cnt) cnt.textContent = t('{a} de {b}', { a: Math.min(SWP.i + 1, SWP.ids.length), b: SWP.ids.length }); if (un) un.disabled = !SWP.hist.length; pn.classList.remove('swap'); inf.classList.remove('swap'); }, 170);
@@ -5596,9 +5606,10 @@ function flowInit() {
 function openAllBooks(e) {
   const list = PF_LIST[e] || [], u = getUsers()[e] || {}; if (!list.length) return;
   const m = document.createElement('div'); m.className = 'pf-all'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
-  m.innerHTML = `<header class="pf-all-top"><button type="button" class="icon-btn" data-pa="x" aria-label="${esc(t('Volver'))}">‹</button><div><b>${t('Todos los libros')}</b><small>${esc(u.name || '')} · ${tn(list.length, '{n} libro', '{n} libros')}</small></div></header><div class="pf-all-body"><div class="story-grid">${list.map(storyCard).join('')}</div></div>`;
+  m.innerHTML = `<header class="pf-all-top"><button type="button" class="icon-btn" data-pa="x" aria-label="${esc(t('Volver'))}">‹</button><div><b>${t('Todos los libros')}</b><small>${esc(u.name || '')} · ${tn(list.length, '{n} libro', '{n} libros')}</small></div></header><div class="pf-all-body"><div class="story-grid" id="pf-grid">${list.slice(0, 24).map(storyCard).join('')}</div>${list.length > 24 ? `<div class="feed-all-more"><button type="button" class="button secondary" data-pm="1">${t('Cargar más')}</button></div>` : ''}</div>`;
+  let shownN = 24;
   const close = () => { m.classList.remove('in'); setTimeout(() => m.remove(), reduceMotion() ? 0 : 260); window.removeEventListener('hashchange', close); };
-  m.addEventListener('click', ev => { if (ev.target.closest('[data-pa=x]')) close(); else if (ev.target.closest('a[href]')) close(); });
+  m.addEventListener('click', ev => { const pm = ev.target.closest('[data-pm]'); if (pm) { const g = m.querySelector('#pf-grid'); g.insertAdjacentHTML('beforeend', list.slice(shownN, shownN + 24).map(storyCard).join('')); shownN += 24; imgGuard(m); if (shownN >= list.length) pm.parentElement.remove(); return; } if (ev.target.closest('[data-pa=x]')) close(); else if (ev.target.closest('a[href]')) close(); });
   window.addEventListener('hashchange', close); document.body.appendChild(m); imgGuard(m); requestAnimationFrame(() => m.classList.add('in'));
 }
 const worksGrid = list => list.length ? `<div class="story-grid">${list.map(storyCard).join('')}</div>` : empty('Aún no hay obras publicadas', 'Cuando se publique una historia aparecerá aquí.', '<a class="button secondary" href="#/write">' + t('Escribir una historia') + '</a>');
@@ -6986,9 +6997,9 @@ document.addEventListener('click', e => {
     'cht-pick': () => { CHR.i = +el.dataset.i || 0; KEEP = true; render(); },
     'end-swipe': () => { const st = findStory(id); if (st) swipeOpen(similarBooks(st, 40), '#/story/' + encodeURIComponent(st.id) + '/fin'); },
     'sw-open': () => { const src = el.dataset.src;
-      if (src === 'featured') { swipeOpen(featAll(), '#/featured'); return; }
-      if (src === 'finder') { swipeOpen(finderResults().list, '#/finder'); return; }
-      const k = tagKey(el.dataset.k || ''), pool = feedPool(); swipeOpen(pool.filter(s => tagsOf(s).some(x => tagKey(x) === k) || (k === 'chat' && s.mode === 'chat')).sort((a, b) => feedScore(b) - feedScore(a)), '#/explore/' + encodeURIComponent(k)); },
+      if (src === 'featured') { swipeOpen(featAll, '#/featured'); return; }
+      if (src === 'finder') { swipeOpen(() => finderResults().list, '#/finder'); return; }
+      const k = tagKey(el.dataset.k || ''); swipeOpen(() => feedPool().filter(s => tagsOf(s).some(x => tagKey(x) === k) || (k === 'chat' && s.mode === 'chat')).sort((a, b) => feedScore(b) - feedScore(a)), '#/explore/' + encodeURIComponent(k)); },
     'fd-reset': () => { Object.assign(FD, { tags: [], fandom: '', mode: 'new', go: false }); KEEP = true; render(); },
     'notif-toggle': () => { NOTIF_OPEN = !NOTIF_OPEN; KEEP = true; render(); },
     logout,
