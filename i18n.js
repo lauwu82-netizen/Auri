@@ -2979,4 +2979,5 @@ window.I18N = { en: {
   "Falta algún detalle, gracias por esperar…": "Just a few details left, thanks for waiting…",
   "Está tardando más de lo normal, sigue en marcha…": "It's taking longer than usual, still working…",
   "{n} s": "{n} s",
+  "Cargar más": "Load more",
 } };

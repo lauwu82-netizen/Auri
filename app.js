@@ -964,11 +964,17 @@ async function sbAiCheck(x, K) {
     if (r.status && r.status !== 404 && !AI_ERR) { AI_ERR = true; toast(t('Revisión automática no disponible ({e}). Moderación revisará tu capítulo.', { e: (code || r.status) + det })); }
   }   // sin función o sin conexión: sigue pendiente y se reintenta más tarde
 }
+const PUB = { n: 300, more: false, busy: false };           // cuántos libros se piden a la nube (los más recientes); "Cargar más" lo sube
+async function pubMore(step) {                                // pide más libros al servidor y dibuja de nuevo
+  if (PUB.busy || !PUB.more) return; PUB.busy = true; PUB.n += step || 100;
+  try { await sbPullPublic(); } finally { PUB.busy = false; }
+  KEEP = true; render();
+}
 async function sbPullPublic() {                           // trae las obras de otras personas (y la cola de revisión si eres del equipo)
   const ses = sbSes(), uid = ses && ses.uid, staff = !!S.user && !isGuest() && !!ses && roleOf(S.user) !== 'USER';
   const [rs, rp, rt, rc] = await Promise.all([
-    sbApi('/rest/v1/stories?select=*&order=updated_at.desc&limit=2000'),
-    sbApi('/rest/v1/chapter_published?select=*&order=position&limit=10000'),
+    sbApi('/rest/v1/stories?select=*&order=updated_at.desc&limit=' + PUB.n),
+    Promise.resolve({ ok: true, data: [] }),
     sbApi('/rest/v1/takedowns?select=story_id&limit=2000'),
     staff ? sbApi('/rest/v1/chapters?select=*&status=in.(pending,rejected)&limit=2000') : Promise.resolve(null)]);
   const rai = staff ? await sbApi('/rest/v1/chapter_ai?select=chapter_id,flags,verdict&limit=2000') : null, aiBy = new Map(((rai && rai.ok && Array.isArray(rai.data)) ? rai.data : []).map(a => [a.chapter_id, { ...(a.flags || {}), verdict: a.verdict }]));
@@ -982,8 +988,13 @@ async function sbPullPublic() {                           // trae las obras de o
       if (JSON.stringify(Object.entries(CLAIMS).filter(([, v]) => v.by !== S.user)) !== sig0 && location.hash.startsWith('#/moderation')) setTimeout(() => { KEEP = true; render(); }, 0);
     }
   }
-  if (!rs.ok || !rp.ok || !Array.isArray(rs.data) || !Array.isArray(rp.data)) return false;
+  if (!rs.ok || !Array.isArray(rs.data)) return false;
+  PUB.more = rs.data.length >= PUB.n;                    // si llegó al límite, probablemente hay más
   const stories = rs.data.filter(r => r.owner !== uid), sIds = new Set(stories.map(r => r.id));
+  const ids = [...sIds], parts = []; for (let i = 0; i < ids.length; i += 60) parts.push(ids.slice(i, i + 60));
+  const rps = await Promise.all(parts.map(g => sbApi('/rest/v1/chapter_published?select=*&story_id=in.(' + g.join(',') + ')&order=position&limit=10000')));   // capítulos solo de los libros pedidos
+  if (rps.some(x => !x.ok || !Array.isArray(x.data))) return false;
+  rp.data = rps.flatMap(x => x.data);
   const pubBy = new Map(), wkBy = new Map();
   rp.data.forEach(p => { if (sIds.has(p.story_id)) (pubBy.get(p.story_id) || pubBy.set(p.story_id, []).get(p.story_id)).push(p); });
   if (rc && rc.ok && Array.isArray(rc.data)) rc.data.forEach(c => { if (sIds.has(c.story_id)) (wkBy.get(c.story_id) || wkBy.set(c.story_id, []).get(c.story_id)).push(c); });
@@ -2130,9 +2141,9 @@ function newRow(pool) {
 const FT = { h: '', left: 0 };
 const ALLN = { n: 24 };
 function allView() {
-  const l = publishedStories().filter(matureOK).filter(storyVisible).filter(avoidOK).filter(s => !hidesStory(s.owner)), shown = l.slice(0, ALLN.n);
+  const l = publishedStories().filter(matureOK).filter(storyVisible).filter(avoidOK).filter(s => !hidesStory(s.owner)), shown = l.slice(0, ALLN.n), more = l.length > shown.length || PUB.more;
   return `<main class="page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Libros')}</span><h2 style="margin-top:8px">${t('Todas las historias')}</h2><p>${t('{n} libros', { n: l.length })}</p></div></div>
-  ${shown.length ? `<div class="story-grid">${shown.map(storyCard).join('')}</div>${l.length > shown.length ? `<div class="feed-all-more"><button type="button" class="button secondary" data-act="all-more">${t('Mostrar más')}</button></div>` : ''}` : empty(t('Aún no hay libros para mostrar.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
+  ${shown.length ? `<div class="story-grid">${shown.map(storyCard).join('')}</div>${more ? `<div class="feed-all-more"><button type="button" class="button secondary" data-act="all-more"${PUB.busy ? ' disabled' : ''}>${t('Cargar más')}</button></div>` : ''}` : empty(t('Aún no hay libros para mostrar.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
 }
 function featAll() { const ids = new Set(crPub().filter(b => b.kind === 'book').map(b => b.storyId)); return feedPoolAll().filter(s => ids.has(s.id)); }
 function featuredView() {
@@ -6959,7 +6970,7 @@ document.addEventListener('click', e => {
     'fd-tag': () => { const k = el.dataset.k; FD.tags = FD.tags.includes(k) ? FD.tags.filter(x => x !== k) : [...FD.tags, k]; FD.go = false; KEEP = true; render(); },
     'fd-mode': () => { FD.mode = el.dataset.v; FD.go = false; KEEP = true; render(); },
     'fd-go': () => { const f = $('#fd-fandom'); if (f) FD.fandom = f.value.trim(); FD.pick = true; KEEP = true; render(); },
-    'all-more': () => { ALLN.n += 24; KEEP = true; render(); },
+    'all-more': () => { if (ALLN.n + 24 <= publishedStories().length || !PUB.more) { ALLN.n += 24; KEEP = true; render(); } else { ALLN.n += 24; pubMore(100); } },
     'fd-close': () => { FD.pick = false; KEEP = true; render(); },
     'fd-list': () => { FD.pick = false; location.hash = '#/finder-list'; },
     'fd-swipe': () => { FD.pick = false; swipeOpen(finderResults().list, '#/finder'); },
