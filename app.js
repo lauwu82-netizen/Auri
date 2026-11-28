@@ -8033,6 +8033,16 @@ async function vnrServer(cu, local, ocName, useOc, ch) {
   while (ti < texts.length) out.push(texts[ti++]);
   return { script: out, assets: d.assets && typeof d.assets === 'object' ? d.assets : {} };
 }
+/** Mientras la IA prepara el capítulo: avisos que cambian según pasa el tiempo y un contador de segundos (solo texto, sin animaciones) */
+function vnrWait() {
+  const t0 = Date.now(), steps = [[0, 'Preparando tu lectura…'], [6, 'Leyendo el capítulo con la IA…'], [16, 'Eligiendo fondos y emociones…'], [30, 'Ya falta poco…'], [45, 'Falta algún detalle, gracias por esperar…'], [75, 'Está tardando más de lo normal, sigue en marcha…']];
+  const tick = () => {
+    const tx = document.querySelector('.vnr-box .vnr-text'); if (!tx) return;
+    const sec = Math.floor((Date.now() - t0) / 1000), msg = steps.filter(x => sec >= x[0]).pop()[1];
+    tx.innerHTML = `${esc(t(msg))}<br><small>${esc(t('{n} s', { n: sec }))}</small>`;
+  };
+  tick(); const iv = setInterval(tick, 1000); return () => clearInterval(iv);
+}
 async function vnrBoot(sid, n) {
   let el = document.querySelector('.vnr'); if (!el || el.dataset.boot) return; el.dataset.boot = '1';
   const curEl = () => { const e = document.querySelector('.vnr[data-sid="' + sid.replace(/"/g, '') + '"]'); if (e) e.dataset.boot = '1'; return e; };   // si la pantalla se redibuja mientras carga, se sigue en la nueva
@@ -8047,8 +8057,8 @@ async function vnrBoot(sid, n) {
   if (vnOn() && cu) {                                           // guion preparado por la IA (con lugar de cada escena) y fondos; si algo falla se lee con el guion local
     if (!(await vnrAsk(el, cu, s.useReaderCharacter ? rows : null, oc))) return;
     el = curEl() || el;
-    const tx0 = el.querySelector('.vnr-box .vnr-text'); if (tx0) tx0.textContent = t('Preparando la lectura…');
-    const sv = await vnrServer(cu, script, ocName, !!s.useReaderCharacter, S.character);
+    const stopWait = vnrWait();
+    let sv; try { sv = await vnrServer(cu, script, ocName, !!s.useReaderCharacter, S.character); } finally { stopWait(); }
     el = curEl(); if (!el) return;
     if (sv.pay) { toast(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.')); return go('/story/' + sid); }
     if (sv.script) { script = sv.script; bgs = sv.assets; }

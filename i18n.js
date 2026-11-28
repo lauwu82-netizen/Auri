@@ -2972,4 +2972,11 @@ window.I18N = { en: {
   "Aún sin imagen en tu personaje": "No image on your character yet",
   "Ver los sprites de esta historia": "See this story's sprites",
   "Sprites": "Sprites",
+  "Preparando tu lectura…": "Getting your reading ready…",
+  "Leyendo el capítulo con la IA…": "The AI is reading the chapter…",
+  "Eligiendo fondos y emociones…": "Choosing backgrounds and emotions…",
+  "Ya falta poco…": "Almost there…",
+  "Falta algún detalle, gracias por esperar…": "Just a few details left, thanks for waiting…",
+  "Está tardando más de lo normal, sigue en marcha…": "It's taking longer than usual, still working…",
+  "{n} s": "{n} s",
 } };
