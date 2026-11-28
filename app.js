@@ -7081,7 +7081,8 @@ document.addEventListener('click', e => {
     'bio-more': () => { el.closest('.pf-bio-box').classList.toggle('open'); bioFit(); },
     'shop-item': () => shopSheet(id),
     'sprite-gacha': () => spriteGacha(),
-    'shop-buy': () => toast(t('Los pagos todavía no están activos. Pronto podrás comprar aquí.')),
+    'buy-ok': () => { LS.set(uk('buyok'), el.checked ? new Date().toISOString() : null); KEEP = true; render(); },
+    'shop-buy': () => { if (!buyOk()) { toast(t('Marca que eres mayor de 18 años y aceptas los términos de compra.')); const c = document.querySelector('.buy-ok'); if (c) c.scrollIntoView({ block: 'center' }); return; } toast(t('Los pagos todavía no están activos. Pronto podrás comprar aquí.')); },
     'ms-track': () => { MS.track = id === 'writer' ? 'writer' : 'reader'; KEEP = true; render(); },
     'amb-lock': () => toast('Este ambiente estará disponible pronto con el pase.'),
     'sep-lock': () => toast('Este diseño estará disponible pronto en la tienda.'),
@@ -7377,6 +7378,7 @@ function shopTab() {
   <div class="sh-tiles">${SHOP_CATS.map(([k, n, ic]) => `<a class="sh-tile" href="#/shop/cosmeticos/${k}"><span class="sh-ti">${shSvg(ic)}</span><span class="sh-tx"><b>${t(n)}</b><small>${k === 'sprites' ? t('Al azar · 100 AuriCoins') : t('{n} cosméticos', { n: all.filter(x => x.cat === k).length })}</small></span></a>`).join('')}</div>
   <div class="sh-vip">${tile('vip', 'VIP mensual')}</div>`;
 }
+const buyOk = () => !!LS.get(uk('buyok'), null);          // aceptación de los términos de compra (fecha en que la marcó)
 function buyView(kind) {
   kind = kind === 'monedas' ? 'monedas' : 'gemas'; shopWallet();
   const isG = kind === 'gemas', b = shopBal(), back = SHOP_BACK ? '#' + SHOP_BACK : '#/shop/tienda';
@@ -7395,7 +7397,7 @@ function buyView(kind) {
   ${SHOP_CAP > 0 ? `<div class="panel buy-cap"><div><span>${t('Compras de este mes')}</span><span>$0 / $${SHOP_CAP}</span></div><span class="ms-bar"><i style="width:0%"></i></span></div>` : ''}
   <div class="pk-grid">${SHOP_PACKS.map(pack).join('')}</div>
   <p class="helper buy-note">${isG ? t('Las gemas compradas son cian y se pueden donar.') : t('Los cosméticos cuestan desde 100 AuriCoins.')}</p>
-  <p class="helper buy-note">${t('Solo mayores de 18 años. Al comprar aceptas los')} <button type="button" class="link-btn" data-act="buy-terms">${t('Términos de compra')}</button>.</p></main>`;
+  <label class="check-line buy-ok"><input type="checkbox" data-act="buy-ok" ${buyOk() ? 'checked' : ''}><span>${t('Soy mayor de 18 años y acepto los')} <button type="button" class="link-btn" data-act="buy-terms">${t('Términos de compra')}</button>.</span></label></main>`;
 }
 /* ---------- Tienda: cosméticos (precios en AuriCoins; los reales y las ofertas vienen de la tabla shop_items, SQL 92) ---------- */
 const SHOP_CATS = [['marcos', 'Marcos', 'frame'], ['formas', 'Formas de foto', 'frame'], ['skins', 'Skins de chat', 'bg'], ['mascotas', 'Mascotas', 'pet'], ['sprites', 'Sprites sorpresa', 'bg']];   // Marcos = todo lo que decora tu perfil (Coquette, lazos, formas y bordes)

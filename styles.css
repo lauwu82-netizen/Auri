@@ -5214,3 +5214,4 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 .vn-lock{position:absolute;left:50%;top:52%;width:18px;height:13px;margin-left:-9px;border-radius:3px;background:hsl(var(--muted-foreground))}
 .vn-lock::before{content:"";position:absolute;left:3px;top:-8px;width:8px;height:9px;border:2.5px solid hsl(var(--muted-foreground));border-bottom:0;border-radius:6px 6px 0 0;box-sizing:border-box}
 .sh-gacha{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
+.buy-ok{margin:16px 0 4px;padding:12px 14px;border-radius:14px;background:hsl(var(--muted)/.5)}

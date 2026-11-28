@@ -2982,4 +2982,6 @@ window.I18N = { en: {
   "Cargar más": "Load more",
   "Términos de compra": "Purchase terms",
   "Solo mayores de 18 años. Al comprar aceptas los": "Adults 18+ only. By buying you accept the",
+  "Soy mayor de 18 años y acepto los": "I am 18 or older and accept the",
+  "Marca que eres mayor de 18 años y aceptas los términos de compra.": "Check that you are 18 or older and accept the purchase terms.",
 } };
