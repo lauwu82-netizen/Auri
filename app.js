@@ -2148,7 +2148,7 @@ function allView() {
 /** Paginación común: muestra una ventana de la lista y un botón "Cargar más" (si se acaba, pide más libros al servidor) */
 const PG = { key: '', n: 30 };
 function pgSlice(list, step) {
-  const k = location.hash.split('?')[0]; if (PG.key !== k) { PG.key = k; PG.n = step || 30; }
+  const k = location.hash.split('?')[0] + '|' + (typeof Q === 'string' ? Q : '') + '|' + (typeof GEN === 'string' ? GEN : ''); if (PG.key !== k) { PG.key = k; PG.n = step || 30; }
   PG.tot = list.length; const shown = list.slice(0, PG.n), more = list.length > shown.length || PUB.more;
   return { shown, btn: more ? `<div class="feed-all-more"><button type="button" class="button secondary" data-act="pg-more" data-step="${step || 30}"${PUB.busy ? ' disabled' : ''}>${t('Cargar más')}</button></div>` : '' };
 }
@@ -2237,7 +2237,7 @@ function fdSheet(res) {                                      // ventana pequeña
 function finderListView() {
   const res = finderResults();
   return `<main class="page fd-page"><a class="back-link" href="#/finder">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Búsqueda personalizada')}</span><h2 style="margin-top:8px">${t('{n} libros para ti', { n: res.list.length })}</h2>${res.exact || !res.list.length ? '' : `<p>${t('Ningún libro tiene todo lo que elegiste: te mostramos los más cercanos.')}</p>`}</div></div>
-  ${res.list.length ? `<div class="sw-toggle" role="group"><button type="button" aria-pressed="true">${t('Lista')}</button><button type="button" aria-pressed="false" data-act="sw-open" data-src="finder">${t('Deslizar')}</button></div>${masonryHTML(res.list)}` : empty(t('Aún no hay libros para mostrar.'), '', `<a class="button secondary" href="#/finder">${t('Volver')}</a>`)}</main>`;
+  ${res.list.length ? `<div class="sw-toggle" role="group"><button type="button" aria-pressed="true">${t('Lista')}</button><button type="button" aria-pressed="false" data-act="sw-open" data-src="finder">${t('Deslizar')}</button></div>${masonryHTML(pgSlice(res.list).shown)}${pgSlice(res.list).btn}` : empty(t('Aún no hay libros para mostrar.'), '', `<a class="button secondary" href="#/finder">${t('Volver')}</a>`)}</main>`;
 }
 function finderView() {
   const pool = feedPoolAll(), tags = feedTags(pool);
@@ -2473,7 +2473,7 @@ function discoverList() {
   const f = live.filter(s => (GEN === 'All' || (GEN === 'chat' ? s.mode === 'chat' : s.genre === GEN)) && (tq ? tq.every(t => s.tags.some(x => x.toLowerCase() === t || x.toLowerCase().includes(t)) || (t === 'chat' && s.mode === 'chat')) : `${s.title} ${s.synopsis} ${s.fandom} ${s.tags.join(' ')}${s.mode === 'chat' ? ' libro de chat chat' : ''}`.toLowerCase().includes(qs)));
   if (f.length) { const pool = feedPool(), tg = feedTags(pool), qk = tagKey(tq && tq.length === 1 ? tq[0] : qs), gc = qs && tg[qk] && tg[qk].n >= FEED.group ? groupCard(qk, pool, tg) : '';
     const home = !qs && GEN === 'All', lim = 9;      // en Inicio solo 9; el resto está en «Ver todo»
-    return (home ? feedHTML() : '') + gc + `<div class="story-grid">${(home ? f.slice(0, lim) : f).map(storyCard).join('')}</div>${home && f.length > lim ? `<div class="feed-all-more"><a class="button secondary" href="#/all">${t('Ver todo')}</a></div>` : ''}`; }
+    return (home ? feedHTML() : '') + gc + `<div class="story-grid">${(home ? f.slice(0, lim) : pgSlice(f, 24).shown).map(storyCard).join('')}</div>${!home ? pgSlice(f, 24).btn : ''}${home && f.length > lim ? `<div class="feed-all-more"><a class="button secondary" href="#/all">${t('Ver todo')}</a></div>` : ''}`; }
   if (!live.length) return empty(t('El estante de Auri está vacío'), t('Aquí aparecerán las historias creadas por las personas usuarias. Puedes escribir la primera.'), '<a class="button secondary" href="#/write">' + t('Crear la primera historia') + '</a>');
   return empty(t('No encontramos historias'), t('Prueba con otra búsqueda o género.'), '<button class="button secondary" data-act="clear">' + t('Borrar filtros') + '</button>');
 }
