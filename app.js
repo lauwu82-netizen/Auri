@@ -7869,13 +7869,15 @@ function vnMock(text, names, rawParas) {
 let VNR = null;
 const VN_ADJ0 = { x: 0, y: 18, s: 1 };
 const vnAdjOk = a => { const f = (v, lo, hi, d) => Number.isFinite(+v) && v !== null && v !== '' ? Math.min(hi, Math.max(lo, +v)) : d; a = a || {}; return { x: f(a.x, -40, 40, VN_ADJ0.x), y: f(a.y, -10, 70, VN_ADJ0.y), s: f(a.s, .5, 2, VN_ADJ0.s) }; };
+let VN_SPR = null;                                       // personajes de la historia y personaje de la lectora, para el botón «Sprites»
+document.addEventListener('click', ev => { const b = ev.target.closest && ev.target.closest('[data-vnspr2]'); if (b && VN_SPR) vnEmosLoad().then(() => vnStorySprites(VN_SPR.rows, VN_SPR.oc)); });
 const vnLocalAdj = () => LS.get(uk('vnadj'), {});
 function vnrView(sid, n) {
   const s = findStory(sid);
   if (!vnOn() || !s) return `<main class="page">${empty('Aquí pronto habrá algo nuevo', 'Esta función todavía no está abierta.')}</main>`;
   return `<div class="vnr" data-sid="${esc(sid)}" data-n="${esc(n)}"><div class="vnr-bg" style="${s.cover ? `background-image:url('${esc(s.cover)}')` : ''}"></div><div class="vnr-shade"></div>
   <div class="vnr-stage"></div>
-  <header class="vnr-top"><a class="button ghost sm" href="#/story/${esc(sid)}" data-dir="back">✕ ${t('Salir')}</a><span class="vnr-top-r"><button type="button" class="button ghost sm" data-vnadj>${t('Ajustar')}</button><a class="button ghost sm" data-replace href="#/story/${esc(sid)}/${esc(n)}">${t('Leer como texto')}</a></span></header>
+  <header class="vnr-top"><a class="button ghost sm" href="#/story/${esc(sid)}" data-dir="back">✕ ${t('Salir')}</a><span class="vnr-top-r">${s.useReaderCharacter ? `<button type="button" class="button ghost sm" data-vnspr2>${t('Sprites')}</button>` : ''}<button type="button" class="button ghost sm" data-vnadj>${t('Ajustar')}</button><a class="button ghost sm" data-replace href="#/story/${esc(sid)}/${esc(n)}">${t('Leer como texto')}</a></span></header>
   <div class="vnr-prog"><i></i></div><div class="vnr-tap"><div class="vnr-box"><b class="vnr-who"></b><p class="vnr-text"></p><small class="vnr-hint">${t('Toca para continuar')}</small></div></div>
   <div class="vnr-adj" hidden></div><p class="vnr-meas vnr-text" aria-hidden="true"></p></div>`;
 }
@@ -8037,6 +8039,7 @@ async function vnrBoot(sid, n) {
   const s = findStory(sid), ch = s && (s.chapters.find(c => c.idx === +n - 1) || s.chapters[+n - 1]); if (!ch) return;
   let rows = []; try { const r = await sbApi('/rest/v1/vn_characters?select=*&story_id=eq.' + sUuid(sid) + '&order=pos,created_at'); if (r.ok && Array.isArray(r.data)) rows = r.data; } catch (e) { /* sin personajes */ }
   const oc = s.useReaderCharacter ? S.character : null, ocName = oc && oc.name ? oc.name : '';
+  VN_SPR = { rows, oc: oc || { sprites: {} } };
   const text = s.useReaderCharacter ? fillHE(fillTN(ch.text, ocName || t('Lectora')), S.character) : ch.text, rawParas = paraSplit(ch.text);
   const cast = {}; rows.forEach(c => { cast[c.name] = c; }); if (ocName && !cast[ocName]) cast[ocName] = { name: ocName, sprites: (oc && oc.sprites) || {}, adult: true, me: true };
   let script = vnMock(text, Object.keys(cast), rawParas), bgs = {};

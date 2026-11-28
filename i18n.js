@@ -2971,4 +2971,5 @@ window.I18N = { en: {
   "Tu personaje la tiene": "Your character has it",
   "Aún sin imagen en tu personaje": "No image on your character yet",
   "Ver los sprites de esta historia": "See this story's sprites",
+  "Sprites": "Sprites",
 } };
