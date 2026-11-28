@@ -6322,12 +6322,12 @@ function openCharForm(id, after) {
     <p class="helper"><a href="#/ip">${t('Normas de propiedad intelectual')}</a> · <a href="#/ip">${t('Reclamaciones de artistas')}</a> · <a href="#/ip">${t('Retirada y apelación')}</a></p></fieldset></details>` : ''}
   <p class="error" data-err></p><div class="cf-btns"><button class="button ghost" data-cancel>${t('Cancelar')}</button><button class="button" data-save>${t('Guardar')}</button></div></div>`;
   const q = sel => m.querySelector(sel), close = () => m.remove(), setPrev = () => { q('[data-prev]').innerHTML = photo ? `<img src="${esc(photo)}" alt="">` : '🐱'; q('[data-nophoto]').hidden = !photo; };
-  const vnDraw = () => { const box = q('[data-vncells]'); if (!box) return; box.innerHTML = vnEmoList().map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : vnSil(e.key)}</div><b>${esc(t(e.name))}</b>${vnTag(e)}<label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}</div>`).join(''); };
+  const vnDraw = () => { const box = q('[data-vncells]'); if (!box) return; box.innerHTML = vnAll().map(e => vnLocked(e) ? vnLockCell(e) : `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : vnSil(e.key)}</div><b>${esc(t(e.name))}</b>${vnTag(e)}<label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}</div>`).join(''); };
   if (q('[data-vncells]')) { vnDraw(); vnEmosLoad().then(vnDraw);
     const box = q('[data-vncells]');
     box.addEventListener('change', ev => { const inp = ev.target.closest('input[data-emo]'); if (!inp || !inp.files[0]) return; const k = inp.dataset.emo; q('[data-err]').textContent = t('Subiendo…');
       spriteFit(inp.files[0], async d => { const u = await sbUpImg(d); q('[data-err]').textContent = ''; if (!u) return (q('[data-err]').textContent = t('No se pudo subir la imagen. Inténtalo otra vez.')); sp[k] = u; vnDraw(); }); });
-    box.addEventListener('click', ev => { const rm = ev.target.closest('[data-rm]'); if (rm) { delete sp[rm.dataset.rm]; vnDraw(); } }); }
+    box.addEventListener('click', ev => { if (ev.target.closest('[data-unlock]')) { spriteGacha(vnDraw); return; } const rm = ev.target.closest('[data-rm]'); if (rm) { delete sp[rm.dataset.rm]; vnDraw(); } }); }
   q('[data-x]').onclick = close; q('[data-cancel]').onclick = close; m.onclick = ev => { if (ev.target === m) close(); };
   q('[data-file]').onchange = () => fitPhoto(q('[data-file]').files[0], 600, 800, d => { photo = d; setPrev(); });
   q('[data-nophoto]').onclick = () => { photo = ''; setPrev(); };
@@ -7034,6 +7034,7 @@ document.addEventListener('click', e => {
     'img-no': () => imgDecide(decodeURIComponent(id), false),
     'bio-more': () => { el.closest('.pf-bio-box').classList.toggle('open'); bioFit(); },
     'shop-item': () => shopSheet(id),
+    'sprite-gacha': () => spriteGacha(),
     'shop-buy': () => toast(t('Los pagos todavía no están activos. Pronto podrás comprar aquí.')),
     'ms-track': () => { MS.track = id === 'writer' ? 'writer' : 'reader'; KEEP = true; render(); },
     'amb-lock': () => toast('Este ambiente estará disponible pronto con el pase.'),
@@ -7327,7 +7328,7 @@ function shopTab() {
   <div class="section-head sh-sec"><div><h2>${t('Ofertas')}</h2></div></div>
   ${offers.length ? `<div class="sh-cgrid">${offers.map(shCard).join('')}</div>` : `<div class="panel sh-empty"><span class="sh-ti">${shSvg('tag')}</span><span>${t('Aún no hay ofertas esta semana.')}</span></div>`}
   <div class="section-head sh-sec"><div><h2>${t('Cosméticos')}</h2></div></div>
-  <div class="sh-tiles">${SHOP_CATS.map(([k, n, ic]) => `<a class="sh-tile" href="#/shop/cosmeticos/${k}"><span class="sh-ti">${shSvg(ic)}</span><span class="sh-tx"><b>${t(n)}</b><small>${t('{n} cosméticos', { n: all.filter(x => x.cat === k).length })}</small></span></a>`).join('')}</div>
+  <div class="sh-tiles">${SHOP_CATS.map(([k, n, ic]) => `<a class="sh-tile" href="#/shop/cosmeticos/${k}"><span class="sh-ti">${shSvg(ic)}</span><span class="sh-tx"><b>${t(n)}</b><small>${k === 'sprites' ? t('Al azar · 100 AuriCoins') : t('{n} cosméticos', { n: all.filter(x => x.cat === k).length })}</small></span></a>`).join('')}</div>
   <div class="sh-vip">${tile('vip', 'VIP mensual')}</div>`;
 }
 function buyView(kind) {
@@ -7350,7 +7351,7 @@ function buyView(kind) {
   <p class="helper buy-note">${isG ? t('Las gemas compradas son cian y se pueden donar.') : t('Los cosméticos cuestan desde 100 AuriCoins.')}</p></main>`;
 }
 /* ---------- Tienda: cosméticos (precios en AuriCoins; los reales y las ofertas vienen de la tabla shop_items, SQL 92) ---------- */
-const SHOP_CATS = [['marcos', 'Marcos', 'frame'], ['formas', 'Formas de foto', 'frame'], ['skins', 'Skins de chat', 'bg'], ['mascotas', 'Mascotas', 'pet']];   // Marcos = todo lo que decora tu perfil (Coquette, lazos, formas y bordes)
+const SHOP_CATS = [['marcos', 'Marcos', 'frame'], ['formas', 'Formas de foto', 'frame'], ['skins', 'Skins de chat', 'bg'], ['mascotas', 'Mascotas', 'pet'], ['sprites', 'Sprites sorpresa', 'bg']];   // Marcos = todo lo que decora tu perfil (Coquette, lazos, formas y bordes)
 let SHOP_DB = null, SHOP_DBT = 0;                        // tabla de precios y ofertas (null = aún no cargada o sin crear)
 function shopDb() {
   if (!rwOn() || Date.now() - SHOP_DBT < 30000) return; SHOP_DBT = Date.now();
@@ -7395,7 +7396,17 @@ function shCard(x) {
 function shopOffers() {                                  // ofertas: máximo 5 (los que no tengas aún)
   return shopCatalog().filter(x => x.offer && !shOwned(x)).slice(0, 5);
 }
+function spritesView() {
+  shopWallet(); vnEmosLoad().then(() => { if (/^#\/shop\/cosmeticos\/sprites/.test(location.hash)) { KEEP = true; render(); } });
+  const em = vnAll().filter(e => e.rarity && e.rarity !== 'basic' && !e.free), it = (getUsers()[S.user] || {}).items || [], b = shopBal();
+  return `<main class="page shop"><a class="back" href="#/shop/tienda">‹ ${t('Volver')}</a>
+  <div class="section-head shop-head"><div><h1>${t('Sprites sorpresa')}</h1><p>${t('Tienes')} <b>${fmtN(b.coins)}</b> <i class="coin sm" aria-hidden="true"></i></p></div></div>
+  <div class="panel sh-gacha"><b>${t('Una emoción al azar por 100 AuriCoins')}</b><p class="helper">${t('Probabilidades: Común 60% · Poco común 25% · Épico 12% · Legendario 3%. Las emociones de temporada no entran en el sorteo.')}</p><button type="button" class="button" data-act="sprite-gacha">${t('Probar suerte')} · 100 <i class="coin sm" aria-hidden="true"></i></button></div>
+  <div class="section-head sh-sec"><div><h2>${t('Todas las emociones')}</h2></div></div>
+  <div class="sh-cgrid">${em.map(e => { const own = it.includes('sprite:' + e.key); return `<div class="sh-cos${own ? ' own' : ''}"><span class="sh-pv ico">${vnSil(e.key)}</span><span class="sh-cn">${esc(t(e.name))}</span>${vnTag(e)}<span class="sh-pr">${own ? t('Tuyo') : t('Sin desbloquear')}</span></div>`; }).join('')}</div></main>`;
+}
 function catView(cat) {
+  if (cat === 'sprites') return spritesView();
   shopWallet(); shopDb();
   const c = SHOP_CATS.find(x => x[0] === cat) || SHOP_CATS[0], items = shopCatalog().filter(x => x.cat === c[0]), b = shopBal();
   return `<main class="page shop"><a class="back" href="#/shop/tienda">‹ ${t('Volver')}</a>
@@ -7656,6 +7667,31 @@ async function passRefresh() {                           // refresca objetos, t�
 const vnTag = e => RARITY[e.rarity] && RARITY[e.rarity][1] ? `<small class="vn-rar ${RARITY[e.rarity][1]}">${t(RARITY[e.rarity][0])}</small>` : '';
 let VN_EM = null;                                        // emociones de la nube (si ya cargaron); si no, la lista por defecto
 const vnEmoList = () => vnMine(VN_EM && VN_EM.length ? VN_EM : VN_KEYS.map(([key, name]) => ({ key, name })));
+/* todas las emociones que admite la novela visual; las que la cuenta aún no tiene se ven bloqueadas con «Desbloquear» */
+const vnAll = () => VN_EM && VN_EM.length ? VN_EM : VN_KEYS.map(([key, name]) => ({ key, name }));
+const vnLocked = e => !vnMine([e]).length;
+const vnLockCell = e => `<div class="vn-cell locked"><div class="vn-spr">${vnSil(e.key)}<i class="vn-lock" aria-hidden="true"></i></div><b>${esc(t(e.name))}</b>${vnTag(e)}<button type="button" class="button ghost sm" data-unlock>${t('Desbloquear')}</button></div>`;
+const SPR_ROLL = ['common', 'uncommon', 'epic', 'legendary'];
+/** Sprite sorpresa: una emoción al azar que aún no tienes, por 100 AuriCoins (sorteo en el servidor) */
+function spriteGacha(done) {
+  shopWallet();
+  const em = vnAll().filter(e => SPR_ROLL.includes(e.rarity)), it = (getUsers()[S.user] || {}).items || [], got = em.filter(e => it.includes('sprite:' + e.key)).length, have = shopBal().coins, miss = 100 - have, m = document.createElement('div'); m.className = 'modal sheet';
+  m.innerHTML = `<div class="modal-box sh-sheet" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button>
+    <span class="sh-pv ico">${vnSil('neutral')}</span><h2>${t('Sprite sorpresa')}</h2>
+    <p class="helper">${t('Recibes una emoción al azar que aún no tienes. Ya tienes {a} de {b}.', { a: got, b: em.length })}</p>
+    <p class="helper">${t('Probabilidades: Común 60% · Poco común 25% · Épico 12% · Legendario 3%. Las emociones de temporada no entran en el sorteo.')}</p>
+    ${got >= em.length ? `<p class="sh-note">${t('Ya tienes todos los sprites del sorteo.')}</p><button type="button" class="button ghost" data-no>${t('Cerrar')}</button>`
+      : miss > 0 ? `<div class="sh-miss"><b>${t('Te faltan {n} AuriCoins', { n: fmtN(miss) })}</b><small>${t('Tienes {h} y esto cuesta {p}.', { h: fmtN(have), p: 100 })}</small></div><a class="button" href="#/shop/comprar/monedas" data-no>${t('Conseguir AuriCoins')}</a><button type="button" class="button ghost" data-no>${t('Ahora no')}</button>`
+      : `<button type="button" class="button" data-go>${t('Probar suerte')} · 100 <i class="coin sm" aria-hidden="true"></i></button><button type="button" class="button ghost" data-no>${t('Ahora no')}</button>`}</div>`;
+  m.addEventListener('click', async ev => {
+    if (ev.target === m || ev.target.closest('[data-no]')) { m.remove(); return; }
+    const g = ev.target.closest('[data-go]'); if (!g) return; g.disabled = true;
+    const r = await sbApi('/rest/v1/rpc/sprite_gacha', { method: 'POST', body: {} });
+    m.remove(); if (!r.ok) { toast(rpcMsg(r)); return; }
+    const k = r.data && r.data.key; await passRefresh(); if (k) vnReveal([k]); if (done) done();
+  });
+  document.body.appendChild(m);
+}
 async function vnEmosLoad() { if (VN_EM) return; try { const r = await sbApi('/rest/v1/vn_emotions?select=*&order=sort'); if (r.ok && Array.isArray(r.data) && r.data.length) VN_EM = r.data; } catch (e) { /* se usa la lista por defecto */ } }
 let VN = { sid: '', ok: false, busy: false, vn: false, chars: [], emos: [], err: '' };
 const VN_EMO = { neutral: 'Neutral', feliz: 'Happy', triste: 'Sad', sonrojado: 'Blushing', asustado: 'Scared', enojado: 'Angry' };
@@ -7698,7 +7734,7 @@ function spriteFit(file, cb) {                           // sprite: máximo 640 
 }
 function vnEdit(id) {
   const cur = id ? VN.chars.find(c => c.id === id) : null, sp = { ...(cur ? cur.sprites || {} : {}) }, m = document.createElement('div'); let refImg = '', busyK = ''; m.className = 'modal sheet'; let adj = vnAdjOk(cur && cur.adj && Object.keys(cur.adj).length ? cur.adj : null);
-  const cells = () => vnMine(VN.emos).map(e => `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : vnSil(e.key)}</div><b>${esc(t(e.name))}</b>${vnTag(e)}<label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}${VN_AI.sprite ? `<button type="button" class="link-btn" data-gen="${esc(e.key)}" ${busyK ? 'disabled' : ''}>${busyK === e.key ? t('Creando… puede tardar un minuto') : '✦ ' + t('Crear con IA')}</button>` : ''}</div>`).join('');
+  const cells = () => VN.emos.map(e => vnLocked(e) ? vnLockCell(e) : `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : vnSil(e.key)}</div><b>${esc(t(e.name))}</b>${vnTag(e)}<label class="button ghost sm vn-up">${sp[e.key] ? t('Cambiar') : t('Subir')}<input type="file" accept="image/png,image/webp,image/*" data-emo="${esc(e.key)}" hidden></label>${sp[e.key] ? `<button type="button" class="link-btn" data-rm="${esc(e.key)}">${t('Quitar')}</button>` : ''}${VN_AI.sprite ? `<button type="button" class="link-btn" data-gen="${esc(e.key)}" ${busyK ? 'disabled' : ''}>${busyK === e.key ? t('Creando… puede tardar un minuto') : '✦ ' + t('Crear con IA')}</button>` : ''}</div>`).join('');
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${cur ? t('Editar personaje') : t('Nuevo personaje')}</h2>
   <label class="vnf"><span>${t('Nombre')}</span><input class="field" id="vn-name" maxlength="40" value="${esc(cur ? cur.name : '')}"></label>
   <label class="check"><input type="checkbox" id="vn-adult" ${!cur || cur.adult ? 'checked' : ''}> ${t('Es mayor de edad')}</label><p class="helper">${t('Si es menor de edad, no se generará nada sugerente con este personaje.')}</p>
@@ -7730,6 +7766,7 @@ function vnEdit(id) {
     spriteFit(inp.files[0], async d => { const u = await sbUpImg(d); err.textContent = ''; if (!u) return (err.textContent = t('No se pudo subir la imagen. Inténtalo otra vez.')); sp[k] = u; redraw(); }); });
   m.addEventListener('click', async e => {
     if (e.target.closest('[data-no]') || e.target === m) return m.remove();
+    if (e.target.closest('[data-unlock]')) return spriteGacha(redraw);
     const rm = e.target.closest('[data-rm]'); if (rm) { delete sp[rm.dataset.rm]; return redraw(); }
     if (e.target.closest('[data-refrm]')) { refImg = ''; m.querySelector('[data-refshow]').innerHTML = ''; return; }
     if (e.target.closest('[data-adjreset]')) { adj = vnAdjOk(null); return prevDraw(); }

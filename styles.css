@@ -5209,3 +5209,8 @@ body.nt-dragging .nt-row,body.nt-dragging .nt-col{-webkit-overflow-scrolling:aut
 .copy-ic::before,.copy-ic::after{content:"";position:absolute;width:11px;height:13px;border:2px solid currentColor;border-radius:3px;box-sizing:border-box}
 .copy-ic::before{left:0;top:0;opacity:.6}.copy-ic::after{right:0;bottom:0;background:hsl(var(--background))}
 .wf-cnt{display:inline-flex;align-items:center;gap:6px}.copy-ch{display:inline-grid;place-items:center;width:44px;height:44px;border:0;background:none;color:hsl(var(--muted-foreground));cursor:pointer;border-radius:12px}
+/* sprites bloqueados y sorpresa */
+.vn-cell.locked .vn-spr{position:relative}.vn-cell.locked .vn-spr .vn-sil{opacity:.35}
+.vn-lock{position:absolute;left:50%;top:52%;width:18px;height:13px;margin-left:-9px;border-radius:3px;background:hsl(var(--muted-foreground))}
+.vn-lock::before{content:"";position:absolute;left:3px;top:-8px;width:8px;height:9px;border:2.5px solid hsl(var(--muted-foreground));border-bottom:0;border-radius:6px 6px 0 0;box-sizing:border-box}
+.sh-gacha{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
