@@ -2980,4 +2980,6 @@ window.I18N = { en: {
   "Está tardando más de lo normal, sigue en marcha…": "It's taking longer than usual, still working…",
   "{n} s": "{n} s",
   "Cargar más": "Load more",
+  "Términos de compra": "Purchase terms",
+  "Solo mayores de 18 años. Al comprar aceptas los": "Adults 18+ only. By buying you accept the",
 } };

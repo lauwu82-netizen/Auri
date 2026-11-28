@@ -2753,6 +2753,22 @@ const TERMS = `<ol>
 <li><b>Lectores.</b> Las historias +18 solo se muestran a cuentas que declaren ser mayores de 18 años. Por ahora es una declaración, no una verificación de identidad.</li>
 <li><b>Convivencia.</b> Trata bien a las demás personas: el acoso, el odio y el spam no están permitidos en comentarios ni perfiles. Puedes reportar contenido y bloquear o silenciar cuentas.</li>
 <li><b>Autoría y fanfics.</b> Tus historias siguen siendo tuyas. En los fanfics respeta a quienes crearon el material original y no copies textos ajenos.</li></ol>`;
+/** Términos de compra (BORRADOR: debe revisarlos una persona con formación legal antes de activar pagos reales) */
+const TERMS_BUY = `<ol>
+<li><b>Quién puede comprar.</b> Solo pueden comprar las personas mayores de 18 años. Al comprar declaras que lo eres.</li>
+<li><b>Qué compras.</b> Las AuriGems y las AuriCoins son créditos para usar dentro de Auri. No son dinero, no se pueden cambiar por dinero ni transferir fuera de la app.</li>
+<li><b>Precios y pagos.</b> Los precios se muestran en dólares (USD). El pago lo procesa PayPal. Auri nunca recibe ni guarda los datos de tu tarjeta o de tu cuenta bancaria.</li>
+<li><b>Cosméticos.</b> Los cosméticos que compras con AuriCoins (marcos, formas, skins, mascotas y sprites) son tuyos y se quedan en tu cuenta mientras esta exista.</li>
+<li><b>Sorpresas.</b> Los sprites sorpresa se obtienen al azar. Las probabilidades se muestran antes de comprar. Un resultado al azar no se puede elegir ni cambiar.</li>
+<li><b>Reembolsos.</b> Si ya usaste lo que compraste, no se reembolsa. Se puede reembolsar una compra si no usaste nada de ella y hubo un error de cobro o un cobro doble, y lo pides dentro de los 7 días siguientes. Para pedirlo, usa «Reportar un error» en Acerca de.</li>
+<li><b>Cuentas suspendidas.</b> Si tu cuenta se cierra por incumplir las reglas de Auri, pierdes el saldo de gemas y monedas y no se devuelve.</li>
+<li><b>Disputas.</b> Si abres una disputa o un contracargo en PayPal, podemos retirar lo comprado mientras se resuelve. Te pedimos que nos escribas antes para resolverlo.</li>
+<li><b>Cambios.</b> Los precios, paquetes y ofertas pueden cambiar. Lo que ya compraste no cambia.</li></ol>`;
+function showBuyTerms() {
+  const m = document.createElement('div'); m.className = 'modal';
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${t('Términos de compra')}</h2><div class="terms">${trLegal(TERMS_BUY)}</div><button class="button" data-act="close-modal" style="width:100%;margin-top:14px">${t('Entendido')}</button></div>`;
+  document.body.appendChild(m);
+}
 function showTerms() {
   const m = document.createElement('div'); m.className = 'modal';
   m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><h2>${t('Términos y condiciones de contenido')}</h2><div class="terms">${trLegal(TERMS)}</div><button class="button" data-act="close-modal" style="width:100%;margin-top:14px">${t('Entendido')}</button></div>`;
@@ -5406,7 +5422,7 @@ function settingsView(secId) {
       <div class="form-group"><label for="ac-pass">${t('Contraseña actual')}</label><input id="ac-pass" type="password" class="field" autocomplete="current-password" placeholder="${esc(t('Solo para cambiar el correo'))}"></div></div>
       <button class="button" style="margin-top:12px;width:100%" data-act="acct-save">${t('Guardar cambios de cuenta')}</button></section>
       <section class="panel set-sec danger-zone"><h2>${t('⚠️ Zona de peligro')}</h2><p class="helper" style="margin:8px 0 12px">${t('Eliminar tu cuenta borra tus historias (publicadas, en revisión y borradores), biblioteca, personajes, comentarios, likes y seguidores. No se puede deshacer.')}</p><button class="button danger" data-act="acct-delete">${t('Eliminar cuenta')}</button></section>` },
-    acerca: { ico: 'ℹ️', c: '#7a869a', t: 'Acerca de', sub: t('Versión {v}', { v: APP_VERSION }), body: () => `<section class="panel set-sec"><div class="set-btns"><button class="button secondary" data-act="terms">${t('Términos y condiciones')}</button><button class="button secondary" data-act="privacy">${t('Política de privacidad')}</button><button class="button secondary" data-act="report">${t('Reportar un error')}</button></div>${sw('hideBugFab', !!cfg('hideBugFab'), 'Ocultar el botón flotante de errores', 'Sigue disponible aquí, en Acerca de.')}<p class="helper" style="margin:14px 0 0;text-align:center">${t('Auri · versión {v}', { v: APP_VERSION })}</p></section>` }
+    acerca: { ico: 'ℹ️', c: '#7a869a', t: 'Acerca de', sub: t('Versión {v}', { v: APP_VERSION }), body: () => `<section class="panel set-sec"><div class="set-btns"><button class="button secondary" data-act="terms">${t('Términos y condiciones')}</button><button class="button secondary" data-act="buy-terms">${t('Términos de compra')}</button><button class="button secondary" data-act="privacy">${t('Política de privacidad')}</button><button class="button secondary" data-act="report">${t('Reportar un error')}</button></div>${sw('hideBugFab', !!cfg('hideBugFab'), 'Ocultar el botón flotante de errores', 'Sigue disponible aquí, en Acerca de.')}<p class="helper" style="margin:14px 0 0;text-align:center">${t('Auri · versión {v}', { v: APP_VERSION })}</p></section>` }
   };
   const SECSUB = { chat: 'Burbujas, letra y fondo', apariencia: 'Tema, color e idioma', lectura: 'Letra, fuente y música', escritura: 'Skins y funciones para escribir', contenido: '+18, etiquetas y avisos', intereses: 'Temas que te gustan', bloqueos: 'Personas que bloqueaste o silenciaste', notificaciones: 'Qué avisos recibes', datos: 'Exportar, importar y borrar', cuenta: 'Usuario, correo y sesión', acerca: 'Términos, privacidad y versión' };
   if (secId && SECS[secId]) {                                    // pantalla de una sección
@@ -6811,7 +6827,7 @@ document.addEventListener('click', e => {
     'rc-set': () => { if (!isStaff()) return; const v = el.dataset.v === '1', st = staffSetMature(id, v); if (!st) return toast(t('La obra ya no existe.')); logAction(v ? 'mark18' : 'unmature', st.owner, id);
       pushNotif(st.owner, { type: 'sys', extra: v ? 'Moderación marcó «{n}» como +18.' : 'Moderación quitó la marca +18 de «{n}».', xv: { n: st.title } }); toast(v ? t('Marcada como +18') : t('Marca +18 quitada')); KEEP = true; render(); },
     'lock-remove': () => { if (TAB === 'lib') libRemove(id); else if (TAB === 'col') { S.cols = S.cols.filter(x => x !== id); LS.set(uk('cols'), S.cols); } else if (TAB === 'fav') { S.favs = S.favs.filter(x => x !== id); LS.set(uk('favs'), S.favs); } else if (TAB === 'read') { delete S.progress[id]; LS.set(uk('progress'), S.progress); } KEEP = true; render(); },
-    terms: showTerms, 'close-modal': () => el.closest('.modal').remove(),
+    terms: showTerms, 'buy-terms': showBuyTerms, 'close-modal': () => el.closest('.modal').remove(),
     adult: () => { const u = getUsers(); if (isMinor(u[S.user])) return; u[S.user].adultDeclared = true; G.set('users', u); render(); },
     approve: () => { if (!isStaff()) return; const bk = allStories().find(x => x.id === id), i = bk ? bk.chapters.findIndex(c => c.id === +el.dataset.cid) : -1;
       if (i < 0) return; if (!canApproveCh(bk, i)) return toast(t('Aprueba primero los capítulos anteriores.'));
@@ -7378,7 +7394,8 @@ function buyView(kind) {
   <div class="buy-tabs" role="navigation" aria-label="${esc(t('Comprar'))}"><a href="#/shop/comprar/gemas" class="${isG ? 'on' : ''}" ${isG ? 'aria-current="page"' : ''}>${gemI()}AuriGems</a><a href="#/shop/comprar/monedas" class="${isG ? '' : 'on'}" ${isG ? '' : 'aria-current="page"'}><i class="coin sm" aria-hidden="true"></i>AuriCoins</a></div>
   ${SHOP_CAP > 0 ? `<div class="panel buy-cap"><div><span>${t('Compras de este mes')}</span><span>$0 / $${SHOP_CAP}</span></div><span class="ms-bar"><i style="width:0%"></i></span></div>` : ''}
   <div class="pk-grid">${SHOP_PACKS.map(pack).join('')}</div>
-  <p class="helper buy-note">${isG ? t('Las gemas compradas son cian y se pueden donar.') : t('Los cosméticos cuestan desde 100 AuriCoins.')}</p></main>`;
+  <p class="helper buy-note">${isG ? t('Las gemas compradas son cian y se pueden donar.') : t('Los cosméticos cuestan desde 100 AuriCoins.')}</p>
+  <p class="helper buy-note">${t('Solo mayores de 18 años. Al comprar aceptas los')} <button type="button" class="link-btn" data-act="buy-terms">${t('Términos de compra')}</button>.</p></main>`;
 }
 /* ---------- Tienda: cosméticos (precios en AuriCoins; los reales y las ofertas vienen de la tabla shop_items, SQL 92) ---------- */
 const SHOP_CATS = [['marcos', 'Marcos', 'frame'], ['formas', 'Formas de foto', 'frame'], ['skins', 'Skins de chat', 'bg'], ['mascotas', 'Mascotas', 'pet'], ['sprites', 'Sprites sorpresa', 'bg']];   // Marcos = todo lo que decora tu perfil (Coquette, lazos, formas y bordes)
