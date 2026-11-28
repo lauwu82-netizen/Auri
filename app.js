@@ -2145,12 +2145,19 @@ function allView() {
   return `<main class="page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Libros')}</span><h2 style="margin-top:8px">${t('Todas las historias')}</h2><p>${t('{n} libros', { n: l.length })}</p></div></div>
   ${shown.length ? `<div class="story-grid">${shown.map(storyCard).join('')}</div>${more ? `<div class="feed-all-more"><button type="button" class="button secondary" data-act="all-more"${PUB.busy ? ' disabled' : ''}>${t('Cargar más')}</button></div>` : ''}` : empty(t('Aún no hay libros para mostrar.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
 }
+/** Paginación común: muestra una ventana de la lista y un botón "Cargar más" (si se acaba, pide más libros al servidor) */
+const PG = { key: '', n: 30 };
+function pgSlice(list, step) {
+  const k = location.hash.split('?')[0]; if (PG.key !== k) { PG.key = k; PG.n = step || 30; }
+  PG.tot = list.length; const shown = list.slice(0, PG.n), more = list.length > shown.length || PUB.more;
+  return { shown, btn: more ? `<div class="feed-all-more"><button type="button" class="button secondary" data-act="pg-more" data-step="${step || 30}"${PUB.busy ? ' disabled' : ''}>${t('Cargar más')}</button></div>` : '' };
+}
 function featAll() { const ids = new Set(crPub().filter(b => b.kind === 'book').map(b => b.storyId)); return feedPoolAll().filter(s => ids.has(s.id)); }
 function featuredView() {
   const l = featAll();
   return `<main class="page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Destacados')}</span><h2 style="margin-top:8px">${t('Todos los destacados')}</h2><p>${t('{n} libros', { n: l.length })}</p></div></div>
   ${l.length ? `<div class="sw-toggle" role="group"><button type="button" aria-pressed="true">${t('Lista')}</button><button type="button" aria-pressed="false" data-act="sw-open" data-src="featured">${t('Deslizar')}</button></div>` : ''}
-  ${l.length ? masonryHTML(l) : empty(t('Aún no hay libros destacados.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
+  ${l.length ? masonryHTML(pgSlice(l).shown) + pgSlice(l).btn : empty(t('Aún no hay libros destacados.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
 }
 function featFlow(list) {
   return `<section class="feed-sec ft-sec"><div class="feed-head"><div><h3>${t('Destacados')}</h3></div></div>
@@ -2453,7 +2460,7 @@ function exploreView(k) {
   k = tagKey(k); const pool = feedPool(), tags = feedTags(pool), l = pool.filter(s => tagsOf(s).some(x => tagKey(x) === k) || (k === 'chat' && s.mode === 'chat')).sort((a, b) => feedScore(b) - feedScore(a)), lab = k === 'chat' ? t('Libros de chat') : (tags[k] || { label: k }).label;
   return `<main class="page"><a class="back-link" href="#/">‹ ${t('Volver')}</a><div class="section-head"><div><span class="eyebrow">${t('Explorar')}</span><h2 style="margin-top:8px">${k === 'chat' ? '💬 ' : '#'}${esc(lab)}</h2><p>${t('{n} libros', { n: l.length })}</p></div></div>
   ${l.length ? `<div class="sw-toggle" role="group"><button type="button" aria-pressed="true">${t('Lista')}</button><button type="button" aria-pressed="false" data-act="sw-open" data-src="explore" data-k="${esc(k)}">${t('Deslizar')}</button></div>` : ''}
-  ${l.length ? masonryHTML(l) : empty(t('Aún no hay libros con esta etiqueta.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
+  ${l.length ? masonryHTML(pgSlice(l).shown) + pgSlice(l).btn : empty(t('Aún no hay libros con esta etiqueta.'), '', '<a class="button secondary" href="#/">' + t('Volver') + '</a>')}</main>`;
 }
 function similarBooks(s, max = 15) {                  // libros parecidos al que acabas de leer (comparten etiquetas), con algo de azar entre empates
   const mine = new Set(tagsOf(s).map(tagKey)), fan = tagKey(s.fandom || ''); if (!mine.size && !fan) return [];
@@ -6970,6 +6977,7 @@ document.addEventListener('click', e => {
     'fd-tag': () => { const k = el.dataset.k; FD.tags = FD.tags.includes(k) ? FD.tags.filter(x => x !== k) : [...FD.tags, k]; FD.go = false; KEEP = true; render(); },
     'fd-mode': () => { FD.mode = el.dataset.v; FD.go = false; KEEP = true; render(); },
     'fd-go': () => { const f = $('#fd-fandom'); if (f) FD.fandom = f.value.trim(); FD.pick = true; KEEP = true; render(); },
+    'pg-more': () => { const st = +el.dataset.step || 30, covered = PG.n >= PG.tot; PG.n += st; if (covered && PUB.more) pubMore(100); else { KEEP = true; render(); } },
     'all-more': () => { if (ALLN.n + 24 <= publishedStories().length || !PUB.more) { ALLN.n += 24; KEEP = true; render(); } else { ALLN.n += 24; pubMore(100); } },
     'fd-close': () => { FD.pick = false; KEEP = true; render(); },
     'fd-list': () => { FD.pick = false; location.hash = '#/finder-list'; },
