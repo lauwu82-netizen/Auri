@@ -2966,4 +2966,9 @@ window.I18N = { en: {
   "Una emoción al azar por 100 AuriCoins": "A random emotion for 100 AuriCoins",
   "Todas las emociones": "All emotions",
   "Sin desbloquear": "Locked",
+  "Emociones de esta historia": "Emotions in this story",
+  "Estas son las emociones que configuró la autoría. Tu personaje solo las muestra si las tienes desbloqueadas y con imagen; si falta una, verás la más parecida.": "These are the emotions the author set up. Your character only shows them if you have them unlocked and with an image; if one is missing, you'll see the closest one.",
+  "Tu personaje la tiene": "Your character has it",
+  "Aún sin imagen en tu personaje": "No image on your character yet",
+  "Ver los sprites de esta historia": "See this story's sprites",
 } };

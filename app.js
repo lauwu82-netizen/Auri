@@ -7981,7 +7981,19 @@ function vnBgEdit(id) {
   if (cur) q('#vb-del').onclick = async () => { if (!confirm(t('¿Eliminar este fondo?'))) return; const r = await sbApi('/rest/v1/vn_backgrounds?id=eq.' + cur.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); if (!r.ok) return showErr(t('No se pudo guardar.')); m.remove(); VN.ok = false; VN.busy = false; vnLoad(VN.sid); };
 }
 /** Antes de leer: muestra cuántas gemas cuesta el capítulo y espera a que la persona acepte (la Owner y quien ya lo pagó entran directo). */
-async function vnrAsk(el, cu) {
+/** Antes de leer: qué emociones configuró la autoría en esta historia y cuáles tiene la lectora con su personaje */
+function vnStorySprites(rows, oc) {
+  const used = new Set(['neutral']); (rows || []).forEach(r => Object.keys(r.sprites || {}).forEach(k => { if (r.sprites[k]) used.add(k); }));
+  const list = vnAll().filter(e => used.has(e.key)), sp = (oc && oc.sprites) || {}, m = document.createElement('div'); m.className = 'modal sheet';
+  const cell = e => vnLocked(e) ? vnLockCell(e)
+    : `<div class="vn-cell"><div class="vn-spr ${sp[e.key] ? 'has' : ''}">${sp[e.key] ? `<img src="${esc(sp[e.key])}" alt="">` : vnSil(e.key)}</div><b>${esc(t(e.name))}</b>${vnTag(e)}<small>${sp[e.key] ? t('Tu personaje la tiene') : t('Aún sin imagen en tu personaje')}</small></div>`;
+  m.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><button class="icon-btn close-x" data-no aria-label="${esc(t('Cerrar'))}">✕</button><h2>${t('Emociones de esta historia')}</h2>
+    <p class="helper">${t('Estas son las emociones que configuró la autoría. Tu personaje solo las muestra si las tienes desbloqueadas y con imagen; si falta una, verás la más parecida.')}</p>
+    <div class="vn-cells">${list.map(cell).join('')}</div><button type="button" class="button ghost" data-no>${t('Cerrar')}</button></div>`;
+  m.addEventListener('click', ev => { if (ev.target === m || ev.target.closest('[data-no]')) { m.remove(); return; } if (ev.target.closest('[data-unlock]')) { m.remove(); spriteGacha(() => vnStorySprites(rows, oc)); } });
+  document.body.appendChild(m);
+}
+async function vnrAsk(el, cu, rows, oc) {
   if (isOwner() || (LS.get(uk('vnpaid'), {}) || {})[cu]) return true;
   try { await walletLoad(); } catch (e) { /* se muestra con lo que haya */ }      // siempre el saldo de ahora (si no, mostraba el de antes de pagar el capítulo anterior)
   const cy = WALLET ? WALLET.cyan : 0, pu = WALLET ? WALLET.purple || 0 : 0, have = cy + pu, price = PRICES.chapter, ok = have >= price;
@@ -7992,6 +8004,7 @@ async function vnrAsk(el, cu) {
       (ok ? `<button type="button" class="button sm" data-vnok>${esc(t('Pagar y leer'))}</button> <small>${esc(t('Se paga una sola vez por capítulo.'))}</small>`
           : passOn() ? `<b>${esc(t('Te faltan {n} gemas', { n: qFmt(price - have) }))}</b><br><small>${esc(t('Este capítulo cuesta {p} y tienes {h}.', { p: qFmt(price), h: qFmt(have) }))}</small><br><a class="button sm" href="#/shop/comprar/gemas">${esc(t('Conseguir AuriGems'))}</a> <small>${esc(t('Al comprar, vuelves a este capítulo.'))}</small>`
           : `<small>${esc(t('No te alcanzan las gemas cian. Puedes conseguirlas en Recompensas.'))}</small><br><a class="button sm" href="#/rewards">${esc(t('Ir a Recompensas'))}</a>`);
+    if (rows) { tx.insertAdjacentHTML('beforeend', `<br><button type="button" class="link-btn" data-vnspr>${esc(t('Ver los sprites de esta historia'))}</button>`); tx.querySelector('[data-vnspr]').onclick = () => vnStorySprites(rows, oc); }
   };
   paint(); if (!ok) return false;
   return new Promise(res => {
@@ -8029,7 +8042,7 @@ async function vnrBoot(sid, n) {
   let script = vnMock(text, Object.keys(cast), rawParas), bgs = {};
   const cu = s.mature ? '' : cUuid(sid, ch.id);                  // libros +18: nunca se mandan a la IA; se leen con el guion local, gratis
   if (vnOn() && cu) {                                           // guion preparado por la IA (con lugar de cada escena) y fondos; si algo falla se lee con el guion local
-    if (!(await vnrAsk(el, cu))) return;
+    if (!(await vnrAsk(el, cu, s.useReaderCharacter ? rows : null, oc))) return;
     el = curEl() || el;
     const tx0 = el.querySelector('.vnr-box .vnr-text'); if (tx0) tx0.textContent = t('Preparando la lectura…');
     const sv = await vnrServer(cu, script, ocName, !!s.useReaderCharacter, S.character);
